@@ -78,7 +78,7 @@ class LicenseHomeScreen extends StatefulWidget {
 
 class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
   final TextEditingController _licenseKeyController = TextEditingController();
-  final String _realDeviceId = "DEVICE-MOCK-REAL-99"; 
+  String _realDeviceId = "DEVICE-MOCK-REAL-99"; 
   
   String _currentDeviceId = "DEVICE-MOCK-REAL-99";
   DateTime _currentSystemTime = DateTime.now();
@@ -103,8 +103,21 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadFromDatabase();
+    _initDeviceAndLoad();
     _startSystemClock();
+  }
+
+  Future<void> _initDeviceAndLoad() async {
+    try {
+      final realId = await HardwareService().getDeviceId();
+      setState(() {
+        _realDeviceId = realId;
+        _currentDeviceId = realId;
+      });
+    } catch (e) {
+      // Fallback is already initialized
+    }
+    await _loadFromDatabase();
   }
 
   @override
@@ -145,17 +158,47 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
     }
   }
 
+  String _decodeBase64Url(String str) {
+    String output = str.replaceAll('-', '+').replaceAll('_', '/');
+    switch (output.length % 4) {
+      case 0:
+        break;
+      case 2:
+        output += '==';
+        break;
+      case 3:
+        output += '=';
+        break;
+      default:
+        throw Exception('Illegal base64url string!');
+    }
+    return utf8.decode(base64.decode(output));
+  }
+
   Future<bool> validateOfflineAccess(String offlineToken) async {
     try {
       if (offlineToken.isEmpty) return false;
       
-      String decoded = utf8.decode(base64Decode(offlineToken));
-      List<String> parts = decoded.split('.');
-      if (parts.length != 2) return false;
+      List<String> parts = offlineToken.split('.');
+      if (parts.length != 3) return false;
 
-      Map<String, dynamic> payload = jsonDecode(parts[0]);
-      String boundDeviceId = payload['device_id'];
-      int expiresTimestamp = payload['expires_at'];
+      // Verify HMAC SHA256 Signature (using simulation-only secret key)
+      const String secretKey = 'SIMULATION_ONLY_NOT_FOR_PRODUCTION_SECRET_KEY_9921';
+      final keyBytes = utf8.encode(secretKey);
+      final dataBytes = utf8.encode('${parts[0]}.${parts[1]}');
+      final hmac = Hmac(sha256, keyBytes);
+      final digest = hmac.convert(dataBytes);
+
+      final String expectedSignature = base64Url.encode(digest.bytes).replaceAll('=', '');
+      final String actualSignature = parts[2].replaceAll('=', '');
+
+      if (expectedSignature != actualSignature) {
+        return false; // Token signature has been manipulated!
+      }
+
+      Map<String, dynamic> payload = jsonDecode(_decodeBase64Url(parts[1]));
+      String boundDeviceId = payload['android_id'];
+      int expiresTimestamp = payload['exp'];
 
       String currentDeviceId = _currentDeviceId;
       

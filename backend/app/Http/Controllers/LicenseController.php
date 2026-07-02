@@ -61,15 +61,32 @@ class LicenseController extends Controller
         $license->status = 'ACTIVE';
         $license->save();
 
-        // GENERATE SECURE OFFLINE TOKEN (HMAC SHA256)
-        $payload = json_encode([
-            'device_id' => $license->device_id,
-            'expires_at' => $license->expires_at->timestamp
+        // GENERATE STANDARD JWT (HS256) - FOR OFFLINE VALIDATION (SIMULATION ONLY)
+        $base64UrlEncode = function ($data) {
+            return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($data));
+        };
+
+        $header = json_encode([
+            'alg' => 'HS256',
+            'typ' => 'JWT'
         ]);
-        
-        // Gunakan config('app.key') agar tidak null saat config di-cache pada production
-        $signature = hash_hmac('sha256', $payload, config('app.key'));
-        $secureOfflineToken = base64_encode($payload . '.' . $signature);
+
+        $payload = json_encode([
+            'license_key' => $license->license_key,
+            'android_id' => $license->device_id,
+            'exp' => $license->expires_at->timestamp
+        ]);
+
+        $base64UrlHeader = $base64UrlEncode($header);
+        $base64UrlPayload = $base64UrlEncode($payload);
+
+        // WARNING: This secret key is for simulation/MVP purposes only. Do not use in production!
+        $secretKey = 'SIMULATION_ONLY_NOT_FOR_PRODUCTION_SECRET_KEY_9921';
+
+        $signature = hash_hmac('sha256', $base64UrlHeader . '.' . $base64UrlPayload, $secretKey, true);
+        $base64UrlSignature = $base64UrlEncode($signature);
+
+        $secureOfflineToken = $base64UrlHeader . '.' . $base64UrlPayload . '.' . $base64UrlSignature;
 
         return response()->json([
             'success' => true,
