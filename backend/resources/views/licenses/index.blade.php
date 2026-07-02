@@ -242,14 +242,18 @@
                     <div class="form-group">
                         <label for="exp_type">Expiration Type</label>
                         <select id="exp_type" name="exp_type" onchange="toggleExpFields()">
-                            <option value="duration" selected>By Duration (Days)</option>
+                            <option value="duration" selected>By Duration</option>
                             <option value="date">By Date Range</option>
                             <option value="no_exp">No Expiration</option>
                         </select>
                     </div>
                     <div class="form-group" id="duration_group">
-                        <label for="duration_days">Duration (Days)</label>
-                        <input type="number" id="duration_days" name="duration_days" value="30" min="1">
+                        <label>Duration (Years / Months / Days)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="duration_years" name="duration_years" placeholder="Yrs" min="0" style="width: 33%;">
+                            <input type="number" id="duration_months" name="duration_months" placeholder="Mths" min="0" style="width: 33%;">
+                            <input type="number" id="duration_days" name="duration_days" placeholder="Days" value="30" min="0" style="width: 34%;">
+                        </div>
                     </div>
                     <div class="form-group" id="date_group" style="display: none;">
                         <label for="expires_date">Expires Date</label>
@@ -267,6 +271,7 @@
                 <thead>
                     <tr>
                         <th>License Key</th>
+                        <th>Registered Email</th>
                         <th>Registered Device ID</th>
                         <th>Status</th>
                         <th>Expiration Date</th>
@@ -278,6 +283,13 @@
                         <tr>
                             <td>
                                 <span class="text-mono">{{ $license->license_key }}</span>
+                            </td>
+                            <td>
+                                @if($license->user)
+                                    <span style="font-weight: 500;">{{ $license->user->email }}</span>
+                                @else
+                                    <span style="color: var(--text-muted); font-style: italic;">No user linked</span>
+                                @endif
                             </td>
                             <td>
                                 @if($license->device_id)
@@ -320,8 +332,8 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">
-                                No licenses generated yet. Click "Generate New Key" above to start.
+                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                                No licenses generated yet. Configure options and click "Generate & Register" above to start.
                             </td>
                         </tr>
                     @endforelse

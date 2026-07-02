@@ -22,7 +22,9 @@ class LicenseController extends Controller
             'email' => 'nullable|email',
             'password' => 'nullable|string|min:4',
             'exp_type' => 'required|string|in:duration,date,no_exp',
-            'duration_days' => 'required_if:exp_type,duration|nullable|integer|min:1',
+            'duration_years' => 'nullable|integer|min:0',
+            'duration_months' => 'nullable|integer|min:0',
+            'duration_days' => 'nullable|integer|min:0',
             'expires_date' => 'required_if:exp_type,date|nullable|date',
         ]);
 
@@ -40,7 +42,25 @@ class LicenseController extends Controller
 
         $expiresAt = null;
         if ($request->exp_type === 'duration') {
-            $expiresAt = Carbon::now()->addDays((int)$request->duration_days);
+            $expiresAt = Carbon::now();
+            $years = (int)$request->input('duration_years', 0);
+            $months = (int)$request->input('duration_months', 0);
+            $days = (int)$request->input('duration_days', 0);
+            
+            if ($years > 0) {
+                $expiresAt->addYears($years);
+            }
+            if ($months > 0) {
+                $expiresAt->addMonths($months);
+            }
+            if ($days > 0) {
+                $expiresAt->addDays($days);
+            }
+            
+            // Default fallback if all are empty/zero
+            if ($years === 0 && $months === 0 && $days === 0) {
+                $expiresAt->addDays(30);
+            }
         } elseif ($request->exp_type === 'date') {
             $expiresAt = Carbon::parse($request->expires_date);
         } else {
