@@ -16,15 +16,46 @@ class LicenseController extends Controller
         return view('licenses.index', compact('licenses'));
     }
 
-    public function generate()
+    public function generate(Request $request)
     {
+        $request->validate([
+            'email' => 'nullable|email',
+            'password' => 'nullable|string|min:4',
+            'exp_type' => 'required|string|in:duration,date,no_exp',
+            'duration_days' => 'required_if:exp_type,duration|nullable|integer|min:1',
+            'expires_date' => 'required_if:exp_type,date|nullable|date',
+        ]);
+
+        $user = null;
+        if ($request->filled('email') && $request->filled('password')) {
+            $user = \App\Models\User::where('email', $request->email)->first();
+            if (!$user) {
+                $user = \App\Models\User::create([
+                    'name' => explode('@', $request->email)[0],
+                    'email' => $request->email,
+                    'password' => \Illuminate\Support\Facades\Hash::make($request->password),
+                ]);
+            }
+        }
+
+        $expiresAt = null;
+        if ($request->exp_type === 'duration') {
+            $expiresAt = Carbon::now()->addDays((int)$request->duration_days);
+        } elseif ($request->exp_type === 'date') {
+            $expiresAt = Carbon::parse($request->expires_date);
+        } else {
+            // No expiration: set to a far future date
+            $expiresAt = Carbon::parse('2099-12-31 23:59:59');
+        }
+
         License::create([
             'license_key' => 'LIC-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)),
             'status' => 'AVAILABLE',
-            'expires_at' => Carbon::now()->addDays(30),
+            'expires_at' => $expiresAt,
+            'user_id' => $user ? $user->id : null,
         ]);
 
-        return redirect()->back()->with('success', 'License Key successfully generated!');
+        return redirect()->back()->with('success', 'License Key successfully generated' . ($user ? ' and bound to user: ' . $user->email : '') . '!');
     }
 
     public function forceExpire($id)
@@ -49,6 +80,10 @@ class LicenseController extends Controller
 
         if (!$license || $license->status === 'REVOKED') {
             return response()->json(['success' => false, 'message' => 'Lisensi tidak valid/dicabut!'], 403);
+        }
+
+        if ($license->user_id !== null && $license->user_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'Lisensi ini terdaftar untuk akun/user lain!'], 403);
         }
 
         if ($license->device_id !== null && $license->device_id !== $request->device_id) {

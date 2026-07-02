@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -67,6 +68,7 @@ enum AppLicenseStatus {
   deviceCloned,
   expired,
   timeTampered,
+  offlineLimitExceeded,
 }
 
 class LicenseHomeScreen extends StatefulWidget {
@@ -118,6 +120,8 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
       // Fallback is already initialized
     }
     await _loadFromDatabase();
+    // Silent sync on startup if internet is available
+    _syncBackgroundSilent();
   }
 
   @override
@@ -133,7 +137,70 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
       setState(() {
         _currentSystemTime = _currentSystemTime.add(const Duration(seconds: 1));
       });
+      // Try background sync every 5 minutes (300 seconds)
+      if (timer.tick % 300 == 0) {
+        _syncBackgroundSilent();
+      }
     });
+  }
+
+  Future<bool> _hasInternetAccess() async {
+    try {
+      final result = await InternetAddress.lookup('google.com').timeout(const Duration(seconds: 3));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _syncBackgroundSilent() async {
+    if (_dbLicenseKey.isEmpty) return;
+    
+    final bool online = await _hasInternetAccess();
+    if (!online) return;
+
+    try {
+      final storage = SecureStorageService();
+      final onlineToken = await storage.getOnlineToken(); 
+
+      final response = await http.post(
+        Uri.parse("$_serverBaseUrl/api/activate"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $onlineToken"
+        },
+        body: jsonEncode({
+          "license_key": _dbLicenseKey,
+          "device_id": _currentDeviceId,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final String encryptedToken = data['offline_token'];
+
+        await DatabaseHelper.instance.updateLicenseInfo(
+          licenseKey: _dbLicenseKey,
+          encryptedToken: encryptedToken,
+          lastTransactionTime: _currentSystemTime.toIso8601String(),
+        );
+        
+        await storage.saveTokens(onlineToken: onlineToken ?? '', offlineToken: encryptedToken);
+        
+        final info = await DatabaseHelper.instance.getLicenseInfo();
+        if (info != null) {
+          setState(() {
+            _dbLicenseKey = info['license_key'] ?? "";
+            _dbEncryptedToken = info['encrypted_token'] ?? "";
+            _dbLastTransactionTime = info['last_transaction_time'] ?? "";
+          });
+          validateOfflineAccess(_dbEncryptedToken).then(_updateStatus);
+        }
+      }
+    } catch (_) {
+      // Silent ignore
+    }
   }
 
   Future<void> _loadFromDatabase() async {
@@ -144,14 +211,28 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
         _dbEncryptedToken = info['encrypted_token'] ?? "";
         _dbLastTransactionTime = info['last_transaction_time'] ?? "";
       });
-      validateOfflineAccess(_dbEncryptedToken).then((isValid) {
+      validateOfflineAccess(_dbEncryptedToken).then((status) {
         setState(() {
-          if (!isValid) {
-            _validationStatus = AppLicenseStatus.notActivated;
-            _statusMessage = "Aplikasi belum diaktivasi. Masukkan Key Lisensi Anda.";
-          } else {
-            _validationStatus = AppLicenseStatus.active;
-            _statusMessage = "APLIKASI AKTIF - Aman Digunakan Offline";
+          _validationStatus = status;
+          switch (status) {
+            case AppLicenseStatus.active:
+              _statusMessage = "APLIKASI AKTIF - Aman Digunakan Offline";
+              break;
+            case AppLicenseStatus.offlineLimitExceeded:
+              _statusMessage = "MASA OFFLINE HABIS: Wajib online untuk sinkronisasi lisensi!";
+              break;
+            case AppLicenseStatus.expired:
+              _statusMessage = "MASA AKTIF HABIS: Silakan Perpanjang Langganan.";
+              break;
+            case AppLicenseStatus.timeTampered:
+              _statusMessage = "ASET AMAN: Terdeteksi Kecurangan Manipulasi Jam!";
+              break;
+            case AppLicenseStatus.deviceCloned:
+              _statusMessage = "APLIKASI TERKUNCI: Perangkat Kloning Terdeteksi!";
+              break;
+            case AppLicenseStatus.notActivated:
+              _statusMessage = "Aplikasi belum diaktivasi. Masukkan Key Lisensi Anda.";
+              break;
           }
         });
       });
@@ -175,46 +256,78 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
     return utf8.decode(base64.decode(output));
   }
 
-  Future<bool> validateOfflineAccess(String offlineToken) async {
+  Future<AppLicenseStatus> validateOfflineAccess(String offlineToken) async {
     try {
-      if (offlineToken.isEmpty) return false;
+      if (offlineToken.isEmpty) {
+        debugPrint("[Validation] Fail: Token is empty");
+        return AppLicenseStatus.notActivated;
+      }
       
       List<String> parts = offlineToken.split('.');
-      if (parts.length != 3) return false;
+      String boundDeviceId = "";
+      int expiresTimestamp = 0;
 
-      // Verify HMAC SHA256 Signature (using simulation-only secret key)
-      const String secretKey = 'SIMULATION_ONLY_NOT_FOR_PRODUCTION_SECRET_KEY_9921';
-      final keyBytes = utf8.encode(secretKey);
-      final dataBytes = utf8.encode('${parts[0]}.${parts[1]}');
-      final hmac = Hmac(sha256, keyBytes);
-      final digest = hmac.convert(dataBytes);
+      if (parts.length == 3) {
+        // Standard JWT layout (New Format)
+        const String secretKey = 'SIMULATION_ONLY_NOT_FOR_PRODUCTION_SECRET_KEY_9921';
+        final keyBytes = utf8.encode(secretKey);
+        final dataBytes = utf8.encode('${parts[0]}.${parts[1]}');
+        final hmac = Hmac(sha256, keyBytes);
+        final digest = hmac.convert(dataBytes);
 
-      final String expectedSignature = base64Url.encode(digest.bytes).replaceAll('=', '');
-      final String actualSignature = parts[2].replaceAll('=', '');
+        final String expectedSignature = base64Url.encode(digest.bytes).replaceAll('=', '');
+        final String actualSignature = parts[2].replaceAll('=', '');
 
-      if (expectedSignature != actualSignature) {
-        return false; // Token signature has been manipulated!
+        if (expectedSignature != actualSignature) {
+          debugPrint("[Validation] Fail: JWT Signature mismatch. Expected: $expectedSignature, Actual: $actualSignature");
+          return AppLicenseStatus.notActivated; // Compromised
+        }
+
+        Map<String, dynamic> payload = jsonDecode(_decodeBase64Url(parts[1]));
+        boundDeviceId = payload['android_id'];
+        expiresTimestamp = payload['exp'];
+      } else {
+        // Backward Compatibility: Decode the old format
+        String decoded = utf8.decode(base64Decode(offlineToken));
+        int lastDot = decoded.lastIndexOf('.');
+        if (lastDot == -1) {
+          debugPrint("[Validation] Fail: Old format missing separator dot");
+          return AppLicenseStatus.notActivated;
+        }
+
+        String payloadStr = decoded.substring(0, lastDot);
+        Map<String, dynamic> payload = jsonDecode(payloadStr);
+        boundDeviceId = payload['device_id'] ?? "";
+        expiresTimestamp = payload['expires_at'] ?? 0;
       }
-
-      Map<String, dynamic> payload = jsonDecode(_decodeBase64Url(parts[1]));
-      String boundDeviceId = payload['android_id'];
-      int expiresTimestamp = payload['exp'];
 
       String currentDeviceId = _currentDeviceId;
       
       if (currentDeviceId != boundDeviceId) {
-         return false;
+         debugPrint("[Validation] Fail: Device ID mismatch. Current: $currentDeviceId, Bound: $boundDeviceId");
+         return AppLicenseStatus.deviceCloned;
+      }
+
+      // Check 7-day offline limit
+      if (_dbLastTransactionTime.isNotEmpty) {
+        final DateTime lastTransaction = DateTime.parse(_dbLastTransactionTime);
+        if (_currentSystemTime.difference(lastTransaction).inDays >= 7) {
+           debugPrint("[Validation] Fail: Offline limit exceeded (>= 7 days since last sync)");
+           return AppLicenseStatus.offlineLimitExceeded;
+        }
       }
 
       int currentTimestamp = _currentSystemTime.millisecondsSinceEpoch ~/ 1000;
       if (currentTimestamp > expiresTimestamp) {
-         return false;
+         debugPrint("[Validation] Fail: Token expired. Current: $currentTimestamp, Expires: $expiresTimestamp");
+         return AppLicenseStatus.expired;
       }
 
       if (_dbLastTransactionTime.isNotEmpty) {
         final DateTime lastTransaction = DateTime.parse(_dbLastTransactionTime);
         if (_currentSystemTime.isBefore(lastTransaction)) {
-           return false; // Time tampered
+           debugPrint("[Validation] Fail: Time tampered. Current clock $_currentSystemTime is before last transaction $lastTransaction");
+           return AppLicenseStatus.timeTampered;
         }
       }
 
@@ -225,9 +338,11 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
       );
       _dbLastTransactionTime = _currentSystemTime.toIso8601String();
 
-      return true; 
-    } catch (e) {
-      return false; 
+      debugPrint("[Validation] Success!");
+      return AppLicenseStatus.active; 
+    } catch (e, stack) {
+      debugPrint("[Validation] Exception during check: $e\n$stack");
+      return AppLicenseStatus.notActivated; 
     }
   }
 
@@ -332,22 +447,113 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
     }
   }
 
+  Future<void> _syncManualLocked() async {
+    if (_dbLicenseKey.isEmpty) {
+      _showSnackbar("Belum ada lisensi untuk disinkronkan!");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final storage = SecureStorageService();
+      final onlineToken = await storage.getOnlineToken(); 
+
+      // Connect to server with a 10-second timeout
+      final response = await http.post(
+        Uri.parse("$_serverBaseUrl/api/activate"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $onlineToken"
+        },
+        body: jsonEncode({
+          "license_key": _dbLicenseKey,
+          "device_id": _currentDeviceId,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final String encryptedToken = data['offline_token'];
+
+        await DatabaseHelper.instance.updateLicenseInfo(
+          licenseKey: _dbLicenseKey,
+          encryptedToken: encryptedToken,
+          lastTransactionTime: _currentSystemTime.toIso8601String(),
+        );
+        
+        await storage.saveTokens(onlineToken: onlineToken ?? '', offlineToken: encryptedToken);
+
+        _showSnackbar("Sinkronisasi Berhasil! Aplikasi aktif kembali.");
+        await _loadFromDatabase();
+      } else {
+        _showErrorDialog("Gagal Sinkronisasi", data['message'] ?? "Respon server tidak valid.");
+      }
+    } on TimeoutException catch (_) {
+      _showErrorDialog("Koneksi Timeout", "Gagal terhubung ke server setelah 10 detik. Silakan periksa jaringan internet Anda.");
+    } catch (e) {
+      _showErrorDialog("Kesalahan Koneksi", "Gagal menghubungi server untuk sinkronisasi. Pastikan perangkat memiliki koneksi internet aktif.");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 28),
+            const SizedBox(width: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateStatus(AppLicenseStatus status) {
+    setState(() {
+      _validationStatus = status;
+      switch (status) {
+        case AppLicenseStatus.active:
+          _statusMessage = "APLIKASI AKTIF - Aman Digunakan Offline";
+          break;
+        case AppLicenseStatus.offlineLimitExceeded:
+          _statusMessage = "MASA OFFLINE HABIS: Wajib online untuk sinkronisasi lisensi!";
+          break;
+        case AppLicenseStatus.expired:
+          _statusMessage = "MASA AKTIF HABIS: Silakan Perpanjang Langganan.";
+          break;
+        case AppLicenseStatus.timeTampered:
+          _statusMessage = "ASET AMAN: Terdeteksi Kecurangan Manipulasi Jam!";
+          break;
+        case AppLicenseStatus.deviceCloned:
+          _statusMessage = "APLIKASI TERKUNCI: Perangkat Kloning Terdeteksi!";
+          break;
+        case AppLicenseStatus.notActivated:
+          _statusMessage = "Aplikasi belum diaktivasi. Masukkan Key Lisensi Anda.";
+          break;
+      }
+    });
+  }
+
   void _simulateCloning() {
     setState(() {
       final randomNum = Random().nextInt(10000);
       _currentDeviceId = "DEVICE-CLONE-$randomNum";
     });
-    validateOfflineAccess(_dbEncryptedToken).then((isValid) {
-      setState(() {
-        if (!isValid) {
-          _validationStatus = AppLicenseStatus.deviceCloned;
-          _statusMessage = "APLIKASI TERKUNCI: Perangkat Kloning Terdeteksi!";
-        } else {
-          _validationStatus = AppLicenseStatus.active;
-          _statusMessage = "APLIKASI AKTIF - Aman Digunakan Offline";
-        }
-      });
-    });
+    validateOfflineAccess(_dbEncryptedToken).then(_updateStatus);
     _showSnackbar("Simulasi: ID Perangkat diubah (Kloning)!");
   }
 
@@ -356,17 +562,7 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
     setState(() {
       _currentSystemTime = DateTime.now().add(const Duration(days: 32));
     });
-    validateOfflineAccess(_dbEncryptedToken).then((isValid) {
-      setState(() {
-        if (!isValid) {
-          _validationStatus = AppLicenseStatus.expired;
-          _statusMessage = "MASA AKTIF HABIS: Silakan Perpanjang Langganan.";
-        } else {
-          _validationStatus = AppLicenseStatus.active;
-          _statusMessage = "APLIKASI AKTIF - Aman Digunakan Offline";
-        }
-      });
-    });
+    validateOfflineAccess(_dbEncryptedToken).then(_updateStatus);
     _showSnackbar("Simulasi: Jam dimajukan melewati masa aktif!");
   }
 
@@ -380,17 +576,7 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
         _currentSystemTime = DateTime.now().subtract(const Duration(days: 1));
       }
     });
-    validateOfflineAccess(_dbEncryptedToken).then((isValid) {
-      setState(() {
-        if (!isValid) {
-          _validationStatus = AppLicenseStatus.timeTampered;
-          _statusMessage = "ASET AMAN: Terdeteksi Kecurangan Manipulasi Jam!";
-        } else {
-          _validationStatus = AppLicenseStatus.active;
-          _statusMessage = "APLIKASI AKTIF - Aman Digunakan Offline";
-        }
-      });
-    });
+    validateOfflineAccess(_dbEncryptedToken).then(_updateStatus);
     _showSnackbar("Simulasi: Jam dimundurkan (Time Tampering)!");
   }
 
@@ -400,17 +586,7 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
       _currentSystemTime = DateTime.now();
     });
     _startSystemClock();
-    validateOfflineAccess(_dbEncryptedToken).then((isValid) {
-      setState(() {
-        if (!isValid) {
-          _validationStatus = AppLicenseStatus.notActivated;
-          _statusMessage = "Aplikasi belum diaktivasi. Masukkan Key Lisensi Anda.";
-        } else {
-          _validationStatus = AppLicenseStatus.active;
-          _statusMessage = "APLIKASI AKTIF - Aman Digunakan Offline";
-        }
-      });
-    });
+    validateOfflineAccess(_dbEncryptedToken).then(_updateStatus);
     _showSnackbar("Simulasi: Perangkat & Jam dikembalikan normal.");
   }
 
@@ -432,6 +608,8 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
       case AppLicenseStatus.active:
         return const Color(0xFF10B981); 
       case AppLicenseStatus.deviceCloned:
+        return const Color(0xFFEF4444); 
+      case AppLicenseStatus.offlineLimitExceeded:
         return const Color(0xFFEF4444); 
       case AppLicenseStatus.expired:
         return const Color(0xFFCC5900); 
@@ -485,7 +663,91 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
               ),
               const SizedBox(height: 10),
               
-              if (_validationStatus == AppLicenseStatus.notActivated)
+              if (_validationStatus == AppLicenseStatus.offlineLimitExceeded) ...[
+                Card(
+                  elevation: 4,
+                  color: Colors.red.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: Colors.red.shade200, width: 1.5),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade100,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.cloud_off_rounded,
+                              size: 48,
+                              color: Colors.red.shade800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          "APLIKASI TERKUNCI",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF7F1D1D),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "Batas waktu offline maksimal (7 hari) telah tercapai. Anda wajib melakukan sinkronisasi dengan server untuk melanjutkan penggunaan aplikasi.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade800,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        _isLoading
+                            ? const Column(
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    "Menghubungi server...",
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  )
+                                ],
+                              )
+                            : ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFD32F2F),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  elevation: 2,
+                                ),
+                                icon: const Icon(Icons.sync_rounded),
+                                label: const Text(
+                                  "SINKRONISASI SEKARANG",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: _syncManualLocked,
+                              ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else if (_validationStatus == AppLicenseStatus.notActivated) ...[
                 Card(
                   elevation: 2,
                   child: Padding(
@@ -548,8 +810,58 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
                       ],
                     ),
                   ),
-                )
-              else
+                ),
+                if (_dbEncryptedToken.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 2,
+                    color: Colors.amber.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Lisensi Tersimpan (Gagal Validasi)",
+                                style: TextStyle(
+                                  color: Colors.amber.shade900,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "License Key: $_dbLicenseKey",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            "Offline Token:",
+                            style: TextStyle(fontSize: 11, color: Colors.black54),
+                          ),
+                          const SizedBox(height: 2),
+                          SelectableText(
+                            _dbEncryptedToken,
+                            style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ] else ...[
                 Card(
                   elevation: 4,
                   child: Container(
@@ -618,10 +930,29 @@ class _LicenseHomeScreenState extends State<LicenseHomeScreen> {
                             fontSize: 13,
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "Token Aktif (JWT):",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        SelectableText(
+                          _dbEncryptedToken,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.95),
+                            fontFamily: 'Courier',
+                            fontSize: 10,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
+              ],
               
               const SizedBox(height: 12),
               

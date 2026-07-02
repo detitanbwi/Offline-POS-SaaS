@@ -167,6 +167,48 @@
             border-radius: 6px;
             border: 1px solid #E2E8F0;
         }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .form-group input, .form-group select {
+            padding: 10px 14px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary);
+        }
+
+        .form-card {
+            border-left: 4px solid var(--accent);
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 28px;
+            border-top: 1px solid rgba(226, 232, 240, 0.8);
+            border-right: 1px solid rgba(226, 232, 240, 0.8);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -176,10 +218,6 @@
                 <h1>🔑 License Server Simulator</h1>
                 <p style="color: var(--text-muted); margin: 5px 0 0 0;">Demo & Activation management dashboard for Offline-First SaaS simulation</p>
             </div>
-            <form action="{{ route('licenses.generate') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn btn-accent">✨ Generate New Key</button>
-            </form>
         </header>
 
         @if(session('success'))
@@ -187,6 +225,42 @@
                 {{ session('success') }}
             </div>
         @endif
+
+        <div class="card form-card">
+            <h3 style="margin-top: 0; margin-bottom: 20px; color: var(--primary); font-size: 18px;">✨ Generate New License Key</h3>
+            <form action="{{ route('licenses.generate') }}" method="POST">
+                @csrf
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="email">User Email (Optional)</label>
+                        <input type="email" id="email" name="email" placeholder="example@gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password (Optional)</label>
+                        <input type="password" id="password" name="password" placeholder="Min 4 characters">
+                    </div>
+                    <div class="form-group">
+                        <label for="exp_type">Expiration Type</label>
+                        <select id="exp_type" name="exp_type" onchange="toggleExpFields()">
+                            <option value="duration" selected>By Duration (Days)</option>
+                            <option value="date">By Date Range</option>
+                            <option value="no_exp">No Expiration</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="duration_group">
+                        <label for="duration_days">Duration (Days)</label>
+                        <input type="number" id="duration_days" name="duration_days" value="30" min="1">
+                    </div>
+                    <div class="form-group" id="date_group" style="display: none;">
+                        <label for="expires_date">Expires Date</label>
+                        <input type="date" id="expires_date" name="expires_date" value="{{ date('Y-m-d', strtotime('+30 days')) }}">
+                    </div>
+                </div>
+                <div style="margin-top: 20px; text-align: right;">
+                    <button type="submit" class="btn btn-accent">✨ Generate & Register</button>
+                </div>
+            </form>
+        </div>
 
         <div class="card">
             <table>
@@ -255,5 +329,23 @@
             </table>
         </div>
     </div>
+    <script>
+        function toggleExpFields() {
+            var type = document.getElementById('exp_type').value;
+            var durationGroup = document.getElementById('duration_group');
+            var dateGroup = document.getElementById('date_group');
+            
+            if (type === 'duration') {
+                durationGroup.style.display = 'flex';
+                dateGroup.style.display = 'none';
+            } else if (type === 'date') {
+                durationGroup.style.display = 'none';
+                dateGroup.style.display = 'flex';
+            } else {
+                durationGroup.style.display = 'none';
+                dateGroup.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
