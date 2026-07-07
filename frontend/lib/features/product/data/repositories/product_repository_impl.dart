@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../../../core/database/pos_database.dart';
+import '../../../../core/utils/database_exception_extension.dart';
 import '../../domain/models/product.dart';
 import '../../domain/repositories/product_repository.dart';
 

@@ -4,6 +4,7 @@ import 'package:frontend/features/product/domain/models/product.dart';
 import 'package:frontend/features/pos/application/cart_notifier.dart';
 import 'package:frontend/features/tax/application/tax_notifier.dart';
 import 'package:frontend/features/tax/domain/models/tax_setting.dart';
+import 'package:frontend/features/tax/domain/repositories/tax_repository.dart';
 
 void main() {
   group('CartNotifier Calculations Tests', () {
@@ -59,46 +60,53 @@ void main() {
       expect(state.grandTotal, 15000.0);
     });
 
-    test('Add item multiple times respects product stock limit', () {
-      final cart = container.read(cartNotifierProvider.notifier);
-      
-      // Stock limit is 2 for Nasi Goreng
-      expect(cart.addItem(sampleProduct2), true);
-      expect(cart.addItem(sampleProduct2), true);
-      
-      // Third time should be blocked since stock limit is reached
-      expect(cart.addItem(sampleProduct2), false);
-
-      final state = container.read(cartNotifierProvider);
-      expect(state.items.first.qty, 2);
-      expect(state.errorMessage != null, true);
-    });
-
-    test('Update quantity recalculates totals correctly', () {
+    test('Add same item increments quantity and subtotal', () {
       final cart = container.read(cartNotifierProvider.notifier);
       
       cart.addItem(sampleProduct1);
-      final ok = cart.updateQuantity(sampleProduct1.id, 3);
-      expect(ok, true);
+      final added = cart.addItem(sampleProduct1);
+      expect(added, true);
 
       final state = container.read(cartNotifierProvider);
-      expect(state.items.first.qty, 3);
-      expect(state.subtotal, 45000.0);
-      expect(state.grandTotal, 45000.0);
+      expect(state.items.length, 1);
+      expect(state.items.first.qty, 2);
+      expect(state.subtotal, 30000.0);
     });
 
-    test('Update quantity beyond stock limits returns false', () {
+    test('Add item exceeding stock fails', () {
       final cart = container.read(cartNotifierProvider.notifier);
       
-      cart.addItem(sampleProduct2); // Stock = 2
-      final ok = cart.updateQuantity(sampleProduct2.id, 5);
-      expect(ok, false);
+      // Stock limit is 2 for sampleProduct2
+      expect(cart.addItem(sampleProduct2), true);
+      expect(cart.addItem(sampleProduct2), true);
+      expect(cart.addItem(sampleProduct2), false); // Exceeds stock
 
       final state = container.read(cartNotifierProvider);
-      expect(state.items.first.qty, 1); // unchanged
+      expect(state.items.length, 1);
+      expect(state.items.first.qty, 2);
+      expect(state.errorMessage, contains('tidak mencukupi'));
     });
 
-    test('Removing item from cart updates subtotal and items list', () {
+    test('Update quantity and calculate updates', () {
+      final cart = container.read(cartNotifierProvider.notifier);
+      
+      cart.addItem(sampleProduct1);
+      final success = cart.updateQuantity(sampleProduct1.id, 4);
+      expect(success, true);
+
+      var state = container.read(cartNotifierProvider);
+      expect(state.items.first.qty, 4);
+      expect(state.subtotal, 60000.0);
+
+      // Exceeds stock
+      final fail = cart.updateQuantity(sampleProduct1.id, 6);
+      expect(fail, false);
+      
+      state = container.read(cartNotifierProvider);
+      expect(state.items.first.qty, 4); // unchanged
+    });
+
+    test('Remove item from cart resets totals', () {
       final cart = container.read(cartNotifierProvider.notifier);
       
       cart.addItem(sampleProduct1);
@@ -126,7 +134,12 @@ class TaxNotifierMock extends TaxNotifier {
   }
 }
 
-class TaxRepositoryFake implements dynamic {
+class TaxRepositoryFake implements TaxRepository {
   @override
-  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  Future<TaxSetting> getTaxSetting() async {
+    return TaxSetting(percentage: 11.0, updatedAt: DateTime.now(), enable: 0);
+  }
+
+  @override
+  Future<void> updateTaxSetting(TaxSetting taxSetting) async {}
 }

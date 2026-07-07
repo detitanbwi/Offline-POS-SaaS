@@ -11,7 +11,7 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../application/transaction_history_notifier.dart';
-import '../../pos/domain/models/transaction.dart';
+import '../../../pos/domain/models/transaction.dart';
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
   const TransactionHistoryScreen({super.key});

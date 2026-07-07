@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/constants/app_typography.dart';
-import '../../../core/widgets/app_card.dart';
-import '../../../core/widgets/responsive_layout.dart';
-import '../../../core/widgets/app_dialog.dart';
-import '../../auth/presentation/screens/login_screen.dart';
-import '../../auth/services/secure_storage_service.dart';
-import '../../pos/presentation/screens/pos_screen.dart';
-import '../../category/presentation/screens/category_screen.dart';
-import '../../product/presentation/screens/product_screen.dart';
-import '../../stock/presentation/screens/stock_in_screen.dart';
-import '../../payment_method/presentation/screens/payment_method_screen.dart';
-import '../../tax/presentation/screens/tax_setting_screen.dart';
-import '../../transaction_history/presentation/screens/transaction_history_screen.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/constants/app_typography.dart';
+import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/responsive_layout.dart';
+import '../../../../core/widgets/app_dialog.dart';
+import '../../../auth/presentation/screens/login_screen.dart';
+import '../../../auth/services/secure_storage_service.dart';
+import '../../../pos/presentation/screens/pos_screen.dart';
+import '../../../category/presentation/screens/category_screen.dart';
+import '../../../product/presentation/screens/product_screen.dart';
+import '../../../stock/presentation/screens/stock_in_screen.dart';
+import '../../../payment_method/presentation/screens/payment_method_screen.dart';
+import '../../../tax/presentation/screens/tax_setting_screen.dart';
+import '../../../transaction_history/presentation/screens/transaction_history_screen.dart';
 
 class MainMenuScreen extends StatelessWidget {
   const MainMenuScreen({super.key});

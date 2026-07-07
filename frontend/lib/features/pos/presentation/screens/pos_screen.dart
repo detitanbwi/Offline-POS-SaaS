@@ -16,9 +16,9 @@ import '../../../../core/widgets/responsive_layout.dart';
 import '../../../category/application/category_notifier.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../../product/domain/models/product.dart';
-import '../domain/models/cart_item.dart';
-import '../application/cart_notifier.dart';
-import '../screens/payment_screen.dart'; // We'll create this in Phase 7
+import '../../domain/models/cart_item.dart';
+import '../../application/cart_notifier.dart';
+import 'payment_screen.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});

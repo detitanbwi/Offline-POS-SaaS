@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../../../core/database/pos_database.dart';
+import '../../../../core/utils/database_exception_extension.dart';
 import '../../domain/models/payment_method.dart';
 import '../../domain/repositories/payment_method_repository.dart';
 

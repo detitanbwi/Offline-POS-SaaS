@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/responsive_layout.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../category/application/category_notifier.dart';
 import '../../application/product_notifier.dart';
 import '../../domain/models/product.dart';

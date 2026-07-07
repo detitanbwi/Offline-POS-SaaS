@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/utils/validators.dart';
 import '../../application/category_notifier.dart';
 import '../../domain/models/category.dart';
 import '../widgets/category_form.dart';

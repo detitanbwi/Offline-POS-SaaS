@@ -16,8 +16,8 @@ import '../../../../core/di/providers.dart';
 import '../../../payment_method/application/payment_method_notifier.dart';
 import '../../../payment_method/domain/models/payment_method.dart';
 import '../../../product/application/product_notifier.dart';
-import '../application/cart_notifier.dart';
-import '../domain/models/transaction.dart';
+import '../../application/cart_notifier.dart';
+import '../../domain/models/transaction.dart';
 import '../../../menu/presentation/screens/main_menu_screen.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
