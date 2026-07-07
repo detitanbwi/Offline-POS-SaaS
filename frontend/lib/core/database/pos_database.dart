@@ -1,6 +1,9 @@
 import 'dart:async';
-import 'package:sqflite/sqflite.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
+import '../../features/auth/services/secure_storage_service.dart';
 
 class PosDatabase {
   static final PosDatabase instance = PosDatabase._init();
@@ -18,13 +21,47 @@ class PosDatabase {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(
-      path,
-      version: 2,
-      onCreate: _createDB,
-      onUpgrade: _upgradeDB,
-      onConfigure: _onConfigure,
-    );
+    final storage = SecureStorageService();
+    final encryptionKey = await storage.getEncryptionKey();
+
+    final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
+
+    if (!shouldEncrypt) {
+      return await openDatabase(
+        path,
+        version: 2,
+        onCreate: _createDB,
+        onUpgrade: _upgradeDB,
+        onConfigure: _onConfigure,
+      );
+    }
+
+    Database? db;
+    try {
+      db = await openDatabase(
+        path,
+        version: 2,
+        password: encryptionKey,
+        onCreate: _createDB,
+        onUpgrade: _upgradeDB,
+        onConfigure: _onConfigure,
+      );
+    } catch (e) {
+      try {
+        db = await openDatabase(
+          path,
+          version: 2,
+          onCreate: _createDB,
+          onUpgrade: _upgradeDB,
+          onConfigure: _onConfigure,
+        );
+        await db.execute("PRAGMA rekey = '$encryptionKey'");
+      } catch (innerErr) {
+        rethrow;
+      }
+    }
+
+    return db!;
   }
 
   Future<void> _onConfigure(Database db) async {

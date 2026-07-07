@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../domain/models/tax_setting.dart';
 import '../../domain/repositories/tax_repository.dart';

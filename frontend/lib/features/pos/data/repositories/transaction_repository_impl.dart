@@ -1,5 +1,5 @@
 import 'package:intl/intl.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../domain/models/transaction.dart';
 import '../../domain/repositories/transaction_repository.dart';

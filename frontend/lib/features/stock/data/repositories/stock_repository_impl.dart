@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../domain/models/stock_in.dart';
 import '../../domain/repositories/stock_repository.dart';

@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/utils/database_exception_extension.dart';
 import '../../domain/models/table.dart';

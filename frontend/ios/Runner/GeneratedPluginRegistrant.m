@@ -24,10 +24,10 @@
 @import print_bluetooth_thermal;
 #endif
 
-#if __has_include(<sqflite_darwin/SqflitePlugin.h>)
-#import <sqflite_darwin/SqflitePlugin.h>
+#if __has_include(<sqflite_sqlcipher/SqfliteSqlCipherPlugin.h>)
+#import <sqflite_sqlcipher/SqfliteSqlCipherPlugin.h>
 #else
-@import sqflite_darwin;
+@import sqflite_sqlcipher;
 #endif
 
 @implementation GeneratedPluginRegistrant
@@ -36,7 +36,7 @@
   [FPPDeviceInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPDeviceInfoPlusPlugin"]];
   [FlutterSecureStorageDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterSecureStorageDarwinPlugin"]];
   [PrintBluetoothThermalPlugin registerWithRegistrar:[registry registrarForPlugin:@"PrintBluetoothThermalPlugin"]];
-  [SqflitePlugin registerWithRegistrar:[registry registrarForPlugin:@"SqflitePlugin"]];
+  [SqfliteSqlCipherPlugin registerWithRegistrar:[registry registrarForPlugin:@"SqfliteSqlCipherPlugin"]];
 }
 
 @end

@@ -7,6 +7,8 @@ import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../services/auth_service.dart';
+import '../../services/secure_storage_service.dart';
+import '../../../license/presentation/screens/activation_screen.dart';
 import 'pin_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,10 +42,22 @@ class _LoginScreenState extends State<LoginScreen> {
     if (result['success']) {
       if (!mounted) return;
       AppSnackbar.showSuccess(context, 'Login Berhasil!');
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
-      );
+      
+      final storage = SecureStorageService();
+      final activationToken = await storage.getActivationToken();
+      
+      if (!mounted) return;
+      if (activationToken == null || activationToken.isEmpty) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ActivationScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
+        );
+      }
     } else {
       if (!mounted) return;
       AppSnackbar.showError(context, result['message']);

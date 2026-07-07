@@ -1,0 +1,114 @@
+import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/constants/app_typography.dart';
+import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/app_snackbar.dart';
+import '../../services/license_service.dart';
+import '../../../auth/presentation/screens/pin_screen.dart';
+
+class ActivationScreen extends StatefulWidget {
+  const ActivationScreen({super.key});
+
+  @override
+  State<ActivationScreen> createState() => _ActivationScreenState();
+}
+
+class _ActivationScreenState extends State<ActivationScreen> {
+  final _licenseController = TextEditingController();
+  final LicenseService _licenseService = LicenseService();
+  bool _isLoading = false;
+
+  Future<void> _handleActivation() async {
+    final key = _licenseController.text.trim();
+    if (key.isEmpty) {
+      AppSnackbar.showWarning(context, 'Lisensi Key harus diisi!');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final result = await _licenseService.activate(key);
+
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      if (!mounted) return;
+      AppSnackbar.showSuccess(context, 'Aktivasi Perangkat Berhasil!');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
+      );
+    } else {
+      if (!mounted) return;
+      AppSnackbar.showError(context, result['message'] ?? 'Aktivasi Gagal');
+    }
+  }
+
+  @override
+  void dispose() {
+    _licenseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.l),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: AppCard(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(
+                    Icons.verified_user_rounded,
+                    size: 72,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(height: AppSpacing.m),
+                  Text(
+                    "Aktivasi Lisensi",
+                    textAlign: TextAlign.center,
+                    style: AppTypography.headlineLarge.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    "Masukkan Lisensi Key Anda untuk mengaktifkan perangkat POS ini",
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  AppTextField(
+                    controller: _licenseController,
+                    labelText: 'Lisensi Key',
+                    hintText: 'LIC-XXXX-XXXX-XXXX',
+                    prefixIcon: Icons.key_rounded,
+                  ),
+                  const SizedBox(height: AppSpacing.l),
+                  AppButton(
+                    text: 'Aktifkan Perangkat',
+                    isLoading: _isLoading,
+                    onPressed: _handleActivation,
+                    width: double.infinity,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -6,6 +6,13 @@ class SecureStorageService {
   static const String _keyLocalPin = 'local_pin';
   static const String _keyOnlineToken = 'online_token';
   static const String _keyOfflineToken = 'offline_token';
+  
+  static const String _keyActivationToken = 'activation_token';
+  static const String _keyLicenseKey = 'license_key';
+  static const String _keyEncryptionKey = 'db_encryption_key';
+  static const String _keyLastValidation = 'last_validation_time';
+  static const String _keyLicenseExpiry = 'license_expiry';
+  static const String _keyFingerprintHash = 'fingerprint_hash';
 
   Future<void> saveLocalPIN(String pin) async {
     await _storage.write(key: _keyLocalPin, value: pin);
@@ -26,6 +33,50 @@ class SecureStorageService {
 
   Future<String?> getOfflineToken() async {
     return await _storage.read(key: _keyOfflineToken);
+  }
+
+  // SaaS activation methods
+  Future<void> saveActivationData({
+    required String activationToken,
+    required String licenseKey,
+    required String encryptionKey,
+    required String fingerprintHash,
+    required String expiryDateStr,
+  }) async {
+    await _storage.write(key: _keyActivationToken, value: activationToken);
+    await _storage.write(key: _keyLicenseKey, value: licenseKey);
+    await _storage.write(key: _keyEncryptionKey, value: encryptionKey);
+    await _storage.write(key: _keyFingerprintHash, value: fingerprintHash);
+    await _storage.write(key: _keyLicenseExpiry, value: expiryDateStr);
+    await _storage.write(key: _keyLastValidation, value: DateTime.now().toIso8601String());
+  }
+
+  Future<String?> getActivationToken() async {
+    return await _storage.read(key: _keyActivationToken);
+  }
+
+  Future<String?> getLicenseKey() async {
+    return await _storage.read(key: _keyLicenseKey);
+  }
+
+  Future<String?> getEncryptionKey() async {
+    return await _storage.read(key: _keyEncryptionKey);
+  }
+
+  Future<String?> getFingerprintHash() async {
+    return await _storage.read(key: _keyFingerprintHash);
+  }
+
+  Future<String?> getLicenseExpiry() async {
+    return await _storage.read(key: _keyLicenseExpiry);
+  }
+
+  Future<String?> getLastValidation() async {
+    return await _storage.read(key: _keyLastValidation);
+  }
+
+  Future<void> saveLastValidation(String timeStr) async {
+    await _storage.write(key: _keyLastValidation, value: timeStr);
   }
 
   Future<void> clearAll() async {
