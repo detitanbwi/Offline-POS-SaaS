@@ -1,0 +1,87 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/di/providers.dart';
+import '../../pos/domain/models/transaction.dart';
+import '../../pos/domain/repositories/transaction_repository.dart';
+
+class TransactionHistoryState {
+  final List<TransactionHeader> allTransactions;
+  final List<TransactionHeader> filteredTransactions;
+  final String searchQuery;
+  final bool isLoading;
+  final String? errorMessage;
+
+  TransactionHistoryState({
+    this.allTransactions = const [],
+    this.filteredTransactions = const [],
+    this.searchQuery = '',
+    this.isLoading = false,
+    this.errorMessage,
+  });
+
+  TransactionHistoryState copyWith({
+    List<TransactionHeader>? allTransactions,
+    List<TransactionHeader>? filteredTransactions,
+    String? searchQuery,
+    bool? isLoading,
+    String? errorMessage,
+  }) {
+    return TransactionHistoryState(
+      allTransactions: allTransactions ?? this.allTransactions,
+      filteredTransactions: filteredTransactions ?? this.filteredTransactions,
+      searchQuery: searchQuery ?? this.searchQuery,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
+    );
+  }
+}
+
+class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> {
+  final TransactionRepository _repository;
+
+  TransactionHistoryNotifier(this._repository) : super(TransactionHistoryState()) {
+    loadTransactions();
+  }
+
+  Future<void> loadTransactions() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final list = await _repository.getAllTransactions();
+      state = state.copyWith(
+        allTransactions: list,
+        isLoading: false,
+      );
+      _applyFilter();
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Gagal memuat riwayat transaksi: $e',
+      );
+    }
+  }
+
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
+    _applyFilter();
+  }
+
+  void _applyFilter() {
+    List<TransactionHeader> filtered = List.from(state.allTransactions);
+    if (state.searchQuery.isNotEmpty) {
+      final query = state.searchQuery.toLowerCase();
+      filtered = filtered
+          .where((t) => t.nomorTransaksi.toLowerCase().contains(query) || t.paymentMethodNama.toLowerCase().contains(query))
+          .toList();
+    }
+    state = state.copyWith(filteredTransactions: filtered);
+  }
+
+  Future<List<TransactionItem>> getItems(String id) async {
+    return await _repository.getTransactionItems(id);
+  }
+}
+
+final transactionHistoryNotifierProvider =
+    StateNotifierProvider<TransactionHistoryNotifier, TransactionHistoryState>((ref) {
+  final repo = ref.watch(transactionRepositoryProvider);
+  return TransactionHistoryNotifier(repo);
+});
