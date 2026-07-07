@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../product/domain/models/product.dart';
 import '../domain/models/cart_item.dart';
+import '../domain/models/order_item.dart';
 import '../../tax/application/tax_notifier.dart';
 
 class CartState {
@@ -140,6 +141,22 @@ class CartNotifier extends StateNotifier<CartState> {
     updatedItems[index] = state.items[index].copyWith(catatan: catatan);
 
     _recalculate(currentItems: updatedItems);
+  }
+
+  void loadDraftItems(List<OrderItemModel> draftItems, List<Product> allProducts) {
+    final List<CartItem> loaded = [];
+    for (var draft in draftItems) {
+      final productIndex = allProducts.indexWhere((p) => p.id == draft.produkId);
+      if (productIndex != -1) {
+        final product = allProducts[productIndex];
+        loaded.add(CartItem(
+          product: product,
+          qty: draft.qty,
+          catatan: draft.catatan ?? '',
+        ));
+      }
+    }
+    _recalculate(currentItems: loaded);
   }
 
   void clear() {

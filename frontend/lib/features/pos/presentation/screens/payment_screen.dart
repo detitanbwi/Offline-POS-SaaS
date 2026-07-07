@@ -17,6 +17,10 @@ import '../../../payment_method/application/payment_method_notifier.dart';
 import '../../../payment_method/domain/models/payment_method.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
+import '../../application/order_notifier.dart';
+import '../../../table/application/table_notifier.dart';
+import '../../../printer/application/printer_notifier.dart';
+import '../../../../core/utils/receipt_generator.dart';
 import '../../domain/models/transaction.dart';
 import '../../../menu/presentation/screens/main_menu_screen.dart';
 
@@ -130,6 +134,37 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       // Save transaction to local SQLite DB and deduct stock
       await ref.read(transactionRepositoryProvider).saveTransaction(header, items);
+
+      final orderState = ref.read(orderNotifierProvider);
+      
+      // 1. If this transaction is linked to a table order draft, mark it completed and release table
+      if (orderState.selectedTable != null && orderState.activeOrder != null) {
+        await ref.read(orderRepositoryProvider).completeOrder(
+          orderState.activeOrder!.id,
+          orderState.selectedTable!.id,
+        );
+        ref.read(orderNotifierProvider.notifier).clearActiveOrder();
+        ref.read(tableNotifierProvider.notifier).loadTables();
+      }
+
+      // 2. Format and print Cashier Receipt
+      final printerState = ref.read(printerNotifierProvider);
+      final hasCashierPrinter = printerState.configuredPrinters.any((p) => p.isCashier);
+
+      final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
+        transaction: header,
+        items: items,
+        tableName: orderState.selectedTable?.nama,
+      );
+
+      if (hasCashierPrinter) {
+        final cashierPrinter = printerState.configuredPrinters.firstWhere((p) => p.isCashier);
+        await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
+      } else {
+        print('--- PRINT TO CASHIER SIMULATOR ---');
+        print(String.fromCharCodes(receiptBytes));
+        print('----------------------------------');
+      }
 
       // Refresh product notifier state to reflect stock changes
       ref.read(productNotifierProvider.notifier).loadProducts();

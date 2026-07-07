@@ -101,4 +101,72 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final orderNumSuffix = count.toString().padLeft(4, '0');
     return 'TRX-$dateStr-$orderNumSuffix';
   }
+
+  @override
+  Future<Map<String, dynamic>> getDailySalesReport(String dateStr) async {
+    final db = await _db.database;
+    final searchPattern = '$dateStr%';
+
+    final List<Map<String, dynamic>> summaryResult = await db.rawQuery(
+      '''
+      SELECT 
+        COUNT(*) as total_transactions, 
+        COALESCE(SUM(grand_total), 0) as total_sales, 
+        COALESCE(SUM(tax_amount), 0) as total_tax 
+      FROM transactions 
+      WHERE created_at LIKE ?
+      ''',
+      [searchPattern],
+    );
+
+    final totalTransactions = summaryResult.first['total_transactions'] as int;
+    final totalSales = (summaryResult.first['total_sales'] as num).toDouble();
+    final totalTax = (summaryResult.first['total_tax'] as num).toDouble();
+
+    final List<Map<String, dynamic>> paymentResult = await db.rawQuery(
+      '''
+      SELECT payment_method_nama, COALESCE(SUM(grand_total), 0) as total 
+      FROM transactions 
+      WHERE created_at LIKE ? 
+      GROUP BY payment_method_nama
+      ''',
+      [searchPattern],
+    );
+
+    final Map<String, double> paymentBreakdown = {};
+    for (var row in paymentResult) {
+      final method = row['payment_method_nama'] as String;
+      final total = (row['total'] as num).toDouble();
+      paymentBreakdown[method] = total;
+    }
+
+    final List<Map<String, dynamic>> productResult = await db.rawQuery(
+      '''
+      SELECT produk_nama as nama, SUM(qty) as qty, SUM(subtotal) as total 
+      FROM transaction_items 
+      WHERE transaction_id IN (SELECT id FROM transactions WHERE created_at LIKE ?) 
+      GROUP BY produk_id 
+      ORDER BY qty DESC 
+      LIMIT 5
+      ''',
+      [searchPattern],
+    );
+
+    final List<Map<String, dynamic>> topProducts = productResult.map((row) {
+      return {
+        'nama': row['nama'] as String,
+        'qty': row['qty'] as int,
+        'total': (row['total'] as num).toDouble(),
+      };
+    }).toList();
+
+    return {
+      'date': dateStr,
+      'total_sales': totalSales,
+      'total_transactions': totalTransactions,
+      'total_tax': totalTax,
+      'payment_breakdown': paymentBreakdown,
+      'top_products': topProducts,
+    };
+  }
 }

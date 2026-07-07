@@ -1,0 +1,12 @@
+import '../models/order.dart';
+import '../models/order_item.dart';
+
+abstract class OrderRepository {
+  Future<OrderModel?> getActiveOrderForTable(String tableId);
+  Future<List<OrderItemModel>> getOrderItems(String orderId);
+  Future<void> saveOrder(OrderModel order, List<OrderItemModel> items, {bool markAsPrinted = false});
+  Future<void> cancelOrder(String orderId, String tableId);
+  Future<void> completeOrder(String orderId, String tableId);
+  Future<String> generateNextOrderNumber();
+  Future<Map<String, OrderModel>> getActiveOrdersMap();
+}

@@ -12,6 +12,12 @@ import '../../features/tax/domain/repositories/tax_repository.dart';
 import '../../features/tax/data/repositories/tax_repository_impl.dart';
 import '../../features/pos/domain/repositories/transaction_repository.dart';
 import '../../features/pos/data/repositories/transaction_repository_impl.dart';
+import '../../features/table/domain/repositories/table_repository.dart';
+import '../../features/table/data/repositories/table_repository_impl.dart';
+import '../../features/printer/domain/repositories/printer_repository.dart';
+import '../../features/printer/data/repositories/printer_repository_impl.dart';
+import '../../features/pos/domain/repositories/order_repository.dart';
+import '../../features/pos/data/repositories/order_repository_impl.dart';
 
 // Database Provider
 final posDatabaseProvider = Provider<PosDatabase>((ref) {
@@ -47,4 +53,19 @@ final taxRepositoryProvider = Provider<TaxRepository>((ref) {
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   final db = ref.watch(posDatabaseProvider);
   return TransactionRepositoryImpl(db);
+});
+
+final tableRepositoryProvider = Provider<TableRepository>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return TableRepositoryImpl(db);
+});
+
+final printerRepositoryProvider = Provider<PrinterRepository>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return PrinterRepositoryImpl(db);
+});
+
+final orderRepositoryProvider = Provider<OrderRepository>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return OrderRepositoryImpl(db);
 });

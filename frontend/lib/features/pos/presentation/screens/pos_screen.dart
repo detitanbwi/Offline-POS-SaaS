@@ -18,6 +18,8 @@ import '../../../product/application/product_notifier.dart';
 import '../../../product/domain/models/product.dart';
 import '../../domain/models/cart_item.dart';
 import '../../application/cart_notifier.dart';
+import '../../application/order_notifier.dart';
+import '../../domain/models/order.dart';
 import 'payment_screen.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
@@ -91,10 +93,24 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       }
     });
 
+    final orderState = ref.watch(orderNotifierProvider);
+    final tableName = orderState.selectedTable?.nama ?? '';
+    final orderNumber = orderState.activeOrder?.nomorOrder ?? 'Order Baru';
+
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Kasir POS (Transaksi)'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Transaksi POS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            if (tableName.isNotEmpty)
+              Text(
+                '$tableName ($orderNumber)',
+                style: const TextStyle(fontSize: 12, color: Colors.white70),
+              ),
+          ],
+        ),
       ),
       body: SafeArea(
         child: ResponsiveLayout(
@@ -350,6 +366,26 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   },
             icon: Icons.arrow_forward_rounded,
           ),
+          const SizedBox(height: 8),
+          AppButton(
+            text: 'Simpan Order (Kirim ke Dapur)',
+            type: AppButtonType.secondary,
+            onPressed: state.items.isEmpty
+                ? null
+                : () => _handleSaveOrderDraft(context, state),
+            icon: Icons.kitchen_rounded,
+            width: double.infinity,
+          ),
+          if (ref.watch(orderNotifierProvider).activeOrder != null) ...[
+            const SizedBox(height: 8),
+            AppButton(
+              text: 'Batalkan Pesanan Meja',
+              type: AppButtonType.destructive,
+              onPressed: () => _handleCancelOrder(context),
+              icon: Icons.cancel_outlined,
+              width: double.infinity,
+            ),
+          ],
         ],
       ),
     );
@@ -502,7 +538,34 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                             );
                                           },
                                     icon: Icons.payment_rounded,
+                                    width: double.infinity,
                                   ),
+                                  const SizedBox(height: 8),
+                                  AppButton(
+                                    text: 'Simpan Order (Kirim ke Dapur)',
+                                    type: AppButtonType.secondary,
+                                    onPressed: cState.items.isEmpty
+                                        ? null
+                                        : () {
+                                            Navigator.pop(context); // Close bottom sheet
+                                            _handleSaveOrderDraft(context, cState);
+                                          },
+                                    icon: Icons.kitchen_rounded,
+                                    width: double.infinity,
+                                  ),
+                                  if (ref.watch(orderNotifierProvider).activeOrder != null) ...[
+                                    const SizedBox(height: 8),
+                                    AppButton(
+                                      text: 'Batalkan Pesanan Meja',
+                                      type: AppButtonType.destructive,
+                                      onPressed: () {
+                                        Navigator.pop(context); // Close bottom sheet
+                                        _handleCancelOrder(context);
+                                      },
+                                      icon: Icons.cancel_outlined,
+                                      width: double.infinity,
+                                    ),
+                                  ],
                                 ],
                               ),
                             );
@@ -528,6 +591,52 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _handleSaveOrderDraft(BuildContext context, CartState cartState) async {
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+
+    final success = await orderNotifier.saveCurrentOrderDraft(
+      cartState.items,
+      cartState.subtotal,
+      cartState.taxRate,
+      cartState.taxAmount,
+      cartState.grandTotal,
+    );
+
+    if (!context.mounted) return;
+    if (success) {
+      cartNotifier.clear();
+      AppSnackbar.showSuccess(context, 'Pesanan berhasil disimpan.');
+      Navigator.pop(context); // Go back to Table Selector
+    } else {
+      final err = ref.read(orderNotifierProvider).errorMessage;
+      AppSnackbar.showError(context, err ?? 'Gagal menyimpan pesanan.');
+    }
+  }
+
+  Future<void> _handleCancelOrder(BuildContext context) async {
+    AppDialog.show(
+      context: context,
+      title: 'Batalkan Pesanan',
+      message: 'Apakah Anda yakin ingin membatalkan pesanan meja ini dan mengosongkan meja kembali?',
+      confirmText: 'Batalkan Pesanan',
+      isDestructive: true,
+      onConfirm: () async {
+        final success = await ref.read(orderNotifierProvider.notifier).cancelCurrentOrder();
+        if (!context.mounted) return;
+        Navigator.pop(context); // Close confirm dialog
+        if (success) {
+          ref.read(cartNotifierProvider.notifier).clear();
+          AppSnackbar.showSuccess(context, 'Pesanan dibatalkan & meja dikosongkan.');
+          Navigator.pop(context); // Go back to Table Selector
+        } else {
+          final err = ref.read(orderNotifierProvider).errorMessage;
+          AppSnackbar.showError(context, err ?? 'Gagal membatalkan pesanan.');
+        }
+      },
     );
   }
 }

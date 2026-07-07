@@ -8,12 +8,16 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
 import '../../../auth/services/secure_storage_service.dart';
 import '../../../pos/presentation/screens/pos_screen.dart';
+import '../../../pos/presentation/screens/table_selector_screen.dart';
+import '../../../pos/presentation/screens/sales_report_screen.dart';
 import '../../../category/presentation/screens/category_screen.dart';
 import '../../../product/presentation/screens/product_screen.dart';
 import '../../../stock/presentation/screens/stock_in_screen.dart';
 import '../../../payment_method/presentation/screens/payment_method_screen.dart';
 import '../../../tax/presentation/screens/tax_setting_screen.dart';
 import '../../../transaction_history/presentation/screens/transaction_history_screen.dart';
+import '../../../table/presentation/screens/table_screen.dart';
+import '../../../printer/presentation/screens/printer_setting_screen.dart';
 
 class MainMenuScreen extends StatelessWidget {
   const MainMenuScreen({super.key});
@@ -101,6 +105,17 @@ class MainMenuScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _buildSubmenuItem(
               context,
+              title: 'Meja Restoran',
+              description: 'Kelola meja makan & status',
+              icon: Icons.table_restaurant_outlined,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const TableScreen()));
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildSubmenuItem(
+              context,
               title: 'Metode Pembayaran',
               description: 'Kelola metode pembayaran kasir',
               icon: Icons.payments_outlined,
@@ -118,6 +133,17 @@ class MainMenuScreen extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const TaxSettingScreen()));
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildSubmenuItem(
+              context,
+              title: 'Konfigurasi Printer',
+              description: 'Atur printer struk kasir & tiket dapur',
+              icon: Icons.print_rounded,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterSettingScreen()));
               },
             ),
           ],
@@ -221,7 +247,7 @@ class MainMenuScreen extends StatelessWidget {
           color: AppColors.primaryContainer,
           iconColor: AppColors.primary,
           onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const PosScreen()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const TableSelectorScreen()));
           },
         ),
         _buildMenuCard(
@@ -242,6 +268,17 @@ class MainMenuScreen extends StatelessWidget {
           iconColor: Colors.green.shade700,
           onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryScreen()));
+          },
+        ),
+        _buildMenuCard(
+          context,
+          title: 'Laporan Penjualan',
+          subtitle: 'Statistik omset & terlaris harian',
+          icon: Icons.analytics_rounded,
+          color: Colors.blue.shade50,
+          iconColor: Colors.blue.shade700,
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SalesReportScreen()));
           },
         ),
       ],
