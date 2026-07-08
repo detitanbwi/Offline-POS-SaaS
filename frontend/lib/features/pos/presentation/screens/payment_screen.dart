@@ -440,7 +440,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Icon(
-                            method.id == 'pm-tunai' ? Icons.payments_rounded : Icons.credit_card_rounded,
+                            method.iconData,
                             color: isSelected ? AppColors.primary : AppColors.textSecondary,
                             size: 20,
                           ),

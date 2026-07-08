@@ -87,6 +87,42 @@ class TableNotifier extends StateNotifier<TableState> {
     }
   }
 
+  Future<bool> generateMultipleTables(int count) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final existingTables = await _repository.getAllTables();
+      final existingNames = existingTables.map((t) => t.nama.toLowerCase()).toSet();
+      final existingNumbers = existingTables.map((t) => t.nomor).toSet();
+
+      int generated = 0;
+      int currentNum = 1;
+
+      while (generated < count) {
+        final numberStr = currentNum.toString().padLeft(2, '0');
+        final nameStr = 'Meja $numberStr';
+
+        if (!existingNames.contains(nameStr.toLowerCase()) && !existingNumbers.contains(numberStr)) {
+          final table = TableModel(
+            id: _uuid.v4(),
+            nama: nameStr,
+            nomor: numberStr,
+            status: 0, // Default Kosong
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          await _repository.saveTable(table);
+          generated++;
+        }
+        currentNum++;
+      }
+      await loadTables();
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal men-generate meja: $e');
+      return false;
+    }
+  }
+
   Future<bool> updateTable({required String id, required String nama, required String nomor, required int status}) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {

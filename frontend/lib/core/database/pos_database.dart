@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show sqfliteFfiInit, databaseFactoryFfi;
 import '../../features/auth/services/secure_storage_service.dart';
 
 class PosDatabase {
@@ -18,7 +19,15 @@ class PosDatabase {
   }
 
   Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
+    final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+    
+    if (isDesktop) {
+      sqfliteFfiInit();
+    }
+
+    final dbPath = isDesktop 
+        ? await databaseFactoryFfi.getDatabasesPath()
+        : await getDatabasesPath();
     final path = join(dbPath, filePath);
 
     final storage = SecureStorageService();
@@ -27,13 +36,25 @@ class PosDatabase {
     final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
 
     if (!shouldEncrypt) {
-      return await openDatabase(
-        path,
-        version: 3,
-        onCreate: _createDB,
-        onUpgrade: _upgradeDB,
-        onConfigure: _onConfigure,
-      );
+      if (isDesktop) {
+        return await databaseFactoryFfi.openDatabase(
+          path,
+          options: OpenDatabaseOptions(
+            version: 3,
+            onCreate: _createDB,
+            onUpgrade: _upgradeDB,
+            onConfigure: _onConfigure,
+          ),
+        );
+      } else {
+        return await openDatabase(
+          path,
+          version: 3,
+          onCreate: _createDB,
+          onUpgrade: _upgradeDB,
+          onConfigure: _onConfigure,
+        );
+      }
     }
 
     Database? db;
@@ -55,7 +76,9 @@ class PosDatabase {
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
         );
-        await db.execute("PRAGMA rekey = '$encryptionKey'");
+        if (db != null) {
+          await db.execute("PRAGMA rekey = '$encryptionKey'");
+        }
       } catch (innerErr) {
         rethrow;
       }

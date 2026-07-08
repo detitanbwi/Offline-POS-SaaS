@@ -31,7 +31,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   }
 
   void _showAddEditDialog(BuildContext context, [Category? category]) {
-    final formKey = GlobalKey<_CategoryFormState>();
+    final formKey = GlobalKey<CategoryFormState>();
     
     AppDialog.show(
       context: context,
@@ -40,14 +40,14 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       content: CategoryForm(
         key: formKey,
         category: category,
-        onSubmit: (name, status) async {
+        onSubmit: (names, status) async {
           Navigator.pop(context); // close dialog
           
           bool success;
           if (category == null) {
-            success = await ref.read(categoryNotifierProvider.notifier).addCategory(name);
+            success = await ref.read(categoryNotifierProvider.notifier).addCategories(names);
           } else {
-            success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, name, status);
+            success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status);
           }
 
           if (!mounted) return;
@@ -312,84 +312,4 @@ class _CategoryItem extends StatelessWidget {
   }
 }
 
-// Global key state hook helper
-class _CategoryFormState extends State<CategoryForm> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late int _status;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.category?.nama ?? '');
-    _status = widget.category?.status ?? 1;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppTextField(
-            controller: _nameController,
-            labelText: 'Nama Kategori',
-            hintText: 'Masukkan nama kategori (contoh: Makanan)',
-            prefixIcon: Icons.category_rounded,
-            validator: (v) => Validators.required(v, 'Nama Kategori'),
-          ),
-          if (widget.category != null) ...[
-            const SizedBox(height: 16),
-            const Text(
-              'Status Kategori',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<int>(
-                    title: const Text('Aktif', style: TextStyle(fontSize: 14)),
-                    value: 1,
-                    groupValue: _status,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _status = val);
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<int>(
-                    title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
-                    value: 0,
-                    groupValue: _status,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _status = val);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  bool submit() {
-    if (_formKey.currentState?.validate() ?? false) {
-      widget.onSubmit(_nameController.text.trim(), _status);
-      return true;
-    }
-    return false;
-  }
-}
+// Removed shadow state class to use public CategoryFormState from widgets/category_form.dart

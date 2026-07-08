@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -130,6 +131,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: _handleLogin,
                     width: double.infinity,
                   ),
+                  if (kDebugMode) ...[
+                    const SizedBox(height: AppSpacing.m),
+                    TextButton(
+                      onPressed: () async {
+                        setState(() => _isLoading = true);
+                        final storage = ref.read(secureStorageServiceProvider);
+                        await storage.saveTokens(
+                          onlineToken: 'dummy_online_token_for_dev_bypass',
+                          offlineToken: 'dummy_offline_token_for_dev_bypass',
+                        );
+                        await storage.saveActivationData(
+                          activationToken: 'dummy_offline_token_for_dev_bypass',
+                          licenseKey: 'LIC-DEV-BYPASS-TEST',
+                          encryptionKey: 'dummy_encryption_key_for_dev_bypass',
+                          fingerprintHash: 'dummy_fingerprint_for_dev_bypass',
+                          expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
+                        );
+                        setState(() => _isLoading = false);
+                        if (!mounted) return;
+                        AppSnackbar.showSuccess(context, 'Bypass Login & Lisensi Berhasil!');
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
+                        );
+                      },
+                      child: const Text('Developer Bypass (Login & License)'),
+                    ),
+                  ],
                 ],
               ),
             ),

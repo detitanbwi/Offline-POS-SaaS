@@ -151,6 +151,62 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
     }
   }
 
+  Future<bool> addCategories(List<String> names) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final now = DateTime.now();
+      int successCount = 0;
+      List<String> duplicateNames = [];
+
+      for (final name in names) {
+        final trimmed = name.trim();
+        if (trimmed.isEmpty) continue;
+
+        final exists = await _repository.isCategoryNameExists(trimmed);
+        if (exists) {
+          duplicateNames.add(trimmed);
+          continue;
+        }
+
+        final category = Category(
+          id: _uuid.v4(),
+          nama: trimmed,
+          status: 1,
+          createdAt: now,
+          updatedAt: now,
+        );
+        await _repository.insertCategory(category);
+        successCount++;
+      }
+
+      await loadCategories();
+
+      if (duplicateNames.isNotEmpty) {
+        if (successCount == 0) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Semua kategori sudah terdaftar: ${duplicateNames.join(', ')}',
+          );
+          return false;
+        } else {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Beberapa kategori sudah terdaftar: ${duplicateNames.join(', ')}',
+          );
+          return true;
+        }
+      }
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Gagal menambah kategori: $e',
+      );
+      return false;
+    }
+  }
+
   Future<bool> updateCategory(String id, String name, int status) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {

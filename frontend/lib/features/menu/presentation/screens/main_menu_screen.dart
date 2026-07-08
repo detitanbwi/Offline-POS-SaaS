@@ -17,6 +17,9 @@ import '../../../payment_method/presentation/screens/payment_method_screen.dart'
 import '../../../tax/presentation/screens/tax_setting_screen.dart';
 import '../../../transaction_history/presentation/screens/transaction_history_screen.dart';
 import '../../../table/presentation/screens/table_screen.dart';
+import '../../../table/application/table_notifier.dart';
+import '../../../pos/application/order_notifier.dart';
+import '../../../pos/application/cart_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
@@ -225,8 +228,8 @@ class MainMenuScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               Expanded(
                 child: ResponsiveLayout(
-                  mobile: _buildGrid(context, crossAxisCount: 2),
-                  tablet: _buildGrid(context, crossAxisCount: 3),
+                  mobile: _buildGrid(context, ref, crossAxisCount: 2),
+                  tablet: _buildGrid(context, ref, crossAxisCount: 3),
                 ),
               ),
             ],
@@ -236,7 +239,7 @@ class MainMenuScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGrid(BuildContext context, {required int crossAxisCount}) {
+  Widget _buildGrid(BuildContext context, WidgetRef ref, {required int crossAxisCount}) {
     return GridView.count(
       crossAxisCount: crossAxisCount,
       crossAxisSpacing: AppSpacing.m,
@@ -249,8 +252,26 @@ class MainMenuScreen extends ConsumerWidget {
           icon: Icons.point_of_sale_rounded,
           color: AppColors.primaryContainer,
           iconColor: AppColors.primary,
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const TableSelectorScreen()));
+          onTap: () async {
+            final tableNotifier = ref.read(tableNotifierProvider.notifier);
+            await tableNotifier.loadTables();
+            final tableState = ref.read(tableNotifierProvider);
+
+            if (!context.mounted) return;
+
+            if (tableState.allTables.isEmpty) {
+              ref.read(orderNotifierProvider.notifier).selectTable(null);
+              ref.read(cartNotifierProvider.notifier).clear();
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PosScreen()),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TableSelectorScreen()),
+              );
+            }
           },
         ),
         _buildMenuCard(

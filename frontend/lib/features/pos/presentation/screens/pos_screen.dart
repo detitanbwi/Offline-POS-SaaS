@@ -366,6 +366,30 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ],
           ),
           const Divider(height: 24),
+          if (ref.watch(orderNotifierProvider).selectedTable != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
+                const SizedBox(width: 6),
+                Text(
+                  'Meja: ',
+                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                ),
+                Text(
+                  ref.watch(orderNotifierProvider).selectedTable!.nama,
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
+                  ),
+                ),
+                Text(
+                  ' (${ref.watch(orderNotifierProvider).activeOrder?.nomorOrder ?? 'Order Baru'})',
+                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+          ],
           // Cart Items List
           Expanded(
             child: state.items.isEmpty
@@ -546,6 +570,30 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     ],
                                   ),
                                   const Divider(),
+                                  if (ref.watch(orderNotifierProvider).selectedTable != null) ...[
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Meja: ',
+                                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                                        ),
+                                        Text(
+                                          ref.watch(orderNotifierProvider).selectedTable!.nama,
+                                          style: AppTypography.bodyMedium.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.secondary,
+                                          ),
+                                        ),
+                                        Text(
+                                          ' (${ref.watch(orderNotifierProvider).activeOrder?.nomorOrder ?? 'Order Baru'})',
+                                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(),
+                                  ],
                                   Expanded(
                                     child: ListView.separated(
                                       controller: scrollController,

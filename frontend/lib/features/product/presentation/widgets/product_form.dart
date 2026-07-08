@@ -23,10 +23,10 @@ class ProductForm extends StatefulWidget {
   });
 
   @override
-  State<ProductForm> createState() => _ProductFormState();
+  State<ProductForm> createState() => ProductFormState();
 }
 
-class _ProductFormState extends State<ProductForm> {
+class ProductFormState extends State<ProductForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _priceController;

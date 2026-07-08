@@ -157,7 +157,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      Icons.payment_rounded,
+                                      pm.iconData,
                                       color: pm.isActive ? AppColors.success : AppColors.disabled,
                                       size: 24,
                                     ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -154,6 +155,82 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
+  void _showGenerateDialog(BuildContext context) {
+    final countController = TextEditingController(text: '20');
+    final formKey = GlobalKey<FormState>();
+    bool isGenerating = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AppDialog(
+              title: 'Generate Banyak Meja',
+              confirmText: 'Generate',
+              isLoading: isGenerating,
+              onConfirm: () async {
+                if (formKey.currentState!.validate()) {
+                  setDialogState(() => isGenerating = true);
+                  final count = int.parse(countController.text.trim());
+                  final success = await ref.read(tableNotifierProvider.notifier).generateMultipleTables(count);
+                  
+                  if (success) {
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    AppSnackbar.showSuccess(
+                      context,
+                      '$count meja baru berhasil dibuat secara otomatis.',
+                    );
+                  } else {
+                    setDialogState(() => isGenerating = false);
+                    if (!context.mounted) return;
+                    final err = ref.read(tableNotifierProvider).errorMessage;
+                    AppSnackbar.showError(context, err ?? 'Gagal men-generate meja.');
+                  }
+                }
+              },
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Masukkan total meja makan yang ingin dibuat secara otomatis (misal: 20). Nama meja akan menggunakan format "Meja 01", "Meja 02", dst.',
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 16),
+                    AppTextField(
+                      controller: countController,
+                      labelText: 'Jumlah Meja',
+                      hintText: 'Contoh: 20',
+                      prefixIcon: Icons.table_restaurant_rounded,
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Jumlah meja harus diisi';
+                        }
+                        final n = int.tryParse(v.trim());
+                        if (n == null || n <= 0) {
+                          return 'Masukkan angka positif yang valid';
+                        }
+                        if (n > 100) {
+                          return 'Jumlah meja maksimal adalah 100 untuk sekali generate';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(tableNotifierProvider);
@@ -163,6 +240,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       appBar: AppBar(
         title: const Text('Kelola Master Meja'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.playlist_add_rounded),
+            tooltip: 'Generate Meja',
+            onPressed: () => _showGenerateDialog(context),
+          ),
           IconButton(
             icon: const Icon(Icons.add_rounded),
             tooltip: 'Tambah Meja',
@@ -174,12 +256,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         child: state.isLoading && state.allTables.isEmpty
             ? const AppLoading(message: 'Memuat data meja...')
             : state.allTables.isEmpty
-                ? AppEmptyState(
-                    title: 'Belum Ada Data Meja',
-                    description: 'Silakan tambah meja baru untuk memulai manajemen meja restoran.',
-                    icon: Icons.table_restaurant_rounded,
-                    actionText: 'Tambah Meja',
-                    onActionPressed: () => _showFormDialog(context),
+                ? Center(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const AppEmptyState(
+                            title: 'Belum Ada Data Meja',
+                            description: 'Silakan tambah meja baru secara manual atau buat beberapa meja sekaligus secara otomatis.',
+                            icon: Icons.table_restaurant_rounded,
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AppButton(
+                                text: 'Tambah Meja',
+                                icon: Icons.add,
+                                onPressed: () => _showFormDialog(context),
+                              ),
+                              const SizedBox(width: 16),
+                              AppButton(
+                                text: 'Generate Meja',
+                                icon: Icons.playlist_add_rounded,
+                                type: AppButtonType.secondary,
+                                onPressed: () => _showGenerateDialog(context),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   )
                 : RefreshIndicator(
                     onRefresh: () => ref.read(tableNotifierProvider.notifier).loadTables(),

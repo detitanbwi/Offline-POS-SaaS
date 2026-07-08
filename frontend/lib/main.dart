@@ -49,8 +49,29 @@ class MyApp extends ConsumerWidget {
     }
   }
 
+  // Toggle this to true to automatically bypass login and license checks in local development
+  static const bool autoBypassAuthAndLicense = true;
+
   Future<Widget> _getInitialRoute(WidgetRef ref) async {
     final storage = ref.read(secureStorageServiceProvider);
+
+    if (kDebugMode && autoBypassAuthAndLicense) {
+      final existingToken = await storage.getOnlineToken();
+      if (existingToken == null || existingToken.isEmpty) {
+        await storage.saveTokens(
+          onlineToken: 'dummy_online_token_for_dev_bypass',
+          offlineToken: 'dummy_offline_token_for_dev_bypass',
+        );
+        await storage.saveActivationData(
+          activationToken: 'dummy_offline_token_for_dev_bypass',
+          licenseKey: 'LIC-DEV-BYPASS-TEST',
+          encryptionKey: 'dummy_encryption_key_for_dev_bypass',
+          fingerprintHash: 'dummy_fingerprint_for_dev_bypass',
+          expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
+        );
+      }
+    }
+
     final onlineToken = await storage.getOnlineToken();
     final activationToken = await storage.getActivationToken();
 

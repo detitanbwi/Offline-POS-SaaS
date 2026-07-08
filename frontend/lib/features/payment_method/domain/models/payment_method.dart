@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class PaymentMethod {
   final String id;
   final String nama;
@@ -16,6 +18,27 @@ class PaymentMethod {
   });
 
   bool get isActive => aktif == 1;
+
+  IconData get iconData {
+    switch (icon) {
+      case 'money':
+        return Icons.payments_rounded;
+      case 'qr_code':
+        return Icons.qr_code_rounded;
+      case 'wallet':
+        return Icons.account_balance_wallet_rounded;
+      case 'account_balance':
+        return Icons.account_balance_rounded;
+      default:
+        final lowerId = id.toLowerCase();
+        if (lowerId.contains('qris')) {
+          return Icons.qr_code_rounded;
+        } else if (lowerId.contains('tunai')) {
+          return Icons.payments_rounded;
+        }
+        return Icons.credit_card_rounded;
+    }
+  }
 
   PaymentMethod copyWith({
     String? id,

@@ -5,7 +5,7 @@ import '../../domain/models/category.dart';
 
 class CategoryForm extends StatefulWidget {
   final Category? category;
-  final Function(String name, int status) onSubmit;
+  final Function(List<String> names, int status) onSubmit;
 
   const CategoryForm({
     super.key,
@@ -14,10 +14,10 @@ class CategoryForm extends StatefulWidget {
   });
 
   @override
-  State<CategoryForm> createState() => _CategoryFormState();
+  State<CategoryForm> createState() => CategoryFormState();
 }
 
-class _CategoryFormState extends State<CategoryForm> {
+class CategoryFormState extends State<CategoryForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late int _status;
@@ -46,10 +46,24 @@ class _CategoryFormState extends State<CategoryForm> {
           AppTextField(
             controller: _nameController,
             labelText: 'Nama Kategori',
-            hintText: 'Masukkan nama kategori (contoh: Makanan)',
+            hintText: widget.category == null
+                ? 'Masukkan nama kategori (bisa dipisah koma/baris baru)'
+                : 'Masukkan nama kategori (contoh: Makanan)',
             prefixIcon: Icons.category_rounded,
+            maxLines: widget.category == null ? null : 1,
+            keyboardType: widget.category == null ? TextInputType.multiline : TextInputType.text,
             validator: (v) => Validators.required(v, 'Nama Kategori'),
           ),
+          if (widget.category == null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Gunakan tanda koma (,) atau baris baru untuk memasukkan beberapa kategori sekaligus.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
           if (widget.category != null) ...[
             const SizedBox(height: 16),
             const Text(
@@ -92,7 +106,23 @@ class _CategoryFormState extends State<CategoryForm> {
   // Helper method to trigger submit from parent dialog
   bool submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      widget.onSubmit(_nameController.text.trim(), _status);
+      final input = _nameController.text.trim();
+      if (widget.category != null) {
+        // Edit mode: treat whole input as single category name
+        widget.onSubmit([input], _status);
+      } else {
+        // Add mode: split by commas and newlines
+        final names = input
+            .split(RegExp(r'[,\n]'))
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        
+        if (names.isEmpty) {
+          return false;
+        }
+        widget.onSubmit(names, _status);
+      }
       return true;
     }
     return false;
