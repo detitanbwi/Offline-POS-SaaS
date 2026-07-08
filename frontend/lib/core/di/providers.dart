@@ -18,10 +18,39 @@ import '../../features/printer/domain/repositories/printer_repository.dart';
 import '../../features/printer/data/repositories/printer_repository_impl.dart';
 import '../../features/pos/domain/repositories/order_repository.dart';
 import '../../features/pos/data/repositories/order_repository_impl.dart';
+import '../../features/auth/services/secure_storage_service.dart';
+import '../../features/auth/services/auth_service.dart';
+import '../../features/license/services/license_service.dart';
+import '../../features/settings/services/backup_service.dart';
+import '../services/device_fingerprint_service.dart';
 
 // Database Provider
 final posDatabaseProvider = Provider<PosDatabase>((ref) {
   return PosDatabase.instance;
+});
+
+// Services Providers
+final secureStorageServiceProvider = Provider<SecureStorageService>((ref) {
+  return SecureStorageService();
+});
+
+final deviceFingerprintServiceProvider = Provider<DeviceFingerprintService>((ref) {
+  return DeviceFingerprintService();
+});
+
+final authServiceProvider = Provider<AuthService>((ref) {
+  final storage = ref.watch(secureStorageServiceProvider);
+  return AuthService(storage);
+});
+
+final licenseServiceProvider = Provider<LicenseService>((ref) {
+  final storage = ref.watch(secureStorageServiceProvider);
+  final fingerprint = ref.watch(deviceFingerprintServiceProvider);
+  return LicenseService(storage, fingerprint);
+});
+
+final backupServiceProvider = Provider<BackupService>((ref) {
+  return BackupService();
 });
 
 // Repositories Providers

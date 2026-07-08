@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/di/providers.dart';
@@ -173,10 +174,11 @@ class OrderNotifier extends StateNotifier<OrderState> {
           final kitchenPrinter = printerState.configuredPrinters.firstWhere((p) => p.isKitchen);
           await _ref.read(printerNotifierProvider.notifier).printBytes(kitchenPrinter, receiptBytes);
         } else {
-          // Fallback logs to simulator
-          print('--- PRINT TO KITCHEN SIMULATOR ---');
-          print(String.fromCharCodes(receiptBytes));
-          print('----------------------------------');
+          if (kDebugMode) {
+            debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
+            debugPrint(String.fromCharCodes(receiptBytes));
+            debugPrint('----------------------------------');
+          }
         }
       }
 

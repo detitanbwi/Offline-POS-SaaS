@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | JWT Secret
+    |--------------------------------------------------------------------------
+    |
+    | Secret key used for signing offline license JWT tokens.
+    | Must be set in .env file. Generate with: head -c 32 /dev/urandom | base64
+    |
+    */
+
+    'jwt_secret' => env('JWT_SECRET'),
+
 ];

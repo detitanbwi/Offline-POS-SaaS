@@ -29,7 +29,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login berhasil',
             'access_token' => $token,
-            'user' => $user,
+            'user' => $user->only('id', 'name', 'email'),
         ]);
     }
 }

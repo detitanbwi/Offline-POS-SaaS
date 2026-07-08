@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -6,19 +7,18 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../services/license_service.dart';
+import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/screens/pin_screen.dart';
 
-class ActivationScreen extends StatefulWidget {
+class ActivationScreen extends ConsumerStatefulWidget {
   const ActivationScreen({super.key});
 
   @override
-  State<ActivationScreen> createState() => _ActivationScreenState();
+  ConsumerState<ActivationScreen> createState() => _ActivationScreenState();
 }
 
-class _ActivationScreenState extends State<ActivationScreen> {
+class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   final _licenseController = TextEditingController();
-  final LicenseService _licenseService = LicenseService();
   bool _isLoading = false;
 
   Future<void> _handleActivation() async {
@@ -30,7 +30,8 @@ class _ActivationScreenState extends State<ActivationScreen> {
 
     setState(() => _isLoading = true);
 
-    final result = await _licenseService.activate(key);
+    final licenseService = ref.read(licenseServiceProvider);
+    final result = await licenseService.activate(key);
 
     setState(() => _isLoading = false);
 

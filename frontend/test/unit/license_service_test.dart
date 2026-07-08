@@ -66,8 +66,8 @@ void main() {
     late SecureStorageService storage;
 
     setUp(() {
-      licenseService = LicenseService();
       storage = SecureStorageService();
+      licenseService = LicenseService(storage, DeviceFingerprintService());
     });
 
     test('checkLicenseOffline returns false when no expiry is set', () async {

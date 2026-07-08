@@ -4,11 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../auth/services/secure_storage_service.dart';
 import '../../../core/services/device_fingerprint_service.dart';
+import '../../../core/constants/app_constants.dart';
 
 class LicenseService {
-  final String baseUrl = "https://demo2.wirodev.com";
-  final SecureStorageService _storage = SecureStorageService();
-  final DeviceFingerprintService _fingerprintService = DeviceFingerprintService();
+  final SecureStorageService _storage;
+  final DeviceFingerprintService _fingerprintService;
+
+  LicenseService(this._storage, this._fingerprintService);
 
   Future<Map<String, dynamic>> activate(String licenseKey) async {
     try {
@@ -22,7 +24,7 @@ class LicenseService {
       final deviceInfo = await _fingerprintService.getDeviceInfo();
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/activate'),
+        Uri.parse('$apiBaseUrl/api/activate'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $onlineToken',
@@ -34,13 +36,13 @@ class LicenseService {
           'device_model': deviceInfo['device_model'],
           'device_brand': deviceInfo['device_brand'],
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        final serverSecret = data['server_secret'] ?? '';
-        final rawKeyString = '$licenseKey$fingerprint$serverSecret';
+        final offlineToken = data['offline_token'] ?? '';
+        final rawKeyString = '$licenseKey$fingerprint$offlineToken';
         final keyBytes = utf8.encode(rawKeyString);
         final dbEncryptionKey = sha256.convert(keyBytes).toString();
 
@@ -72,7 +74,7 @@ class LicenseService {
       }
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/validate-license'),
+        Uri.parse('$apiBaseUrl/api/validate-license'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $onlineToken',
@@ -81,7 +83,7 @@ class LicenseService {
           'license_key': licenseKey,
           'fingerprint_hash': fingerprint,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
       final data = jsonDecode(response.body);
 

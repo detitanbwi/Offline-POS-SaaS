@@ -29,7 +29,7 @@ class PosDatabase {
     if (!shouldEncrypt) {
       return await openDatabase(
         path,
-        version: 2,
+        version: 3,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
         onConfigure: _onConfigure,
@@ -40,7 +40,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 2,
+        version: 3,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -50,7 +50,7 @@ class PosDatabase {
       try {
         db = await openDatabase(
           path,
-          version: 2,
+          version: 3,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -238,6 +238,9 @@ class PosDatabase {
       )
     ''');
 
+    // Indexes for performance
+    await _createIndexes(db);
+
     // Initial Seeds
     await _seedDatabase(db);
   }
@@ -315,6 +318,42 @@ class PosDatabase {
       // Seed tables since they are newly added
       await _seedDefaultTables(db);
     }
+
+    if (oldVersion < 3) {
+      // Add performance indexes
+      await _createIndexes(db);
+    }
+  }
+
+  Future<void> _createIndexes(Database db) async {
+    // Products
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_products_kategori_id ON products(kategori_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_products_status ON products(status)');
+
+    // Transactions
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_payment_method_id ON transactions(payment_method_id)');
+
+    // Transaction Items
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transaction_items_transaction_id ON transaction_items(transaction_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transaction_items_produk_id ON transaction_items(produk_id)');
+
+    // Stock In
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_stock_in_produk_id ON stock_in(produk_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_stock_in_tanggal ON stock_in(tanggal)');
+
+    // Orders
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_orders_table_id ON orders(table_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)');
+
+    // Order Items
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_order_items_produk_id ON order_items(produk_id)');
+
+    // Print Batches
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_print_batches_order_id ON print_batches(order_id)');
   }
 
   Future<void> _seedDatabase(Database db) async {

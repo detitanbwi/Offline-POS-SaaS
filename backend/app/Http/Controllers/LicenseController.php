@@ -4,78 +4,21 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\License;
-use Illuminate\Support\Str;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
 
+/**
+ * Legacy License Controller
+ * 
+ * Note: License generation is now handled by AdminLicenseController.
+ * Device activation is now handled by ActivationController + LicenseService.
+ * This controller only retains the dashboard view and force-expire action for the old web UI.
+ */
 class LicenseController extends Controller
 {
     public function index()
     {
         $licenses = License::orderBy('created_at', 'desc')->get();
         return view('licenses.index', compact('licenses'));
-    }
-
-    public function generate(Request $request)
-    {
-        $request->validate([
-            'email' => 'nullable|email',
-            'password' => 'nullable|string|min:4',
-            'exp_type' => 'required|string|in:duration,date,no_exp',
-            'duration_years' => 'nullable|integer|min:0',
-            'duration_months' => 'nullable|integer|min:0',
-            'duration_days' => 'nullable|integer|min:0',
-            'expires_date' => 'required_if:exp_type,date|nullable|date',
-        ]);
-
-        $user = null;
-        if ($request->filled('email') && $request->filled('password')) {
-            $user = \App\Models\User::where('email', $request->email)->first();
-            if (!$user) {
-                $user = \App\Models\User::create([
-                    'name' => explode('@', $request->email)[0],
-                    'email' => $request->email,
-                    'password' => \Illuminate\Support\Facades\Hash::make($request->password),
-                ]);
-            }
-        }
-
-        $expiresAt = null;
-        if ($request->exp_type === 'duration') {
-            $expiresAt = Carbon::now();
-            $years = (int)$request->input('duration_years', 0);
-            $months = (int)$request->input('duration_months', 0);
-            $days = (int)$request->input('duration_days', 0);
-            
-            if ($years > 0) {
-                $expiresAt->addYears($years);
-            }
-            if ($months > 0) {
-                $expiresAt->addMonths($months);
-            }
-            if ($days > 0) {
-                $expiresAt->addDays($days);
-            }
-            
-            // Default fallback if all are empty/zero
-            if ($years === 0 && $months === 0 && $days === 0) {
-                $expiresAt->addDays(30);
-            }
-        } elseif ($request->exp_type === 'date') {
-            $expiresAt = Carbon::parse($request->expires_date);
-        } else {
-            // No expiration: set to a far future date
-            $expiresAt = Carbon::parse('2099-12-31 23:59:59');
-        }
-
-        License::create([
-            'license_key' => 'LIC-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)),
-            'status' => 'AVAILABLE',
-            'expires_at' => $expiresAt,
-            'user_id' => $user ? $user->id : null,
-        ]);
-
-        return redirect()->back()->with('success', 'License Key successfully generated' . ($user ? ' and bound to user: ' . $user->email : '') . '!');
     }
 
     public function forceExpire($id)
@@ -86,68 +29,5 @@ class LicenseController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'License successfully set to expired!');
-    }
-
-    public function activate(Request $request)
-    {
-        $request->validate([
-            'license_key' => 'required|string',
-            'device_id' => 'required|string',
-        ]);
-
-        $license = License::where('license_key', $request->license_key)->first();
-        $user = Auth::user(); // Diambil dari token Sanctum
-
-        if (!$license || $license->status === 'REVOKED') {
-            return response()->json(['success' => false, 'message' => 'Lisensi tidak valid/dicabut!'], 403);
-        }
-
-        if ($license->user_id !== null && $license->user_id !== $user->id) {
-            return response()->json(['success' => false, 'message' => 'Lisensi ini terdaftar untuk akun/user lain!'], 403);
-        }
-
-        if ($license->device_id !== null && $license->device_id !== $request->device_id) {
-            return response()->json(['success' => false, 'message' => 'Lisensi terdaftar di perangkat lain!'], 400);
-        }
-
-        // Bind lisensi ke User dan Device
-        $license->device_id = $request->device_id;
-        $license->user_id = $user->id; 
-        $license->status = 'ACTIVE';
-        $license->save();
-
-        // GENERATE STANDARD JWT (HS256) - FOR OFFLINE VALIDATION (SIMULATION ONLY)
-        $base64UrlEncode = function ($data) {
-            return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($data));
-        };
-
-        $header = json_encode([
-            'alg' => 'HS256',
-            'typ' => 'JWT'
-        ]);
-
-        $payload = json_encode([
-            'license_key' => $license->license_key,
-            'android_id' => $license->device_id,
-            'exp' => $license->expires_at->timestamp
-        ]);
-
-        $base64UrlHeader = $base64UrlEncode($header);
-        $base64UrlPayload = $base64UrlEncode($payload);
-
-        // WARNING: This secret key is for simulation/MVP purposes only. Do not use in production!
-        $secretKey = 'SIMULATION_ONLY_NOT_FOR_PRODUCTION_SECRET_KEY_9921';
-
-        $signature = hash_hmac('sha256', $base64UrlHeader . '.' . $base64UrlPayload, $secretKey, true);
-        $base64UrlSignature = $base64UrlEncode($signature);
-
-        $secureOfflineToken = $base64UrlHeader . '.' . $base64UrlPayload . '.' . $base64UrlSignature;
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Aktivasi berhasil!',
-            'offline_token' => $secureOfflineToken,
-            'expires_at' => $license->expires_at->toIso8601String(),
-        ]);
     }
 }

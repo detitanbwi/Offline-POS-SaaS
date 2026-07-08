@@ -17,12 +17,15 @@ import '../../../payment_method/presentation/screens/payment_method_screen.dart'
 import '../../../tax/presentation/screens/tax_setting_screen.dart';
 import '../../../transaction_history/presentation/screens/transaction_history_screen.dart';
 import '../../../table/presentation/screens/table_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/di/providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
+import '../../../settings/presentation/screens/settings_screen.dart';
 
-class MainMenuScreen extends StatelessWidget {
+class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
 
-  Future<void> _handleLogout(BuildContext context) async {
+  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     AppDialog.show(
       context: context,
       title: 'Logout',
@@ -30,7 +33,7 @@ class MainMenuScreen extends StatelessWidget {
       confirmText: 'Logout',
       isDestructive: true,
       onConfirm: () async {
-        final storage = SecureStorageService();
+        final storage = ref.read(secureStorageServiceProvider);
         await storage.clearAll();
         if (!context.mounted) return;
         Navigator.pushReplacement(
@@ -191,7 +194,7 @@ class MainMenuScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -200,7 +203,7 @@ class MainMenuScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'Logout',
-            onPressed: () => _handleLogout(context),
+            onPressed: () => _handleLogout(context, ref),
           ),
         ],
       ),
@@ -279,6 +282,17 @@ class MainMenuScreen extends StatelessWidget {
           iconColor: Colors.blue.shade700,
           onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SalesReportScreen()));
+          },
+        ),
+        _buildMenuCard(
+          context,
+          title: 'Pengaturan Sistem',
+          subtitle: 'Printer, Database & Informasi',
+          icon: Icons.settings_rounded,
+          color: Colors.purple.shade50,
+          iconColor: Colors.purple.shade700,
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
           },
         ),
       ],

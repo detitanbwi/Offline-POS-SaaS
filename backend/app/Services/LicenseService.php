@@ -237,7 +237,10 @@ class LicenseService
         $base64UrlHeader = $base64UrlEncode($header);
         $base64UrlPayload = $base64UrlEncode($payload);
 
-        $secretKey = env('JWT_SECRET', 'SIMULATION_ONLY_NOT_FOR_PRODUCTION_SECRET_KEY_9921');
+        $secretKey = config('app.jwt_secret');
+        if (empty($secretKey)) {
+            throw new \RuntimeException('JWT_SECRET is not configured. Set JWT_SECRET in your .env file.');
+        }
 
         $signature = hash_hmac('sha256', $base64UrlHeader . '.' . $base64UrlPayload, $secretKey, true);
         $base64UrlSignature = $base64UrlEncode($signature);

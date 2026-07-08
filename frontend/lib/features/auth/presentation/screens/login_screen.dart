@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -6,22 +7,20 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../services/auth_service.dart';
-import '../../services/secure_storage_service.dart';
+import '../../../../core/di/providers.dart';
 import '../../../license/presentation/screens/activation_screen.dart';
 import 'pin_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
   bool _isLoading = false;
 
   Future<void> _handleLogin() async {
@@ -32,7 +31,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    final result = await _authService.login(
+    final authService = ref.read(authServiceProvider);
+    final result = await authService.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       AppSnackbar.showSuccess(context, 'Login Berhasil!');
       
-      final storage = SecureStorageService();
+      final storage = ref.read(secureStorageServiceProvider);
       final activationToken = await storage.getActivationToken();
       
       if (!mounted) return;

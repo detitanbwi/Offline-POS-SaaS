@@ -5,12 +5,19 @@ import '../../features/pos/domain/models/transaction.dart';
 import 'currency_formatter.dart';
 
 class ReceiptGenerator {
+  static CapabilityProfile? _cachedProfile;
+
+  static Future<CapabilityProfile> _getProfile() async {
+    _cachedProfile ??= await CapabilityProfile.load();
+    return _cachedProfile!;
+  }
+
   // Generate 58mm ESC/POS bytes for Kitchen Order Ticket (KOT)
   static Future<List<int>> generateKitchenTicket({
     required OrderModel order,
     required List<OrderItemModel> itemsToPrint,
   }) async {
-    final profile = await CapabilityProfile.load();
+    final profile = await _getProfile();
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
@@ -49,7 +56,7 @@ class ReceiptGenerator {
     required List<TransactionItem> items,
     String? tableName,
   }) async {
-    final profile = await CapabilityProfile.load();
+    final profile = await _getProfile();
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
@@ -117,7 +124,7 @@ class ReceiptGenerator {
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
   }) async {
-    final profile = await CapabilityProfile.load();
+    final profile = await _getProfile();
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 

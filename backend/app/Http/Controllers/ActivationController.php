@@ -35,7 +35,6 @@ class ActivationController extends Controller
             'success' => true,
             'message' => 'Aktivasi berhasil!',
             'offline_token' => $result['offline_token'],
-            'server_secret' => $result['server_secret'],
             'expires_at' => $result['expires_at'],
         ]);
     }

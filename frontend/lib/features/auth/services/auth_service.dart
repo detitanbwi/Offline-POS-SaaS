@@ -1,21 +1,23 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../../core/constants/app_constants.dart';
 import 'secure_storage_service.dart';
 
 class AuthService {
-  final String baseUrl = "https://demo2.wirodev.com";
-  final SecureStorageService _storage = SecureStorageService();
+  final SecureStorageService _storage;
+
+  AuthService(this._storage);
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/login'),
+        Uri.parse('$apiBaseUrl/api/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
           'password': password,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
       final data = jsonDecode(response.body);
 

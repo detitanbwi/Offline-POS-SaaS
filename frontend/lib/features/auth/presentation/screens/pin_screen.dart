@@ -1,29 +1,30 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto/crypto.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../services/secure_storage_service.dart';
+import '../../../../core/di/providers.dart';
 import '../../../menu/presentation/screens/main_menu_screen.dart';
 
-class PinScreen extends StatefulWidget {
+class PinScreen extends ConsumerStatefulWidget {
   final bool isSetup;
   const PinScreen({super.key, required this.isSetup});
 
   @override
-  State<PinScreen> createState() => _PinScreenState();
+  ConsumerState<PinScreen> createState() => _PinScreenState();
 }
 
-class _PinScreenState extends State<PinScreen> {
+class _PinScreenState extends ConsumerState<PinScreen> {
   final _pinController = TextEditingController();
-  final SecureStorageService _storage = SecureStorageService();
   String _errorMessage = '';
 
   String _hashPIN(String pin) {
-    var bytes = utf8.encode(pin);
+    const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+    var bytes = utf8.encode(pin + salt);
     var digest = sha256.convert(bytes);
     return digest.toString();
   }
@@ -37,13 +38,14 @@ class _PinScreenState extends State<PinScreen> {
 
     final hashedPin = _hashPIN(pin);
 
+    final storage = ref.read(secureStorageServiceProvider);
     if (widget.isSetup) {
-      await _storage.saveLocalPIN(hashedPin);
+      await storage.saveLocalPIN(hashedPin);
       if (!mounted) return;
       AppSnackbar.showSuccess(context, 'PIN Keamanan berhasil dibuat!');
       _goToMainMenu();
     } else {
-      final savedHashedPin = await _storage.getLocalPIN();
+      final savedHashedPin = await storage.getLocalPIN();
       if (hashedPin == savedHashedPin) {
         if (!mounted) return;
         _goToMainMenu();

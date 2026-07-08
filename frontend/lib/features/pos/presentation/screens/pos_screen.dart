@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -32,6 +33,8 @@ class PosScreen extends ConsumerStatefulWidget {
 class _PosScreenState extends ConsumerState<PosScreen> {
   final _searchController = TextEditingController();
   String? _selectedCategoryId;
+  Timer? _debounceTimer;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -46,6 +49,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -80,7 +84,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     // Filter active items for checkout grid
     final activeProducts = productState.allProducts
         .where((p) => p.isActive)
-        .where((p) => p.nama.toLowerCase().contains(_searchController.text.toLowerCase()))
+        .where((p) => p.nama.toLowerCase().contains(_searchQuery.toLowerCase()))
         .where((p) => _selectedCategoryId == null || p.kategoriId == _selectedCategoryId)
         .toList();
 
@@ -97,70 +101,97 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final tableName = orderState.selectedTable?.nama ?? '';
     final orderNumber = orderState.activeOrder?.nomorOrder ?? 'Order Baru';
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Transaksi POS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            if (tableName.isNotEmpty)
-              Text(
-                '$tableName ($orderNumber)',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
-              ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: ResponsiveLayout(
-          // Mobile Portrait Layout
-          mobile: Stack(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final shouldPop = await _showExitConfirmation(context);
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                children: [
-                  _buildCatalogHeader(activeCategories),
-                  Expanded(
-                    child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
-                  ),
-                  const SizedBox(height: 72), // Spacing for bottom cart floating bar
-                ],
-              ),
-              if (cartState.items.isNotEmpty)
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: _buildMobileCartBar(context, cartState),
+              const Text('Transaksi POS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              if (tableName.isNotEmpty)
+                Text(
+                  '$tableName ($orderNumber)',
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
                 ),
             ],
           ),
-          // Tablet / Landscape Split Layout
-          tablet: Row(
-            children: [
-              // Left side: Catalog
-              Expanded(
-                flex: 3,
-                child: Column(
+        ),
+        body: SafeArea(
+          child: ResponsiveLayout(
+            // Mobile Portrait Layout
+            mobile: Stack(
+              children: [
+                Column(
                   children: [
                     _buildCatalogHeader(activeCategories),
                     Expanded(
                       child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
                     ),
+                    const SizedBox(height: 72), // Spacing for bottom cart floating bar
                   ],
                 ),
-              ),
-              const VerticalDivider(),
-              // Right side: Shopping Cart Panel
-              Expanded(
-                flex: 2,
-                child: _buildCartPanel(context, cartState, cartNotifier),
-              ),
-            ],
+                if (cartState.items.isNotEmpty)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: _buildMobileCartBar(context, cartState),
+                  ),
+              ],
+            ),
+            // Tablet / Landscape Split Layout
+            tablet: Row(
+              children: [
+                // Left side: Catalog
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    children: [
+                      _buildCatalogHeader(activeCategories),
+                      Expanded(
+                        child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
+                      ),
+                    ],
+                  ),
+                ),
+                const VerticalDivider(),
+                // Right side: Shopping Cart Panel
+                Expanded(
+                  flex: 2,
+                  child: _buildCartPanel(context, cartState, cartNotifier),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<bool> _showExitConfirmation(BuildContext context) async {
+    bool result = false;
+    await AppDialog.show(
+      context: context,
+      title: 'Keluar Transaksi POS',
+      message: 'Apakah Anda yakin ingin keluar? Keranjang belanja saat ini akan hilang.',
+      confirmText: 'Keluar',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () {
+        result = true;
+        Navigator.pop(context);
+      },
+    );
+    return result;
   }
 
   // Header catalog with search field & category selection horizontal chips
@@ -175,7 +206,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             controller: _searchController,
             labelText: 'Cari Produk POS',
             prefixIcon: Icons.search_rounded,
-            onChanged: (val) => setState(() {}),
+            onChanged: (val) {
+              if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+              _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                setState(() {
+                  _searchQuery = val;
+                });
+              });
+            },
           ),
           const SizedBox(height: 10),
           SingleChildScrollView(
@@ -723,7 +761,7 @@ class _CartItemRow extends StatelessWidget {
                 onPressed: onNoteTap,
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
-                  minimumSize: const Size(60, 30),
+                  minimumSize: const Size(60, 48),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),

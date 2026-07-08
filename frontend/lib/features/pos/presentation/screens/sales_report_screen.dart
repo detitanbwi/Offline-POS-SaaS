@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -72,9 +73,11 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         AppSnackbar.showError(context, 'Gagal mencetak laporan ke printer Bluetooth.');
       }
     } else {
-      print('--- PRINT REPORT TO SIMULATOR ---');
-      print(String.fromCharCodes(receiptBytes));
-      print('---------------------------------');
+      if (kDebugMode) {
+        debugPrint('--- PRINT REPORT TO SIMULATOR ---');
+        debugPrint(String.fromCharCodes(receiptBytes));
+        debugPrint('---------------------------------');
+      }
       if (!mounted) return;
       AppSnackbar.showSuccess(context, 'Simulasi cetak laporan berhasil (Lihat log console).');
     }
