@@ -118,7 +118,7 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
     state = state.copyWith(filteredCategories: filtered);
   }
 
-  Future<bool> addCategory(String name) async {
+  Future<bool> addCategory(String name, {String? image}) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final exists = await _repository.isCategoryNameExists(name);
@@ -135,6 +135,7 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
         id: _uuid.v4(),
         nama: name.trim(),
         status: 1,
+        image: image,
         createdAt: now,
         updatedAt: now,
       );
@@ -207,7 +208,7 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
     }
   }
 
-  Future<bool> updateCategory(String id, String name, int status) async {
+  Future<bool> updateCategory(String id, String name, int status, {String? image}) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final exists = await _repository.isCategoryNameExists(name, excludeId: id);
@@ -228,6 +229,7 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
       final updated = current.copyWith(
         nama: name.trim(),
         status: status,
+        image: image,
         updatedAt: DateTime.now(),
       );
 

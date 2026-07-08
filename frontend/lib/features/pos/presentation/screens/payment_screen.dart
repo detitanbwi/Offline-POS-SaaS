@@ -77,6 +77,89 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     });
   }
 
+  void _showNonCashMethodsSheet(List<PaymentMethod> activeMethods) {
+    final nonCashMethods = activeMethods.where((m) => m.id != 'pm-tunai').toList();
+    if (nonCashMethods.isEmpty) {
+      AppSnackbar.showWarning(context, 'Tidak ada metode pembayaran non-tunai aktif.');
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.l),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Pilih Metode Non-Tunai',
+                      style: AppTypography.titleMedium.copyWith(fontSize: 18),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: nonCashMethods.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, idx) {
+                      final method = nonCashMethods[idx];
+                      final isSelected = _selectedMethod?.id == method.id;
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.primaryContainer : AppColors.surface,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            method.iconData,
+                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                          ),
+                        ),
+                        title: Text(
+                          method.nama,
+                          style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedMethod = method;
+                            _amountPaidController.clear();
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _handlePayment(double grandTotal, double subtotal, double taxRate, double taxAmount) async {
     if (_selectedMethod == null) {
       AppSnackbar.showWarning(context, 'Pilih metode pembayaran terlebih dahulu.');
@@ -138,11 +221,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       final orderState = ref.read(orderNotifierProvider);
       
-      // 1. If this transaction is linked to a table order draft, mark it completed and release table
+      // 1. If this transaction is linked to a table order draft, mark it completed (but do not release table status to Empty)
       if (orderState.selectedTable != null && orderState.activeOrder != null) {
         await ref.read(orderRepositoryProvider).completeOrder(
           orderState.activeOrder!.id,
-          orderState.selectedTable!.id,
         );
         ref.read(orderNotifierProvider.notifier).clearActiveOrder();
         ref.read(tableNotifierProvider.notifier).loadTables();
@@ -403,61 +485,93 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           const SizedBox(height: 24),
           Text('Metode Pembayaran', style: AppTypography.titleMedium),
           const SizedBox(height: 12),
-          // Payment methods list selector
+          // Payment methods selection (Tunai vs Non-Tunai)
           pmState.isLoading
-              ? const CircularProgressIndicator()
-              : GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 2.2,
-                  ),
-                  itemCount: activeMethods.length,
-                  itemBuilder: (context, index) {
-                    final method = activeMethods[index];
-                    final isSelected = _selectedMethod?.id == method.id;
-
-                    return AppCard(
-                      onTap: () {
-                        setState(() {
-                          _selectedMethod = method;
-                          if (method.id != 'pm-tunai') {
-                            _amountPaidController.clear();
-                          }
-                        });
-                      },
-                      color: isSelected ? AppColors.primaryContainer : Colors.white,
-                      borderSide: BorderSide(
-                        color: isSelected ? AppColors.primary : AppColors.divider,
-                        width: isSelected ? 2.0 : 1.0,
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Icon(
-                            method.iconData,
-                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                            size: 20,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            method.nama,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? AppColors.primary : AppColors.textPrimary,
+              ? const Center(child: CircularProgressIndicator())
+              : Row(
+                  children: [
+                    // Tunai Option
+                    Expanded(
+                      child: Builder(
+                        builder: (context) {
+                          final isCashSelected = _selectedMethod?.id == 'pm-tunai';
+                          return AppCard(
+                            onTap: () {
+                              final cashMethod = activeMethods.firstWhere(
+                                (p) => p.id == 'pm-tunai',
+                                orElse: () => activeMethods.first,
+                              );
+                              setState(() {
+                                _selectedMethod = cashMethod;
+                              });
+                            },
+                            color: isCashSelected ? AppColors.primaryContainer : Colors.white,
+                            borderSide: BorderSide(
+                              color: isCashSelected ? AppColors.primary : AppColors.divider,
+                              width: isCashSelected ? 2.0 : 1.0,
                             ),
-                          ),
-                        ],
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.payments_rounded,
+                                  color: isCashSelected ? AppColors.primary : AppColors.textSecondary,
+                                  size: 28,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Tunai (Cash)',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isCashSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isCashSelected ? AppColors.primary : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 12),
+                    // Non-Tunai Option
+                    Expanded(
+                      child: Builder(
+                        builder: (context) {
+                          final isNonCashSelected = _selectedMethod != null && _selectedMethod!.id != 'pm-tunai';
+                          return AppCard(
+                            onTap: () => _showNonCashMethodsSheet(activeMethods),
+                            color: isNonCashSelected ? AppColors.primaryContainer : Colors.white,
+                            borderSide: BorderSide(
+                              color: isNonCashSelected ? AppColors.primary : AppColors.divider,
+                              width: isNonCashSelected ? 2.0 : 1.0,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  isNonCashSelected ? _selectedMethod!.iconData : Icons.credit_card_rounded,
+                                  color: isNonCashSelected ? AppColors.primary : AppColors.textSecondary,
+                                  size: 28,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  isNonCashSelected ? _selectedMethod!.nama : 'Non-Tunai',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isNonCashSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isNonCashSelected ? AppColors.primary : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      ),
+                    ),
+                  ],
                 ),
           const SizedBox(height: 24),
           AppTextField(

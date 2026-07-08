@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -26,11 +27,56 @@ class ProductScreen extends ConsumerStatefulWidget {
 
 class _ProductScreenState extends ConsumerState<ProductScreen> {
   final _searchController = TextEditingController();
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _confirmBulkDelete(BuildContext context) {
+    AppDialog.show(
+      context: context,
+      title: 'Hapus Masal Produk',
+      message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} produk terpilih? Produk yang memiliki transaksi terkait tidak akan terhapus.',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
+        Navigator.pop(context); // close dialog
+        
+        final idsToDelete = _selectedIds.toList();
+        setState(() {
+          _isSelectionMode = false;
+          _selectedIds.clear();
+        });
+        
+        int deletedCount = 0;
+        int failedCount = 0;
+        
+        for (final id in idsToDelete) {
+          final success = await ref.read(productNotifierProvider.notifier).deleteProduct(id);
+          if (success) {
+            deletedCount++;
+          } else {
+            failedCount++;
+          }
+        }
+        
+        if (!mounted) return;
+        
+        if (failedCount > 0) {
+          AppSnackbar.showWarning(
+            context,
+            'Berhasil menghapus $deletedCount produk. $failedCount produk gagal dihapus (karena terdapat transaksi terkait).',
+          );
+        } else {
+          AppSnackbar.showSuccess(context, '$deletedCount produk berhasil dihapus.');
+        }
+      },
+    );
   }
 
   void _showAddEditDialog(BuildContext context, [Product? product]) {
@@ -58,6 +104,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           required double harga,
           required int stok,
           required int status,
+          String? image,
         }) async {
           Navigator.pop(context); // close dialog
 
@@ -69,6 +116,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                   harga: harga,
                   stok: stok,
                   status: status,
+                  image: image,
                 );
           } else {
             success = await ref.read(productNotifierProvider.notifier).updateProduct(
@@ -77,6 +125,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                   kategoriId: kategoriId,
                   harga: harga,
                   status: status,
+                  image: image,
                 );
           }
 
@@ -127,14 +176,28 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Kelola Produk'),
+        title: Text(_isSelectionMode ? 'Pilih Produk' : 'Kelola Produk'),
+        actions: [
+          IconButton(
+            icon: Icon(_isSelectionMode ? Icons.close : Icons.checklist_rounded),
+            onPressed: () {
+              setState(() {
+                _isSelectionMode = !_isSelectionMode;
+                _selectedIds.clear();
+              });
+            },
+            tooltip: _isSelectionMode ? 'Batal' : 'Pilih Banyak',
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditDialog(context),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _showAddEditDialog(context),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            ),
       body: SafeArea(
         child: Column(
           children: [
@@ -234,6 +297,45 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       ),
                     ],
                   ),
+                  if (_isSelectionMode) ...[
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: state.filteredProducts.isNotEmpty &&
+                              _selectedIds.length == state.filteredProducts.length,
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedIds.addAll(state.filteredProducts.map((p) => p.id));
+                              } else {
+                                _selectedIds.clear();
+                              }
+                            });
+                          },
+                        ),
+                        const Text('Pilih Semua', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 16),
+                        Text('${_selectedIds.length} Terpilih'),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: _selectedIds.isEmpty
+                              ? null
+                              : () => _confirmBulkDelete(context),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                          label: const Text('Hapus', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.error,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            minimumSize: Size.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -259,8 +361,20 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             separatorBuilder: (context, index) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final product = state.filteredProducts[index];
+                              final isSelected = _selectedIds.contains(product.id);
                               return _ProductItemRow(
                                 product: product,
+                                isSelectionMode: _isSelectionMode,
+                                isSelected: isSelected,
+                                onSelectedChanged: (selected) {
+                                  setState(() {
+                                    if (selected == true) {
+                                      _selectedIds.add(product.id);
+                                    } else {
+                                      _selectedIds.remove(product.id);
+                                    }
+                                  });
+                                },
                                 onEdit: () => _showAddEditDialog(context, product),
                                 onDelete: () => _confirmDelete(context, product),
                               );
@@ -277,8 +391,20 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             itemCount: state.filteredProducts.length,
                             itemBuilder: (context, index) {
                               final product = state.filteredProducts[index];
+                              final isSelected = _selectedIds.contains(product.id);
                               return _ProductItemCard(
                                 product: product,
+                                isSelectionMode: _isSelectionMode,
+                                isSelected: isSelected,
+                                onSelectedChanged: (selected) {
+                                  setState(() {
+                                    if (selected == true) {
+                                      _selectedIds.add(product.id);
+                                    } else {
+                                      _selectedIds.remove(product.id);
+                                    }
+                                  });
+                                },
                                 onEdit: () => _showAddEditDialog(context, product),
                                 onDelete: () => _confirmDelete(context, product),
                               );
@@ -332,11 +458,17 @@ class _FilterChip extends StatelessWidget {
 
 class _ProductItemRow extends StatelessWidget {
   final Product product;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelectedChanged;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ProductItemRow({
     required this.product,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectedChanged,
     required this.onEdit,
     required this.onDelete,
   });
@@ -344,22 +476,49 @@ class _ProductItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       borderSide: const BorderSide(color: AppColors.divider),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: (product.isActive ? AppColors.primary : AppColors.disabled).withOpacity(0.1),
-              shape: BoxShape.circle,
+          if (isSelectionMode)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Checkbox(
+                value: isSelected,
+                onChanged: onSelectedChanged,
+              ),
+            )
+          else
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: (product.isActive ? AppColors.primary : AppColors.disabled).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: product.image != null && product.image!.isNotEmpty
+                    ? (product.image!.startsWith('http')
+                        ? Image.network(
+                            product.image!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
+                          )
+                        : Image.file(
+                            File(product.image!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
+                          ))
+                    : Icon(
+                        Icons.inventory_2_outlined,
+                        color: product.isActive ? AppColors.primary : AppColors.disabled,
+                        size: 24,
+                      ),
+              ),
             ),
-            child: Icon(
-              Icons.inventory_2_outlined,
-              color: product.isActive ? AppColors.primary : AppColors.disabled,
-              size: 24,
-            ),
-          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -391,14 +550,16 @@ class _ProductItemRow extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-            onPressed: onEdit,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-            onPressed: onDelete,
-          ),
+          if (!isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+              onPressed: onDelete,
+            ),
+          ],
         ],
       ),
     );
@@ -407,11 +568,17 @@ class _ProductItemRow extends StatelessWidget {
 
 class _ProductItemCard extends StatelessWidget {
   final Product product;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelectedChanged;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ProductItemCard({
     required this.product,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectedChanged,
     required this.onEdit,
     required this.onDelete,
   });
@@ -419,6 +586,7 @@ class _ProductItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
       padding: const EdgeInsets.all(12),
       borderSide: const BorderSide(color: AppColors.divider),
       child: Column(
@@ -429,6 +597,14 @@ class _ProductItemCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              if (isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Checkbox(
+                    value: isSelected,
+                    onChanged: onSelectedChanged,
+                  ),
+                ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,23 +657,24 @@ class _ProductItemCard extends StatelessWidget {
                   fontSize: 14,
                 ),
               ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
-                    onPressed: onEdit,
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
-                    onPressed: onDelete,
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
+              if (!isSelectionMode)
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
+                      onPressed: onEdit,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+                      onPressed: onDelete,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
             ],
           ),
         ],

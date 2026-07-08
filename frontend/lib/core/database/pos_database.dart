@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 3,
+            version: 4,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 3,
+          version: 4,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -61,7 +61,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 3,
+        version: 4,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -71,7 +71,7 @@ class PosDatabase {
       try {
         db = await openDatabase(
           path,
-          version: 3,
+          version: 4,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -98,6 +98,7 @@ class PosDatabase {
         id TEXT PRIMARY KEY,
         nama TEXT NOT NULL UNIQUE,
         status INTEGER NOT NULL DEFAULT 1,
+        image TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -112,6 +113,7 @@ class PosDatabase {
         harga REAL NOT NULL DEFAULT 0,
         stok INTEGER NOT NULL DEFAULT 0,
         status INTEGER NOT NULL DEFAULT 1,
+        image TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (kategori_id) REFERENCES categories(id) ON DELETE RESTRICT
@@ -345,6 +347,11 @@ class PosDatabase {
     if (oldVersion < 3) {
       // Add performance indexes
       await _createIndexes(db);
+    }
+
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE categories ADD COLUMN image TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN image TEXT');
     }
   }
 

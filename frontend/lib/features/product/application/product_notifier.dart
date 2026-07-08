@@ -154,6 +154,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
     required double harga,
     required int stok,
     required int status,
+    String? image,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -174,6 +175,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
         harga: harga,
         stok: stok,
         status: status,
+        image: image,
         createdAt: now,
         updatedAt: now,
       );
@@ -196,6 +198,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
     required String kategoriId,
     required double harga,
     required int status,
+    String? image,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -219,6 +222,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
         kategoriId: kategoriId,
         harga: harga,
         status: status,
+        image: image,
         updatedAt: DateTime.now(),
       );
 

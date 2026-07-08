@@ -10,7 +10,6 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../../../core/widgets/responsive_layout.dart';
 import '../../../../core/utils/validators.dart';
 import '../../application/table_notifier.dart';
 import '../../domain/models/table.dart';
@@ -23,12 +22,58 @@ class TableScreen extends ConsumerStatefulWidget {
 }
 
 class _TableScreenState extends ConsumerState<TableScreen> {
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(tableNotifierProvider.notifier).loadTables();
     });
+  }
+
+  void _confirmBulkDelete(BuildContext context) {
+    AppDialog.show(
+      context: context,
+      title: 'Hapus Masal Meja',
+      message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} meja terpilih? Meja yang masih terisi atau terkait transaksi tidak akan terhapus.',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
+        Navigator.pop(context); // close dialog
+        
+        final idsToDelete = _selectedIds.toList();
+        setState(() {
+          _isSelectionMode = false;
+          _selectedIds.clear();
+        });
+        
+        int deletedCount = 0;
+        int failedCount = 0;
+        
+        for (final id in idsToDelete) {
+          final success = await ref.read(tableNotifierProvider.notifier).deleteTable(id);
+          if (success) {
+            deletedCount++;
+          } else {
+            failedCount++;
+          }
+        }
+        
+        if (!mounted) return;
+        
+        if (failedCount > 0) {
+          AppSnackbar.showWarning(
+            context,
+            'Berhasil menghapus $deletedCount meja. $failedCount meja gagal dihapus (karena status meja terisi/terkait transaksi).',
+          );
+        } else {
+          AppSnackbar.showSuccess(context, '$deletedCount meja berhasil dihapus.');
+        }
+      },
+    );
   }
 
   void _showFormDialog(BuildContext context, {TableModel? table}) {
@@ -238,18 +283,30 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Kelola Master Meja'),
+        title: Text(_isSelectionMode ? 'Pilih Meja' : 'Kelola Master Meja'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.playlist_add_rounded),
-            tooltip: 'Generate Meja',
-            onPressed: () => _showGenerateDialog(context),
+            icon: Icon(_isSelectionMode ? Icons.close : Icons.checklist_rounded),
+            onPressed: () {
+              setState(() {
+                _isSelectionMode = !_isSelectionMode;
+                _selectedIds.clear();
+              });
+            },
+            tooltip: _isSelectionMode ? 'Batal' : 'Pilih Banyak',
           ),
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            tooltip: 'Tambah Meja',
-            onPressed: () => _showFormDialog(context),
-          ),
+          if (!_isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.playlist_add_rounded),
+              tooltip: 'Generate Meja',
+              onPressed: () => _showGenerateDialog(context),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_rounded),
+              tooltip: 'Tambah Meja',
+              onPressed: () => _showFormDialog(context),
+            ),
+          ],
         ],
       ),
       body: SafeArea(
@@ -306,18 +363,52 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                           ),
                           const SizedBox(height: AppSpacing.l),
-                          Expanded(
-                            child: ResponsiveLayout(
-                              mobile: _buildTableGrid(context, state.allTables, crossAxisCount: 2),
-                              tablet: _buildTableGrid(context, state.allTables, crossAxisCount: 4),
+                          if (_isSelectionMode) ...[
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: state.allTables.isNotEmpty &&
+                                      _selectedIds.length == state.allTables.length,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      if (val == true) {
+                                        _selectedIds.addAll(state.allTables.map((t) => t.id));
+                                      } else {
+                                        _selectedIds.clear();
+                                      }
+                                    });
+                                  },
+                                ),
+                                const Text('Pilih Semua', style: TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 16),
+                                Text('${_selectedIds.length} Terpilih'),
+                                const Spacer(),
+                                ElevatedButton.icon(
+                                  onPressed: _selectedIds.isEmpty
+                                      ? null
+                                      : () => _confirmBulkDelete(context),
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                                  label: const Text('Hapus', style: TextStyle(fontSize: 12)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.error,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    minimumSize: Size.zero,
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: AppSpacing.m),
+                          ],
+                          Expanded(
+                            child: _buildTableGrid(context, state.allTables),
                           ),
                         ],
                       ),
                     ),
                   ),
       ),
-      floatingActionButton: state.allTables.isNotEmpty
+      floatingActionButton: state.allTables.isNotEmpty && !_isSelectionMode
           ? FloatingActionButton.extended(
               onPressed: () => _showFormDialog(context),
               backgroundColor: AppColors.primary,
@@ -329,14 +420,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
-  Widget _buildTableGrid(BuildContext context, List<TableModel> tables, {required int crossAxisCount}) {
+  Widget _buildTableGrid(BuildContext context, List<TableModel> tables) {
+    final width = MediaQuery.of(context).size.width;
+    int crossAxisCount = (width / 110).floor();
+    if (crossAxisCount < 3) crossAxisCount = 3;
+    if (crossAxisCount > 8) crossAxisCount = 8;
+
     return GridView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        mainAxisSpacing: AppSpacing.m,
-        crossAxisSpacing: AppSpacing.m,
-        childAspectRatio: 1.05,
+        mainAxisSpacing: AppSpacing.s,
+        crossAxisSpacing: AppSpacing.s,
+        childAspectRatio: 0.76,
       ),
       itemCount: tables.length,
       itemBuilder: (context, index) {
@@ -357,44 +453,87 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           }
         }
 
+        final isSelected = _selectedIds.contains(table.id);
+
         return AppCard(
+          onTap: _isSelectionMode
+              ? () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedIds.remove(table.id);
+                    } else {
+                      _selectedIds.add(table.id);
+                    }
+                  });
+                }
+              : null,
           borderSide: const BorderSide(color: AppColors.divider),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: getStatusColor().withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      table.statusLabel,
-                      style: TextStyle(
-                        color: getStatusColor(),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+              if (_isSelectionMode)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: Checkbox(
+                        value: isSelected,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedIds.add(table.id);
+                            } else {
+                              _selectedIds.remove(table.id);
+                            }
+                          });
+                        },
                       ),
                     ),
-                  ),
-                  Text(
-                    'No: ${table.nomor}',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
+                    Text(
+                      'No: ${table.nomor}',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 10,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: getStatusColor().withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        table.statusLabel,
+                        style: TextStyle(
+                          color: getStatusColor(),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'No: ${table.nomor}',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
               const Spacer(),
               const Center(
                 child: Icon(
                   Icons.table_restaurant_rounded,
-                  size: 36,
+                  size: 26,
                   color: AppColors.primary,
                 ),
               ),
@@ -402,29 +541,46 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               Text(
                 table.nama,
                 textAlign: TextAlign.center,
-                style: AppTypography.titleMedium.copyWith(fontSize: 14),
+                style: AppTypography.titleMedium.copyWith(fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
-              const Divider(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.primary),
-                    onPressed: () => _showFormDialog(context, table: table),
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                    tooltip: 'Edit',
+              const SizedBox(height: 4),
+              const Divider(height: 4),
+              if (_isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Center(
+                    child: Text(
+                      table.statusLabel,
+                      style: TextStyle(
+                        color: getStatusColor(),
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.error),
-                    onPressed: () => _showDeleteDialog(context, table),
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                    tooltip: 'Hapus',
-                  ),
-                ],
-              ),
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                      onPressed: () => _showFormDialog(context, table: table),
+                      constraints: const BoxConstraints(),
+                      padding: const EdgeInsets.all(4),
+                      tooltip: 'Edit',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.error),
+                      onPressed: () => _showDeleteDialog(context, table),
+                      constraints: const BoxConstraints(),
+                      padding: const EdgeInsets.all(4),
+                      tooltip: 'Hapus',
+                    ),
+                  ],
+                ),
             ],
           ),
         );

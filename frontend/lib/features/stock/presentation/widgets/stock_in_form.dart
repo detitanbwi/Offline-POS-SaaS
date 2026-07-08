@@ -21,10 +21,10 @@ class StockInForm extends StatefulWidget {
   });
 
   @override
-  State<StockInForm> createState() => _StockInFormState();
+  State<StockInForm> createState() => StockInFormState();
 }
 
-class _StockInFormState extends State<StockInForm> {
+class StockInFormState extends State<StockInForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _qtyController;
   late TextEditingController _dateController;

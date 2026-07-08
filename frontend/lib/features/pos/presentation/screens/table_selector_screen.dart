@@ -5,8 +5,10 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/responsive_layout.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
@@ -33,7 +35,15 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
     });
   }
 
-  Future<void> _handleTableSelected(TableModel table) async {
+  Future<void> _handleTableSelected(TableModel table, dynamic activeOrder) async {
+    if (table.isOccupied) {
+      _showOccupiedTableBottomSheet(table, activeOrder);
+    } else {
+      _navigateToPos(table);
+    }
+  }
+
+  Future<void> _navigateToPos(TableModel table) async {
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
     final productState = ref.read(productNotifierProvider);
@@ -62,6 +72,145 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
       ref.read(tableNotifierProvider.notifier).loadTables();
       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
     });
+  }
+
+  void _showOccupiedTableBottomSheet(TableModel table, dynamic activeOrder) {
+    final hasDraft = activeOrder != null;
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.l),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${table.nama} (Nomor: ${table.nomor})',
+                      style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: (hasDraft ? AppColors.warning : AppColors.success).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        hasDraft ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
+                        color: hasDraft ? AppColors.warning : AppColors.success,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              hasDraft ? 'Status: Belum Dibayar (Draft)' : 'Status: Sudah Dibayar (Lunas)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: hasDraft ? const Color(0xFF78350F) : const Color(0xFF14532D),
+                              ),
+                            ),
+                            if (activeOrder != null) ...[
+                              const SizedBox(height: 4),
+                              Text('No. Order: ${activeOrder.nomorOrder}', style: AppTypography.bodyMedium),
+                              Text(
+                                'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
+                                style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _navigateToPos(table);
+                  },
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                  label: Text(hasDraft ? 'Lanjutkan Transaksi / Edit' : 'Pesan Baru (Buka POS)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _confirmClearTable(table, activeOrder);
+                  },
+                  icon: const Icon(Icons.cleaning_services_outlined, color: AppColors.error),
+                  label: const Text('Selesaikan & Kosongkan Meja', style: TextStyle(color: AppColors.error)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmClearTable(TableModel table, dynamic activeOrder) {
+    final hasDraft = activeOrder != null;
+    AppDialog.show(
+      context: context,
+      title: 'Kosongkan Meja',
+      message: hasDraft
+          ? 'Meja ini memiliki pesanan yang belum dibayar. Apakah Anda yakin ingin membatalkan pesanan dan mengosongkan meja?'
+          : 'Apakah Anda yakin ingin menyelesaikan pesanan dan mengosongkan meja "${table.nama}"?',
+      confirmText: 'Ya, Kosongkan',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
+        if (hasDraft) {
+          // If draft exists, cancel order which automatically frees the table
+          ref.read(orderNotifierProvider.notifier).selectTable(table);
+          await ref.read(orderNotifierProvider.notifier).loadActiveOrderForTable(table.id);
+          await ref.read(orderNotifierProvider.notifier).cancelCurrentOrder();
+        } else {
+          // If no draft (already paid or completed), just update table status to empty (0)
+          await ref.read(tableNotifierProvider.notifier).updateStatus(table.id, 0);
+        }
+        
+        // Reload states
+        ref.read(tableNotifierProvider.notifier).loadTables();
+        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+        
+        if (mounted) {
+          AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
+        }
+      },
+    );
   }
 
   @override
@@ -99,10 +248,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                         ),
                         const SizedBox(height: AppSpacing.l),
                         Expanded(
-                          child: ResponsiveLayout(
-                            mobile: _buildGrid(context, tableState.allTables, orderState.activeOrdersMap, crossAxisCount: 2),
-                            tablet: _buildGrid(context, tableState.allTables, orderState.activeOrdersMap, crossAxisCount: 4),
-                          ),
+                          child: _buildGrid(context, tableState.allTables, orderState.activeOrdersMap),
                         ),
                       ],
                     ),
@@ -114,16 +260,20 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
   Widget _buildGrid(
     BuildContext context,
     List<TableModel> tables,
-    Map<String, dynamic> activeOrdersMap, {
-    required int crossAxisCount,
-  }) {
+    Map<String, dynamic> activeOrdersMap,
+  ) {
+    final width = MediaQuery.of(context).size.width;
+    int crossAxisCount = (width / 110).floor();
+    if (crossAxisCount < 3) crossAxisCount = 3;
+    if (crossAxisCount > 8) crossAxisCount = 8;
+
     return GridView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        mainAxisSpacing: AppSpacing.m,
-        crossAxisSpacing: AppSpacing.m,
-        childAspectRatio: 1.1,
+        mainAxisSpacing: AppSpacing.s,
+        crossAxisSpacing: AppSpacing.s,
+        childAspectRatio: 0.9,
       ),
       itemCount: tables.length,
       itemBuilder: (context, index) {
@@ -138,16 +288,16 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
         }
 
         return InkWell(
-          onTap: table.isMaintenance ? null : () => _handleTableSelected(table),
-          borderRadius: BorderRadius.circular(16),
+          onTap: table.isMaintenance ? null : () => _handleTableSelected(table, activeOrder),
+          borderRadius: BorderRadius.circular(12),
           child: AppCard(
             borderSide: BorderSide(
               color: table.isOccupied 
                   ? AppColors.secondary.withOpacity(0.5) 
                   : AppColors.divider,
-              width: table.isOccupied ? 2 : 1,
+              width: table.isOccupied ? 1.5 : 1,
             ),
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -155,16 +305,16 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: getStatusColor().withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         table.statusLabel,
                         style: TextStyle(
                           color: getStatusColor(),
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -173,7 +323,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                       'No: ${table.nomor}',
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.textSecondary,
-                        fontSize: 11,
+                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -181,7 +331,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                 const Spacer(),
                 Icon(
                   Icons.table_restaurant_rounded,
-                  size: 32,
+                  size: 26,
                   color: table.isOccupied ? AppColors.secondary : AppColors.primary,
                 ),
                 const Spacer(),
@@ -189,22 +339,24 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                   table.nama,
                   textAlign: TextAlign.center,
                   style: AppTypography.titleMedium.copyWith(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (table.isOccupied && activeOrder != null) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     CurrencyFormatter.format(activeOrder.grandTotal),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppColors.secondary,
-                      fontSize: 12,
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ],

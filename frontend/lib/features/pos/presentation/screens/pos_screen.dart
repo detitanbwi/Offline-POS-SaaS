@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -290,20 +291,53 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Product details
-              Column(
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    product.nama,
-                    style: AppTypography.titleMedium.copyWith(fontSize: 14),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.nama,
+                          style: AppTypography.titleMedium.copyWith(fontSize: 14),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          product.kategoriNama ?? 'Master',
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    product.kategoriNama ?? 'Master',
-                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
-                  ),
+                  if (product.image != null && product.image!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: product.image!.startsWith('http')
+                            ? Image.network(
+                                product.image!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 16),
+                              )
+                            : Image.file(
+                                File(product.image!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 16),
+                              ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const Spacer(),

@@ -168,30 +168,16 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Future<void> completeOrder(String orderId, String tableId) async {
+  Future<void> completeOrder(String orderId) async {
     final db = await _db.database;
-    await db.transaction((txn) async {
-      // 1. Update order status to completed
-      await txn.update(
-        'orders',
-        {
-          'status': 'completed',
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [orderId],
-      );
-
-      // 2. Set table status back to Empty (0)
-      await txn.update(
-        'tables',
-        {
-          'status': 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [tableId],
-      );
-    });
+    await db.update(
+      'orders',
+      {
+        'status': 'completed',
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [orderId],
+    );
   }
 }

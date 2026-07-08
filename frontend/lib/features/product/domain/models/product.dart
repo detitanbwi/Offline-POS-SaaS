@@ -6,6 +6,7 @@ class Product {
   final double harga;
   final int stok;
   final int status; // 1 = aktif, 0 = nonaktif
+  final String? image;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +18,7 @@ class Product {
     required this.harga,
     this.stok = 0,
     this.status = 1,
+    this.image,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -31,6 +33,7 @@ class Product {
     double? harga,
     int? stok,
     int? status,
+    String? image,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -42,6 +45,7 @@ class Product {
       harga: harga ?? this.harga,
       stok: stok ?? this.stok,
       status: status ?? this.status,
+      image: image ?? this.image,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -55,6 +59,7 @@ class Product {
       'harga': harga,
       'stok': stok,
       'status': status,
+      'image': image,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -69,6 +74,7 @@ class Product {
       harga: (map['harga'] as num).toDouble(),
       stok: map['stok'] as int,
       status: map['status'] as int,
+      image: map['image'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

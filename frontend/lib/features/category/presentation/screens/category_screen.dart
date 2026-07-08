@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -23,11 +24,56 @@ class CategoryScreen extends ConsumerStatefulWidget {
 
 class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   final _searchController = TextEditingController();
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _confirmBulkDelete(BuildContext context, List<Category> categories) {
+    AppDialog.show(
+      context: context,
+      title: 'Hapus Masal Kategori',
+      message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} kategori terpilih? Kategori yang masih digunakan oleh produk tidak akan terhapus.',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
+        Navigator.pop(context); // close dialog
+        
+        final idsToDelete = _selectedIds.toList();
+        setState(() {
+          _isSelectionMode = false;
+          _selectedIds.clear();
+        });
+        
+        int deletedCount = 0;
+        int failedCount = 0;
+        
+        for (final id in idsToDelete) {
+          final success = await ref.read(categoryNotifierProvider.notifier).deleteCategory(id);
+          if (success) {
+            deletedCount++;
+          } else {
+            failedCount++;
+          }
+        }
+        
+        if (!mounted) return;
+        
+        if (failedCount > 0) {
+          AppSnackbar.showWarning(
+            context,
+            'Berhasil menghapus $deletedCount kategori. $failedCount kategori gagal dihapus (karena masih digunakan oleh produk).',
+          );
+        } else {
+          AppSnackbar.showSuccess(context, '$deletedCount kategori berhasil dihapus.');
+        }
+      },
+    );
   }
 
   void _showAddEditDialog(BuildContext context, [Category? category]) {
@@ -40,14 +86,18 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       content: CategoryForm(
         key: formKey,
         category: category,
-        onSubmit: (names, status) async {
+        onSubmit: (names, status, image) async {
           Navigator.pop(context); // close dialog
           
           bool success;
           if (category == null) {
-            success = await ref.read(categoryNotifierProvider.notifier).addCategories(names);
+            if (names.length == 1) {
+              success = await ref.read(categoryNotifierProvider.notifier).addCategory(names.first, image: image);
+            } else {
+              success = await ref.read(categoryNotifierProvider.notifier).addCategories(names);
+            }
           } else {
-            success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status);
+            success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status, image: image);
           }
 
           if (!mounted) return;
@@ -96,14 +146,28 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Kelola Kategori'),
+        title: Text(_isSelectionMode ? 'Pilih Kategori' : 'Kelola Kategori'),
+        actions: [
+          IconButton(
+            icon: Icon(_isSelectionMode ? Icons.close : Icons.checklist_rounded),
+            onPressed: () {
+              setState(() {
+                _isSelectionMode = !_isSelectionMode;
+                _selectedIds.clear();
+              });
+            },
+            tooltip: _isSelectionMode ? 'Batal' : 'Pilih Banyak',
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditDialog(context),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _showAddEditDialog(context),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            ),
       body: SafeArea(
         child: Column(
           children: [
@@ -168,6 +232,46 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       ),
                     ],
                   ),
+                  if (_isSelectionMode) ...[
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: state.filteredCategories.isNotEmpty &&
+                              _selectedIds.length == state.filteredCategories.length,
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedIds.addAll(state.filteredCategories.map((c) => c.id));
+                              } else {
+                                _selectedIds.clear();
+                              }
+                            });
+                          },
+                        ),
+                        const Text('Pilih Semua', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 16),
+                        Text('${_selectedIds.length} Terpilih'),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: _selectedIds.isEmpty
+                              ? null
+                              : () => _confirmBulkDelete(context, state.filteredCategories),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                          label: const Text('Hapus', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.error,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            minimumSize: Size.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
                 ],
               ),
             ),
@@ -192,8 +296,20 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final category = state.filteredCategories[index];
+                            final isSelected = _selectedIds.contains(category.id);
                             return _CategoryItem(
                               category: category,
+                              isSelectionMode: _isSelectionMode,
+                              isSelected: isSelected,
+                              onSelectedChanged: (selected) {
+                                setState(() {
+                                  if (selected == true) {
+                                    _selectedIds.add(category.id);
+                                  } else {
+                                    _selectedIds.remove(category.id);
+                                  }
+                                });
+                              },
                               onEdit: () => _showAddEditDialog(context, category),
                               onDelete: () => _confirmDelete(context, category),
                             );
@@ -245,34 +361,75 @@ class _FilterChip extends StatelessWidget {
 
 class _CategoryItem extends StatelessWidget {
   final Category category;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelectedChanged;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _CategoryItem({
     required this.category,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectedChanged,
     required this.onEdit,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget imageWidget;
+    final hasImg = category.image != null && category.image!.isNotEmpty;
+    if (hasImg) {
+      if (category.image!.startsWith('http')) {
+        imageWidget = Image.network(
+          category.image!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
+        );
+      } else {
+        imageWidget = Image.file(
+          File(category.image!),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
+        );
+      }
+    } else {
+      imageWidget = Icon(
+        Icons.folder_open_rounded,
+        color: category.isActive ? AppColors.success : AppColors.disabled,
+        size: 24,
+      );
+    }
+
     return AppCard(
+      onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       borderSide: const BorderSide(color: AppColors.divider),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: (category.isActive ? AppColors.success : AppColors.disabled).withOpacity(0.1),
-              shape: BoxShape.circle,
+          if (isSelectionMode)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Checkbox(
+                value: isSelected,
+                onChanged: onSelectedChanged,
+              ),
+            )
+          else
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: (category.isActive ? AppColors.success : AppColors.disabled).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Center(child: imageWidget),
+              ),
             ),
-            child: Icon(
-              Icons.folder_open_rounded,
-              color: category.isActive ? AppColors.success : AppColors.disabled,
-              size: 24,
-            ),
-          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -296,16 +453,18 @@ class _CategoryItem extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-            onPressed: onEdit,
-            tooltip: 'Ubah',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-            onPressed: onDelete,
-            tooltip: 'Hapus',
-          ),
+          if (!isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              onPressed: onEdit,
+              tooltip: 'Ubah',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+              onPressed: onDelete,
+              tooltip: 'Hapus',
+            ),
+          ],
         ],
       ),
     );
