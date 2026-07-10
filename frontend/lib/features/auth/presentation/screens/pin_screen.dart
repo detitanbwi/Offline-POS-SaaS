@@ -129,6 +129,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                 const SizedBox(height: AppSpacing.xl),
                 TextField(
                   controller: _pinController,
+                  autofocus: true,
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   maxLength: 6,
