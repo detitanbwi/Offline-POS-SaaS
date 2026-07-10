@@ -267,7 +267,8 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isConfigured && printer.isConnected ? AppColors.success : AppColors.disabled).withOpacity(0.1),
+                  color: (isConfigured && printer.isConnected ? AppColors.success : AppColors.disabled).withValues(alpha: 0.1),
+
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

@@ -9,12 +9,12 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../../../core/widgets/responsive_layout.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../table/domain/models/table.dart';
+import '../../../../core/di/providers.dart';
 import 'pos_screen.dart';
 
 class TableSelectorScreen extends ConsumerStatefulWidget {
@@ -107,9 +107,9 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: (hasDraft ? AppColors.warning : AppColors.success).withOpacity(0.1),
+                    color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withOpacity(0.3)),
+                    border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -158,6 +158,23 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
+                if (hasDraft) ...[
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _handleMoveTable(context, table, activeOrder);
+                    },
+                    icon: const Icon(Icons.move_up_rounded),
+                    label: const Text('Pindah Meja'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: () {
@@ -212,6 +229,79 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
       },
     );
   }
+
+  void _handleMoveTable(BuildContext context, TableModel sourceTable, dynamic activeOrder) {
+    final tableState = ref.read(tableNotifierProvider);
+    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
+
+    if (emptyTables.isEmpty) {
+      AppSnackbar.showWarning(context, 'Tidak ada meja kosong yang tersedia untuk dipindahkan.');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Pindah Meja - ${sourceTable.nama}', 
+            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: ListView.separated(
+              itemCount: emptyTables.length,
+              separatorBuilder: (_, __) => const Divider(),
+              itemBuilder: (context, index) {
+                final targetTable = emptyTables[index];
+                return ListTile(
+                  leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                  title: Text(targetTable.nama),
+                  subtitle: Text('Nomor: ${targetTable.nomor}'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    
+                    // Trigger DB transfer
+                    final orderRepo = ref.read(orderRepositoryProvider);
+                    try {
+                      await orderRepo.transferOrderTable(
+                        activeOrder.id,
+                        sourceTable.id,
+                        targetTable.id,
+                        targetTable.nama,
+                        targetTable.nomor,
+                      );
+                      
+                      // Reload state
+                      ref.read(tableNotifierProvider.notifier).loadTables();
+                      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                      
+                      if (context.mounted) {
+                        AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan ke ${targetTable.nama}');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        AppSnackbar.showError(context, 'Gagal memindahkan meja: $e');
+                      }
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -293,7 +383,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
           child: AppCard(
             borderSide: BorderSide(
               color: table.isOccupied 
-                  ? AppColors.secondary.withOpacity(0.5) 
+                  ? AppColors.secondary.withValues(alpha: 0.5) 
                   : AppColors.divider,
               width: table.isOccupied ? 1.5 : 1,
             ),
@@ -307,7 +397,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: getStatusColor().withOpacity(0.1),
+                        color: getStatusColor().withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(

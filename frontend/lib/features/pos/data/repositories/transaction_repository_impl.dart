@@ -169,4 +169,36 @@ class TransactionRepositoryImpl implements TransactionRepository {
       'top_products': topProducts,
     };
   }
+
+  @override
+  Future<void> voidTransaction(String transactionId) async {
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      final List<Map<String, dynamic>> itemsResult = await txn.query(
+        'transaction_items',
+        where: 'transaction_id = ?',
+        whereArgs: [transactionId],
+      );
+
+      for (var row in itemsResult) {
+        final productId = row['produk_id'] as String;
+        final qty = row['qty'] as int;
+
+        await txn.rawUpdate(
+          'UPDATE products SET stok = stok + ?, updated_at = ? WHERE id = ?',
+          [qty, DateTime.now().toIso8601String(), productId],
+        );
+      }
+
+      await txn.update(
+        'transactions',
+        {
+          'status': 'voided',
+        },
+        where: 'id = ?',
+        whereArgs: [transactionId],
+      );
+    });
+  }
 }
+

@@ -83,34 +83,37 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       context: context,
       title: category == null ? 'Tambah Kategori' : 'Ubah Kategori',
       confirmText: 'Simpan',
-      content: CategoryForm(
-        key: formKey,
-        category: category,
-        onSubmit: (names, status, image) async {
-          Navigator.pop(context); // close dialog
-          
-          bool success;
-          if (category == null) {
-            if (names.length == 1) {
-              success = await ref.read(categoryNotifierProvider.notifier).addCategory(names.first, image: image);
+      content: SizedBox(
+        width: 420,
+        child: CategoryForm(
+          key: formKey,
+          category: category,
+          onSubmit: (names, status, image) async {
+            Navigator.pop(context); // close dialog
+            
+            bool success;
+            if (category == null) {
+              if (names.length == 1) {
+                success = await ref.read(categoryNotifierProvider.notifier).addCategory(names.first, image: image);
+              } else {
+                success = await ref.read(categoryNotifierProvider.notifier).addCategories(names);
+              }
             } else {
-              success = await ref.read(categoryNotifierProvider.notifier).addCategories(names);
+              success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status, image: image);
             }
-          } else {
-            success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status, image: image);
-          }
 
-          if (!mounted) return;
-          final state = ref.read(categoryNotifierProvider);
-          if (success) {
-            AppSnackbar.showSuccess(
-              context,
-              category == null ? 'Kategori berhasil ditambahkan!' : 'Kategori berhasil diperbarui!',
-            );
-          } else if (state.errorMessage != null) {
-            AppSnackbar.showError(context, state.errorMessage!);
-          }
-        },
+            if (!mounted) return;
+            final state = ref.read(categoryNotifierProvider);
+            if (success) {
+              AppSnackbar.showSuccess(
+                context,
+                category == null ? 'Kategori berhasil ditambahkan!' : 'Kategori berhasil diperbarui!',
+              );
+            } else if (state.errorMessage != null) {
+              AppSnackbar.showError(context, state.errorMessage!);
+            }
+          },
+        ),
       ),
       onConfirm: () {
         formKey.currentState?.submit();
@@ -260,12 +263,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                               ? null
                               : () => _confirmBulkDelete(context, state.filteredCategories),
                           icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                          label: const Text('Hapus', style: TextStyle(fontSize: 12)),
+                          label: const Text('Hapus Terpilih', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            minimumSize: Size.zero,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
                           ),
                         ),
                       ],
@@ -381,18 +387,20 @@ class _CategoryItem extends StatelessWidget {
     Widget imageWidget;
     final hasImg = category.image != null && category.image!.isNotEmpty;
     if (hasImg) {
-      if (category.image!.startsWith('http')) {
+      if (Validators.isValidWebUrl(category.image!)) {
         imageWidget = Image.network(
           category.image!,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
-      } else {
+      } else if (Validators.isValidLocalFile(category.image!)) {
         imageWidget = Image.file(
           File(category.image!),
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
+      } else {
+        imageWidget = const Icon(Icons.folder_open_rounded, color: AppColors.primary);
       }
     } else {
       imageWidget = Icon(
@@ -421,7 +429,8 @@ class _CategoryItem extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: (category.isActive ? AppColors.success : AppColors.disabled).withOpacity(0.1),
+                color: (category.isActive ? AppColors.success : AppColors.disabled).withValues(alpha: 0.1),
+
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.divider),
               ),

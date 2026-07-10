@@ -301,11 +301,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               tooltip: 'Generate Meja',
               onPressed: () => _showGenerateDialog(context),
             ),
-            IconButton(
-              icon: const Icon(Icons.add_rounded),
-              tooltip: 'Tambah Meja',
-              onPressed: () => _showFormDialog(context),
-            ),
           ],
         ],
       ),
@@ -321,7 +316,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         children: [
                           const AppEmptyState(
                             title: 'Belum Ada Data Meja',
-                            description: 'Silakan tambah meja baru secara manual atau buat beberapa meja sekaligus secara otomatis.',
+                            description: 'Silakan buat beberapa meja sekaligus secara otomatis.',
                             icon: Icons.table_restaurant_rounded,
                           ),
                           const SizedBox(height: 16),
@@ -329,15 +324,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               AppButton(
-                                text: 'Tambah Meja',
-                                icon: Icons.add,
-                                onPressed: () => _showFormDialog(context),
-                              ),
-                              const SizedBox(width: 16),
-                              AppButton(
                                 text: 'Generate Meja',
                                 icon: Icons.playlist_add_rounded,
-                                type: AppButtonType.secondary,
+                                type: AppButtonType.primary,
                                 onPressed: () => _showGenerateDialog(context),
                               ),
                             ],
@@ -388,12 +377,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                       ? null
                                       : () => _confirmBulkDelete(context),
                                   icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                                  label: const Text('Hapus', style: TextStyle(fontSize: 12)),
+                                  label: const Text('Hapus Terpilih', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.error,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    minimumSize: Size.zero,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
                                   ),
                                 ),
                               ],
@@ -410,11 +402,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ),
       floatingActionButton: state.allTables.isNotEmpty && !_isSelectionMode
           ? FloatingActionButton.extended(
-              onPressed: () => _showFormDialog(context),
+              onPressed: () => _showGenerateDialog(context),
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Tambah Meja'),
+              icon: const Icon(Icons.playlist_add_rounded),
+              label: const Text('Generate Meja'),
             )
           : null,
     );
@@ -508,7 +500,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: getStatusColor().withOpacity(0.1),
+                        color: getStatusColor().withValues(alpha: 0.1),
+
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(

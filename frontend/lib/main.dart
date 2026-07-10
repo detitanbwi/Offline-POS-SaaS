@@ -6,8 +6,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/pin_screen.dart';
+import 'features/auth/presentation/screens/onboarding_screen.dart';
+import 'features/auth/presentation/providers/auth_providers.dart';
 import 'features/license/presentation/screens/activation_screen.dart';
 import 'features/license/presentation/screens/license_expired_screen.dart';
+import 'features/license/presentation/screens/license_lock_screen.dart';
 import 'core/di/providers.dart';
 import 'core/services/app_logger.dart';
 
@@ -37,11 +40,10 @@ class MyApp extends ConsumerWidget {
         final diff = DateTime.now().difference(lastVal).inDays;
         if (diff >= 7) {
           final licenseService = ref.read(licenseServiceProvider);
-          licenseService.validateLicenseOnline().then((result) {
-            if (kDebugMode) {
-              debugPrint('Background license validation result: $result');
-            }
-          });
+          final result = await licenseService.validateLicenseOnline();
+          if (result['success'] == false) {
+            ref.read(licenseExpiredProvider.notifier).state = true;
+          }
         }
       } catch (e) {
         // Silent catch
@@ -100,21 +102,27 @@ class MyApp extends ConsumerWidget {
     if (savedPin != null && savedPin.isNotEmpty) {
       return const PinScreen(isSetup: false);
     } else {
-      return const PinScreen(isSetup: true);
+      return const OnboardingScreen();
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isExpired = ref.watch(licenseExpiredProvider);
+
     return MaterialApp(
       title: 'Offline POS Kasir SaaS',
+      theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
+        if (isExpired) {
+          return const LicenseLockScreen();
+        }
         return GestureDetector(
           onTap: () {
             FocusManager.instance.primaryFocus?.unfocus();
           },
-          child: child,
+          child: child ?? const SizedBox.shrink(),
         );
       },
       home: FutureBuilder<Widget>(

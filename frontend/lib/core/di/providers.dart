@@ -23,6 +23,9 @@ import '../../features/auth/services/auth_service.dart';
 import '../../features/license/services/license_service.dart';
 import '../../features/settings/services/backup_service.dart';
 import '../services/device_fingerprint_service.dart';
+import '../../features/cashier/domain/repositories/cashier_repository.dart';
+import '../../features/cashier/data/repositories/cashier_repository_impl.dart';
+
 
 // Database Provider
 final posDatabaseProvider = Provider<PosDatabase>((ref) {
@@ -97,4 +100,9 @@ final printerRepositoryProvider = Provider<PrinterRepository>((ref) {
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
   final db = ref.watch(posDatabaseProvider);
   return OrderRepositoryImpl(db);
+});
+
+final cashierRepositoryProvider = Provider<CashierRepository>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return CashierRepositoryImpl(db);
 });

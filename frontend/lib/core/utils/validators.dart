@@ -1,3 +1,5 @@
+import 'dart:io';
+
 class Validators {
   static String? required(String? value, String fieldName) {
     if (value == null || value.trim().isEmpty) {
@@ -33,4 +35,26 @@ class Validators {
     }
     return null;
   }
+
+  static bool isValidWebUrl(String? url) {
+    if (url == null || url.isEmpty) return false;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return false;
+    try {
+      final uri = Uri.parse(url);
+      return uri.hasAbsolutePath && uri.host.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static bool isValidLocalFile(String? path) {
+    if (path == null || path.isEmpty) return false;
+    try {
+      final file = File(path);
+      return file.existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
 }
+

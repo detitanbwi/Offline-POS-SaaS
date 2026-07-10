@@ -153,7 +153,8 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: (pm.isActive ? AppColors.success : AppColors.disabled).withOpacity(0.1),
+                                      color: (pm.isActive ? AppColors.success : AppColors.disabled).withValues(alpha: 0.1),
+
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(

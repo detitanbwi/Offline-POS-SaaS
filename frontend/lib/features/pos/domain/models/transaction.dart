@@ -10,8 +10,10 @@ class TransactionHeader {
   final double nominalBayar;
   final double kembalian;
   final String? catatan;
-  final String status; // 'completed', 'cancelled'
+  final String status; // 'completed', 'cancelled', 'voided'
   final DateTime createdAt;
+  final String? cashierId;
+  final String? cashierNama;
 
   const TransactionHeader({
     required this.id,
@@ -27,6 +29,8 @@ class TransactionHeader {
     this.catatan,
     this.status = 'completed',
     required this.createdAt,
+    this.cashierId,
+    this.cashierNama,
   });
 
   Map<String, dynamic> toMap() {
@@ -44,6 +48,8 @@ class TransactionHeader {
       'catatan': catatan,
       'status': status,
       'created_at': createdAt.toIso8601String(),
+      'cashier_id': cashierId,
+      'cashier_nama': cashierNama,
     };
   }
 
@@ -62,6 +68,8 @@ class TransactionHeader {
       catatan: map['catatan'] as String?,
       status: map['status'] as String,
       createdAt: DateTime.parse(map['created_at'] as String),
+      cashierId: map['cashier_id'] as String?,
+      cashierNama: map['cashier_nama'] as String?,
     );
   }
 }

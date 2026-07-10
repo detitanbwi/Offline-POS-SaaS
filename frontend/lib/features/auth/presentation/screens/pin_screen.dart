@@ -9,6 +9,8 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import '../../../menu/presentation/screens/main_menu_screen.dart';
+import '../../domain/models/auth_user.dart';
+import '../providers/auth_providers.dart';
 
 class PinScreen extends ConsumerStatefulWidget {
   final bool isSetup;
@@ -41,19 +43,43 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     final storage = ref.read(secureStorageServiceProvider);
     if (widget.isSetup) {
       await storage.saveLocalPIN(hashedPin);
+      ref.read(authSessionProvider.notifier).state = const AuthUser(
+        id: 'owner',
+        nama: 'Pemilik Toko',
+        role: 'pemilik',
+      );
       if (!mounted) return;
       AppSnackbar.showSuccess(context, 'PIN Keamanan berhasil dibuat!');
       _goToMainMenu();
     } else {
       final savedHashedPin = await storage.getLocalPIN();
       if (hashedPin == savedHashedPin) {
+        ref.read(authSessionProvider.notifier).state = const AuthUser(
+          id: 'owner',
+          nama: 'Pemilik Toko',
+          role: 'pemilik',
+        );
         if (!mounted) return;
         _goToMainMenu();
       } else {
-        setState(() {
-          _errorMessage = 'PIN Salah!';
-          _pinController.clear();
-        });
+        // Look up Cashiers in the database
+        final cashierRepo = ref.read(cashierRepositoryProvider);
+        final cashier = await cashierRepo.getCashierByPin(hashedPin);
+        
+        if (cashier != null) {
+          ref.read(authSessionProvider.notifier).state = AuthUser(
+            id: cashier.id,
+            nama: cashier.nama,
+            role: 'kasir',
+          );
+          if (!mounted) return;
+          _goToMainMenu();
+        } else {
+          setState(() {
+            _errorMessage = 'PIN Salah!';
+            _pinController.clear();
+          });
+        }
       }
     }
   }
@@ -64,6 +90,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       MaterialPageRoute(builder: (_) => const MainMenuScreen()),
     );
   }
+
 
   @override
   void dispose() {

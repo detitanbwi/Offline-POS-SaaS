@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
@@ -10,8 +12,12 @@ import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/di/providers.dart';
 import '../../application/transaction_history_notifier.dart';
 import '../../../pos/domain/models/transaction.dart';
+
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
   const TransactionHistoryScreen({super.key});
@@ -46,6 +52,11 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     );
 
     final items = await ref.read(transactionHistoryNotifierProvider.notifier).getItems(tx.id);
+    final storage = ref.read(secureStorageServiceProvider);
+    final storeName = await storage.getStoreName() ?? 'Toko Kasir Offline';
+    final storeAddress = await storage.getStoreAddress() ?? 'Jl. Bisnis Commercial POS, Indonesia';
+    final storePhone = await storage.getStorePhone();
+
     if (!mounted) return;
     Navigator.pop(context); // Dismiss loading dialog
 
@@ -89,17 +100,20 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                   Center(
                     child: Column(
                       children: [
-                        Text('Toko Kasir Offline',
+                        Text(storeName,
                             style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
-                        const Text('Jl. Bisnis Commercial POS, Indonesia', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                        const Text('Telp: 0812-3456-7890', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(storeAddress, style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                        if (storePhone != null && storePhone.isNotEmpty) ...[
+                          Text('Telp: $storePhone', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        ],
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
                   _buildReceiptTextRow('No. Transaksi', tx.nomorTransaksi),
                   _buildReceiptTextRow('Waktu', DateFormat('yyyy-MM-dd HH:mm').format(tx.createdAt)),
+                  _buildReceiptTextRow('Kasir', tx.cashierNama ?? 'Pemilik'),
                   _buildReceiptTextRow('Status', tx.status.toUpperCase()),
                   _buildDottedLine(),
                   // List of items
@@ -152,12 +166,110 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            if (tx.status == 'completed') ...[
+              AppButton(
+                text: 'Batalkan Transaksi (Void)',
+                type: AppButtonType.destructive,
+                onPressed: () {
+                  Navigator.pop(context);
+                  _handleVoidTransaction(context, tx);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
         ),
       ),
     );
   }
+
+  void _handleVoidTransaction(BuildContext context, TransactionHeader tx) {
+    final pinController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Otorisasi Pembatalan (Void)', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Masukkan PIN Master Pemilik untuk mengotorisasi pembatalan transaksi ini.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: AppSpacing.m),
+                AppTextField(
+                  controller: pinController,
+                  labelText: 'PIN Master Pemilik',
+                  hintText: 'Masukkan 6 digit PIN Master',
+                  prefixIcon: Icons.lock_rounded,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  validator: (val) {
+                    if (val == null || val.length != 6) {
+                      return 'PIN harus tepat 6 digit';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                if (formKey.currentState?.validate() ?? false) {
+                  final enteredPin = pinController.text;
+                  const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+                  final bytesBytes = utf8.encode(enteredPin + salt);
+                  final enteredHash = sha256.convert(bytesBytes).toString();
+
+                  final storage = ref.read(secureStorageServiceProvider);
+                  final savedHashedPin = await storage.getLocalPIN();
+
+                  if (!context.mounted) return;
+                  Navigator.pop(context); // Close dialog
+
+                  if (enteredHash == savedHashedPin) {
+                    final notifier = ref.read(transactionHistoryNotifierProvider.notifier);
+                    final success = await notifier.voidTransaction(tx.id);
+                    
+                    if (!context.mounted) return;
+                    if (success) {
+                      AppSnackbar.showSuccess(context, 'Transaksi ${tx.nomorTransaksi} berhasil dibatalkan (Void). Stok barang dikembalikan.');
+                    } else {
+                      final state = ref.read(transactionHistoryNotifierProvider);
+                      AppSnackbar.showError(context, state.errorMessage ?? 'Gagal membatalkan transaksi.');
+                    }
+                  } else {
+                    AppSnackbar.showError(context, 'Otorisasi gagal! PIN Master Pemilik salah.');
+                  }
+                }
+              },
+              child: const Text('Otorisasikan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   Widget _buildReceiptTextRow(String label, String value, {bool isBold = false}) {
     return Padding(

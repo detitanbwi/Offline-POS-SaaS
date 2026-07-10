@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 4,
+            version: 5,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 4,
+          version: 5,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -61,7 +61,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 4,
+        version: 5,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -71,7 +71,7 @@ class PosDatabase {
       try {
         db = await openDatabase(
           path,
-          version: 4,
+          version: 5,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -170,6 +170,8 @@ class PosDatabase {
         kembalian REAL NOT NULL DEFAULT 0,
         catatan TEXT,
         status TEXT NOT NULL DEFAULT 'completed',
+        cashier_id TEXT,
+        cashier_nama TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT
       )
@@ -217,6 +219,8 @@ class PosDatabase {
         grand_total REAL NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'draft',
         catatan TEXT,
+        cashier_id TEXT,
+        cashier_nama TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE RESTRICT
@@ -260,6 +264,19 @@ class PosDatabase {
         type TEXT NOT NULL,
         is_connected INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    // 13. Cashiers
+    await db.execute('''
+      CREATE TABLE cashiers (
+        id TEXT PRIMARY KEY,
+        nama TEXT NOT NULL,
+        pin TEXT NOT NULL,
+        status INTEGER NOT NULL DEFAULT 1,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
       )
     ''');
 
@@ -352,6 +369,40 @@ class PosDatabase {
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE categories ADD COLUMN image TEXT');
       await db.execute('ALTER TABLE products ADD COLUMN image TEXT');
+    }
+
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS cashiers (
+          id TEXT PRIMARY KEY,
+          nama TEXT NOT NULL,
+          pin TEXT NOT NULL,
+          status INTEGER NOT NULL DEFAULT 1,
+          is_deleted INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+      try {
+        await db.execute('ALTER TABLE transactions ADD COLUMN cashier_id TEXT');
+      } catch (e) {
+        // ignore
+      }
+      try {
+        await db.execute('ALTER TABLE transactions ADD COLUMN cashier_nama TEXT');
+      } catch (e) {
+        // ignore
+      }
+      try {
+        await db.execute('ALTER TABLE orders ADD COLUMN cashier_id TEXT');
+      } catch (e) {
+        // ignore
+      }
+      try {
+        await db.execute('ALTER TABLE orders ADD COLUMN cashier_nama TEXT');
+      } catch (e) {
+        // ignore
+      }
     }
   }
 

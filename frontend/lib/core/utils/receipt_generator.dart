@@ -2,6 +2,7 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../features/pos/domain/models/order.dart';
 import '../../features/pos/domain/models/order_item.dart';
 import '../../features/pos/domain/models/transaction.dart';
+import '../../features/auth/services/secure_storage_service.dart';
 import 'currency_formatter.dart';
 
 class ReceiptGenerator {
@@ -60,10 +61,18 @@ class ReceiptGenerator {
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
+    final storage = SecureStorageService();
+    final storeName = await storage.getStoreName() ?? 'KASIR POS OFFLINE';
+    final storeAddress = await storage.getStoreAddress() ?? 'SaaS Offline POS';
+    final storePhone = await storage.getStorePhone();
+
     // Header
     bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('KASIR POS OFFLINE');
-    bytes += generator.text('SaaS Offline POS');
+    bytes += generator.text(storeName);
+    bytes += generator.text(storeAddress);
+    if (storePhone != null && storePhone.isNotEmpty) {
+      bytes += generator.text('Telp: $storePhone');
+    }
     bytes += generator.text('================================');
     
     // Meta Info
@@ -73,6 +82,7 @@ class ReceiptGenerator {
     if (tableName != null && tableName.isNotEmpty) {
       bytes += generator.text('Meja: $tableName');
     }
+    bytes += generator.text('Kasir: ${transaction.cashierNama ?? 'Pemilik'}');
     bytes += generator.text('Metode: ${transaction.paymentMethodNama}');
     bytes += generator.text('================================');
 
@@ -114,6 +124,75 @@ class ReceiptGenerator {
 
     return bytes;
   }
+
+  // Generate 58mm ESC/POS bytes for Bill / Tagihan Sementara
+  static Future<List<int>> generateBillReceipt({
+    required OrderModel order,
+    required List<OrderItemModel> items,
+  }) async {
+    final profile = await _getProfile();
+    final generator = Generator(PaperSize.mm58, profile);
+    List<int> bytes = [];
+
+    final storage = SecureStorageService();
+    final storeName = await storage.getStoreName() ?? 'KASIR POS OFFLINE';
+    final storeAddress = await storage.getStoreAddress() ?? 'SaaS Offline POS';
+    final storePhone = await storage.getStorePhone();
+
+    // Header
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text('*** TAGIHAN SEMENTARA ***');
+    bytes += generator.text(storeName);
+    bytes += generator.text(storeAddress);
+    if (storePhone != null && storePhone.isNotEmpty) {
+      bytes += generator.text('Telp: $storePhone');
+    }
+    bytes += generator.text('================================');
+    
+    // Meta Info
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
+    bytes += generator.text('No. Order: ${order.nomorOrder}');
+    bytes += generator.text('Waktu: ${DateTime.now().toString().split('.').first}');
+    if (order.tableNama != null && order.tableNama!.isNotEmpty) {
+      bytes += generator.text('Meja: ${order.tableNama}');
+    }
+    bytes += generator.text('================================');
+
+    // Items List
+    for (var item in items) {
+      bytes += generator.text(item.produkNama);
+      final qtyPrice = '  ${item.qty}x ${CurrencyFormatter.format(item.produkHarga)}';
+      final subtotal = CurrencyFormatter.format(item.subtotal);
+      final spaceCount = 32 - qtyPrice.length - subtotal.length;
+      final spaces = spaceCount > 0 ? ' ' * spaceCount : ' ';
+      bytes += generator.text('$qtyPrice$spaces$subtotal');
+      if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
+        bytes += generator.text('  * Catatan: ${item.catatan}');
+      }
+    }
+
+    bytes += generator.text('================================');
+
+    // Summary Totals
+    bytes += _renderSummaryRow(generator, 'Subtotal:', CurrencyFormatter.format(order.subtotal));
+    if (order.taxAmount > 0) {
+      bytes += _renderSummaryRow(
+        generator, 
+        'PPN (${order.taxPercentage}%):', 
+        CurrencyFormatter.format(order.taxAmount)
+      );
+    }
+    bytes += _renderSummaryRow(generator, 'Grand Total:', CurrencyFormatter.format(order.grandTotal), bold: true);
+
+    bytes += generator.text('================================');
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
+    bytes += generator.text('Bukan Bukti Pembayaran Resmi');
+    bytes += generator.feed(3);
+    bytes += generator.cut();
+
+    return bytes;
+  }
+
 
   // Generate 58mm ESC/POS bytes for Sales Report
   static Future<List<int>> generateReportReceipt({

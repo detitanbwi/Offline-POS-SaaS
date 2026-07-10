@@ -78,6 +78,18 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
   Future<List<TransactionItem>> getItems(String id) async {
     return await _repository.getTransactionItems(id);
   }
+
+  Future<bool> voidTransaction(String transactionId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.voidTransaction(transactionId);
+      await loadTransactions();
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal membatalkan transaksi: $e');
+      return false;
+    }
+  }
 }
 
 final transactionHistoryNotifierProvider =

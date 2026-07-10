@@ -94,52 +94,55 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       context: context,
       title: product == null ? 'Tambah Produk' : 'Ubah Produk',
       confirmText: 'Simpan',
-      content: ProductForm(
-        key: formKey,
-        product: product,
-        categories: categoryState.allCategories,
-        onSubmit: ({
-          required String nama,
-          required String kategoriId,
-          required double harga,
-          required int stok,
-          required int status,
-          String? image,
-        }) async {
-          Navigator.pop(context); // close dialog
+      content: SizedBox(
+        width: 420,
+        child: ProductForm(
+          key: formKey,
+          product: product,
+          categories: categoryState.allCategories,
+          onSubmit: ({
+            required String nama,
+            required String kategoriId,
+            required double harga,
+            required int stok,
+            required int status,
+            String? image,
+          }) async {
+            Navigator.pop(context); // close dialog
 
-          bool success;
-          if (product == null) {
-            success = await ref.read(productNotifierProvider.notifier).addProduct(
-                  nama: nama,
-                  kategoriId: kategoriId,
-                  harga: harga,
-                  stok: stok,
-                  status: status,
-                  image: image,
-                );
-          } else {
-            success = await ref.read(productNotifierProvider.notifier).updateProduct(
-                  id: product.id,
-                  nama: nama,
-                  kategoriId: kategoriId,
-                  harga: harga,
-                  status: status,
-                  image: image,
-                );
-          }
+            bool success;
+            if (product == null) {
+              success = await ref.read(productNotifierProvider.notifier).addProduct(
+                    nama: nama,
+                    kategoriId: kategoriId,
+                    harga: harga,
+                    stok: stok,
+                    status: status,
+                    image: image,
+                  );
+            } else {
+              success = await ref.read(productNotifierProvider.notifier).updateProduct(
+                    id: product.id,
+                    nama: nama,
+                    kategoriId: kategoriId,
+                    harga: harga,
+                    status: status,
+                    image: image,
+                  );
+            }
 
-          if (!mounted) return;
-          final state = ref.read(productNotifierProvider);
-          if (success) {
-            AppSnackbar.showSuccess(
-              context,
-              product == null ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!',
-            );
-          } else if (state.errorMessage != null) {
-            AppSnackbar.showError(context, state.errorMessage!);
-          }
-        },
+            if (!mounted) return;
+            final state = ref.read(productNotifierProvider);
+            if (success) {
+              AppSnackbar.showSuccess(
+                context,
+                product == null ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!',
+              );
+            } else if (state.errorMessage != null) {
+              AppSnackbar.showError(context, state.errorMessage!);
+            }
+          },
+        ),
       ),
       onConfirm: () {
         formKey.currentState?.submit();
@@ -325,12 +328,15 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                               ? null
                               : () => _confirmBulkDelete(context),
                           icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                          label: const Text('Hapus', style: TextStyle(fontSize: 12)),
+                          label: const Text('Hapus Terpilih', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            minimumSize: Size.zero,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
                           ),
                         ),
                       ],
@@ -494,25 +500,29 @@ class _ProductItemRow extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: (product.isActive ? AppColors.primary : AppColors.disabled).withOpacity(0.1),
+                color: (product.isActive ? AppColors.primary : AppColors.disabled).withValues(alpha: 0.1),
+
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.divider),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: product.image != null && product.image!.isNotEmpty
-                    ? (product.image!.startsWith('http')
+                    ? (Validators.isValidWebUrl(product.image!)
                         ? Image.network(
                             product.image!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
                           )
-                        : Image.file(
-                            File(product.image!),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
-                          ))
+                        : Validators.isValidLocalFile(product.image!)
+                            ? Image.file(
+                                File(product.image!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
+                              )
+                            : const Icon(Icons.inventory_2_outlined, color: AppColors.primary))
                     : Icon(
+
                         Icons.inventory_2_outlined,
                         color: product.isActive ? AppColors.primary : AppColors.disabled,
                         size: 24,
@@ -632,7 +642,8 @@ class _ProductItemCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (product.stok > 0 ? AppColors.success : AppColors.error).withOpacity(0.1),
+                  color: (product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dialog.dart';
@@ -23,6 +25,9 @@ import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../domain/models/order.dart';
 import 'payment_screen.dart';
+import '../../../../core/utils/receipt_generator.dart';
+import '../../../printer/application/printer_notifier.dart';
+
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -183,7 +188,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     await AppDialog.show(
       context: context,
       title: 'Keluar Transaksi POS',
-      message: 'Apakah Anda yakin ingin keluar? Keranjang belanja saat ini akan hilang.',
+      message: 'Apakah Anda yakin ingin keluar?.',
       confirmText: 'Keluar',
       cancelText: 'Batal',
       isDestructive: true,
@@ -272,10 +277,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.m),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 220,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.15,
+        maxCrossAxisExtent: 180,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.72,
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
@@ -284,94 +289,107 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
         return AppCard(
           borderSide: const BorderSide(color: AppColors.divider),
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.zero,
           onTap: isOutOfStock ? null : () => cartNotifier.addItem(product),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Product details
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.nama,
-                          style: AppTypography.titleMedium.copyWith(fontSize: 14),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          product.kategoriNama ?? 'Master',
-                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
-                        ),
-                      ],
-                    ),
+              Expanded(
+                flex: 4,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                   ),
-                  if (product.image != null && product.image!.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: product.image!.startsWith('http')
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    child: product.image != null && product.image!.isNotEmpty
+                        ? (Validators.isValidWebUrl(product.image!)
                             ? Image.network(
                                 product.image!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 16),
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
+                                ),
                               )
-                            : Image.file(
-                                File(product.image!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 16),
-                              ),
-                      ),
-                    ),
-                  ],
-                ],
+                            : Validators.isValidLocalFile(product.image!)
+                                ? Image.file(
+                                    File(product.image!),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Center(
+                                      child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
+                                    ),
+                                  )
+                                : const Center(
+                                    child: Icon(Icons.fastfood_rounded, color: AppColors.textSecondary, size: 36),
+                                  ))
+                        : const Center(
+                            child: Icon(Icons.fastfood_rounded, color: AppColors.textSecondary, size: 36),
+                          ),
+                  ),
+                ),
               ),
-              const Spacer(),
-              // Price and Stock level status
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      CurrencyFormatter.format(product.harga),
-                      style: AppTypography.titleMedium.copyWith(
-                        color: AppColors.secondary,
-                        fontSize: 13,
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product.nama,
+                            style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            product.kategoriNama ?? 'Master',
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: (isOutOfStock ? AppColors.error : AppColors.success).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
-                      style: TextStyle(
-                        color: isOutOfStock ? AppColors.error : AppColors.success,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              CurrencyFormatter.format(product.harga),
+                              style: AppTypography.titleMedium.copyWith(
+                                color: AppColors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: (isOutOfStock ? AppColors.error : AppColors.success).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
+                              style: TextStyle(
+                                color: isOutOfStock ? AppColors.error : AppColors.success,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -473,6 +491,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             width: double.infinity,
           ),
           if (ref.watch(orderNotifierProvider).activeOrder != null) ...[
+            const SizedBox(height: 8),
+            AppButton(
+              text: 'Cetak Bil (Tagihan Sementara)',
+              type: AppButtonType.secondary,
+              onPressed: () => _handlePrintBill(context),
+              icon: Icons.print_rounded,
+              width: double.infinity,
+            ),
             const SizedBox(height: 8),
             AppButton(
               text: 'Batalkan Pesanan Meja',
@@ -758,6 +784,40 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         }
       },
     );
+  }
+
+  Future<void> _handlePrintBill(BuildContext context) async {
+    final orderState = ref.read(orderNotifierProvider);
+    final order = orderState.activeOrder;
+    final items = orderState.activeOrderItems;
+    if (order == null) return;
+
+    final printerState = ref.read(printerNotifierProvider);
+    final hasCashierPrinter = printerState.configuredPrinters.any((p) => p.isCashier);
+
+    final receiptBytes = await ReceiptGenerator.generateBillReceipt(
+      order: order,
+      items: items,
+    );
+
+    if (hasCashierPrinter) {
+      final cashierPrinter = printerState.configuredPrinters.firstWhere((p) => p.isCashier);
+      final success = await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
+      if (!context.mounted) return;
+      if (success) {
+        AppSnackbar.showSuccess(context, 'Tagihan sementara berhasil dicetak.');
+      } else {
+        AppSnackbar.showError(context, 'Gagal mencetak tagihan ke printer.');
+      }
+    } else {
+      if (kDebugMode) {
+        debugPrint('--- PRINT BILL TO SIMULATOR ---');
+        debugPrint(String.fromCharCodes(receiptBytes));
+        debugPrint('-------------------------------');
+      }
+      if (!context.mounted) return;
+      AppSnackbar.showSuccess(context, 'Simulasi cetak tagihan berhasil (Lihat log console).');
+    }
   }
 }
 

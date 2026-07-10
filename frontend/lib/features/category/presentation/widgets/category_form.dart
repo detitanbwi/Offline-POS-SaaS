@@ -27,7 +27,6 @@ class CategoryForm extends StatefulWidget {
 class CategoryFormState extends State<CategoryForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _imageUrlController;
   late int _status;
   String? _imagePath;
   final _imagePicker = ImagePicker();
@@ -38,15 +37,11 @@ class CategoryFormState extends State<CategoryForm> {
     _nameController = TextEditingController(text: widget.category?.nama ?? '');
     _status = widget.category?.status ?? 1;
     _imagePath = widget.category?.image;
-    _imageUrlController = TextEditingController(
-      text: _imagePath != null && _imagePath!.startsWith('http') ? _imagePath : '',
-    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -63,7 +58,6 @@ class CategoryFormState extends State<CategoryForm> {
         if (savedPath != null) {
           setState(() {
             _imagePath = savedPath;
-            _imageUrlController.clear();
           });
         }
       }
@@ -71,6 +65,62 @@ class CategoryFormState extends State<CategoryForm> {
       debugPrint('Error picking image: $e');
     }
   }
+
+  void _showImageSourcePicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Pilih Sumber Gambar',
+              style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('Pilih dari Galeri'),
+              onPressed: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.camera_alt_outlined),
+              label: const Text('Ambil dari Kamera'),
+              onPressed: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   Future<String?> _saveLocalImage(String pickedFilePath) async {
     try {
@@ -124,92 +174,72 @@ class CategoryFormState extends State<CategoryForm> {
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Preview
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _imagePath == null || _imagePath!.isEmpty
-                      ? Icon(Icons.add_photo_alternate_outlined, color: Colors.grey[400], size: 36)
-                      : _imagePath!.startsWith('http')
-                          ? Image.network(
-                              _imagePath!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image_outlined, color: Colors.red[300], size: 36),
-                            )
-                          : Image.file(
-                              File(_imagePath!),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image_outlined, color: Colors.red[300], size: 36),
-                            ),
-                ),
+          GestureDetector(
+            onTap: () => _showImageSourcePicker(context),
+            child: Container(
+              height: 140,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.divider, width: 1.5),
               ),
-              const SizedBox(width: 16),
-              // Buttons to Pick
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_imagePath != null && _imagePath!.isNotEmpty) ...[
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Validators.isValidLocalFile(_imagePath!)
+                            ? Image.file(
+                                File(_imagePath!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.broken_image_outlined, size: 40, color: AppColors.error),
+                                ),
+                              )
+                            : const Center(
+                                child: Icon(Icons.image_outlined, size: 40, color: AppColors.disabled),
+                              ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: CircleAvatar(
+                        backgroundColor: Colors.black54,
+                        radius: 18,
+                        child: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+                          onPressed: () {
+                            setState(() {
+                              _imagePath = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ElevatedButton.icon(
-                          onPressed: () => _pickImage(ImageSource.gallery),
-                          icon: const Icon(Icons.photo_library_outlined, size: 16),
-                          label: const Text('Galeri', style: TextStyle(fontSize: 12)),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            minimumSize: Size.zero,
-                          ),
+                        const Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.primary),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Pilih Gambar (Galeri / Kamera)',
+                          style: AppTypography.titleMedium.copyWith(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _pickImage(ImageSource.camera),
-                          icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                          label: const Text('Kamera', style: TextStyle(fontSize: 12)),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            minimumSize: Size.zero,
-                          ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Format didukung: JPG, PNG',
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10),
                         ),
-                        if (_imagePath != null) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            onPressed: () {
-                              setState(() {
-                                _imagePath = null;
-                                _imageUrlController.clear();
-                              });
-                            },
-                          ),
-                        ],
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    AppTextField(
-                      controller: _imageUrlController,
-                      labelText: 'Atau URL Gambar Web',
-                      hintText: 'https://example.com/image.jpg',
-                      prefixIcon: Icons.link_rounded,
-                      onChanged: (val) {
-                        setState(() {
-                          _imagePath = val.trim().isEmpty ? null : val.trim();
-                        });
-                      },
-                    ),
                   ],
-                ),
+                ],
               ),
-            ],
+            ),
           ),
           if (widget.category != null) ...[
             const SizedBox(height: 16),

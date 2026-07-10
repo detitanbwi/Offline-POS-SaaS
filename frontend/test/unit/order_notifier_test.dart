@@ -53,6 +53,23 @@ class OrderRepositoryMock implements OrderRepository {
     mockActiveOrder = null;
     mockOrderItems = [];
   }
+
+  @override
+  Future<void> transferOrderTable(
+    String orderId,
+    String oldTableId,
+    String newTableId,
+    String newTableName,
+    String newTableNomor,
+  ) async {
+    if (mockActiveOrder != null && mockActiveOrder!.id == orderId) {
+      mockActiveOrder = mockActiveOrder!.copyWith(
+        tableId: newTableId,
+        tableNama: newTableName,
+        tableNomor: newTableNomor,
+      );
+    }
+  }
 }
 
 void main() {

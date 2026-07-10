@@ -14,6 +14,10 @@ class SecureStorageService {
   static const String _keyLicenseExpiry = 'license_expiry';
   static const String _keyFingerprintHash = 'fingerprint_hash';
 
+  static const String _keyStoreName = 'store_name';
+  static const String _keyStoreAddress = 'store_address';
+  static const String _keyStorePhone = 'store_phone';
+
   Future<void> saveLocalPIN(String pin) async {
     await _storage.write(key: _keyLocalPin, value: pin);
   }
@@ -21,6 +25,29 @@ class SecureStorageService {
   Future<String?> getLocalPIN() async {
     return await _storage.read(key: _keyLocalPin);
   }
+
+  Future<void> saveStoreInfo({
+    required String name,
+    required String address,
+    required String phone,
+  }) async {
+    await _storage.write(key: _keyStoreName, value: name);
+    await _storage.write(key: _keyStoreAddress, value: address);
+    await _storage.write(key: _keyStorePhone, value: phone);
+  }
+
+  Future<String?> getStoreName() async {
+    return await _storage.read(key: _keyStoreName);
+  }
+
+  Future<String?> getStoreAddress() async {
+    return await _storage.read(key: _keyStoreAddress);
+  }
+
+  Future<String?> getStorePhone() async {
+    return await _storage.read(key: _keyStorePhone);
+  }
+
 
   Future<void> saveTokens({required String onlineToken, required String offlineToken}) async {
     await _storage.write(key: _keyOnlineToken, value: onlineToken);

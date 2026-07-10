@@ -28,7 +28,8 @@ class AppButton extends StatelessWidget {
     final bool isButtonDisabled = onPressed == null || isLoading;
 
     Color getBgColor() {
-      if (isButtonDisabled) return AppColors.disabled.withOpacity(0.3);
+      if (isButtonDisabled) return AppColors.disabled.withValues(alpha: 0.3);
+
       switch (type) {
         case AppButtonType.primary:
           return AppColors.primary;

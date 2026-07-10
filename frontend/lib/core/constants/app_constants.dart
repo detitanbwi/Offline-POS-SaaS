@@ -36,7 +36,7 @@ class PrinterType {
 }
 
 /// Database version
-const int posDatabaseVersion = 3;
+const int posDatabaseVersion = 5;
 
 /// License validation interval in days
 const int licenseValidationIntervalDays = 7;

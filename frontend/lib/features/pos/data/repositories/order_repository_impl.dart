@@ -180,4 +180,49 @@ class OrderRepositoryImpl implements OrderRepository {
       whereArgs: [orderId],
     );
   }
+
+  @override
+  Future<void> transferOrderTable(
+    String orderId,
+    String oldTableId,
+    String newTableId,
+    String newTableName,
+    String newTableNomor,
+  ) async {
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'orders',
+        {
+          'table_id': newTableId,
+          'table_nama': newTableName,
+          'table_nomor': newTableNomor,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+
+      await txn.update(
+        'tables',
+        {
+          'status': 0,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [oldTableId],
+      );
+
+      await txn.update(
+        'tables',
+        {
+          'status': 1,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [newTableId],
+      );
+    });
+  }
 }
+

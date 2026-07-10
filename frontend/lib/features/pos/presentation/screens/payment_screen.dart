@@ -18,6 +18,8 @@ import '../../../payment_method/application/payment_method_notifier.dart';
 import '../../../payment_method/domain/models/payment_method.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+
 import '../../application/order_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
@@ -187,7 +189,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     try {
       final txId = _uuid.v4();
+      final activeUser = ref.read(authSessionProvider);
       final header = TransactionHeader(
+
         id: txId,
         nomorTransaksi: _orderNumber,
         subtotal: subtotal,
@@ -200,7 +204,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         kembalian: change,
         catatan: _notesController.text.trim(),
         createdAt: DateTime.now(),
+        cashierId: activeUser?.id,
+        cashierNama: activeUser?.nama,
       );
+
 
       final cartState = ref.read(cartNotifierProvider);
       final List<TransactionItem> items = cartState.items.map((item) {
@@ -297,7 +304,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
+                  color: AppColors.success.withValues(alpha: 0.1),
+
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

@@ -139,7 +139,8 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: AppColors.success.withOpacity(0.1),
+                                      color: AppColors.success.withValues(alpha: 0.1),
+
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
