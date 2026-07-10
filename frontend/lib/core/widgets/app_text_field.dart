@@ -18,6 +18,7 @@ class AppTextField extends StatelessWidget {
   final VoidCallback? onTap;
   final int? maxLines;
   final int? maxLength;
+  final String? prefixText;
 
   const AppTextField({
     super.key,
@@ -35,6 +36,7 @@ class AppTextField extends StatelessWidget {
     this.onTap,
     this.maxLines = 1,
     this.maxLength,
+    this.prefixText,
   });
 
   @override
@@ -56,6 +58,7 @@ class AppTextField extends StatelessWidget {
         hintText: hintText,
         counterText: "",
         prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppColors.textSecondary) : null,
+        prefixText: prefixText,
         suffixIcon: suffixIcon,
       ),
     );

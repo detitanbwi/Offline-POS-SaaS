@@ -9,7 +9,6 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
 import '../../../auth/presentation/screens/pin_screen.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/services/secure_storage_service.dart';
 import '../../../pos/presentation/screens/pos_screen.dart';
 import '../../../pos/presentation/screens/table_selector_screen.dart';
 import '../../../pos/presentation/screens/sales_report_screen.dart';
@@ -291,8 +290,8 @@ class MainMenuScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               Expanded(
                 child: ResponsiveLayout(
-                  mobile: _buildGrid(context, ref, isOwner, crossAxisCount: 2),
-                  tablet: _buildGrid(context, ref, isOwner, crossAxisCount: 3),
+                  mobile: _buildGrid(context, ref, isOwner, isTablet: false),
+                  tablet: _buildGrid(context, ref, isOwner, isTablet: true),
                 ),
               ),
             ],
@@ -302,12 +301,16 @@ class MainMenuScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGrid(BuildContext context, WidgetRef ref, bool isOwner, {required int crossAxisCount}) {
+  Widget _buildGrid(BuildContext context, WidgetRef ref, bool isOwner, {required bool isTablet}) {
+    final crossAxisCount = isTablet ? (isOwner ? 3 : 4) : 2;
+    final childAspectRatio = isTablet ? 1.15 : 1.1;
+
     if (isOwner) {
       return GridView.count(
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: AppSpacing.m,
         mainAxisSpacing: AppSpacing.m,
+        childAspectRatio: childAspectRatio,
         children: [
           _buildMenuCard(
             context,
@@ -348,6 +351,7 @@ class MainMenuScreen extends ConsumerWidget {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: AppSpacing.m,
         mainAxisSpacing: AppSpacing.m,
+        childAspectRatio: childAspectRatio,
         children: [
           _buildMenuCard(
             context,
@@ -439,30 +443,30 @@ class MainMenuScreen extends ConsumerWidget {
     return AppCard(
       onTap: onTap,
       color: Colors.white,
-      padding: const EdgeInsets.all(AppSpacing.l),
+      padding: const EdgeInsets.all(AppSpacing.m),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 36, color: iconColor),
+            child: Icon(icon, size: 28, color: iconColor),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: AppTypography.titleMedium.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
+            style: AppTypography.titleMedium.copyWith(fontSize: 14, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
           ),
         ],
       ),

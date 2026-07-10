@@ -307,7 +307,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         ? (Validators.isValidWebUrl(product.image!)
                             ? Image.network(
                                 product.image!,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 errorBuilder: (_, __, ___) => const Center(
                                   child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                 ),
@@ -315,7 +315,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                             : Validators.isValidLocalFile(product.image!)
                                 ? Image.file(
                                     File(product.image!),
-                                    fit: BoxFit.cover,
+                                    fit: BoxFit.contain,
                                     errorBuilder: (_, __, ___) => const Center(
                                       child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ),

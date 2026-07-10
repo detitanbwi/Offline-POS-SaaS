@@ -382,7 +382,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          'Metode: ${tx.paymentMethodNama} • $timeStr',
+                                          'Pembayaran: ${tx.paymentMethodNama} • $timeStr',
                                           style: AppTypography.bodyMedium.copyWith(
                                             color: AppColors.textSecondary,
                                             fontSize: 12,

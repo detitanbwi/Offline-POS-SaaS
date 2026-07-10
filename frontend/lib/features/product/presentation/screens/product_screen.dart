@@ -386,33 +386,38 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                               );
                             },
                           ),
-                          tablet: GridView.builder(
-                            padding: const EdgeInsets.all(AppSpacing.m),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1.8,
-                            ),
-                            itemCount: state.filteredProducts.length,
-                            itemBuilder: (context, index) {
-                              final product = state.filteredProducts[index];
-                              final isSelected = _selectedIds.contains(product.id);
-                              return _ProductItemCard(
-                                product: product,
-                                isSelectionMode: _isSelectionMode,
-                                isSelected: isSelected,
-                                onSelectedChanged: (selected) {
-                                  setState(() {
-                                    if (selected == true) {
-                                      _selectedIds.add(product.id);
-                                    } else {
-                                      _selectedIds.remove(product.id);
-                                    }
-                                  });
+                          tablet: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final crossAxisCount = constraints.maxWidth >= 900 ? 6 : 5;
+                              return GridView.builder(
+                                padding: const EdgeInsets.all(AppSpacing.m),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.75,
+                                ),
+                                itemCount: state.filteredProducts.length,
+                                itemBuilder: (context, index) {
+                                  final product = state.filteredProducts[index];
+                                  final isSelected = _selectedIds.contains(product.id);
+                                  return _ProductItemCard(
+                                    product: product,
+                                    isSelectionMode: _isSelectionMode,
+                                    isSelected: isSelected,
+                                    onSelectedChanged: (selected) {
+                                      setState(() {
+                                        if (selected == true) {
+                                          _selectedIds.add(product.id);
+                                        } else {
+                                          _selectedIds.remove(product.id);
+                                        }
+                                      });
+                                    },
+                                    onEdit: () => _showAddEditDialog(context, product),
+                                    onDelete: () => _confirmDelete(context, product),
+                                  );
                                 },
-                                onEdit: () => _showAddEditDialog(context, product),
-                                onDelete: () => _confirmDelete(context, product),
                               );
                             },
                           ),
@@ -597,96 +602,159 @@ class _ProductItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppCard(
       onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.zero,
       borderSide: const BorderSide(color: AppColors.divider),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (isSelectionMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: Checkbox(
-                    value: isSelected,
-                    onChanged: onSelectedChanged,
-                  ),
-                ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.nama,
-                      style: AppTypography.titleMedium.copyWith(
-                        fontSize: 15,
-                        decoration: product.isActive ? null : TextDecoration.lineThrough,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      product.kategoriNama ?? 'Tanpa Kategori',
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
+          Expanded(
+            flex: 4,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
-
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Stok: ${product.stok}',
-                  style: TextStyle(
-                    color: product.stok > 0 ? AppColors.success : AppColors.error,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      child: product.image != null && product.image!.isNotEmpty
+                          ? (Validators.isValidWebUrl(product.image!)
+                              ? Image.network(
+                                  product.image!,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Center(
+                                    child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
+                                  ),
+                                )
+                              : Validators.isValidLocalFile(product.image!)
+                                  ? Image.file(
+                                      File(product.image!),
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const Center(
+                                        child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
+                                      ),
+                                    )
+                                  : const Center(
+                                      child: Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 36),
+                                    ))
+                          : const Center(
+                              child: Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 36),
+                            ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: (product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Stok: ${product.stok}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (isSelectionMode)
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: isSelected,
+                          onChanged: onSelectedChanged,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                CurrencyFormatter.format(product.harga),
-                style: AppTypography.titleMedium.copyWith(
-                  color: AppColors.secondary,
-                  fontSize: 14,
-                ),
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.nama,
+                        style: AppTypography.titleMedium.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          decoration: product.isActive ? null : TextDecoration.lineThrough,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        product.kategoriNama ?? 'Tanpa Kategori',
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          CurrencyFormatter.format(product.harga),
+                          style: AppTypography.titleMedium.copyWith(
+                            color: AppColors.secondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (!isSelectionMode)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 18),
+                              onPressed: onEdit,
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
+                              onPressed: onDelete,
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ],
               ),
-              if (!isSelectionMode)
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
-                      onPressed: onEdit,
-                      constraints: const BoxConstraints(),
-                      padding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
-                      onPressed: onDelete,
-                      constraints: const BoxConstraints(),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-            ],
+            ),
           ),
         ],
       ),

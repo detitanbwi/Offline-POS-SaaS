@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/validators.dart';
-import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../domain/models/product.dart';
@@ -49,7 +51,9 @@ class ProductFormState extends State<ProductForm> {
     super.initState();
     _nameController = TextEditingController(text: widget.product?.nama ?? '');
     _priceController = TextEditingController(
-      text: widget.product?.harga != null ? widget.product!.harga.toStringAsFixed(0) : '',
+      text: widget.product?.harga != null
+          ? CurrencyFormatter.formatNumber(widget.product!.harga)
+          : '',
     );
     _stockController = TextEditingController(
       text: widget.product?.stok != null ? widget.product!.stok.toString() : '0',
@@ -284,10 +288,27 @@ class ProductFormState extends State<ProductForm> {
             AppTextField(
               controller: _priceController,
               labelText: 'Harga Jual (Rupiah)',
-              hintText: 'Masukkan harga jual (contoh: 15000)',
-              prefixIcon: Icons.attach_money_rounded,
+              hintText: 'Masukkan harga jual (contoh: 15.000)',
+              prefixText: 'Rp ',
               keyboardType: TextInputType.number,
-              validator: (v) => Validators.number(v, 'Harga Jual'),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                RupiahInputFormatter(),
+              ],
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) {
+                  return 'Harga Jual tidak boleh kosong';
+                }
+                final cleanValue = v.replaceAll('.', '');
+                final numVal = num.tryParse(cleanValue);
+                if (numVal == null) {
+                  return 'Harga Jual harus berupa angka';
+                }
+                if (numVal < 0) {
+                  return 'Harga Jual tidak boleh negatif';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
             AppTextField(
@@ -342,10 +363,12 @@ class ProductFormState extends State<ProductForm> {
   bool submit() {
     if (_formKey.currentState?.validate() ?? false) {
       if (_selectedCategoryId == null) return false;
+      final cleanPriceText = _priceController.text.replaceAll('.', '');
+      final double harga = double.tryParse(cleanPriceText) ?? 0.0;
       widget.onSubmit(
         nama: _nameController.text.trim(),
         kategoriId: _selectedCategoryId!,
-        harga: double.parse(_priceController.text),
+        harga: harga,
         stok: int.parse(_stockController.text),
         status: _status,
         image: _imagePath,
@@ -353,5 +376,28 @@ class ProductFormState extends State<ProductForm> {
       return true;
     }
     return false;
+  }
+}
+
+class RupiahInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    final String cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final double value = double.tryParse(cleanText) ?? 0;
+    
+    final formatter = NumberFormat.decimalPattern('id_ID');
+    final String formattedText = formatter.format(value);
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
   }
 }
