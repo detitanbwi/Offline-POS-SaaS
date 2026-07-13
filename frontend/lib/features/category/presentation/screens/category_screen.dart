@@ -62,7 +62,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
           }
         }
         
-        if (!mounted) return;
+        if (!context.mounted) return;
         
         if (failedCount > 0) {
           AppSnackbar.showWarning(
@@ -102,7 +102,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
               success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status, image: image);
             }
 
-            if (!mounted) return;
+            if (!context.mounted) return;
             final state = ref.read(categoryNotifierProvider);
             if (success) {
               AppSnackbar.showSuccess(
@@ -130,7 +130,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         Navigator.pop(context); // close dialog
         final success = await ref.read(categoryNotifierProvider.notifier).deleteCategory(category.id);
         
-        if (!mounted) return;
+        if (!context.mounted) return;
         final state = ref.read(categoryNotifierProvider);
         if (success) {
           AppSnackbar.showSuccess(context, 'Kategori "${category.nama}" berhasil dihapus!');
@@ -391,13 +391,13 @@ class _CategoryItem extends StatelessWidget {
         imageWidget = Image.network(
           category.image!,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
+          errorBuilder: (_, _, _) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
       } else if (Validators.isValidLocalFile(category.image!)) {
         imageWidget = Image.file(
           File(category.image!),
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
+          errorBuilder: (_, _, _) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
       } else {
         imageWidget = const Icon(Icons.folder_open_rounded, color: AppColors.primary);

@@ -62,7 +62,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           }
         }
         
-        if (!mounted) return;
+        if (!context.mounted) return;
         
         if (failedCount > 0) {
           AppSnackbar.showWarning(
@@ -111,8 +111,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         );
                   }
 
+                  if (!context.mounted) return;
                   if (success) {
-                    if (!context.mounted) return;
                     Navigator.pop(context);
                     AppSnackbar.showSuccess(
                       context,

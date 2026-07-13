@@ -64,7 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       onConfirm: () async {
         final backupService = ref.read(backupServiceProvider);
         final success = await backupService.restoreBackup();
-        if (!context.mounted) return;
+        if (!mounted) return;
         Navigator.pop(context); // Close dialog
         if (success) {
           AppSnackbar.showSuccess(context, 'Database berhasil dipulihkan!');

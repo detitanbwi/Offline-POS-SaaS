@@ -123,7 +123,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                         : ListView.separated(
                             controller: scrollController,
                             itemCount: state.scannedDevices.length,
-                            separatorBuilder: (_, __) => const Divider(),
+                            separatorBuilder: (_, _) => const Divider(),
                             itemBuilder: (context, index) {
                               final dev = state.scannedDevices[index];
                               return ListTile(
@@ -171,7 +171,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
               address: address,
               type: type,
             );
-        if (!mounted) return;
+        if (!context.mounted) return;
         if (success) {
           AppSnackbar.showSuccess(context, 'Berhasil menghubungkan printer $name');
         } else {

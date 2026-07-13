@@ -116,7 +116,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: nonCashMethods.length,
-                    separatorBuilder: (_, __) => const Divider(),
+                    separatorBuilder: (_, _) => const Divider(),
                     itemBuilder: (context, idx) {
                       final method = nonCashMethods[idx];
                       final isSelected = _selectedMethod?.id == method.id;

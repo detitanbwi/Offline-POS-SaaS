@@ -243,7 +243,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: emptyTables.length,
-                    separatorBuilder: (_, __) => const Divider(),
+                    separatorBuilder: (_, _) => const Divider(),
                     itemBuilder: (context, index) {
                       final table = emptyTables[index];
                       return ListTile(
@@ -421,7 +421,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                             ? Image.network(
                                 product.image!,
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Center(
+                                errorBuilder: (_, _, _) => const Center(
                                   child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                 ),
                               )
@@ -429,7 +429,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                 ? Image.file(
                                     File(product.image!),
                                     fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => const Center(
+                                    errorBuilder: (_, _, _) => const Center(
                                       child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ),
                                   )
@@ -614,7 +614,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ? null
                 : () async {
                     if (await _ensureTableSelected()) {
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const PaymentScreen()),
@@ -631,7 +631,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ? null
                 : () async {
                     if (await _ensureTableSelected()) {
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       _handleSaveOrderDraft(context, state);
                     }
                   },
@@ -838,7 +838,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     child: ListView.separated(
                                       controller: scrollController,
                                       itemCount: cState.items.length,
-                                      separatorBuilder: (_, __) => const Divider(),
+                                      separatorBuilder: (_, _) => const Divider(),
                                       itemBuilder: (context, index) {
                                         final item = cState.items[index];
                                         return _CartItemRow(
@@ -857,15 +857,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     onPressed: cState.items.isEmpty
                                         ? null
                                         : () async {
-                                            if (await _ensureTableSelected()) {
-                                              if (!mounted) return;
-                                              Navigator.pop(context); // Close bottom sheet
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                              );
-                                            }
-                                          },
+                                             if (await _ensureTableSelected()) {
+                                               if (!context.mounted) return;
+                                               Navigator.pop(context); // Close bottom sheet
+                                               Navigator.push(
+                                                 context,
+                                                 MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                               );
+                                             }
+                                           },
                                     icon: Icons.payment_rounded,
                                     width: double.infinity,
                                   ),
@@ -876,12 +876,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     onPressed: cState.items.isEmpty
                                         ? null
                                         : () async {
-                                            if (await _ensureTableSelected()) {
-                                              if (!mounted) return;
-                                              Navigator.pop(context); // Close bottom sheet
-                                              _handleSaveOrderDraft(context, cState);
-                                            }
-                                          },
+                                             if (await _ensureTableSelected()) {
+                                               if (!context.mounted) return;
+                                               Navigator.pop(context); // Close bottom sheet
+                                               _handleSaveOrderDraft(context, cState);
+                                             }
+                                           },
                                     icon: Icons.kitchen_rounded,
                                     width: double.infinity,
                                   ),
@@ -913,7 +913,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 text: 'Bayar',
                 onPressed: () async {
                   if (await _ensureTableSelected()) {
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const PaymentScreen()),

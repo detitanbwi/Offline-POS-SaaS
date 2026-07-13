@@ -56,7 +56,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Bisnis Commercial POS, Indonesia';
     final storePhone = await storage.getStorePhone();
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.pop(context); // Dismiss loading dialog
 
     showModalBottomSheet(

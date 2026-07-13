@@ -241,7 +241,7 @@ class ProductFormState extends State<ProductForm> {
                               ? Image.file(
                                   File(_imagePath!),
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Center(
+                                  errorBuilder: (_, _, _) => const Center(
                                     child: Icon(Icons.broken_image_outlined, size: 40, color: AppColors.error),
                                   ),
                                 )

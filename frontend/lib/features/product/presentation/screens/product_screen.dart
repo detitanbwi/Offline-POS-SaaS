@@ -65,7 +65,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           }
         }
         
-        if (!mounted) return;
+        if (!context.mounted) return;
         
         if (failedCount > 0) {
           AppSnackbar.showWarning(
@@ -132,7 +132,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                   );
             }
 
-            if (!mounted) return;
+            if (!context.mounted) return;
             final state = ref.read(productNotifierProvider);
             if (success) {
               AppSnackbar.showSuccess(
@@ -160,7 +160,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
         Navigator.pop(context); // close dialog
         final success = await ref.read(productNotifierProvider.notifier).deleteProduct(product.id);
 
-        if (!mounted) return;
+        if (!context.mounted) return;
         final state = ref.read(productNotifierProvider);
         if (success) {
           AppSnackbar.showSuccess(context, 'Produk "${product.nama}" berhasil dihapus!');
@@ -518,13 +518,13 @@ class _ProductItemRow extends StatelessWidget {
                         ? Image.network(
                             product.image!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
+                            errorBuilder: (_, _, _) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
                           )
                         : Validators.isValidLocalFile(product.image!)
                             ? Image.file(
                                 File(product.image!),
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
+                                errorBuilder: (_, _, _) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
                               )
                             : const Icon(Icons.inventory_2_outlined, color: AppColors.primary))
                     : Icon(
@@ -625,7 +625,7 @@ class _ProductItemCard extends StatelessWidget {
                               ? Image.network(
                                   product.image!,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => const Center(
+                                  errorBuilder: (_, _, _) => const Center(
                                     child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                   ),
                                 )
@@ -633,9 +633,9 @@ class _ProductItemCard extends StatelessWidget {
                                   ? Image.file(
                                       File(product.image!),
                                       fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) => const Center(
+                                      errorBuilder: (_, _, _) => const Center(
                                         child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
-                                      ),
+                                        ),
                                     )
                                   : const Center(
                                       child: Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 36),

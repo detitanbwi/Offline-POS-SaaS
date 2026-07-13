@@ -253,7 +253,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
             height: 300,
             child: ListView.separated(
               itemCount: emptyTables.length,
-              separatorBuilder: (_, __) => const Divider(),
+              separatorBuilder: (_, _) => const Divider(),
               itemBuilder: (context, index) {
                 final targetTable = emptyTables[index];
                 return ListTile(

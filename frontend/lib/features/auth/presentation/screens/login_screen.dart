@@ -149,7 +149,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
                         );
                         setState(() => _isLoading = false);
-                        if (!mounted) return;
+                        if (!context.mounted) return;
                         AppSnackbar.showSuccess(context, 'Bypass Login & Lisensi Berhasil!');
                         Navigator.pushReplacement(
                           context,

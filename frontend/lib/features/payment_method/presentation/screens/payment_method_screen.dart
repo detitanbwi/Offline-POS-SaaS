@@ -49,7 +49,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
             success = await ref.read(paymentMethodNotifierProvider.notifier).updatePaymentMethod(method.id, name, status);
           }
 
-          if (!mounted) return;
+          if (!context.mounted) return;
           final state = ref.read(paymentMethodNotifierProvider);
           if (success) {
             AppSnackbar.showSuccess(
@@ -81,7 +81,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
         Navigator.pop(context); // close dialog
         final success = await ref.read(paymentMethodNotifierProvider.notifier).deletePaymentMethod(method.id);
 
-        if (!mounted) return;
+        if (!context.mounted) return;
         final state = ref.read(paymentMethodNotifierProvider);
         if (success) {
           AppSnackbar.showSuccess(context, 'Metode pembayaran "${method.nama}" berhasil dihapus!');
@@ -194,7 +194,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                                         ? null // Cannot toggle default 'Tunai'
                                         : (active) async {
                                             final ok = await notifier.togglePaymentMethodStatus(pm.id, active);
-                                            if (!ok && mounted) {
+                                            if (!ok && context.mounted) {
                                               final err = ref.read(paymentMethodNotifierProvider).errorMessage;
                                               if (err != null) AppSnackbar.showError(context, err);
                                             }

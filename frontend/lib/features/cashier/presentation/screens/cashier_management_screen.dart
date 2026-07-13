@@ -270,7 +270,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                       final notifier = ref.read(cashierNotifierProvider.notifier);
                                       await notifier.toggleStatus(cashier.id, cashier.status);
                                       
-                                      if (!mounted) return;
+                                      if (!context.mounted) return;
                                       final updatedState = ref.read(cashierNotifierProvider);
                                       if (updatedState.errorMessage != null) {
                                         AppSnackbar.showError(context, updatedState.errorMessage!);

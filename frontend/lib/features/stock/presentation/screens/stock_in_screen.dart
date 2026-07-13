@@ -63,7 +63,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                 catatan: catatan,
               );
 
-          if (!mounted) return;
+          if (!context.mounted) return;
           final state = ref.read(stockNotifierProvider);
           if (success) {
             AppSnackbar.showSuccess(context, 'Stok masuk berhasil dicatat!');
