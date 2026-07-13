@@ -22,6 +22,7 @@ class PinScreen extends ConsumerStatefulWidget {
 
 class _PinScreenState extends ConsumerState<PinScreen> {
   final _pinController = TextEditingController();
+  final _usernameController = TextEditingController();
   String _errorMessage = '';
 
   String _hashPIN(String pin) {
@@ -35,6 +36,12 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     final pin = _pinController.text;
     if (pin.length < 4) {
       setState(() => _errorMessage = 'PIN minimal 4 digit!');
+      return;
+    }
+
+    final username = _usernameController.text.trim();
+    if (!widget.isSetup && username.isEmpty) {
+      setState(() => _errorMessage = 'Username harus diisi!');
       return;
     }
 
@@ -52,19 +59,28 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       AppSnackbar.showSuccess(context, 'PIN Keamanan berhasil dibuat!');
       _goToMainMenu();
     } else {
-      final savedHashedPin = await storage.getLocalPIN();
-      if (hashedPin == savedHashedPin) {
-        ref.read(authSessionProvider.notifier).state = const AuthUser(
-          id: 'owner',
-          nama: 'Pemilik Toko',
-          role: 'pemilik',
-        );
-        if (!mounted) return;
-        _goToMainMenu();
+      // 1. Check if login is owner
+      final lowerUser = username.toLowerCase();
+      if (lowerUser == 'owner' || lowerUser == 'pemilik' || lowerUser == 'pemilik toko') {
+        final savedHashedPin = await storage.getLocalPIN();
+        if (hashedPin == savedHashedPin) {
+          ref.read(authSessionProvider.notifier).state = const AuthUser(
+            id: 'owner',
+            nama: 'Pemilik Toko',
+            role: 'pemilik',
+          );
+          if (!mounted) return;
+          _goToMainMenu();
+        } else {
+          setState(() {
+            _errorMessage = 'PIN Owner Salah!';
+            _pinController.clear();
+          });
+        }
       } else {
-        // Look up Cashiers in the database
+        // 2. Query cashier by name and pin
         final cashierRepo = ref.read(cashierRepositoryProvider);
-        final cashier = await cashierRepo.getCashierByPin(hashedPin);
+        final cashier = await cashierRepo.getCashierByNameAndPin(username, hashedPin);
         
         if (cashier != null) {
           ref.read(authSessionProvider.notifier).state = AuthUser(
@@ -76,7 +92,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           _goToMainMenu();
         } else {
           setState(() {
-            _errorMessage = 'PIN Salah!';
+            _errorMessage = 'Username / PIN Salah!';
             _pinController.clear();
           });
         }
@@ -95,6 +111,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   @override
   void dispose() {
     _pinController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
 
@@ -114,7 +131,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                 const Icon(Icons.lock_person_rounded, size: 80, color: Colors.white),
                 const SizedBox(height: AppSpacing.l),
                 Text(
-                  widget.isSetup ? "Buat PIN Keamanan Baru" : "Masukkan PIN Anda",
+                  widget.isSetup ? "Buat PIN Keamanan Baru" : "Masukkan PIN & Username",
                   textAlign: TextAlign.center,
                   style: AppTypography.titleLarge.copyWith(color: Colors.white, fontSize: 24),
                 ),
@@ -122,29 +139,57 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                 Text(
                   widget.isSetup
                       ? "Digunakan untuk akses masuk harian secara luring (Offline)"
-                      : "Verifikasi identitas kasir untuk melanjutkan",
+                      : "Verifikasi identitas kasir / owner untuk melanjutkan",
                   textAlign: TextAlign.center,
                   style: AppTypography.bodyMedium.copyWith(color: Colors.white70),
                 ),
                 const SizedBox(height: AppSpacing.xl),
+                if (!widget.isSetup) ...[
+                  TextField(
+                    controller: _usernameController,
+                    style: const TextStyle(color: Colors.white),
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Username / Nama Karyawan',
+                      labelStyle: TextStyle(color: Colors.white70),
+                      hintText: 'Contoh: owner atau Nama Kasir',
+                      hintStyle: TextStyle(color: Colors.white38),
+                      prefixIcon: Icon(Icons.person_outline_rounded, color: Colors.white70),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white54),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.l),
+                ],
                 TextField(
                   controller: _pinController,
-                  autofocus: true,
+                  autofocus: widget.isSetup,
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   maxLength: 6,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.displayLarge.copyWith(
-                    color: Colors.white,
-                    letterSpacing: 20,
-                  ),
-                  decoration: const InputDecoration(
+                  textAlign: widget.isSetup ? TextAlign.center : TextAlign.left,
+                  style: widget.isSetup
+                      ? AppTypography.displayLarge.copyWith(
+                          color: Colors.white,
+                          letterSpacing: 20,
+                        )
+                      : const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: widget.isSetup ? 'Buat PIN Keamanan' : 'PIN Sesi (6 digit)',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    prefixIcon: widget.isSetup
+                        ? null
+                        : const Icon(Icons.lock_outline_rounded, color: Colors.white70),
                     counterText: "",
                     filled: false,
-                    enabledBorder: UnderlineInputBorder(
+                    enabledBorder: const UnderlineInputBorder(
                       borderSide: BorderSide(color: Colors.white54),
                     ),
-                    focusedBorder: UnderlineInputBorder(
+                    focusedBorder: const UnderlineInputBorder(
                       borderSide: BorderSide(color: Colors.white, width: 2),
                     ),
                   ),

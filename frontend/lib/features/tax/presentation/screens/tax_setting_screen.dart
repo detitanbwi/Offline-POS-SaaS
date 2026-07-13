@@ -110,7 +110,7 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
                                 ),
                                 Switch(
                                   value: _taxEnabled,
-                                  activeColor: AppColors.primary,
+                                  activeThumbColor: AppColors.primary,
                                   onChanged: (val) {
                                     setState(() => _taxEnabled = val);
                                   },

@@ -46,6 +46,8 @@ class ProductFormState extends State<ProductForm> {
   String? _imagePath;
   final _imagePicker = ImagePicker();
 
+  bool _isAlwaysAvailable = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,8 +57,11 @@ class ProductFormState extends State<ProductForm> {
           ? CurrencyFormatter.formatNumber(widget.product!.harga)
           : '',
     );
+    _isAlwaysAvailable = widget.product?.stok == -1;
     _stockController = TextEditingController(
-      text: widget.product?.stok != null ? widget.product!.stok.toString() : '0',
+      text: widget.product?.stok != null
+          ? (widget.product!.stok == -1 ? '' : widget.product!.stok.toString())
+          : '0',
     );
     _imagePath = widget.product?.image;
     
@@ -194,7 +199,7 @@ class ProductFormState extends State<ProductForm> {
             const SizedBox(height: 16),
             // Category Dropdown
             DropdownButtonFormField<String>(
-              value: _selectedCategoryId,
+              initialValue: _selectedCategoryId,
               decoration: const InputDecoration(
                 labelText: 'Kategori',
                 prefixIcon: Icon(Icons.category_outlined),
@@ -311,15 +316,60 @@ class ProductFormState extends State<ProductForm> {
               },
             ),
             const SizedBox(height: 16),
-            AppTextField(
-              controller: _stockController,
-              labelText: 'Stok Awal',
-              hintText: 'Masukkan jumlah stok',
-              prefixIcon: Icons.warehouse_outlined,
-              keyboardType: TextInputType.number,
-              readOnly: widget.product != null, // Read-only on edit!
-              validator: (v) => Validators.integer(v, 'Stok'),
+            const Text(
+              'Apakah produk selalu tersedia?',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
+            const SizedBox(height: 8),
+            RadioGroup<bool>(
+              groupValue: _isAlwaysAvailable,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _isAlwaysAvailable = val;
+                    if (val) {
+                      _stockController.text = '';
+                    } else {
+                      _stockController.text = '0';
+                    }
+                  });
+                }
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<bool>(
+                      title: const Text('Ya (Selalu Ada)', style: TextStyle(fontSize: 13)),
+                      value: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<bool>(
+                      title: const Text('Tidak (Pakai Stok)', style: TextStyle(fontSize: 13)),
+                      value: false,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (!_isAlwaysAvailable) ...[
+              AppTextField(
+                controller: _stockController,
+                labelText: 'Stok Awal',
+                hintText: 'Masukkan jumlah stok',
+                prefixIcon: Icons.warehouse_outlined,
+                keyboardType: TextInputType.number,
+                readOnly: widget.product != null && widget.product!.stok != -1,
+                validator: (v) {
+                  if (_isAlwaysAvailable) return null;
+                  return Validators.integer(v, 'Stok');
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
             if (widget.product != null) ...[
               const SizedBox(height: 16),
               const Text(
@@ -327,31 +377,29 @@ class ProductFormState extends State<ProductForm> {
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: RadioListTile<int>(
-                      title: const Text('Aktif', style: TextStyle(fontSize: 14)),
-                      value: 1,
-                      groupValue: _status,
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (val) {
-                        if (val != null) setState(() => _status = val);
-                      },
+              RadioGroup<int>(
+                groupValue: _status,
+                onChanged: (val) {
+                  if (val != null) setState(() => _status = val);
+                },
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<int>(
+                        title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                        value: 1,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<int>(
-                      title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
-                      value: 0,
-                      groupValue: _status,
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (val) {
-                        if (val != null) setState(() => _status = val);
-                      },
+                    Expanded(
+                      child: RadioListTile<int>(
+                        title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                        value: 0,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ],
@@ -365,11 +413,14 @@ class ProductFormState extends State<ProductForm> {
       if (_selectedCategoryId == null) return false;
       final cleanPriceText = _priceController.text.replaceAll('.', '');
       final double harga = double.tryParse(cleanPriceText) ?? 0.0;
+      
+      final int stockVal = _isAlwaysAvailable ? -1 : (int.tryParse(_stockController.text) ?? 0);
+
       widget.onSubmit(
         nama: _nameController.text.trim(),
         kategoriId: _selectedCategoryId!,
         harga: harga,
-        stok: int.parse(_stockController.text),
+        stok: stockVal,
         status: _status,
         image: _imagePath,
       );

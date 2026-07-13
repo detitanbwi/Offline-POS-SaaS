@@ -76,15 +76,13 @@ class PosDatabase {
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
         );
-        if (db != null) {
-          await db.execute("PRAGMA rekey = '$encryptionKey'");
-        }
+        await db.execute("PRAGMA rekey = '$encryptionKey'");
       } catch (innerErr) {
         rethrow;
       }
     }
 
-    return db!;
+    return db;
   }
 
   Future<void> _onConfigure(Database db) async {

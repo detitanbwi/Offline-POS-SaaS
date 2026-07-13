@@ -65,22 +65,24 @@ class TransactionRepositoryImpl implements TransactionRepository {
         }
 
         final currentStock = productResult.first['stok'] as int;
-        final productName = productResult.first['nama'] as String;
-        final newStock = currentStock - item.qty;
+        if (currentStock != -1) {
+          final productName = productResult.first['nama'] as String;
+          final newStock = currentStock - item.qty;
 
-        if (newStock < 0) {
-          throw Exception('Gagal menyimpan transaksi: Stok untuk produk "$productName" tidak mencukupi.');
+          if (newStock < 0) {
+            throw Exception('Gagal menyimpan transaksi: Stok untuk produk "$productName" tidak mencukupi.');
+          }
+
+          await txn.update(
+            'products',
+            {
+              'stok': newStock,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [item.produkId],
+          );
         }
-
-        await txn.update(
-          'products',
-          {
-            'stok': newStock,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          where: 'id = ?',
-          whereArgs: [item.produkId],
-        );
       }
     });
   }
@@ -184,10 +186,22 @@ class TransactionRepositoryImpl implements TransactionRepository {
         final productId = row['produk_id'] as String;
         final qty = row['qty'] as int;
 
-        await txn.rawUpdate(
-          'UPDATE products SET stok = stok + ?, updated_at = ? WHERE id = ?',
-          [qty, DateTime.now().toIso8601String(), productId],
+        final List<Map<String, dynamic>> productResult = await txn.query(
+          'products',
+          columns: ['stok'],
+          where: 'id = ?',
+          whereArgs: [productId],
+          limit: 1,
         );
+        if (productResult.isNotEmpty) {
+          final currentStock = productResult.first['stok'] as int;
+          if (currentStock != -1) {
+            await txn.rawUpdate(
+              'UPDATE products SET stok = stok + ?, updated_at = ? WHERE id = ?',
+              [qty, DateTime.now().toIso8601String(), productId],
+            );
+          }
+        }
       }
 
       await txn.update(

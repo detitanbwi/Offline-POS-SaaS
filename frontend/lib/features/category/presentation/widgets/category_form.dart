@@ -5,7 +5,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/validators.dart';
-import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../domain/models/category.dart';
@@ -248,31 +247,29 @@ class CategoryFormState extends State<CategoryForm> {
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<int>(
-                    title: const Text('Aktif', style: TextStyle(fontSize: 14)),
-                    value: 1,
-                    groupValue: _status,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _status = val);
-                    },
+            RadioGroup<int>(
+              groupValue: _status,
+              onChanged: (val) {
+                if (val != null) setState(() => _status = val);
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<int>(
+                      title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                      value: 1,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: RadioListTile<int>(
-                    title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
-                    value: 0,
-                    groupValue: _status,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _status = val);
-                    },
+                  Expanded(
+                    child: RadioListTile<int>(
+                      title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                      value: 0,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ],

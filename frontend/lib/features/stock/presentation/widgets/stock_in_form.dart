@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/validators.dart';
-import '../../../../core/constants/app_spacing.dart';
 import '../../../product/domain/models/product.dart';
 
 class StockInForm extends StatefulWidget {
@@ -82,15 +81,16 @@ class StockInFormState extends State<StockInForm> {
         children: [
           // Product Dropdown
           DropdownButtonFormField<String>(
-            value: _selectedProductId,
+            initialValue: _selectedProductId,
             decoration: const InputDecoration(
               labelText: 'Pilih Produk',
               prefixIcon: Icon(Icons.inventory_2_outlined),
             ),
             items: activeProducts.map((p) {
+              final stockLabel = p.stok == -1 ? '∞' : p.stok.toString();
               return DropdownMenuItem<String>(
                 value: p.id,
-                child: Text('${p.nama} (Stok saat ini: ${p.stok})'),
+                child: Text('${p.nama} (Stok saat ini: $stockLabel)'),
               );
             }).toList(),
             onChanged: (val) {

@@ -46,6 +46,19 @@ class CashierRepositoryImpl implements CashierRepository {
   }
 
   @override
+  Future<CashierModel?> getCashierByNameAndPin(String name, String hashedPin) async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'cashiers',
+      where: 'LOWER(nama) = ? AND pin = ? AND status = 1 AND is_deleted = 0',
+      whereArgs: [name.toLowerCase().trim(), hashedPin],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return CashierModel.fromMap(maps.first);
+  }
+
+  @override
   Future<void> saveCashier(CashierModel cashier) async {
     final db = await _db.database;
     await db.insert(

@@ -81,7 +81,7 @@ class CartNotifier extends StateNotifier<CartState> {
       state = state.copyWith(errorMessage: 'Produk tidak aktif');
       return false;
     }
-    if (product.stok <= 0) {
+    if (product.stok != -1 && product.stok <= 0) {
       state = state.copyWith(errorMessage: 'Stok "${product.nama}" habis!');
       return false;
     }
@@ -91,7 +91,7 @@ class CartNotifier extends StateNotifier<CartState> {
 
     if (existingIndex != -1) {
       final currentQty = state.items[existingIndex].qty;
-      if (currentQty >= product.stok) {
+      if (product.stok != -1 && currentQty >= product.stok) {
         state = state.copyWith(errorMessage: 'Stok "${product.nama}" tidak mencukupi!');
         return false;
       }
@@ -121,7 +121,7 @@ class CartNotifier extends StateNotifier<CartState> {
     if (index == -1) return false;
 
     final product = state.items[index].product;
-    if (newQty > product.stok) {
+    if (product.stok != -1 && newQty > product.stok) {
       state = state.copyWith(errorMessage: 'Stok "${product.nama}" tidak mencukupi (Maks: ${product.stok})');
       return false;
     }

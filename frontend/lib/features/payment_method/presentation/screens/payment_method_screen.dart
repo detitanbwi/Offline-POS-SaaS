@@ -189,7 +189,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                                   // Switch toggle active/inactive
                                   Switch(
                                     value: pm.isActive,
-                                    activeColor: AppColors.primary,
+                                    activeThumbColor: AppColors.primary,
                                     onChanged: isDefault
                                         ? null // Cannot toggle default 'Tunai'
                                         : (active) async {
@@ -282,31 +282,29 @@ class _PaymentMethodFormState extends State<_PaymentMethodForm> {
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<int>(
-                    title: const Text('Aktif', style: TextStyle(fontSize: 14)),
-                    value: 1,
-                    groupValue: _status,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _status = val);
-                    },
+            RadioGroup<int>(
+              groupValue: _status,
+              onChanged: (val) {
+                if (val != null) setState(() => _status = val);
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<int>(
+                      title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                      value: 1,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: RadioListTile<int>(
-                    title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
-                    value: 0,
-                    groupValue: _status,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _status = val);
-                    },
+                  Expanded(
+                    child: RadioListTile<int>(
+                      title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                      value: 0,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ],

@@ -126,6 +126,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     nama: nama,
                     kategoriId: kategoriId,
                     harga: harga,
+                    stok: stok,
                     status: status,
                     image: image,
                   );
@@ -548,7 +549,7 @@ class _ProductItemRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok}',
+                  '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
                   style: AppTypography.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                     fontSize: 12,
@@ -650,11 +651,11 @@ class _ProductItemCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: (product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.9),
+                        color: (product.stok == -1 || product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'Stok: ${product.stok}',
+                        'Stok: ${product.stok == -1 ? '∞' : product.stok}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,

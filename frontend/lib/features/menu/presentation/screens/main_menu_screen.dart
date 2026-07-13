@@ -6,11 +6,11 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/responsive_layout.dart';
 import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
 import '../../../auth/presentation/screens/pin_screen.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../pos/presentation/screens/pos_screen.dart';
-import '../../../pos/presentation/screens/table_selector_screen.dart';
 import '../../../pos/presentation/screens/sales_report_screen.dart';
 import '../../../category/presentation/screens/category_screen.dart';
 import '../../../product/presentation/screens/product_screen.dart';
@@ -375,10 +375,20 @@ class MainMenuScreen extends ConsumerWidget {
                   MaterialPageRoute(builder: (_) => const PosScreen()),
                 );
               } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TableSelectorScreen()),
-                );
+                final hasEmptyTable = tableState.allTables.any((t) => t.isEmpty);
+                if (!hasEmptyTable) {
+                  AppSnackbar.showWarning(
+                    context,
+                    'Semua meja terisi! Kosongkan meja di menu "Kelola Meja Makan" atau selesaikan transaksi meja yang ada.',
+                  );
+                } else {
+                  ref.read(orderNotifierProvider.notifier).selectTable(null);
+                  ref.read(cartNotifierProvider.notifier).clear();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PosScreen()),
+                  );
+                }
               }
             },
           ),

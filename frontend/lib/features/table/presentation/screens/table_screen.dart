@@ -151,7 +151,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     if (isEdit) ...[
                       const SizedBox(height: 16),
                       DropdownButtonFormField<int>(
-                        value: selectedStatus,
+                        initialValue: selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Status Meja',
                           prefixIcon: Icon(Icons.info_outline_rounded),

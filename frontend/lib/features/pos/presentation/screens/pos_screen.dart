@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
-import '../../../../core/constants/app_radius.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/validators.dart';
@@ -23,7 +22,8 @@ import '../../../product/domain/models/product.dart';
 import '../../domain/models/cart_item.dart';
 import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
-import '../../domain/models/order.dart';
+import '../../../table/application/table_notifier.dart';
+import '../../../table/domain/models/table.dart';
 import 'payment_screen.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../printer/application/printer_notifier.dart';
@@ -45,10 +45,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-load products and categories
+    // Pre-load products, categories, and tables
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(productNotifierProvider.notifier).loadProducts();
       ref.read(categoryNotifierProvider.notifier).loadCategories();
+      ref.read(tableNotifierProvider.notifier).loadTables();
     });
   }
 
@@ -109,7 +110,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final shouldPop = await _showExitConfirmation(context);
         if (shouldPop && context.mounted) {
@@ -200,6 +201,86 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return result;
   }
 
+  Future<bool> _ensureTableSelected() async {
+    final tableState = ref.read(tableNotifierProvider);
+    if (tableState.allTables.isEmpty) {
+      return true;
+    }
+
+    final orderState = ref.read(orderNotifierProvider);
+    if (orderState.selectedTable != null) {
+      return true;
+    }
+
+    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
+    if (emptyTables.isEmpty) {
+      AppSnackbar.showWarning(context, 'Semua meja terisi! Kosongkan meja di menu "Kelola Meja Makan" terlebih dahulu.');
+      return false;
+    }
+
+    TableModel? selectedTable;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Pilih Meja Pelanggan',
+            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 350,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Silakan pilih salah satu meja kosong untuk pesanan ini.',
+                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: emptyTables.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final table = emptyTables[index];
+                      return ListTile(
+                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        title: Text(table.nama),
+                        subtitle: Text('Nomor: ${table.nomor}'),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        onTap: () {
+                          selectedTable = table;
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedTable != null) {
+      ref.read(orderNotifierProvider.notifier).selectTable(selectedTable);
+      return true;
+    }
+    return false;
+  }
+
   // Header catalog with search field & category selection horizontal chips
   Widget _buildCatalogHeader(List<dynamic> activeCategories) {
     return Container(
@@ -220,6 +301,38 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 });
               });
             },
+          ),
+          Builder(
+            builder: (context) {
+              final tableState = ref.watch(tableNotifierProvider);
+              final vacantCount = tableState.allTables.where((t) => t.isEmpty).length;
+              if (tableState.allTables.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.table_restaurant_rounded,
+                      size: 16,
+                      color: vacantCount > 0 ? AppColors.success : AppColors.error,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Sisa Meja Tersedia: ',
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 13),
+                    ),
+                    Text(
+                      '$vacantCount dari ${tableState.allTables.length} meja',
+                      style: AppTypography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: vacantCount > 0 ? AppColors.success : AppColors.error,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
           ),
           const SizedBox(height: 10),
           SingleChildScrollView(
@@ -285,7 +398,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       itemCount: products.length,
       itemBuilder: (context, index) {
         final product = products[index];
-        final isOutOfStock = product.stok <= 0;
+        final isOutOfStock = product.stok != -1 && product.stok <= 0;
 
         return AppCard(
           borderSide: const BorderSide(color: AppColors.divider),
@@ -368,6 +481,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              // overflow
                             ),
                           ),
                           Container(
@@ -377,7 +491,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
+                              isOutOfStock ? 'Habis' : (product.stok == -1 ? 'Stok: ∞' : 'Stok: ${product.stok}'),
                               style: TextStyle(
                                 color: isOutOfStock ? AppColors.error : AppColors.success,
                                 fontSize: 8.5,
@@ -400,6 +514,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // Tablet Side-by-side Cart Panel
   Widget _buildCartPanel(BuildContext context, CartState state, CartNotifier cartNotifier) {
+    final tableState = ref.watch(tableNotifierProvider);
+    final orderState = ref.watch(orderNotifierProvider);
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(AppSpacing.m),
@@ -417,30 +533,54 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               ),
             ],
           ),
-          const Divider(height: 24),
-          if (ref.watch(orderNotifierProvider).selectedTable != null) ...[
-            Row(
-              children: [
-                const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
-                const SizedBox(width: 6),
-                Text(
-                  'Meja: ',
-                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                ),
-                Text(
-                  ref.watch(orderNotifierProvider).selectedTable!.nama,
-                  style: AppTypography.bodyMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.secondary,
+          if (tableState.allTables.isNotEmpty) ...[
+            if (orderState.selectedTable != null) ...[
+              Row(
+                children: [
+                  const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Meja: ',
+                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                   ),
+                  Text(
+                    orderState.selectedTable!.nama,
+                    style: AppTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                  Text(
+                    ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
+                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                    onPressed: () async {
+                      ref.read(orderNotifierProvider.notifier).selectTable(null);
+                      await _ensureTableSelected();
+                    },
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+            ] else ...[
+              OutlinedButton.icon(
+                onPressed: () => _ensureTableSelected(),
+                icon: const Icon(Icons.table_restaurant_rounded, size: 16),
+                label: const Text('Pilih Meja Restoran'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondary,
+                  side: const BorderSide(color: AppColors.secondary),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                Text(
-                  ' (${ref.watch(orderNotifierProvider).activeOrder?.nomorOrder ?? 'Order Baru'})',
-                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
+              ),
+              const Divider(height: 24),
+            ],
           ],
           // Cart Items List
           Expanded(
@@ -472,11 +612,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             text: 'Lanjutkan ke Pembayaran',
             onPressed: state.items.isEmpty
                 ? null
-                : () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                    );
+                : () async {
+                    if (await _ensureTableSelected()) {
+                      if (!mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                      );
+                    }
                   },
             icon: Icons.arrow_forward_rounded,
           ),
@@ -486,7 +629,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             type: AppButtonType.secondary,
             onPressed: state.items.isEmpty
                 ? null
-                : () => _handleSaveOrderDraft(context, state),
+                : () async {
+                    if (await _ensureTableSelected()) {
+                      if (!mounted) return;
+                      _handleSaveOrderDraft(context, state);
+                    }
+                  },
             icon: Icons.kitchen_rounded,
             width: double.infinity,
           ),
@@ -603,6 +751,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           builder: (context, ref, child) {
                             final cState = ref.watch(cartNotifierProvider);
                             final cNotifier = ref.read(cartNotifierProvider.notifier);
+                            final tableState = ref.watch(tableNotifierProvider);
+                            final orderState = ref.watch(orderNotifierProvider);
                             return Padding(
                               padding: const EdgeInsets.all(AppSpacing.m),
                               child: Column(
@@ -630,29 +780,59 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     ],
                                   ),
                                   const Divider(),
-                                  if (ref.watch(orderNotifierProvider).selectedTable != null) ...[
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Meja: ',
-                                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                                        ),
-                                        Text(
-                                          ref.watch(orderNotifierProvider).selectedTable!.nama,
-                                          style: AppTypography.bodyMedium.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.secondary,
+                                  if (tableState.allTables.isNotEmpty) ...[
+                                    if (orderState.selectedTable != null) ...[
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Meja: ',
+                                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                                           ),
+                                          Text(
+                                            orderState.selectedTable!.nama,
+                                            style: AppTypography.bodyMedium.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.secondary,
+                                            ),
+                                          ),
+                                          Text(
+                                            ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
+                                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                                          ),
+                                          const Spacer(),
+                                          IconButton(
+                                            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                                            onPressed: () async {
+                                              ref.read(orderNotifierProvider.notifier).selectTable(null);
+                                              await _ensureTableSelected();
+                                            },
+                                            constraints: const BoxConstraints(),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                        ],
+                                      ),
+                                      const Divider(),
+                                    ] else ...[
+                                      OutlinedButton.icon(
+                                        onPressed: () async {
+                                          final success = await _ensureTableSelected();
+                                          if (success && context.mounted) {
+                                            setState(() {});
+                                          }
+                                        },
+                                        icon: const Icon(Icons.table_restaurant_rounded, size: 16),
+                                        label: const Text('Pilih Meja Restoran'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppColors.secondary,
+                                          side: const BorderSide(color: AppColors.secondary),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                         ),
-                                        Text(
-                                          ' (${ref.watch(orderNotifierProvider).activeOrder?.nomorOrder ?? 'Order Baru'})',
-                                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                    const Divider(),
+                                      ),
+                                      const Divider(),
+                                    ],
                                   ],
                                   Expanded(
                                     child: ListView.separated(
@@ -676,12 +856,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     text: 'Bayar Sekarang',
                                     onPressed: cState.items.isEmpty
                                         ? null
-                                        : () {
-                                            Navigator.pop(context); // Close bottom sheet
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                            );
+                                        : () async {
+                                            if (await _ensureTableSelected()) {
+                                              if (!mounted) return;
+                                              Navigator.pop(context); // Close bottom sheet
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                              );
+                                            }
                                           },
                                     icon: Icons.payment_rounded,
                                     width: double.infinity,
@@ -692,9 +875,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                     type: AppButtonType.secondary,
                                     onPressed: cState.items.isEmpty
                                         ? null
-                                        : () {
-                                            Navigator.pop(context); // Close bottom sheet
-                                            _handleSaveOrderDraft(context, cState);
+                                        : () async {
+                                            if (await _ensureTableSelected()) {
+                                              if (!mounted) return;
+                                              Navigator.pop(context); // Close bottom sheet
+                                              _handleSaveOrderDraft(context, cState);
+                                            }
                                           },
                                     icon: Icons.kitchen_rounded,
                                     width: double.infinity,
@@ -725,11 +911,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               const SizedBox(width: 12),
               AppButton(
                 text: 'Bayar',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                  );
+                onPressed: () async {
+                  if (await _ensureTableSelected()) {
+                    if (!mounted) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                    );
+                  }
                 },
                 icon: Icons.payments_outlined,
               ),

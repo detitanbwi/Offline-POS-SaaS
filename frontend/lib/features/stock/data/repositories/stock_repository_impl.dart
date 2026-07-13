@@ -46,18 +46,20 @@ class StockRepositoryImpl implements StockRepository {
       }
 
       final currentStock = products.first['stok'] as int;
-      final newStock = currentStock + stockIn.qty;
+      if (currentStock != -1) {
+        final newStock = currentStock + stockIn.qty;
 
-      // 3. Update product stock
-      await txn.update(
-        'products',
-        {
-          'stok': newStock,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [stockIn.produkId],
-      );
+        // 3. Update product stock
+        await txn.update(
+          'products',
+          {
+            'stok': newStock,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [stockIn.produkId],
+        );
+      }
     });
   }
 }

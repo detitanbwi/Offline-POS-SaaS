@@ -265,7 +265,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                   // Active toggle switch
                                   Switch(
                                     value: cashier.isActive,
-                                    activeColor: AppColors.primary,
+                                    activeThumbColor: AppColors.primary,
                                     onChanged: (_) async {
                                       final notifier = ref.read(cashierNotifierProvider.notifier);
                                       await notifier.toggleStatus(cashier.id, cashier.status);
