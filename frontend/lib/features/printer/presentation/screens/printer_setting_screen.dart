@@ -162,7 +162,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
     AppDialog.show(
       context: context,
       title: 'Hubungkan Printer',
-      message: 'Hubungkan "${name}" sebagai Printer ${type == "cashier" ? "Kasir Utama" : "Dapur"}?',
+      message: 'Hubungkan "$name" sebagai Printer ${type == "cashier" ? "Kasir Utama" : "Dapur"}?',
       confirmText: 'Hubungkan',
       onConfirm: () async {
         Navigator.pop(context); // Close confirm dialog
@@ -204,7 +204,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
       body: SafeArea(
         child: state.isLoading
             ? const AppLoading(message: 'Memuat data konfigurasi printer...')
-            : Padding(
+            : SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -231,7 +231,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                       printer: kitchenPrinter.id.isEmpty ? null : kitchenPrinter,
                       type: 'kitchen',
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 24),
                     
                     AppButton(
                       text: 'Cari & Sambungkan Printer',

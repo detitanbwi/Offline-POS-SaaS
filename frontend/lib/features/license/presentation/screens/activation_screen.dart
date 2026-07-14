@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
@@ -59,77 +59,80 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.l),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: AppCard(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(
-                    Icons.verified_user_rounded,
-                    size: 72,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(height: AppSpacing.m),
-                  Text(
-                    "Aktivasi Lisensi",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.headlineLarge.copyWith(
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 480.w),
+              child: AppCard(
+                padding: EdgeInsets.all(24.r),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.verified_user_rounded,
+                      size: 56.r,
                       color: AppColors.primary,
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    "Masukkan Lisensi Key Anda untuk mengaktifkan perangkat POS ini",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
+                    SizedBox(height: 12.h),
+                    Text(
+                      "Aktivasi Lisensi",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headlineLarge.copyWith(
+                        color: AppColors.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  AppTextField(
-                    controller: _licenseController,
-                    labelText: 'Lisensi Key',
-                    hintText: 'LIC-XXXX-XXXX-XXXX',
-                    prefixIcon: Icons.key_rounded,
-                  ),
-                  const SizedBox(height: AppSpacing.l),
-                  AppButton(
-                    text: 'Aktifkan Perangkat',
-                    isLoading: _isLoading,
-                    onPressed: _handleActivation,
-                    width: double.infinity,
-                  ),
-                  if (kDebugMode) ...[
-                    const SizedBox(height: AppSpacing.m),
-                    TextButton(
-                      onPressed: () async {
-                        setState(() => _isLoading = true);
-                        final storage = ref.read(secureStorageServiceProvider);
-                        await storage.saveActivationData(
-                          activationToken: 'dummy_offline_token_for_dev_bypass',
-                          licenseKey: 'LIC-DEV-BYPASS-TEST',
-                          encryptionKey: 'dummy_encryption_key_for_dev_bypass',
-                          fingerprintHash: 'dummy_fingerprint_for_dev_bypass',
-                          expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
-                        );
-                        setState(() => _isLoading = false);
-                        if (!context.mounted) return;
-                        AppSnackbar.showSuccess(context, 'Bypass Lisensi Berhasil!');
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
-                        );
-                      },
-                      child: const Text('Developer Bypass (License Only)'),
+                    SizedBox(height: 4.h),
+                    Text(
+                      "Masukkan Lisensi Key Anda untuk mengaktifkan perangkat POS ini",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
+                    SizedBox(height: 20.h),
+                    AppTextField(
+                      controller: _licenseController,
+                      labelText: 'Lisensi Key',
+                      hintText: 'LIC-XXXX-XXXX-XXXX',
+                      prefixIcon: Icons.key_rounded,
+                    ),
+                    SizedBox(height: 16.h),
+                    AppButton(
+                      text: 'Aktifkan Perangkat',
+                      isLoading: _isLoading,
+                      onPressed: _handleActivation,
+                      width: double.infinity,
+                    ),
+                    if (kDebugMode) ...[
+                      SizedBox(height: 12.h),
+                      TextButton(
+                        onPressed: () async {
+                          setState(() => _isLoading = true);
+                          final storage = ref.read(secureStorageServiceProvider);
+                          await storage.saveActivationData(
+                            activationToken: 'dummy_offline_token_for_dev_bypass',
+                            licenseKey: 'LIC-DEV-BYPASS-TEST',
+                            encryptionKey: 'dummy_encryption_key_for_dev_bypass',
+                            fingerprintHash: 'dummy_fingerprint_for_dev_bypass',
+                            expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
+                          );
+                          setState(() => _isLoading = false);
+                          if (!context.mounted) return;
+                          AppSnackbar.showSuccess(context, 'Bypass Lisensi Berhasil!');
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
+                          );
+                        },
+                        child: const Text('Developer Bypass (License Only)'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

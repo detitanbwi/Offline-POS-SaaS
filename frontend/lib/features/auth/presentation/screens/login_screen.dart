@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
@@ -76,97 +76,98 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.l),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: AppCard(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(
-                    Icons.storefront_rounded,
-                    size: 72,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(height: AppSpacing.m),
-                  Text(
-                    "SaaS POS Offline",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.headlineLarge.copyWith(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 480.w),
+              child: AppCard(
+                padding: EdgeInsets.all(24.r),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.storefront_rounded,
+                      size: 56.r,
                       color: AppColors.primary,
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    "Silakan login untuk masuk ke aplikasi kasir",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
+                    SizedBox(height: 12.h),
+                    Text(
+                      "SaaS POS Offline",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headlineLarge.copyWith(
+                        color: AppColors.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  AppTextField(
-                    controller: _emailController,
-                    labelText: 'Email',
-                    hintText: 'contoh: test@example.com',
-                    prefixIcon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: AppSpacing.m),
-                  AppTextField(
-                    controller: _passwordController,
-                    labelText: 'Password',
-                    hintText: 'Masukkan password Anda',
-                    obscureText: true,
-                    prefixIcon: Icons.lock_outline_rounded,
-                  ),
-                  const SizedBox(height: AppSpacing.l),
-                  AppButton(
-                    text: 'Login',
-                    isLoading: _isLoading,
-                    onPressed: _handleLogin,
-                    width: double.infinity,
-                  ),
-                  if (kDebugMode) ...[
-                    const SizedBox(height: AppSpacing.m),
-                    TextButton(
-                      onPressed: () async {
-                        setState(() => _isLoading = true);
-                        final storage = ref.read(secureStorageServiceProvider);
-                        await storage.saveTokens(
-                          onlineToken: 'dummy_online_token_for_dev_bypass',
-                          offlineToken: 'dummy_offline_token_for_dev_bypass',
-                        );
-                        await storage.saveActivationData(
-                          activationToken: 'dummy_offline_token_for_dev_bypass',
-                          licenseKey: 'LIC-DEV-BYPASS-TEST',
-                          encryptionKey: 'dummy_encryption_key_for_dev_bypass',
-                          fingerprintHash: 'dummy_fingerprint_for_dev_bypass',
-                          expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
-                        );
-                        setState(() => _isLoading = false);
-                        if (!context.mounted) return;
-                        AppSnackbar.showSuccess(context, 'Bypass Login & Lisensi Berhasil!');
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
-                        );
-                      },
-                      child: const Text('Developer Bypass (Login & License)'),
+                    SizedBox(height: 4.h),
+                    Text(
+                      "Silakan login untuk masuk ke aplikasi kasir",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
+                    SizedBox(height: 24.h),
+                    AppTextField(
+                      controller: _emailController,
+                      labelText: 'Email',
+                      hintText: 'contoh: test@example.com',
+                      prefixIcon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    SizedBox(height: 12.h),
+                    AppTextField(
+                      controller: _passwordController,
+                      labelText: 'Password',
+                      hintText: 'Masukkan password Anda',
+                      obscureText: true,
+                      prefixIcon: Icons.lock_outline_rounded,
+                    ),
+                    SizedBox(height: 20.h),
+                    AppButton(
+                      text: 'Login',
+                      isLoading: _isLoading,
+                      onPressed: _handleLogin,
+                      width: double.infinity,
+                    ),
+                    if (kDebugMode) ...[
+                      SizedBox(height: 12.h),
+                      TextButton(
+                        onPressed: () async {
+                          setState(() => _isLoading = true);
+                          final storage = ref.read(secureStorageServiceProvider);
+                          await storage.saveTokens(
+                            onlineToken: 'dummy_online_token_for_dev_bypass',
+                            offlineToken: 'dummy_offline_token_for_dev_bypass',
+                          );
+                          await storage.saveActivationData(
+                            activationToken: 'dummy_offline_token_for_dev_bypass',
+                            licenseKey: 'LIC-DEV-BYPASS-TEST',
+                            encryptionKey: 'dummy_encryption_key_for_dev_bypass',
+                            fingerprintHash: 'dummy_fingerprint_for_dev_bypass',
+                            expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
+                          );
+                          setState(() => _isLoading = false);
+                          if (!context.mounted) return;
+                          AppSnackbar.showSuccess(context, 'Bypass Login & Lisensi Berhasil!');
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const PinScreen(isSetup: true)),
+                          );
+                        },
+                        child: const Text('Developer Bypass (Login & License)'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

@@ -11,19 +11,23 @@ class ResponsiveLayout extends StatelessWidget {
   });
 
   static bool isMobile(BuildContext context) =>
-      MediaQuery.of(context).size.width < 600;
+      MediaQuery.of(context).size.shortestSide < 600;
 
   static bool isTablet(BuildContext context) =>
-      MediaQuery.of(context).size.width >= 600;
+      MediaQuery.of(context).size.shortestSide >= 600;
 
   static bool isLandscape(BuildContext context) =>
       MediaQuery.of(context).orientation == Orientation.landscape;
+
+  static bool isKeyboardOpen(BuildContext context) =>
+      MediaQuery.of(context).viewInsets.bottom > 0;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 600 && tablet != null) {
+        final shortestSide = MediaQuery.of(context).size.shortestSide;
+        if (shortestSide >= 600 && tablet != null) {
           return tablet!;
         }
         return mobile;

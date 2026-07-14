@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:crypto/crypto.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -107,7 +107,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     try {
       final db = ref.read(posDatabaseProvider);
-      // Accessing the getter triggers the initialization, creation, and migration blocks of PosDatabase
       await db.database;
     } catch (e) {
       if (kDebugMode) {
@@ -145,29 +144,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.l),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Card(
-              elevation: 4,
-              shadowColor: Colors.black12,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: AppSpacing.l),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: _buildStepContent(),
-                    ),
-                  ],
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 520.w),
+              child: Card(
+                elevation: 4,
+                shadowColor: Colors.black12,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
+                color: Colors.white,
+                child: Padding(
+                  padding: EdgeInsets.all(24.r),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeader(),
+                      SizedBox(height: 16.h),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: _buildStepContent(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -180,29 +182,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        const Icon(Icons.rocket_launch_rounded, size: 64, color: AppColors.primary),
-        const SizedBox(height: AppSpacing.s),
+        Icon(Icons.rocket_launch_rounded, size: 52.r, color: AppColors.primary),
+        SizedBox(height: 8.h),
         Text(
           'Onboarding Pemilik',
-          style: AppTypography.headlineLarge.copyWith(color: AppColors.primary, fontSize: 28),
+          style: AppTypography.headlineLarge.copyWith(color: AppColors.primary),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        SizedBox(height: 4.h),
         Text(
           'Konfigurasi awal sistem POS offline tablet Anda',
           style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
-        const SizedBox(height: AppSpacing.m),
+        SizedBox(height: 16.h),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(3, (index) {
             final isActive = index <= _currentStep;
             return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 40,
-              height: 4,
+              margin: EdgeInsets.symmetric(horizontal: 4.w),
+              width: 36.w,
+              height: 4.h,
               decoration: BoxDecoration(
                 color: isActive ? AppColors.primary : AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(2.r),
               ),
             );
           }),
@@ -219,26 +221,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('1. Identitas Toko', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.s),
+            SizedBox(height: 6.h),
             Text(
               'Informasi ini akan tercetak sebagai header pada cetakan struk transaksi pelanggan.',
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 13),
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: AppSpacing.m),
+            SizedBox(height: 16.h),
             AppTextField(
               controller: _nameController,
               labelText: 'Nama Toko',
               hintText: 'Contoh: Resto Selera Nusantara',
               prefixIcon: Icons.store_rounded,
             ),
-            const SizedBox(height: AppSpacing.m),
+            SizedBox(height: 12.h),
             AppTextField(
               controller: _addressController,
               labelText: 'Alamat Toko',
               hintText: 'Contoh: Jl. Diponegoro No. 45, Bandung',
               prefixIcon: Icons.map_rounded,
             ),
-            const SizedBox(height: AppSpacing.m),
+            SizedBox(height: 12.h),
             AppTextField(
               controller: _phoneController,
               labelText: 'Nomor Telepon Toko',
@@ -246,7 +248,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               prefixIcon: Icons.phone_rounded,
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: AppSpacing.xl),
+            SizedBox(height: 20.h),
             AppButton(
               text: 'Lanjutkan',
               onPressed: _nextStep,
@@ -260,12 +262,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('2. Buat PIN Master Keamanan', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: AppSpacing.s),
+            SizedBox(height: 6.h),
             Text(
               'PIN khusus ini hanya digunakan oleh Pemilik untuk masuk ke dashboard sensitif (Manajemen Lisensi, Laporan, Manajemen Kasir). Jangan dibagikan kepada staf kasir!',
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 13),
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: AppSpacing.m),
+            SizedBox(height: 16.h),
             AppTextField(
               controller: _pinController,
               labelText: 'PIN Master Baru (6 Digit)',
@@ -275,7 +277,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               maxLength: 6,
               obscureText: true,
             ),
-            const SizedBox(height: AppSpacing.m),
+            SizedBox(height: 12.h),
             AppTextField(
               controller: _confirmPinController,
               labelText: 'Konfirmasi PIN Master',
@@ -285,7 +287,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               maxLength: 6,
               obscureText: true,
             ),
-            const SizedBox(height: AppSpacing.xl),
+            SizedBox(height: 20.h),
             Row(
               children: [
                 Expanded(
@@ -295,10 +297,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     onPressed: () => setState(() => _currentStep = 0),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.m),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: AppButton(
-                    text: 'Inisialisasi Sistem',
+                    text: 'Konfirmasi',
                     onPressed: _nextStep,
                     icon: Icons.check_circle_outline_rounded,
                   ),
@@ -313,10 +315,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           key: const ValueKey(2),
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: AppSpacing.m),
+            SizedBox(height: 12.h),
             SizedBox(
-              width: 80,
-              height: 80,
+              width: 72.r,
+              height: 72.r,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -328,24 +330,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   Icon(
                     _isInitComplete ? Icons.done_all_rounded : Icons.storage_rounded,
-                    size: 36,
+                    size: 32.r,
                     color: _isInitComplete ? AppColors.success : AppColors.primary,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
+            SizedBox(height: 20.h),
             Text(
               '3. Inisiasi Database Lokal',
               style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: AppSpacing.s),
+            SizedBox(height: 6.h),
             Text(
               _initStatusText,
               textAlign: TextAlign.center,
               style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: AppSpacing.l),
+            SizedBox(height: 16.h),
           ],
         );
     }

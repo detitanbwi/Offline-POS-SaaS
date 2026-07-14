@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
@@ -46,49 +46,49 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black.withValues(alpha: 0.85),
-
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.l),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: AppCard(
-              color: Colors.white,
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(
-                    Icons.lock_outline_rounded,
-                    size: 80,
-                    color: AppColors.error,
-                  ),
-                  const SizedBox(height: AppSpacing.l),
-                  Text(
-                    "Sesi Lisensi Kedaluwarsa",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.headlineLarge.copyWith(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 480.w),
+              child: AppCard(
+                color: Colors.white,
+                padding: EdgeInsets.all(24.r),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 56.r,
                       color: AppColors.error,
-                      fontSize: 24,
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.s),
-                  Text(
-                    "Token lisensi luring (offline) Anda telah kedaluwarsa atau tidak valid. Silakan hubungkan tablet ke internet dan perbarui lisensi Anda.",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
+                    SizedBox(height: 16.h),
+                    Text(
+                      "Sesi Lisensi Kedaluwarsa",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headlineLarge.copyWith(
+                        color: AppColors.error,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  AppButton(
-                    text: 'Sinkronisasi / Perbarui Lisensi',
-                    isLoading: _isLoading,
-                    onPressed: _handleSync,
-                    width: double.infinity,
-                  ),
-                ],
+                    SizedBox(height: 8.h),
+                    Text(
+                      "Token lisensi luring (offline) Anda telah kedaluwarsa atau tidak valid. Silakan hubungkan tablet ke internet dan perbarui lisensi Anda.",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    SizedBox(height: 20.h),
+                    AppButton(
+                      text: 'Sinkronisasi / Perbarui Lisensi',
+                      isLoading: _isLoading,
+                      onPressed: _handleSync,
+                      width: double.infinity,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

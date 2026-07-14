@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_radius.dart';
 import '../constants/app_typography.dart';
@@ -70,17 +71,17 @@ class AppButton extends StatelessWidget {
       children: [
         if (isLoading) ...[
           SizedBox(
-            width: 20,
-            height: 20,
+            width: 20.r,
+            height: 20.r,
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(getTextColor()),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.w),
         ] else if (icon != null) ...[
-          Icon(icon, size: 20, color: getTextColor()),
-          const SizedBox(width: 8),
+          Icon(icon, size: 20.r, color: getTextColor()),
+          SizedBox(width: 8.w),
         ],
         Text(
           text,
@@ -97,7 +98,7 @@ class AppButton extends StatelessWidget {
       foregroundColor: WidgetStateProperty.all(getTextColor()),
       elevation: WidgetStateProperty.all(0),
       padding: WidgetStateProperty.all(
-        const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
       ),
       shape: WidgetStateProperty.all(
         const RoundedRectangleBorder(

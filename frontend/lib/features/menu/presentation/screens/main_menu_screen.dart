@@ -317,8 +317,27 @@ class MainMenuScreen extends ConsumerWidget {
   }
 
   Widget _buildGrid(BuildContext context, WidgetRef ref, bool isOwner, {required bool isTablet}) {
-    final crossAxisCount = isTablet ? (isOwner ? 3 : 4) : 2;
-    final childAspectRatio = isTablet ? 1.15 : 1.1;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final int crossAxisCount;
+    final double childAspectRatio;
+
+    if (!isTablet) {
+      if (isLandscape) {
+        crossAxisCount = isOwner ? 3 : 4;
+        childAspectRatio = 1.35;
+      } else {
+        crossAxisCount = 2;
+        childAspectRatio = 1.1;
+      }
+    } else {
+      if (isLandscape) {
+        crossAxisCount = isOwner ? 3 : 4;
+        childAspectRatio = 1.35;
+      } else {
+        crossAxisCount = isOwner ? 3 : 3;
+        childAspectRatio = 1.2;
+      }
+    }
 
     if (isOwner) {
       return GridView.count(
@@ -468,29 +487,33 @@ class MainMenuScreen extends ConsumerWidget {
     return AppCard(
       onTap: onTap,
       color: Colors.white,
-      padding: const EdgeInsets.all(AppSpacing.m),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 28, color: iconColor),
+            child: Icon(icon, size: 24, color: iconColor),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: AppTypography.titleMedium.copyWith(fontSize: 14, fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
           ),
         ],

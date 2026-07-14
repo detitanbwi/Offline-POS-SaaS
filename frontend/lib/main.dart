@@ -116,7 +116,7 @@ class MyApp extends ConsumerWidget {
     final isExpired = ref.watch(licenseExpiredProvider);
 
     return ScreenUtilInit(
-      designSize: const Size(390, 844),
+      designSize: const Size(768, 1024),
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {

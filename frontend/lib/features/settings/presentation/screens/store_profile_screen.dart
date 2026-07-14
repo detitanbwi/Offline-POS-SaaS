@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
@@ -85,6 +85,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Profil & Informasi Toko'),
       ),
@@ -92,12 +93,12 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.l),
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
+                    constraints: BoxConstraints(maxWidth: 560.w),
                     child: AppCard(
-                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      padding: EdgeInsets.all(20.r),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -106,18 +107,18 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(12),
+                                  padding: EdgeInsets.all(10.r),
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryContainer,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(12.r),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.store_rounded,
                                     color: AppColors.primary,
-                                    size: 28,
+                                    size: 26.r,
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                SizedBox(width: 12.w),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,7 +127,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                         'Pengaturan Toko',
                                         style: AppTypography.titleLarge,
                                       ),
-                                      const SizedBox(height: 2),
+                                      SizedBox(height: 2.h),
                                       Text(
                                         'Data ini akan ditampilkan pada kepala struk belanja cetak dan pratinjau.',
                                         style: AppTypography.bodyMedium.copyWith(
@@ -138,7 +139,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: AppSpacing.xl),
+                            SizedBox(height: 20.h),
                             AppTextField(
                               controller: _nameController,
                               labelText: 'Nama Toko / Usaha',
@@ -151,7 +152,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: AppSpacing.l),
+                            SizedBox(height: 12.h),
                             AppTextField(
                               controller: _addressController,
                               labelText: 'Alamat Lengkap Toko',
@@ -164,7 +165,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: AppSpacing.l),
+                            SizedBox(height: 12.h),
                             AppTextField(
                               controller: _phoneController,
                               labelText: 'Nomor Telepon Toko',
@@ -178,7 +179,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: AppSpacing.l),
+                            SizedBox(height: 12.h),
                             AppTextField(
                               controller: _ownerUsernameController,
                               labelText: 'Username Owner / Pemilik (untuk Login)',
@@ -191,7 +192,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: AppSpacing.xl),
+                            SizedBox(height: 20.h),
                             AppButton(
                               text: 'Simpan Perubahan',
                               isLoading: _isSaving,

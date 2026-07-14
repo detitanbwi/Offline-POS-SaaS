@@ -639,9 +639,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(AppSpacing.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
         children: [
           if (isCash) ...[
             Text('Pembayaran Tunai', style: AppTypography.titleMedium.copyWith(fontSize: 18)),
@@ -739,6 +740,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
