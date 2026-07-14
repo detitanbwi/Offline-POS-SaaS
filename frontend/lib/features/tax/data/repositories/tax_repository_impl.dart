@@ -29,11 +29,10 @@ class TaxRepositoryImpl implements TaxRepository {
   @override
   Future<void> updateTaxSetting(TaxSetting taxSetting) async {
     final db = await _db.database;
-    await db.update(
+    await db.insert(
       'tax_settings',
       taxSetting.toMap(),
-      where: 'id = ?',
-      whereArgs: [1],
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 }

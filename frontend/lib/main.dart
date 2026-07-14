@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:device_preview/device_preview.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/pin_screen.dart';
@@ -24,11 +23,8 @@ void main() async {
   await initializeDateFormatting('id_ID', null);
   
   runApp(
-    DevicePreview(
-      enabled: !kReleaseMode,
-      builder: (context) => const ProviderScope(
-        child: MyApp(),
-      ),
+    const ProviderScope(
+      child: MyApp(),
     ),
   );
 }
@@ -138,9 +134,7 @@ class MyApp extends ConsumerWidget {
       builder: (context, child) {
         return MaterialApp(
           title: 'Offline POS Kasir SaaS',
-          locale: DevicePreview.locale(context),
           builder: (context, widget) {
-            final previewApp = DevicePreview.appBuilder(context, widget);
             if (isExpired) {
               return const LicenseLockScreen();
             }
@@ -148,7 +142,7 @@ class MyApp extends ConsumerWidget {
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
               },
-              child: previewApp,
+              child: widget ?? const SizedBox.shrink(),
             );
           },
           theme: AppTheme.lightTheme,

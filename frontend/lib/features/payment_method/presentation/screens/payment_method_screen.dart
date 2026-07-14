@@ -263,51 +263,53 @@ class _PaymentMethodFormState extends State<_PaymentMethodForm> {
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppTextField(
-            controller: _nameController,
-            labelText: 'Nama Metode Pembayaran',
-            hintText: 'Contoh: Gopay, Bank Mandiri, QRIS',
-            prefixIcon: Icons.payment_rounded,
-            readOnly: widget.method?.id == 'pm-tunai', // Default Tunai name cannot be edited
-            validator: (v) => Validators.required(v, 'Nama Metode Pembayaran'),
-          ),
-          if (widget.method != null && widget.method?.id != 'pm-tunai') ...[
-            const SizedBox(height: 16),
-            const Text(
-              'Status Aktif',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTextField(
+              controller: _nameController,
+              labelText: 'Nama Metode Pembayaran',
+              hintText: 'Contoh: Gopay, Bank Mandiri, QRIS',
+              prefixIcon: Icons.payment_rounded,
+              readOnly: widget.method?.id == 'pm-tunai', // Default Tunai name cannot be edited
+              validator: (v) => Validators.required(v, 'Nama Metode Pembayaran'),
             ),
-            const SizedBox(height: 8),
-            RadioGroup<int>(
-              groupValue: _status,
-              onChanged: (val) {
-                if (val != null) setState(() => _status = val);
-              },
-              child: Row(
-                children: [
-                  Expanded(
-                    child: RadioListTile<int>(
-                      title: const Text('Aktif', style: TextStyle(fontSize: 14)),
-                      value: 1,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<int>(
-                      title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
-                      value: 0,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
+            if (widget.method != null && widget.method?.id != 'pm-tunai') ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Status Aktif',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
-            ),
+              const SizedBox(height: 8),
+              RadioGroup<int>(
+                groupValue: _status,
+                onChanged: (val) {
+                  if (val != null) setState(() => _status = val);
+                },
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<int>(
+                        title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                        value: 1,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<int>(
+                        title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                        value: 0,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

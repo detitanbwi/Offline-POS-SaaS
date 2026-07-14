@@ -119,7 +119,12 @@ class ProductFormState extends State<ProductForm> {
             color: AppColors.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -139,7 +144,7 @@ class ProductFormState extends State<ProductForm> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Pilih dari Galeri'),
+                  label: Text('Pilih dari Galeri', style: AppTypography.labelLarge.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
                   onPressed: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.gallery);
@@ -154,7 +159,7 @@ class ProductFormState extends State<ProductForm> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.camera_alt_outlined),
-                  label: const Text('Ambil dari Kamera'),
+                  label: Text('Ambil dari Kamera', style: AppTypography.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
                   onPressed: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.camera);
@@ -193,6 +198,7 @@ class ProductFormState extends State<ProductForm> {
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -208,14 +214,21 @@ class ProductFormState extends State<ProductForm> {
             // Category Dropdown
             DropdownButtonFormField<String>(
               initialValue: _selectedCategoryId,
-              decoration: const InputDecoration(
-                labelText: 'Kategori',
-                prefixIcon: Icon(Icons.category_outlined),
+              style: AppTypography.bodyLarge.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Kategori Produk',
+                filled: true,
+                fillColor: AppColors.surface,
+                labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                prefixIcon: const Icon(Icons.category_outlined, color: AppColors.textSecondary),
               ),
               items: activeCategories.map((cat) {
                 return DropdownMenuItem<String>(
                   value: cat.id,
-                  child: Text(cat.nama),
+                  child: Text(
+                    cat.nama,
+                    style: AppTypography.bodyLarge.copyWith(color: AppColors.textPrimary),
+                  ),
                 );
               }).toList(),
               onChanged: (val) {
@@ -224,15 +237,15 @@ class ProductFormState extends State<ProductForm> {
               validator: (v) => v == null ? 'Kategori harus dipilih' : null,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Gambar Produk (Opsional)',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () => _showImageSourcePicker(context),
               child: Container(
-                height: 140,
+                height: 130,
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(16),
@@ -258,7 +271,6 @@ class ProductFormState extends State<ProductForm> {
                                 ),
                         ),
                       ),
-
                       Positioned(
                         top: 8,
                         right: 8,
@@ -279,16 +291,16 @@ class ProductFormState extends State<ProductForm> {
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.primary),
-                          const SizedBox(height: 8),
+                          const Icon(Icons.add_photo_alternate_outlined, size: 36, color: AppColors.primary),
+                          const SizedBox(height: 6),
                           Text(
                             'Pilih Gambar (Galeri / Kamera)',
-                            style: AppTypography.titleMedium.copyWith(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold),
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             'Format didukung: JPG, PNG',
-                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10),
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
                           ),
                         ],
                       ),
@@ -324,11 +336,11 @@ class ProductFormState extends State<ProductForm> {
               },
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Apakah produk selalu tersedia?',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             RadioGroup<bool>(
               groupValue: _isAlwaysAvailable,
               onChanged: (val) {
@@ -347,14 +359,14 @@ class ProductFormState extends State<ProductForm> {
                 children: [
                   Expanded(
                     child: RadioListTile<bool>(
-                      title: const Text('Ya (Selalu Ada)', style: TextStyle(fontSize: 13)),
+                      title: Text('Ya (Selalu Ada)', style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary)),
                       value: true,
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
                   Expanded(
                     child: RadioListTile<bool>(
-                      title: const Text('Tidak (Pakai Stok)', style: TextStyle(fontSize: 13)),
+                      title: Text('Tidak (Pakai Stok)', style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary)),
                       value: false,
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -379,12 +391,11 @@ class ProductFormState extends State<ProductForm> {
               const SizedBox(height: 16),
             ],
             if (widget.product != null) ...[
-              const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Status Produk',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               RadioGroup<int>(
                 groupValue: _status,
                 onChanged: (val) {
@@ -394,14 +405,14 @@ class ProductFormState extends State<ProductForm> {
                   children: [
                     Expanded(
                       child: RadioListTile<int>(
-                        title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                        title: Text('Aktif', style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary)),
                         value: 1,
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
                     Expanded(
                       child: RadioListTile<int>(
-                        title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                        title: Text('Nonaktif', style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary)),
                         value: 0,
                         contentPadding: EdgeInsets.zero,
                       ),

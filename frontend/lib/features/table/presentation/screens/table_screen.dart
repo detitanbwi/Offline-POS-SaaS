@@ -415,8 +415,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   Widget _buildTableGrid(BuildContext context, List<TableModel> tables) {
     final width = MediaQuery.of(context).size.width;
-    int crossAxisCount = (width / 110).floor();
-    if (crossAxisCount < 3) crossAxisCount = 3;
+    int crossAxisCount = (width / 140).floor();
+    if (crossAxisCount < 2) crossAxisCount = 2;
     if (crossAxisCount > 8) crossAxisCount = 8;
 
     return GridView.builder(
@@ -425,7 +425,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         crossAxisCount: crossAxisCount,
         mainAxisSpacing: AppSpacing.s,
         crossAxisSpacing: AppSpacing.s,
-        childAspectRatio: 0.76,
+        childAspectRatio: 0.82,
       ),
       itemCount: tables.length,
       itemBuilder: (context, index) {
@@ -498,22 +498,25 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: getStatusColor().withValues(alpha: 0.1),
-
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        table.statusLabel,
-                        style: TextStyle(
-                          color: getStatusColor(),
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.bold,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: getStatusColor().withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          table.statusLabel,
+                          style: TextStyle(
+                            color: getStatusColor(),
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 4),
                     Text(
                       'No: ${table.nomor}',
                       style: AppTypography.bodyMedium.copyWith(

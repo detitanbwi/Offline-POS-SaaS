@@ -79,6 +79,7 @@ class AppDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       shape: const RoundedRectangleBorder(
         borderRadius: AppRadius.radius24,
       ),

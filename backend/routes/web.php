@@ -12,6 +12,11 @@ Route::get('/', function () {
     return redirect()->route('admin.dashboard');
 });
 
+// Alias for default Laravel auth redirect
+Route::get('/login', function () {
+    return redirect()->route('admin.login');
+})->name('login');
+
 // Admin login routes
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login']);

@@ -150,10 +150,11 @@ class CategoryFormState extends State<CategoryForm> {
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           AppTextField(
             controller: _nameController,
             labelText: 'Nama Kategori',
@@ -163,6 +164,7 @@ class CategoryFormState extends State<CategoryForm> {
             prefixIcon: Icons.category_rounded,
             maxLines: widget.category == null ? null : 1,
             keyboardType: widget.category == null ? TextInputType.multiline : TextInputType.text,
+            textInputAction: TextInputAction.newline,
             validator: (v) => Validators.required(v, 'Nama Kategori'),
           ),
           if (widget.category == null) ...[
@@ -282,8 +284,9 @@ class CategoryFormState extends State<CategoryForm> {
           ],
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // Helper method to trigger submit from parent dialog
   bool submit() {

@@ -437,10 +437,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
                   if (isWide) {
                     return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(flex: 3, child: billingPanel),
+                        Expanded(
+                          flex: 3,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(AppSpacing.l),
+                            child: billingPanel,
+                          ),
+                        ),
                         const VerticalDivider(width: 1),
-                        Expanded(flex: 2, child: paymentPanel),
+                        Expanded(
+                          flex: 2,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(AppSpacing.l),
+                            child: paymentPanel,
+                          ),
+                        ),
                       ],
                     );
                   } else {
@@ -470,11 +483,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     bool isCash,
     double grandTotal,
   ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
           // Invoice summary header card
           AppCard(
             padding: const EdgeInsets.all(AppSpacing.l),
@@ -625,8 +636,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             prefixIcon: Icons.notes_outlined,
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildPaymentPanel(
@@ -638,11 +648,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   ) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.all(AppSpacing.l),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (isCash) ...[
             Text('Pembayaran Tunai', style: AppTypography.titleMedium.copyWith(fontSize: 18)),
@@ -740,7 +748,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           ),
         ],
       ),
-    ),
     );
   }
 

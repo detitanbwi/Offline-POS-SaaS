@@ -40,6 +40,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
       context: context,
       builder: (context) {
         return AlertDialog(
+          scrollable: true,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             isEdit ? 'Ubah Data & Reset PIN' : 'Pendaftaran Kasir Baru',

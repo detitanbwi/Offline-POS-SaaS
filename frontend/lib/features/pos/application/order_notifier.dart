@@ -55,8 +55,11 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   OrderNotifier(this._repository, this._ref) : super(OrderState());
 
-  void selectTable(TableModel? table) {
-    state = OrderState(selectedTable: table);
+  Future<void> selectTable(TableModel? table) async {
+    state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);
+    if (table != null) {
+      await loadActiveOrderForTable(table.id);
+    }
   }
 
   Future<void> loadActiveOrdersMap() async {

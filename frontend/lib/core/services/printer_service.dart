@@ -19,6 +19,29 @@ class PrinterService {
   String? _connectedCashierAddress;
   String? _connectedKitchenAddress;
 
+  Future<String?> _ensureBluetoothPermissions() async {
+    if (!Platform.isAndroid) return null;
+
+    final Map<Permission, PermissionStatus> statuses = await [
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan,
+    ].request();
+
+    final connectStatus = statuses[Permission.bluetoothConnect]!;
+    final scanStatus = statuses[Permission.bluetoothScan]!;
+
+    if (connectStatus.isPermanentlyDenied || scanStatus.isPermanentlyDenied) {
+      return 'Izin Bluetooth ditolak secara permanen. '
+          'Buka Pengaturan HP → Aplikasi → Kasir POS → Izin → aktifkan "Perangkat di sekitar" / "Nearby devices".';
+    }
+
+    if (!connectStatus.isGranted || !scanStatus.isGranted) {
+      return 'Izin Bluetooth belum diberikan. Silakan izinkan akses Bluetooth saat diminta.';
+    }
+
+    return null;
+  }
+
   Future<bool> isBluetoothEnabled() async {
     if (!Platform.isAndroid) return true;
     try {
@@ -68,6 +91,13 @@ class PrinterService {
       ];
     }
 
+    // Step 1: Request runtime permissions first
+    final permissionError = await _ensureBluetoothPermissions();
+    if (permissionError != null) {
+      throw Exception(permissionError);
+    }
+
+    // Step 2: Check if Bluetooth hardware is enabled
     try {
       final bool hasPermission = await checkBluetoothPermissions();
       if (!hasPermission) {
@@ -76,13 +106,33 @@ class PrinterService {
 
       final bool enabled = await PrintBluetoothThermal.bluetoothEnabled;
       if (!enabled) {
-        throw Exception('Bluetooth HP dalam keadaan mati. Silakan aktifkan Bluetooth HP Anda.');
+        throw Exception('Bluetooth HP dalam keadaan mati. Silakan aktifkan Bluetooth HP Anda terlebih dahulu.');
+      }
+    } catch (e) {
+      if (e is Exception && e.toString().contains('Bluetooth HP dalam keadaan mati')) {
+        rethrow;
+      }
+      debugPrint('Error checking bluetooth enabled: $e');
+      throw Exception('Gagal memeriksa status Bluetooth. Pastikan Bluetooth HP Anda aktif.');
+    }
+
+    // Step 3: Fetch paired (bonded) Bluetooth devices
+    try {
+      final List<BluetoothInfo> list = await PrintBluetoothThermal.pairedBluetooths;
+
+      if (list.isEmpty) {
+        throw Exception(
+          'Tidak ditemukan perangkat Bluetooth yang dipasangkan (paired).\n\n'
+          'Pastikan:\n'
+          '1. Printer thermal sudah dinyalakan\n'
+          '2. Printer sudah di-pair melalui Pengaturan Bluetooth HP\n'
+          '3. Coba buka Pengaturan → Bluetooth → Pasangkan ulang printer',
+        );
       }
 
-      final List<BluetoothInfo> list = await PrintBluetoothThermal.pairedBluetooths;
       return list
           .map((d) => BluetoothDeviceModel(
-                name: d.name.isEmpty ? 'Printer Thermal (Perangkat Bluetooth)' : d.name,
+                name: d.name.trim().isEmpty ? 'Printer Thermal (${d.macAdress})' : d.name,
                 address: d.macAdress,
               ))
           .toList();
@@ -103,17 +153,27 @@ class PrinterService {
       return true;
     }
 
+    // Ensure permissions before connecting
+    final permissionError = await _ensureBluetoothPermissions();
+    if (permissionError != null) {
+      debugPrint('Permission error during connect: $permissionError');
+      return false;
+    }
+
     try {
+      // Disconnect any existing connection first
       final isConnected = await PrintBluetoothThermal.connectionStatus;
       if (isConnected) {
         await PrintBluetoothThermal.disconnect;
+        // Small delay to let the BT stack settle
+        await Future.delayed(const Duration(milliseconds: 300));
       }
 
       final bool success = await PrintBluetoothThermal.connect(macPrinterAddress: address)
-          .timeout(const Duration(seconds: 4), onTimeout: () {
-            debugPrint('Connection attempt timed out for $address');
-            return false;
-          });
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        debugPrint('Timeout connecting to Bluetooth printer $address');
+        return false;
+      });
       if (success) {
         if (type == 'cashier') {
           _connectedCashierAddress = address;
@@ -165,21 +225,38 @@ class PrinterService {
       return true;
     }
 
+    // Ensure permissions before printing
+    final permissionError = await _ensureBluetoothPermissions();
+    if (permissionError != null) {
+      debugPrint('Permission error during print: $permissionError');
+      return false;
+    }
+
     try {
-      final isConnected = await PrintBluetoothThermal.connectionStatus;
-      final currentConnectedAddress = _connectedCashierAddress == targetAddress 
-          ? _connectedCashierAddress 
-          : _connectedKitchenAddress == targetAddress 
-              ? _connectedKitchenAddress 
+      final isCurrentlyConnected = await PrintBluetoothThermal.connectionStatus;
+      final currentConnectedAddress = _connectedCashierAddress == targetAddress
+          ? _connectedCashierAddress
+          : _connectedKitchenAddress == targetAddress
+              ? _connectedKitchenAddress
               : null;
-              
-      if (!isConnected || currentConnectedAddress != targetAddress) {
-        final connected = await PrintBluetoothThermal.connect(macPrinterAddress: targetAddress)
-            .timeout(const Duration(seconds: 4), onTimeout: () {
-              debugPrint('Connection attempt timed out during printBytes for $targetAddress');
-              return false;
-            });
-        if (!connected) return false;
+
+      if (!isCurrentlyConnected || currentConnectedAddress != targetAddress) {
+        // Disconnect existing if any
+        if (isCurrentlyConnected) {
+          await PrintBluetoothThermal.disconnect;
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+        final connected = await PrintBluetoothThermal.connect(macPrinterAddress: targetAddress);
+        if (!connected) {
+          debugPrint('Failed to reconnect to printer $targetAddress');
+          return false;
+        }
+        // Update local tracking
+        if (_connectedCashierAddress == targetAddress || _connectedKitchenAddress == null) {
+          _connectedCashierAddress = targetAddress;
+        } else {
+          _connectedKitchenAddress = targetAddress;
+        }
       }
 
       final bool result = await PrintBluetoothThermal.writeBytes(bytes);

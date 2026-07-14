@@ -136,11 +136,28 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                     ],
                   ),
                   const Divider(),
+                  if (state.errorMessage != null && state.errorMessage!.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        state.errorMessage!,
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.error, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Expanded(
                     child: state.scannedDevices.isEmpty
-                        ? const AppEmptyState(
+                        ? AppEmptyState(
                             title: 'Tidak Ada Perangkat Bluetooth',
-                            description: 'Pastikan Bluetooth perangkat menyala dan printer termal berpasangan (paired).',
+                            description: state.errorMessage ??
+                                'Pastikan Bluetooth HP menyala dan printer termal sudah dipasangkan (paired) di Pengaturan Bluetooth HP Anda.',
                             icon: Icons.bluetooth_disabled_rounded,
                           )
                         : ListView.separated(
@@ -186,53 +203,30 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
     );
   }
 
-  Future<void> _setupPrinterConfig(BuildContext context, String name, String address, String type) async {
-    debugPrint('[PrinterSetting] _setupPrinterConfig called for $name ($address) type $type');
+  Future<void> _setupPrinterConfig(BuildContext sheetContext, String name, String address, String type) async {
+    final rootContext = context;
+    Navigator.of(sheetContext).pop(); // Close bottom sheet modal safely
+
+    if (!mounted) return;
 
     AppDialog.show(
-      context: context,
+      context: rootContext,
       title: 'Hubungkan Printer',
       message: 'Hubungkan "$name" sebagai Printer ${type == "cashier" ? "Kasir Utama" : "Dapur"}?',
       confirmText: 'Hubungkan',
       onConfirm: () async {
-        debugPrint('[PrinterSetting] Confirm clicked');
-        try {
-          Navigator.of(context).pop(); // Close confirm dialog safely
-          debugPrint('[PrinterSetting] Confirm dialog popped');
-        } catch (e) {
-          debugPrint('[PrinterSetting] Error popping confirm dialog: $e');
-        }
-
-        try {
-          debugPrint('[PrinterSetting] Starting saveAndConnectPrinter');
-          final success = await ref.read(printerNotifierProvider.notifier).saveAndConnectPrinter(
-                name: name,
-                address: address,
-                type: type,
-              );
-          debugPrint('[PrinterSetting] saveAndConnectPrinter result: $success');
-          
-          if (!context.mounted) {
-            debugPrint('[PrinterSetting] Context is not mounted after saveAndConnectPrinter');
-            return;
-          }
-          
-          if (success) {
-            final err = ref.read(printerNotifierProvider).errorMessage;
-            debugPrint('[PrinterSetting] Success, error message: $err');
-            if (err != null) {
-              AppSnackbar.showWarning(context, err);
-            } else {
-              AppSnackbar.showSuccess(context, 'Berhasil menghubungkan printer $name');
-            }
-          } else {
-            final err = ref.read(printerNotifierProvider).errorMessage;
-            debugPrint('[PrinterSetting] Failed, error message: $err');
-            AppSnackbar.showError(context, err ?? 'Gagal menghubungkan printer.');
-          }
-        } catch (e, stack) {
-          debugPrint('[PrinterSetting] Exception during confirm action: $e');
-          debugPrint('[PrinterSetting] Stacktrace: $stack');
+        Navigator.of(rootContext).pop(); // Close confirm dialog safely
+        final success = await ref.read(printerNotifierProvider.notifier).saveAndConnectPrinter(
+              name: name,
+              address: address,
+              type: type,
+            );
+        if (!mounted) return;
+        if (success) {
+          AppSnackbar.showSuccess(context, 'Berhasil menghubungkan printer $name');
+        } else {
+          final err = ref.read(printerNotifierProvider).errorMessage;
+          AppSnackbar.showError(context, err ?? 'Gagal menghubungkan printer.');
         }
       },
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../product/domain/models/product.dart';
@@ -75,65 +77,76 @@ class StockInFormState extends State<StockInForm> {
 
     return Form(
       key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Product Dropdown
-          DropdownButtonFormField<String>(
-            initialValue: _selectedProductId,
-            decoration: const InputDecoration(
-              labelText: 'Pilih Produk',
-              prefixIcon: Icon(Icons.inventory_2_outlined),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Product Dropdown
+            DropdownButtonFormField<String>(
+              initialValue: _selectedProductId,
+              isExpanded: true,
+              style: AppTypography.bodyLarge.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Pilih Produk',
+                filled: true,
+                fillColor: AppColors.surface,
+                labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                prefixIcon: const Icon(Icons.inventory_2_outlined, color: AppColors.textSecondary),
+              ),
+              items: activeProducts.map((p) {
+                final stockLabel = p.stok == -1 ? '∞' : p.stok.toString();
+                return DropdownMenuItem<String>(
+                  value: p.id,
+                  child: Text(
+                    '${p.nama} (Stok: $stockLabel)',
+                    style: AppTypography.bodyLarge.copyWith(color: AppColors.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                setState(() => _selectedProductId = val);
+              },
+              validator: (v) => v == null ? 'Produk harus dipilih' : null,
             ),
-            items: activeProducts.map((p) {
-              final stockLabel = p.stok == -1 ? '∞' : p.stok.toString();
-              return DropdownMenuItem<String>(
-                value: p.id,
-                child: Text('${p.nama} (Stok saat ini: $stockLabel)'),
-              );
-            }).toList(),
-            onChanged: (val) {
-              setState(() => _selectedProductId = val);
-            },
-            validator: (v) => v == null ? 'Produk harus dipilih' : null,
-          ),
-          const SizedBox(height: 16),
-          AppTextField(
-            controller: _qtyController,
-            labelText: 'Jumlah Masuk (Qty)',
-            hintText: 'Masukkan jumlah produk masuk',
-            prefixIcon: Icons.add_circle_outline_rounded,
-            keyboardType: TextInputType.number,
-            validator: (v) {
-              final err = Validators.integer(v, 'Jumlah Masuk');
-              if (err != null) return err;
-              if (int.parse(v!) <= 0) return 'Jumlah masuk harus lebih besar dari 0';
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          AppTextField(
-            controller: _dateController,
-            labelText: 'Tanggal Masuk',
-            hintText: 'Pilih tanggal stok masuk',
-            prefixIcon: Icons.calendar_today_outlined,
-            readOnly: true,
-            onTap: () => _selectDate(context),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.date_range),
-              onPressed: () => _selectDate(context),
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: _qtyController,
+              labelText: 'Jumlah Masuk (Qty)',
+              hintText: 'Masukkan jumlah produk masuk',
+              prefixIcon: Icons.add_circle_outline_rounded,
+              keyboardType: TextInputType.number,
+              validator: (v) {
+                final err = Validators.integer(v, 'Jumlah Masuk');
+                if (err != null) return err;
+                if (int.parse(v!) <= 0) return 'Jumlah masuk harus lebih besar dari 0';
+                return null;
+              },
             ),
-          ),
-          const SizedBox(height: 16),
-          AppTextField(
-            controller: _notesController,
-            labelText: 'Catatan',
-            hintText: 'Contoh: Restock barang supplier, dll.',
-            prefixIcon: Icons.notes_outlined,
-            maxLines: 2,
-          ),
-        ],
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: _dateController,
+              labelText: 'Tanggal Masuk',
+              hintText: 'Pilih tanggal stok masuk',
+              prefixIcon: Icons.calendar_today_outlined,
+              readOnly: true,
+              onTap: () => _selectDate(context),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.date_range),
+                onPressed: () => _selectDate(context),
+              ),
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: _notesController,
+              labelText: 'Catatan',
+              hintText: 'Contoh: Restock barang supplier, dll.',
+              prefixIcon: Icons.notes_outlined,
+              maxLines: 2,
+            ),
+          ],
+        ),
       ),
     );
   }

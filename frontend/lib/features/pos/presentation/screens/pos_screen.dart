@@ -46,11 +46,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-load products, categories, and tables
+    // Pre-load products, categories, tables, and active orders map
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(productNotifierProvider.notifier).loadProducts();
       ref.read(categoryNotifierProvider.notifier).loadCategories();
       ref.read(tableNotifierProvider.notifier).loadTables();
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
     });
   }
 
@@ -213,11 +214,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return true;
     }
 
-    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
-    if (emptyTables.isEmpty) {
-      AppSnackbar.showWarning(context, 'Semua meja terisi! Kosongkan meja di menu "Kelola Meja Makan" terlebih dahulu.');
-      return false;
-    }
+    // Refresh active orders map to get latest database state
+    await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    if (!mounted) return false;
+
+    final allTables = tableState.allTables;
+    final activeOrdersMap = ref.read(orderNotifierProvider).activeOrdersMap;
 
     TableModel? selectedTable;
     await showDialog(
@@ -227,30 +229,47 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
-            'Pilih Meja Pelanggan',
+            'Pilih Meja Restoran',
             style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
           ),
-          content: SizedBox(
-            width: 400,
-            height: 350,
+          content: Container(
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: MediaQuery.of(context).size.height * 0.6,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Silakan pilih salah satu meja kosong untuk pesanan ini.',
+                  'Silakan pilih meja untuk pesanan atau pembayaran ini.',
                   style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: ListView.separated(
-                    itemCount: emptyTables.length,
+                    itemCount: allTables.length,
                     separatorBuilder: (_, _) => const Divider(),
                     itemBuilder: (context, index) {
-                      final table = emptyTables[index];
+                      final table = allTables[index];
+                      final isOccupied = table.status == 1;
+                      final activeOrder = activeOrdersMap[table.id];
+
                       return ListTile(
-                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        leading: Icon(
+                          Icons.table_restaurant_rounded,
+                          color: isOccupied ? AppColors.secondary : AppColors.success,
+                        ),
                         title: Text(table.nama),
-                        subtitle: Text('Nomor: ${table.nomor}'),
+                        subtitle: Text(
+                          isOccupied
+                              ? 'Terisi (${activeOrder?.nomorOrder ?? 'Pesanan Aktif'})'
+                              : 'Kosong - Nomor: ${table.nomor}',
+                          style: TextStyle(
+                            color: isOccupied ? AppColors.secondary : AppColors.success,
+                            fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         onTap: () {
                           selectedTable = table;
@@ -276,7 +295,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
 
     if (selectedTable != null) {
-      ref.read(orderNotifierProvider.notifier).selectTable(selectedTable);
+      await ref.read(orderNotifierProvider.notifier).selectTable(selectedTable);
+      final updatedOrderState = ref.read(orderNotifierProvider);
+      if (updatedOrderState.activeOrderItems.isNotEmpty) {
+        final products = ref.read(productNotifierProvider).allProducts;
+        ref.read(cartNotifierProvider.notifier).loadDraftItems(updatedOrderState.activeOrderItems, products);
+      }
       return true;
     }
     return false;
@@ -704,228 +728,232 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // Mobile Bottom Cart Summary Float bar
   Widget _buildMobileCartBar(BuildContext context, CartState state) {
+    final rootContext = this.context;
     final totalQty = state.items.fold<int>(0, (prev, item) => prev + item.qty);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2)),
-        ],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('$totalQty Item Terpilih', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-              Text(
-                CurrencyFormatter.format(state.grandTotal),
-                style: AppTypography.titleLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              // Expand view cart button
-              IconButton(
-                icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary, size: 28),
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => DraggableScrollableSheet(
-                      initialChildSize: 0.85,
-                      maxChildSize: 0.95,
-                      minChildSize: 0.5,
-                      builder: (context, scrollController) => Container(
-                        decoration: const BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                        ),
-                        child: Consumer(
-                          builder: (context, ref, child) {
-                            final cState = ref.watch(cartNotifierProvider);
-                            final cNotifier = ref.read(cartNotifierProvider.notifier);
-                            final tableState = ref.watch(tableNotifierProvider);
-                            final orderState = ref.watch(orderNotifierProvider);
-                            return Padding(
-                              padding: const EdgeInsets.all(AppSpacing.m),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Center(
-                                    child: Container(
-                                      width: 40,
-                                      height: 5,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade300,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2)),
+          ],
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$totalQty Item Terpilih', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  CurrencyFormatter.format(state.grandTotal),
+                  style: AppTypography.titleLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                // Expand view cart button
+                IconButton(
+                  icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary, size: 28),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: rootContext,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (sheetContext) => DraggableScrollableSheet(
+                        initialChildSize: 0.85,
+                        maxChildSize: 0.95,
+                        minChildSize: 0.5,
+                        builder: (sheetContext2, scrollController) => Container(
+                          decoration: const BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                          ),
+                          child: Consumer(
+                            builder: (consumerContext, ref, child) {
+                              final cState = ref.watch(cartNotifierProvider);
+                              final cNotifier = ref.read(cartNotifierProvider.notifier);
+                              final tableState = ref.watch(tableNotifierProvider);
+                              final orderState = ref.watch(orderNotifierProvider);
+                              return SafeArea(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.m),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
-                                      Text('Detail Keranjang', style: AppTypography.titleLarge),
-                                      IconButton(
-                                        icon: const Icon(Icons.close),
-                                        onPressed: () => Navigator.pop(context),
+                                      Center(
+                                        child: Container(
+                                          width: 40,
+                                          height: 5,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade300,
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                  const Divider(),
-                                  if (tableState.allTables.isNotEmpty) ...[
-                                    if (orderState.selectedTable != null) ...[
+                                      const SizedBox(height: 16),
                                       Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'Meja: ',
-                                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                                          ),
-                                          Text(
-                                            orderState.selectedTable!.nama,
-                                            style: AppTypography.bodyMedium.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.secondary,
-                                            ),
-                                          ),
-                                          Text(
-                                            ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
-                                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
-                                          ),
-                                          const Spacer(),
+                                          Text('Detail Keranjang', style: AppTypography.titleLarge),
                                           IconButton(
-                                            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
-                                            onPressed: () async {
-                                              ref.read(orderNotifierProvider.notifier).selectTable(null);
-                                              await _ensureTableSelected();
-                                            },
-                                            constraints: const BoxConstraints(),
-                                            padding: EdgeInsets.zero,
+                                            icon: const Icon(Icons.close),
+                                            onPressed: () => Navigator.of(sheetContext).pop(),
                                           ),
                                         ],
                                       ),
                                       const Divider(),
-                                    ] else ...[
-                                      OutlinedButton.icon(
-                                        onPressed: () async {
-                                          final success = await _ensureTableSelected();
-                                          if (success && context.mounted) {
-                                            setState(() {});
-                                          }
-                                        },
-                                        icon: const Icon(Icons.table_restaurant_rounded, size: 16),
-                                        label: const Text('Pilih Meja Restoran'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppColors.secondary,
-                                          side: const BorderSide(color: AppColors.secondary),
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      if (tableState.allTables.isNotEmpty) ...[
+                                        if (orderState.selectedTable != null) ...[
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Meja: ',
+                                                style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                                              ),
+                                              Text(
+                                                orderState.selectedTable!.nama,
+                                                style: AppTypography.bodyMedium.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.secondary,
+                                                ),
+                                              ),
+                                              Text(
+                                                ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
+                                                style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
+                                              ),
+                                              const Spacer(),
+                                              IconButton(
+                                                icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                                                onPressed: () async {
+                                                  Navigator.of(sheetContext).pop();
+                                                  ref.read(orderNotifierProvider.notifier).selectTable(null);
+                                                  await _ensureTableSelected();
+                                                },
+                                                constraints: const BoxConstraints(),
+                                                padding: EdgeInsets.zero,
+                                              ),
+                                            ],
+                                          ),
+                                          const Divider(),
+                                        ] else ...[
+                                          OutlinedButton.icon(
+                                            onPressed: () async {
+                                              Navigator.of(sheetContext).pop();
+                                              await _ensureTableSelected();
+                                            },
+                                            icon: const Icon(Icons.table_restaurant_rounded, size: 16),
+                                            label: const Text('Pilih Meja Restoran'),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppColors.secondary,
+                                              side: const BorderSide(color: AppColors.secondary),
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            ),
+                                          ),
+                                          const Divider(),
+                                        ],
+                                      ],
+                                      Expanded(
+                                        child: ListView.separated(
+                                          controller: scrollController,
+                                          itemCount: cState.items.length,
+                                          separatorBuilder: (_, _) => const Divider(),
+                                          itemBuilder: (context, index) {
+                                            final item = cState.items[index];
+                                            return _CartItemRow(
+                                              item: item,
+                                              cartNotifier: cNotifier,
+                                              onNoteTap: () => _showNoteDialog(rootContext, item),
+                                            );
+                                          },
                                         ),
                                       ),
                                       const Divider(),
+                                      _buildBillSummary(cState),
+                                      const SizedBox(height: 16),
+                                      AppButton(
+                                        text: 'Bayar Sekarang',
+                                        onPressed: cState.items.isEmpty
+                                            ? null
+                                            : () async {
+                                                Navigator.of(sheetContext).pop();
+                                                if (await _ensureTableSelected()) {
+                                                  if (!mounted) return;
+                                                  Navigator.of(rootContext).push(
+                                                    MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                                  );
+                                                }
+                                              },
+                                        icon: Icons.payment_rounded,
+                                        width: double.infinity,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      AppButton(
+                                        text: 'Simpan Order (Kirim ke Dapur)',
+                                        type: AppButtonType.secondary,
+                                        onPressed: cState.items.isEmpty
+                                            ? null
+                                            : () async {
+                                                Navigator.of(sheetContext).pop();
+                                                if (await _ensureTableSelected()) {
+                                                  if (!mounted) return;
+                                                  _handleSaveOrderDraft(rootContext, cState);
+                                                }
+                                              },
+                                        icon: Icons.kitchen_rounded,
+                                        width: double.infinity,
+                                      ),
+                                      if (ref.watch(orderNotifierProvider).activeOrder != null) ...[
+                                        const SizedBox(height: 8),
+                                        AppButton(
+                                          text: 'Batalkan Pesanan Meja',
+                                          type: AppButtonType.destructive,
+                                          onPressed: () {
+                                            Navigator.of(sheetContext).pop();
+                                            _handleCancelOrder(rootContext);
+                                          },
+                                          icon: Icons.cancel_outlined,
+                                          width: double.infinity,
+                                        ),
+                                      ],
                                     ],
-                                  ],
-                                  Expanded(
-                                    child: ListView.separated(
-                                      controller: scrollController,
-                                      itemCount: cState.items.length,
-                                      separatorBuilder: (_, _) => const Divider(),
-                                      itemBuilder: (context, index) {
-                                        final item = cState.items[index];
-                                        return _CartItemRow(
-                                          item: item,
-                                          cartNotifier: cNotifier,
-                                          onNoteTap: () => _showNoteDialog(context, item),
-                                        );
-                                      },
-                                    ),
                                   ),
-                                  const Divider(),
-                                  _buildBillSummary(cState),
-                                  const SizedBox(height: 16),
-                                  AppButton(
-                                    text: 'Bayar Sekarang',
-                                    onPressed: cState.items.isEmpty
-                                        ? null
-                                        : () async {
-                                             if (await _ensureTableSelected()) {
-                                               if (!context.mounted) return;
-                                               Navigator.pop(context); // Close bottom sheet
-                                               Navigator.push(
-                                                 context,
-                                                 MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                               );
-                                             }
-                                           },
-                                    icon: Icons.payment_rounded,
-                                    width: double.infinity,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  AppButton(
-                                    text: 'Simpan Order (Kirim ke Dapur)',
-                                    type: AppButtonType.secondary,
-                                    onPressed: cState.items.isEmpty
-                                        ? null
-                                        : () async {
-                                             if (await _ensureTableSelected()) {
-                                               if (!context.mounted) return;
-                                               Navigator.pop(context); // Close bottom sheet
-                                               _handleSaveOrderDraft(context, cState);
-                                             }
-                                           },
-                                    icon: Icons.kitchen_rounded,
-                                    width: double.infinity,
-                                  ),
-                                  if (ref.watch(orderNotifierProvider).activeOrder != null) ...[
-                                    const SizedBox(height: 8),
-                                    AppButton(
-                                      text: 'Batalkan Pesanan Meja',
-                                      type: AppButtonType.destructive,
-                                      onPressed: () {
-                                        Navigator.pop(context); // Close bottom sheet
-                                        _handleCancelOrder(context);
-                                      },
-                                      icon: Icons.cancel_outlined,
-                                      width: double.infinity,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            );
-                          },
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              AppButton(
-                text: 'Bayar',
-                onPressed: () async {
-                  if (await _ensureTableSelected()) {
-                    if (!context.mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PaymentScreen()),
                     );
-                  }
-                },
-                icon: Icons.payments_outlined,
-              ),
-            ],
-          ),
-        ],
+                  },
+                ),
+                const SizedBox(width: 12),
+                AppButton(
+                  text: 'Bayar',
+                  onPressed: () async {
+                    if (await _ensureTableSelected()) {
+                      if (!mounted) return;
+                      Navigator.of(rootContext).push(
+                        MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                      );
+                    }
+                  },
+                  icon: Icons.payments_outlined,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -944,9 +972,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     if (!context.mounted) return;
     if (success) {
+      final selectedTableName = ref.read(orderNotifierProvider).selectedTable?.nama ?? 'Meja';
       cartNotifier.clear();
-      AppSnackbar.showSuccess(context, 'Pesanan berhasil disimpan.');
-      Navigator.pop(context); // Go back to Table Selector
+      ref.read(orderNotifierProvider.notifier).clearActiveOrder();
+      AppSnackbar.showSuccess(context, 'Pesanan $selectedTableName berhasil disimpan & dikirim ke dapur.');
     } else {
       final err = ref.read(orderNotifierProvider).errorMessage;
       AppSnackbar.showError(context, err ?? 'Gagal menyimpan pesanan.');

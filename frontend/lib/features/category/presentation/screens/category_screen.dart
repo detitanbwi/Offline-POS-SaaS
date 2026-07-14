@@ -141,10 +141,116 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     );
   }
 
+  void _showFilterBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final state = ref.watch(categoryNotifierProvider);
+          final notifier = ref.read(categoryNotifierProvider.notifier);
+
+          return SafeArea(
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.l,
+                AppSpacing.l,
+                AppSpacing.l,
+                AppSpacing.l + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Filter & Urutan Kategori', style: AppTypography.titleLarge),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    Text('Filter Status', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _FilterChip(
+                          label: 'Semua Status',
+                          isSelected: state.statusFilter == null,
+                          onTap: () => notifier.setStatusFilter(null),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterChip(
+                          label: 'Aktif',
+                          isSelected: state.statusFilter == 1,
+                          onTap: () => notifier.setStatusFilter(1),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterChip(
+                          label: 'Nonaktif',
+                          isSelected: state.statusFilter == 0,
+                          onTap: () => notifier.setStatusFilter(0),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Urutan Kategori', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Nama A-Z'),
+                          selected: state.sortBy == 'name_asc',
+                          onSelected: (_) => notifier.setSortBy('name_asc'),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Nama Z-A'),
+                          selected: state.sortBy == 'name_desc',
+                          onSelected: (_) => notifier.setSortBy('name_desc'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Terapkan Filter'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(categoryNotifierProvider);
     final notifier = ref.read(categoryNotifierProvider.notifier);
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -180,61 +286,97 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
               padding: const EdgeInsets.all(AppSpacing.m),
               child: Column(
                 children: [
-                  AppTextField(
-                    controller: _searchController,
-                    labelText: 'Cari Kategori',
-                    prefixIcon: Icons.search,
-                    onChanged: (val) => notifier.setSearchQuery(val),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Status filters
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _FilterChip(
-                                label: 'Semua',
-                                isSelected: state.statusFilter == null,
-                                onTap: () => notifier.setStatusFilter(null),
-                              ),
-                              const SizedBox(width: 8),
-                              _FilterChip(
-                                label: 'Aktif',
-                                isSelected: state.statusFilter == 1,
-                                onTap: () => notifier.setStatusFilter(1),
-                              ),
-                              const SizedBox(width: 8),
-                              _FilterChip(
-                                label: 'Nonaktif',
-                                isSelected: state.statusFilter == 0,
-                                onTap: () => notifier.setStatusFilter(0),
-                              ),
-                            ],
+                  if (isLandscape) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppTextField(
+                            controller: _searchController,
+                            labelText: 'Cari Kategori',
+                            prefixIcon: Icons.search,
+                            onChanged: (val) => notifier.setSearchQuery(val),
                           ),
                         ),
-                      ),
-                      // Sorting action
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.sort, color: AppColors.primary),
-                        tooltip: 'Urutan',
-                        onSelected: (val) => notifier.setSortBy(val),
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'name_asc',
-                            child: Text('Nama A-Z'),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: state.statusFilter != null
+                                ? AppColors.primary
+                                : AppColors.surface,
+                            foregroundColor: state.statusFilter != null
+                                ? Colors.white
+                                : AppColors.textPrimary,
+                            side: const BorderSide(color: AppColors.divider),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
                           ),
-                          const PopupMenuItem(
-                            value: 'name_desc',
-                            child: Text('Nama Z-A'),
+                          icon: const Icon(Icons.tune_rounded, size: 20),
+                          label: Text(
+                            state.statusFilter != null ? 'Filter (Aktif)' : 'Filter & Urutkan',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                          onPressed: () => _showFilterBottomSheet(context),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    AppTextField(
+                      controller: _searchController,
+                      labelText: 'Cari Kategori',
+                      prefixIcon: Icons.search,
+                      onChanged: (val) => notifier.setSearchQuery(val),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Status filters
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                _FilterChip(
+                                  label: 'Semua',
+                                  isSelected: state.statusFilter == null,
+                                  onTap: () => notifier.setStatusFilter(null),
+                                ),
+                                const SizedBox(width: 8),
+                                _FilterChip(
+                                  label: 'Aktif',
+                                  isSelected: state.statusFilter == 1,
+                                  onTap: () => notifier.setStatusFilter(1),
+                                ),
+                                const SizedBox(width: 8),
+                                _FilterChip(
+                                  label: 'Nonaktif',
+                                  isSelected: state.statusFilter == 0,
+                                  onTap: () => notifier.setStatusFilter(0),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Sorting action
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.sort, color: AppColors.primary),
+                          tooltip: 'Urutan',
+                          onSelected: (val) => notifier.setSortBy(val),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'name_asc',
+                              child: Text('Nama A-Z'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'name_desc',
+                              child: Text('Nama Z-A'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                   if (_isSelectionMode) ...[
                     const SizedBox(height: 12),
                     const Divider(),

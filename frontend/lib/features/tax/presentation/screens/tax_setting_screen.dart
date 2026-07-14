@@ -28,13 +28,15 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
     super.initState();
     _percentageController = TextEditingController();
     
-    // Defer initialization to after build to load notifier values
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final state = ref.read(taxNotifierProvider);
-      if (state.taxSetting != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(taxNotifierProvider.notifier).loadTaxSetting();
+      if (!mounted) return;
+      final setting = ref.read(taxNotifierProvider).taxSetting;
+      if (setting != null) {
         setState(() {
-          _taxEnabled = state.taxSetting!.isEnabled;
-          _percentageController.text = state.taxSetting!.percentage.toStringAsFixed(1);
+          _taxEnabled = setting.isEnabled;
+          final p = setting.percentage;
+          _percentageController.text = p % 1 == 0 ? p.toInt().toString() : p.toString();
         });
       }
     });
@@ -63,6 +65,17 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TaxState>(taxNotifierProvider, (previous, next) {
+      if (next.taxSetting != null &&
+          (previous?.taxSetting != next.taxSetting || _percentageController.text.isEmpty)) {
+        setState(() {
+          _taxEnabled = next.taxSetting!.isEnabled;
+          final p = next.taxSetting!.percentage;
+          _percentageController.text = p % 1 == 0 ? p.toInt().toString() : p.toString();
+        });
+      }
+    });
+
     final state = ref.watch(taxNotifierProvider);
 
     return Scaffold(
