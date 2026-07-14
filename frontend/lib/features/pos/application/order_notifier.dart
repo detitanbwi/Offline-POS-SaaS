@@ -176,6 +176,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
         if (hasKitchenPrinter) {
           final kitchenPrinter = printerState.configuredPrinters.firstWhere((p) => p.isKitchen);
           await _ref.read(printerNotifierProvider.notifier).printBytes(kitchenPrinter, receiptBytes);
+        } else if (printerState.configuredPrinters.isNotEmpty) {
+          final defaultPrinter = printerState.configuredPrinters.first;
+          await _ref.read(printerNotifierProvider.notifier).printBytes(defaultPrinter, receiptBytes);
         } else {
           if (kDebugMode) {
             debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');

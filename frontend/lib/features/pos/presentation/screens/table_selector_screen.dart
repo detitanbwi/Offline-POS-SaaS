@@ -248,61 +248,74 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            'Pindah Meja - ${sourceTable.nama}', 
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 300,
-            child: ListView.separated(
-              itemCount: emptyTables.length,
-              separatorBuilder: (_, _) => const Divider(),
-              itemBuilder: (context, index) {
-                final targetTable = emptyTables[index];
-                return ListTile(
-                  leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
-                  title: Text(targetTable.nama),
-                  subtitle: Text('Nomor: ${targetTable.nomor}'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    
-                    // Trigger DB transfer
-                    final orderRepo = ref.read(orderRepositoryProvider);
-                    try {
-                      await orderRepo.transferOrderTable(
-                        activeOrder.id,
-                        sourceTable.id,
-                        targetTable.id,
-                        targetTable.nama,
-                        targetTable.nomor,
+          child: Container(
+            width: MediaQuery.of(context).size.width > 500 ? 400 : MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Pindah Meja - ${sourceTable.nama}', 
+                  style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: emptyTables.length,
+                    separatorBuilder: (_, _) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final targetTable = emptyTables[index];
+                      return ListTile(
+                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        title: Text(targetTable.nama),
+                        subtitle: Text('Nomor: ${targetTable.nomor}'),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          
+                          // Trigger DB transfer
+                          final orderRepo = ref.read(orderRepositoryProvider);
+                          try {
+                            await orderRepo.transferOrderTable(
+                              activeOrder.id,
+                              sourceTable.id,
+                              targetTable.id,
+                              targetTable.nama,
+                              targetTable.nomor,
+                            );
+                            
+                            // Reload state
+                            ref.read(tableNotifierProvider.notifier).loadTables();
+                            ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                            
+                            if (context.mounted) {
+                              AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan ke ${targetTable.nama}');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              AppSnackbar.showError(context, 'Gagal memindahkan meja: $e');
+                            }
+                          }
+                        },
                       );
-                      
-                      // Reload state
-                      ref.read(tableNotifierProvider.notifier).loadTables();
-                      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                      
-                      if (context.mounted) {
-                        AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan ke ${targetTable.nama}');
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        AppSnackbar.showError(context, 'Gagal memindahkan meja: $e');
-                      }
-                    }
-                  },
-                );
-              },
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Batal'),
+                  ),
+                ),
+              ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-          ],
         );
       },
     );

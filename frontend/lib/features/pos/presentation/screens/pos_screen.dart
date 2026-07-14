@@ -25,6 +25,9 @@ import '../../application/order_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../table/domain/models/table.dart';
 import 'payment_screen.dart';
+import 'package:uuid/uuid.dart';
+import '../../domain/models/order.dart';
+import '../../domain/models/order_item.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
 import '../../../../core/widgets/app_receipt_preview_modal.dart';
@@ -226,29 +229,33 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
+        return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            'Pilih Meja Restoran',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-          ),
-          content: Container(
-            constraints: BoxConstraints(
-              maxWidth: 400,
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
-            ),
+          child: Container(
+            width: MediaQuery.of(context).size.width > 500 ? 400 : MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(20),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Text(
+                  'Pilih Meja Restoran',
+                  style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   'Silakan pilih meja untuk pesanan atau pembayaran ini.',
                   style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
-                Expanded(
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                  ),
                   child: ListView.separated(
+                    shrinkWrap: true,
                     itemCount: allTables.length,
-                    separatorBuilder: (_, _) => const Divider(),
+                    separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final table = allTables[index];
                       final isOccupied = table.status == 1;
@@ -279,17 +286,19 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     },
                   ),
                 ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Batal'),
+                  ),
+                ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Batal'),
-            ),
-          ],
         );
       },
     );
@@ -961,6 +970,39 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Future<void> _handleSaveOrderDraft(BuildContext context, CartState cartState) async {
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
+    final orderState = ref.read(orderNotifierProvider);
+
+    final selectedTable = orderState.selectedTable;
+    final tableName = selectedTable?.nama ?? 'Meja';
+    final orderId = orderState.activeOrder?.id ?? const Uuid().v4();
+
+    final orderHeader = OrderModel(
+      id: orderId,
+      nomorOrder: orderState.activeOrder?.nomorOrder ?? 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      tableId: selectedTable?.id ?? '',
+      tableNama: selectedTable?.nama,
+      tableNomor: selectedTable?.nomor,
+      subtotal: cartState.subtotal,
+      taxPercentage: cartState.taxRate,
+      taxAmount: cartState.taxAmount,
+      grandTotal: cartState.grandTotal,
+      createdAt: orderState.activeOrder?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final List<OrderItemModel> itemsToPrint = cartState.items.map((cartItem) {
+      return OrderItemModel(
+        id: const Uuid().v4(),
+        orderId: orderHeader.id,
+        produkId: cartItem.product.id,
+        produkNama: cartItem.product.nama,
+        produkHarga: cartItem.product.harga,
+        qty: cartItem.qty,
+        subtotal: cartItem.subtotal,
+        catatan: cartItem.catatan,
+        statusCetak: 0,
+      );
+    }).toList();
 
     final success = await orderNotifier.saveCurrentOrderDraft(
       cartState.items,
@@ -972,10 +1014,30 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     if (!context.mounted) return;
     if (success) {
-      final selectedTableName = ref.read(orderNotifierProvider).selectedTable?.nama ?? 'Meja';
       cartNotifier.clear();
       ref.read(orderNotifierProvider.notifier).clearActiveOrder();
-      AppSnackbar.showSuccess(context, 'Pesanan $selectedTableName berhasil disimpan & dikirim ke dapur.');
+      AppSnackbar.showSuccess(context, 'Pesanan $tableName berhasil disimpan & dikirim ke dapur.');
+
+      // Show Kitchen Ticket Preview & Printing Modal
+      final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
+        order: orderHeader,
+        itemsToPrint: itemsToPrint,
+      );
+
+      if (!context.mounted) return;
+      AppReceiptPreviewModal.show(
+        context,
+        title: 'Struk Pesanan Dapur',
+        receiptTextPreview: textPreview,
+        onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
+          order: orderHeader,
+          itemsToPrint: itemsToPrint,
+        ),
+        onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
+          order: orderHeader,
+          itemsToPrint: itemsToPrint,
+        ),
+      );
     } else {
       final err = ref.read(orderNotifierProvider).errorMessage;
       AppSnackbar.showError(context, err ?? 'Gagal menyimpan pesanan.');
