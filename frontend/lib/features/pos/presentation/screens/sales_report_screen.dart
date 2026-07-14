@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -11,12 +10,13 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/receipt_generator.dart';
+import '../../../../core/utils/pdf_receipt_generator.dart';
+import '../../../../core/widgets/app_receipt_preview_modal.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
-import '../../../printer/application/printer_notifier.dart';
 import '../../application/sales_report_notifier.dart';
 
 
@@ -54,14 +54,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   }
 
   Future<void> _handlePrintReport(Map<String, dynamic> report) async {
-    final printerState = ref.read(printerNotifierProvider);
-    final hasCashierPrinter = printerState.configuredPrinters.any((p) => p.isCashier);
-
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
+    final dateStr = DateFormat('dd-MM-yyyy').format(_selectedDate);
 
-    final receiptBytes = await ReceiptGenerator.generateReportReceipt(
-      dateStr: DateFormat('dd-MM-yyyy').format(_selectedDate),
+    final textPreview = await ReceiptGenerator.formatReportTextPreview(
+      dateStr: dateStr,
       totalSales: report['total_sales'] as double,
       totalTransactions: report['total_transactions'] as int,
       totalTax: report['total_tax'] as double,
@@ -69,24 +67,28 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       topProducts: topProducts,
     );
 
-    if (hasCashierPrinter) {
-      final cashierPrinter = printerState.configuredPrinters.firstWhere((p) => p.isCashier);
-      final success = await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
-      if (!mounted) return;
-      if (success) {
-        AppSnackbar.showSuccess(context, 'Laporan harian berhasil dicetak.');
-      } else {
-        AppSnackbar.showError(context, 'Gagal mencetak laporan ke printer Bluetooth.');
-      }
-    } else {
-      if (kDebugMode) {
-        debugPrint('--- PRINT REPORT TO SIMULATOR ---');
-        debugPrint(String.fromCharCodes(receiptBytes));
-        debugPrint('---------------------------------');
-      }
-      if (!mounted) return;
-      AppSnackbar.showSuccess(context, 'Simulasi cetak laporan berhasil (Lihat log console).');
-    }
+    if (!mounted) return;
+    AppReceiptPreviewModal.show(
+      context,
+      title: 'Rekapitulasi Shift Kasir',
+      receiptTextPreview: textPreview,
+      onGeneratePdf: () => PdfReceiptGenerator.generateReportPdf(
+        dateStr: dateStr,
+        totalSales: report['total_sales'] as double,
+        totalTransactions: report['total_transactions'] as int,
+        totalTax: report['total_tax'] as double,
+        paymentBreakdown: paymentBreakdown,
+        topProducts: topProducts,
+      ),
+      onGenerateEscPosBytes: () => ReceiptGenerator.generateReportReceipt(
+        dateStr: dateStr,
+        totalSales: report['total_sales'] as double,
+        totalTransactions: report['total_transactions'] as int,
+        totalTax: report['total_tax'] as double,
+        paymentBreakdown: paymentBreakdown,
+        topProducts: topProducts,
+      ),
+    );
   }
 
   Future<void> _exportToPDF(Map<String, dynamic> report) async {

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -26,7 +25,8 @@ import '../../../table/application/table_notifier.dart';
 import '../../../table/domain/models/table.dart';
 import 'payment_screen.dart';
 import '../../../../core/utils/receipt_generator.dart';
-import '../../../printer/application/printer_notifier.dart';
+import '../../../../core/utils/pdf_receipt_generator.dart';
+import '../../../../core/widgets/app_receipt_preview_modal.dart';
 
 
 class PosScreen extends ConsumerStatefulWidget {
@@ -643,7 +643,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             AppButton(
               text: 'Cetak Bil (Tagihan Sementara)',
               type: AppButtonType.secondary,
-              onPressed: () => _handlePrintBill(context),
+              onPressed: _handlePrintBill,
               icon: Icons.print_rounded,
               width: double.infinity,
             ),
@@ -975,38 +975,31 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  Future<void> _handlePrintBill(BuildContext context) async {
+  Future<void> _handlePrintBill() async {
     final orderState = ref.read(orderNotifierProvider);
     final order = orderState.activeOrder;
     final items = orderState.activeOrderItems;
     if (order == null) return;
 
-    final printerState = ref.read(printerNotifierProvider);
-    final hasCashierPrinter = printerState.configuredPrinters.any((p) => p.isCashier);
-
-    final receiptBytes = await ReceiptGenerator.generateBillReceipt(
+    final textPreview = await ReceiptGenerator.formatBillTextPreview(
       order: order,
       items: items,
     );
 
-    if (hasCashierPrinter) {
-      final cashierPrinter = printerState.configuredPrinters.firstWhere((p) => p.isCashier);
-      final success = await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
-      if (!context.mounted) return;
-      if (success) {
-        AppSnackbar.showSuccess(context, 'Tagihan sementara berhasil dicetak.');
-      } else {
-        AppSnackbar.showError(context, 'Gagal mencetak tagihan ke printer.');
-      }
-    } else {
-      if (kDebugMode) {
-        debugPrint('--- PRINT BILL TO SIMULATOR ---');
-        debugPrint(String.fromCharCodes(receiptBytes));
-        debugPrint('-------------------------------');
-      }
-      if (!context.mounted) return;
-      AppSnackbar.showSuccess(context, 'Simulasi cetak tagihan berhasil (Lihat log console).');
-    }
+    if (!mounted) return;
+    AppReceiptPreviewModal.show(
+      context,
+      title: 'Tagihan Sementara',
+      receiptTextPreview: textPreview,
+      onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
+        order: order,
+        items: items,
+      ),
+      onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
+        order: order,
+        items: items,
+      ),
+    );
   }
 }
 
