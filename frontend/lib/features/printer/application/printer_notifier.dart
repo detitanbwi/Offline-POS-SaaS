@@ -73,16 +73,16 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   Future<void> scanBluetoothDevices() async {
     state = state.copyWith(isScanning: true, errorMessage: null);
     try {
-      await _printerService.checkBluetoothPermissions();
       final list = await _printerService.scanDevices();
       state = state.copyWith(
         scannedDevices: list,
         isScanning: false,
       );
     } catch (e) {
+      final msg = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isScanning: false,
-        errorMessage: 'Gagal memindai bluetooth: $e',
+        errorMessage: msg,
       );
     }
   }

@@ -33,63 +33,71 @@ class MainMenuScreen extends ConsumerWidget {
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Keluar / Kunci Sesi',
-              style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+      builder: (context) => SafeArea(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Keluar / Kunci Sesi',
+                  style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Pilih opsi di bawah untuk mengunci aplikasi atau keluar dari akun SaaS.',
+                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.lock_outline_rounded),
+                  label: const Text('Kunci Layar / Ganti User'),
+                  onPressed: () {
+                    ref.read(authSessionProvider.notifier).state = null;
+                    Navigator.pop(context);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Keluar Akun SaaS (Logout)'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _confirmSaaSLogout(context, ref);
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Pilih opsi di bawah untuk mengunci aplikasi atau keluar dari akun SaaS.',
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.lock_outline_rounded),
-              label: const Text('Kunci Layar / Ganti User'),
-              onPressed: () {
-                ref.read(authSessionProvider.notifier).state = null;
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Keluar Akun SaaS (Logout)'),
-              onPressed: () {
-                Navigator.pop(context);
-                _confirmSaaSLogout(context, ref);
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -120,85 +128,92 @@ class MainMenuScreen extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (context) => SafeArea(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Kelola Master Data',
-                  style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Kelola Master Data',
+                      style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
+                const SizedBox(height: 16),
+                _buildSubmenuItem(
+                  context,
+                  title: 'Kategori Produk',
+                  description: 'Kelola kategori untuk klasifikasi produk',
+                  icon: Icons.category_outlined,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryScreen()));
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildSubmenuItem(
+                  context,
+                  title: 'Produk',
+                  description: 'Kelola nama, harga, dan status produk',
+                  icon: Icons.inventory_2_outlined,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductScreen()));
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildSubmenuItem(
+                  context,
+                  title: 'Stok Masuk (Stock In)',
+                  description: 'Catat penambahan stok produk',
+                  icon: Icons.add_business_outlined,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const StockInScreen()));
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildSubmenuItem(
+                  context,
+                  title: 'Metode Pembayaran',
+                  description: 'Kelola metode pembayaran kasir',
+                  icon: Icons.payments_outlined,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentMethodScreen()));
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildSubmenuItem(
+                  context,
+                  title: 'Pengaturan Pajak',
+                  description: 'Atur aktifasi dan persentase pajak (PPN)',
+                  icon: Icons.percent_outlined,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TaxSettingScreen()));
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            _buildSubmenuItem(
-              context,
-              title: 'Kategori Produk',
-              description: 'Kelola kategori untuk klasifikasi produk',
-              icon: Icons.category_outlined,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryScreen()));
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildSubmenuItem(
-              context,
-              title: 'Produk',
-              description: 'Kelola nama, harga, dan status produk',
-              icon: Icons.inventory_2_outlined,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductScreen()));
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildSubmenuItem(
-              context,
-              title: 'Stok Masuk (Stock In)',
-              description: 'Catat penambahan stok produk',
-              icon: Icons.add_business_outlined,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const StockInScreen()));
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildSubmenuItem(
-              context,
-              title: 'Metode Pembayaran',
-              description: 'Kelola metode pembayaran kasir',
-              icon: Icons.payments_outlined,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentMethodScreen()));
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildSubmenuItem(
-              context,
-              title: 'Pengaturan Pajak',
-              description: 'Atur aktifasi dan persentase pajak (PPN)',
-              icon: Icons.percent_outlined,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const TaxSettingScreen()));
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );

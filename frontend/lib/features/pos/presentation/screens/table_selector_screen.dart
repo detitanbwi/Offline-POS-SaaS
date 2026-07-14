@@ -79,117 +79,123 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
     
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return SafeArea(
-          child: Padding(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
             padding: const EdgeInsets.all(AppSpacing.l),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${table.nama} (Nomor: ${table.nomor})',
-                      style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(
-                        hasDraft ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
-                        color: hasDraft ? AppColors.warning : AppColors.success,
+                      Text(
+                        '${table.nama} (Nomor: ${table.nomor})',
+                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              hasDraft ? 'Status: Belum Dibayar (Draft)' : 'Status: Sudah Dibayar (Lunas)',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: hasDraft ? const Color(0xFF78350F) : const Color(0xFF14532D),
-                              ),
-                            ),
-                            if (activeOrder != null) ...[
-                              const SizedBox(height: 4),
-                              Text('No. Order: ${activeOrder.nomorOrder}', style: AppTypography.bodyMedium),
-                              Text(
-                                'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
-                                style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ],
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _navigateToPos(table);
-                  },
-                  icon: const Icon(Icons.shopping_cart_outlined),
-                  label: Text(hasDraft ? 'Lanjutkan Transaksi / Edit' : 'Pesan Baru (Buka POS)'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          hasDraft ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
+                          color: hasDraft ? AppColors.warning : AppColors.success,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                hasDraft ? 'Status: Belum Dibayar (Draft)' : 'Status: Sudah Dibayar (Lunas)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: hasDraft ? const Color(0xFF78350F) : const Color(0xFF14532D),
+                                ),
+                              ),
+                              if (activeOrder != null) ...[
+                                const SizedBox(height: 4),
+                                Text('No. Order: ${activeOrder.nomorOrder}', style: AppTypography.bodyMedium),
+                                Text(
+                                  'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
+                                  style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                if (hasDraft) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
                   ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      _handleMoveTable(context, table, activeOrder);
+                      _navigateToPos(table);
                     },
-                    icon: const Icon(Icons.move_up_rounded),
-                    label: const Text('Pindah Meja'),
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                    label: Text(hasDraft ? 'Lanjutkan Transaksi / Edit' : 'Pesan Baru (Buka POS)'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                ],
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _confirmClearTable(table, activeOrder);
-                  },
-                  icon: const Icon(Icons.cleaning_services_outlined, color: AppColors.error),
-                  label: const Text('Selesaikan & Kosongkan Meja', style: TextStyle(color: AppColors.error)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.error),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  if (hasDraft) ...[
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _handleMoveTable(context, table, activeOrder);
+                      },
+                      icon: const Icon(Icons.move_up_rounded),
+                      label: const Text('Pindah Meja'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.secondary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _confirmClearTable(table, activeOrder);
+                    },
+                    icon: const Icon(Icons.cleaning_services_outlined, color: AppColors.error),
+                    label: const Text('Selesaikan & Kosongkan Meja', style: TextStyle(color: AppColors.error)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.error),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

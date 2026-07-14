@@ -63,121 +63,128 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(AppSpacing.l),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (context) => SafeArea(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.l),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Struk Transaksi', style: AppTypography.titleLarge),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const Divider(),
-            const SizedBox(height: 12),
-            // Mock Print Preview Layout
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.divider),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Column(
-                      children: [
-                        Text(storeName,
-                            style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 2),
-                        Text(storeAddress, style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
-                        if (storePhone != null && storePhone.isNotEmpty) ...[
-                          Text('Telp: $storePhone', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                        ],
-                      ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Struk Transaksi', style: AppTypography.titleLarge),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
                     ),
+                  ],
+                ),
+                const Divider(),
+                const SizedBox(height: 12),
+                // Mock Print Preview Layout
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.divider),
                   ),
-                  const SizedBox(height: 16),
-                  _buildReceiptTextRow('No. Transaksi', tx.nomorTransaksi),
-                  _buildReceiptTextRow('Waktu', DateFormat('yyyy-MM-dd HH:mm').format(tx.createdAt)),
-                  _buildReceiptTextRow('Kasir', tx.cashierNama ?? 'Pemilik'),
-                  _buildReceiptTextRow('Status', tx.status.toUpperCase()),
-                  _buildDottedLine(),
-                  // List of items
-                  ...items.map((item) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Column(
+                          children: [
+                            Text(storeName,
+                                style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(storeAddress, style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                            if (storePhone != null && storePhone.isNotEmpty) ...[
+                              Text('Telp: $storePhone', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildReceiptTextRow('No. Transaksi', tx.nomorTransaksi),
+                      _buildReceiptTextRow('Waktu', DateFormat('yyyy-MM-dd HH:mm').format(tx.createdAt)),
+                      _buildReceiptTextRow('Kasir', tx.cashierNama ?? 'Pemilik'),
+                      _buildReceiptTextRow('Status', tx.status.toUpperCase()),
+                      _buildDottedLine(),
+                      // List of items
+                      ...items.map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text(item.produkNama, style: AppTypography.titleMedium.copyWith(fontSize: 13)),
-                              Text(
-                                CurrencyFormatter.format(item.subtotal),
-                                style: const TextStyle(fontSize: 13),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(item.produkNama, style: AppTypography.titleMedium.copyWith(fontSize: 13)),
+                                  Text(
+                                    CurrencyFormatter.format(item.subtotal),
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ],
                               ),
+                              Text(
+                                '${item.qty} x ${CurrencyFormatter.format(item.produkHarga)}',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                              if (item.catatan != null && item.catatan!.isNotEmpty) ...[
+                                Text(
+                                  'Catatan: ${item.catatan}',
+                                  style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.secondary),
+                                ),
+                              ],
                             ],
                           ),
-                          Text(
-                            '${item.qty} x ${CurrencyFormatter.format(item.produkHarga)}',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
-                          if (item.catatan != null && item.catatan!.isNotEmpty) ...[
-                            Text(
-                              'Catatan: ${item.catatan}',
-                              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.secondary),
-                            ),
-                          ],
-                        ],
+                        );
+                      }),
+                      _buildDottedLine(),
+                      _buildReceiptTextRow('Subtotal', CurrencyFormatter.format(tx.subtotal)),
+                      if (tx.taxPercentage > 0) ...[
+                        _buildReceiptTextRow('Pajak (PPN ${tx.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.format(tx.taxAmount)),
+                      ],
+                      _buildReceiptTextRow('Total Bayar', CurrencyFormatter.format(tx.grandTotal), isBold: true),
+                      _buildReceiptTextRow('Metode Bayar', tx.paymentMethodNama),
+                      _buildReceiptTextRow('Jumlah Bayar', CurrencyFormatter.format(tx.nominalBayar)),
+                      _buildReceiptTextRow('Kembalian', CurrencyFormatter.format(tx.kembalian), isBold: true),
+                      _buildDottedLine(),
+                      const Center(
+                        child: Text(
+                          'Terima kasih atas kunjungan Anda',
+                          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                        ),
                       ),
-                    );
-                  }),
-                  _buildDottedLine(),
-                  _buildReceiptTextRow('Subtotal', CurrencyFormatter.format(tx.subtotal)),
-                  if (tx.taxPercentage > 0) ...[
-                    _buildReceiptTextRow('Pajak (PPN ${tx.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.format(tx.taxAmount)),
-                  ],
-                  _buildReceiptTextRow('Total Bayar', CurrencyFormatter.format(tx.grandTotal), isBold: true),
-                  _buildReceiptTextRow('Metode Bayar', tx.paymentMethodNama),
-                  _buildReceiptTextRow('Jumlah Bayar', CurrencyFormatter.format(tx.nominalBayar)),
-                  _buildReceiptTextRow('Kembalian', CurrencyFormatter.format(tx.kembalian), isBold: true),
-                  _buildDottedLine(),
-                  const Center(
-                    child: Text(
-                      'Terima kasih atas kunjungan Anda',
-                      style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
-                    ),
+                    ],
                   ),
+                ),
+                const SizedBox(height: 16),
+                if (tx.status == 'completed') ...[
+                  AppButton(
+                    text: 'Batalkan Transaksi (Void)',
+                    type: AppButtonType.destructive,
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _handleVoidTransaction(context, tx);
+                    },
+                  ),
+                  const SizedBox(height: 8),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(height: 16),
-            if (tx.status == 'completed') ...[
-              AppButton(
-                text: 'Batalkan Transaksi (Void)',
-                type: AppButtonType.destructive,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _handleVoidTransaction(context, tx);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ],
+          ),
         ),
       ),
     );

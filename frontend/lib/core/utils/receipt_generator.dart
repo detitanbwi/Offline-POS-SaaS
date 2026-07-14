@@ -1,4 +1,5 @@
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:intl/intl.dart';
 import '../../features/pos/domain/models/order.dart';
 import '../../features/pos/domain/models/order_item.dart';
 import '../../features/pos/domain/models/transaction.dart';
@@ -13,37 +14,89 @@ class ReceiptGenerator {
     return _cachedProfile!;
   }
 
-  // Generate 58mm ESC/POS bytes for Kitchen Order Ticket (KOT)
-  static Future<List<int>> generateKitchenTicket({
+  // --------------------------------------------------------------------------
+  // 1. TAGIHAN SEMENTARA (Temporary Bill)
+  // --------------------------------------------------------------------------
+  static Future<List<int>> generateBillReceipt({
     required OrderModel order,
-    required List<OrderItemModel> itemsToPrint,
+    required List<OrderItemModel> items,
+    String? cashierNama,
   }) async {
     final profile = await _getProfile();
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
-    // Header
+    final storage = SecureStorageService();
+    final storeName = await storage.getStoreName() ?? 'KOS QAEZAR KAFE';
+    final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
+    final storePhone = await storage.getStorePhone() ?? '0812345678';
+    final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+
+    // Title & Store Info Header
     bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('*** TIKET DAPUR ***');
-    bytes += generator.text('================================');
-    
-    // Meja Info (Bold & Large)
-    bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2, width: PosTextSize.size2));
-    bytes += generator.text(order.tableNama ?? 'MEJA');
+    bytes += generator.text('Tagihan Sementara');
     bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
-    bytes += generator.text('No. Order: ${order.nomorOrder}');
-    bytes += generator.text('Waktu: ${DateTime.now().toString().split('.').first}');
+    bytes += generator.text(storeName, styles: const PosStyles(bold: true));
+    for (var line in storeAddress.split('\n')) {
+      bytes += generator.text(line);
+    }
+    if (storePhone.isNotEmpty) {
+      bytes += generator.text('Telp: $storePhone');
+    }
     bytes += generator.text('================================');
-    
-    // Items
+
+    // Metadata
     bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
-    for (var item in itemsToPrint) {
-      bytes += generator.text('${item.qty}x ${item.produkNama}', styles: const PosStyles(bold: true));
+    bytes += generator.text('Tgl   : $nowStr');
+    bytes += generator.text('Kasir : ${cashierNama ?? 'Bima'}');
+    if (order.tableNama != null && order.tableNama!.isNotEmpty) {
+      bytes += generator.text('Meja  : ${order.tableNama}');
+    }
+    bytes += generator.text('Status: BELUM DIBAYAR');
+    bytes += generator.text('--------------------------------');
+
+    // Items Listing
+    for (var item in items) {
+      bytes += generator.text('${item.qty}x ${item.produkNama}');
+      final unitPrice = CurrencyFormatter.formatNumber(item.produkHarga);
+      final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
+      final qtyPrice = '  @ $unitPrice';
+      bytes += _renderRow(generator, qtyPrice, subtotal);
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('  * Catatan: ${item.catatan}');
+        bytes += generator.text('     - ${item.catatan}');
       }
     }
-    
+
+    bytes += generator.text('--------------------------------');
+
+    // Totals Summary
+    bytes += _renderRow(
+      generator,
+      'Subtotal',
+      CurrencyFormatter.formatNumber(order.subtotal),
+    );
+    if (order.taxAmount > 0) {
+      bytes += _renderRow(
+        generator,
+        'Pajak (${order.taxPercentage.toStringAsFixed(0)}%)',
+        CurrencyFormatter.formatNumber(order.taxAmount),
+      );
+    }
+    bytes += generator.text('--------------------------------');
+    bytes += _renderRow(
+      generator,
+      'TOTAL TAGIHAN',
+      CurrencyFormatter.formatNumber(order.grandTotal),
+      bold: true,
+    );
+    bytes += generator.text('================================');
+
+    // Warning Footer
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
+    bytes += generator.text('  * Ini BUKAN bukti pembayaran  ');
+    bytes += generator.text(' sah. Silakan bawa tagihan ini  ');
+    bytes += generator.text('        ke meja kasir.          ');
     bytes += generator.text('================================');
     bytes += generator.feed(3);
     bytes += generator.cut();
@@ -51,7 +104,56 @@ class ReceiptGenerator {
     return bytes;
   }
 
-  // Generate 58mm ESC/POS bytes for Cashier receipt
+  // --------------------------------------------------------------------------
+  // 2. STRUK PESANAN - DAPUR (Kitchen Order Ticket)
+  // --------------------------------------------------------------------------
+  static Future<List<int>> generateKitchenTicket({
+    required OrderModel order,
+    required List<OrderItemModel> itemsToPrint,
+    String? waveInfo,
+    String? cashierNama,
+  }) async {
+    final profile = await _getProfile();
+    final generator = Generator(PaperSize.mm58, profile);
+    List<int> bytes = [];
+
+    final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+
+    // Banner Header
+    bytes += generator.text('================================');
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text('PESANAN DAPUR');
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
+    bytes += generator.text('================================');
+
+    // Metadata
+    bytes += generator.text('Meja      : ${order.tableNama ?? '04'}');
+    bytes += generator.text('Gelombang : ${waveInfo ?? '#1 (Baru)'}');
+    bytes += generator.text('Waktu     : $nowStr');
+    bytes += generator.text('Kasir     : ${cashierNama ?? 'Bima'}');
+    bytes += generator.text('--------------------------------');
+    bytes += generator.text('QTY  ITEM', styles: const PosStyles(bold: true));
+    bytes += generator.text('--------------------------------');
+
+    // Items List
+    for (var item in itemsToPrint) {
+      final qtyStr = item.qty.toString().padRight(4);
+      bytes += generator.text('$qtyStr ${item.produkNama}', styles: const PosStyles(bold: true));
+      if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
+        bytes += generator.text('     - ${item.catatan}');
+      }
+    }
+
+    bytes += generator.text('================================');
+    bytes += generator.feed(3);
+    bytes += generator.cut();
+
+    return bytes;
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. STRUK PEMBAYARAN (Customer Payment Receipt)
+  // --------------------------------------------------------------------------
   static Future<List<int>> generateCashierReceipt({
     required TransactionHeader transaction,
     required List<TransactionItem> items,
@@ -62,139 +164,96 @@ class ReceiptGenerator {
     List<int> bytes = [];
 
     final storage = SecureStorageService();
-    final storeName = await storage.getStoreName() ?? 'KASIR POS OFFLINE';
-    final storeAddress = await storage.getStoreAddress() ?? 'SaaS Offline POS';
-    final storePhone = await storage.getStorePhone();
+    final storeName = await storage.getStoreName() ?? 'KOS QAEZAR KAFE';
+    final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
+    final storePhone = await storage.getStorePhone() ?? '0812345678';
+    final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(transaction.createdAt);
 
-    // Header
+    // Store Info Header
     bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
     bytes += generator.text(storeName);
-    bytes += generator.text(storeAddress);
-    if (storePhone != null && storePhone.isNotEmpty) {
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
+    for (var line in storeAddress.split('\n')) {
+      bytes += generator.text(line);
+    }
+    if (storePhone.isNotEmpty) {
       bytes += generator.text('Telp: $storePhone');
     }
     bytes += generator.text('================================');
-    
-    // Meta Info
+
+    // Metadata
     bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
-    bytes += generator.text('No. Trans: ${transaction.nomorTransaksi}');
-    bytes += generator.text('Waktu: ${transaction.createdAt}');
+    bytes += generator.text('Tgl   : $dateStr');
+    bytes += generator.text('Kasir : ${transaction.cashierNama ?? 'Bima'}');
+    bytes += generator.text('No.   : ${transaction.nomorTransaksi}');
     if (tableName != null && tableName.isNotEmpty) {
-      bytes += generator.text('Meja: $tableName');
+      bytes += generator.text('Meja  : $tableName');
     }
-    bytes += generator.text('Kasir: ${transaction.cashierNama ?? 'Pemilik'}');
-    bytes += generator.text('Metode: ${transaction.paymentMethodNama}');
-    bytes += generator.text('================================');
+    bytes += generator.text('--------------------------------');
 
     // Items List
     for (var item in items) {
-      bytes += generator.text(item.produkNama);
-      // Row formatting for Qty x Price and Subtotal
-      final qtyPrice = '  ${item.qty}x ${CurrencyFormatter.format(item.produkHarga)}';
-      final subtotal = CurrencyFormatter.format(item.subtotal);
-      final spaceCount = 32 - qtyPrice.length - subtotal.length;
-      final spaces = spaceCount > 0 ? ' ' * spaceCount : ' ';
-      bytes += generator.text('$qtyPrice$spaces$subtotal');
+      bytes += generator.text('${item.qty}x ${item.produkNama}');
+      final unitPrice = CurrencyFormatter.formatNumber(item.produkHarga);
+      final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
+      final qtyPrice = '  @ $unitPrice';
+      bytes += _renderRow(generator, qtyPrice, subtotal);
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('  * Catatan: ${item.catatan}');
+        bytes += generator.text('     - ${item.catatan}');
       }
     }
 
-    bytes += generator.text('================================');
+    bytes += generator.text('--------------------------------');
 
     // Summary Totals
-    bytes += _renderSummaryRow(generator, 'Subtotal:', CurrencyFormatter.format(transaction.subtotal));
+    bytes += _renderRow(
+      generator,
+      'Subtotal',
+      CurrencyFormatter.formatNumber(transaction.subtotal),
+    );
     if (transaction.taxAmount > 0) {
-      bytes += _renderSummaryRow(
-        generator, 
-        'PPN (${transaction.taxPercentage}%):', 
-        CurrencyFormatter.format(transaction.taxAmount)
+      bytes += _renderRow(
+        generator,
+        'Pajak (${transaction.taxPercentage.toStringAsFixed(0)}%)',
+        CurrencyFormatter.formatNumber(transaction.taxAmount),
       );
     }
-    bytes += _renderSummaryRow(generator, 'Grand Total:', CurrencyFormatter.format(transaction.grandTotal), bold: true);
-    bytes += _renderSummaryRow(generator, 'Bayar:', CurrencyFormatter.format(transaction.nominalBayar));
-    bytes += _renderSummaryRow(generator, 'Kembalian:', CurrencyFormatter.format(transaction.kembalian));
-
+    bytes += generator.text('--------------------------------');
+    bytes += _renderRow(
+      generator,
+      'TOTAL',
+      CurrencyFormatter.formatNumber(transaction.grandTotal),
+      bold: true,
+    );
     bytes += generator.text('================================');
+
+    // Payment & Change
+    bytes += _renderRow(
+      generator,
+      transaction.paymentMethodNama.isEmpty ? 'Tunai' : transaction.paymentMethodNama,
+      CurrencyFormatter.formatNumber(transaction.nominalBayar),
+    );
+    bytes += _renderRow(
+      generator,
+      'Kembalian',
+      CurrencyFormatter.formatNumber(transaction.kembalian),
+    );
+    bytes += generator.text('================================');
+
+    // Footer
     bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
-    bytes += generator.text('Terima Kasih');
-    bytes += generator.text('Atas Kunjungan Anda');
+    bytes += generator.text('       Terima Kasih Atas ');
+    bytes += generator.text('        Kunjungan Anda!');
     bytes += generator.feed(3);
     bytes += generator.cut();
 
     return bytes;
   }
 
-  // Generate 58mm ESC/POS bytes for Bill / Tagihan Sementara
-  static Future<List<int>> generateBillReceipt({
-    required OrderModel order,
-    required List<OrderItemModel> items,
-  }) async {
-    final profile = await _getProfile();
-    final generator = Generator(PaperSize.mm58, profile);
-    List<int> bytes = [];
-
-    final storage = SecureStorageService();
-    final storeName = await storage.getStoreName() ?? 'KASIR POS OFFLINE';
-    final storeAddress = await storage.getStoreAddress() ?? 'SaaS Offline POS';
-    final storePhone = await storage.getStorePhone();
-
-    // Header
-    bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('*** TAGIHAN SEMENTARA ***');
-    bytes += generator.text(storeName);
-    bytes += generator.text(storeAddress);
-    if (storePhone != null && storePhone.isNotEmpty) {
-      bytes += generator.text('Telp: $storePhone');
-    }
-    bytes += generator.text('================================');
-    
-    // Meta Info
-    bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
-    bytes += generator.text('No. Order: ${order.nomorOrder}');
-    bytes += generator.text('Waktu: ${DateTime.now().toString().split('.').first}');
-    if (order.tableNama != null && order.tableNama!.isNotEmpty) {
-      bytes += generator.text('Meja: ${order.tableNama}');
-    }
-    bytes += generator.text('================================');
-
-    // Items List
-    for (var item in items) {
-      bytes += generator.text(item.produkNama);
-      final qtyPrice = '  ${item.qty}x ${CurrencyFormatter.format(item.produkHarga)}';
-      final subtotal = CurrencyFormatter.format(item.subtotal);
-      final spaceCount = 32 - qtyPrice.length - subtotal.length;
-      final spaces = spaceCount > 0 ? ' ' * spaceCount : ' ';
-      bytes += generator.text('$qtyPrice$spaces$subtotal');
-      if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('  * Catatan: ${item.catatan}');
-      }
-    }
-
-    bytes += generator.text('================================');
-
-    // Summary Totals
-    bytes += _renderSummaryRow(generator, 'Subtotal:', CurrencyFormatter.format(order.subtotal));
-    if (order.taxAmount > 0) {
-      bytes += _renderSummaryRow(
-        generator, 
-        'PPN (${order.taxPercentage}%):', 
-        CurrencyFormatter.format(order.taxAmount)
-      );
-    }
-    bytes += _renderSummaryRow(generator, 'Grand Total:', CurrencyFormatter.format(order.grandTotal), bold: true);
-
-    bytes += generator.text('================================');
-    bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
-    bytes += generator.text('Bukan Bukti Pembayaran Resmi');
-    bytes += generator.feed(3);
-    bytes += generator.cut();
-
-    return bytes;
-  }
-
-
-  // Generate 58mm ESC/POS bytes for Sales Report
+  // --------------------------------------------------------------------------
+  // 4. REKAPITULASI KASIR / TUTUP SHIFT KASIR (Cashier Shift Closing Report)
+  // --------------------------------------------------------------------------
   static Future<List<int>> generateReportReceipt({
     required String dateStr,
     required double totalSales,
@@ -202,63 +261,104 @@ class ReceiptGenerator {
     required double totalTax,
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
+    String? cashierNama,
+    String? startTimeStr,
+    String? endTimeStr,
+    int? totalItemsCount,
+    double? expectedCash,
+    double? actualCash,
+    double? selisihCash,
   }) async {
     final profile = await _getProfile();
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
-    // Header
+    final String cashier = cashierNama ?? 'Bima';
+    final String start = startTimeStr ?? '$dateStr 08:00';
+    final String end = endTimeStr ?? '$dateStr 15:00';
+    final int itemsCount = totalItemsCount ?? topProducts.fold<int>(0, (sum, p) => sum + ((p['qty'] as num?)?.toInt() ?? 0));
+
+    // Shift Header Banner
+    bytes += generator.text('================================');
     bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('LAPORAN RINGKASAN HARIAN');
-    bytes += generator.text('POS OFFLINE SAAS');
-    bytes += generator.text('================================');
-
-    // Meta Info
+    bytes += generator.text('TUTUP SHIFT KASIR');
     bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
-    bytes += generator.text('Tanggal: $dateStr');
-    bytes += generator.text('Tercetak: ${DateTime.now().toString().split('.').first}');
     bytes += generator.text('================================');
 
-    // Main Stats
-    bytes += _renderSummaryRow(generator, 'Total Transaksi:', '$totalTransactions');
-    bytes += _renderSummaryRow(generator, 'Total PPN:', CurrencyFormatter.format(totalTax));
-    bytes += _renderSummaryRow(generator, 'Omset Kotor:', CurrencyFormatter.format(totalSales), bold: true);
+    // Metadata
+    bytes += generator.text('Kasir   : $cashier');
+    bytes += generator.text('Mulai   : $start');
+    bytes += generator.text('Selesai : $end');
     bytes += generator.text('--------------------------------');
+
+    // Revenue Breakdown Header
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text('RINCIAN PENDAPATAN');
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
+    bytes += generator.text('--------------------------------');
+    bytes += generator.text('Total Transaksi : $totalTransactions');
+    bytes += generator.text('Total Item      : $itemsCount');
+    bytes += generator.text('');
 
     // Payment Methods Breakdown
-    bytes += generator.text('Metode Pembayaran:', styles: const PosStyles(bold: true));
     paymentBreakdown.forEach((method, total) {
-      if (total > 0) {
-        bytes += _renderSummaryRow(generator, ' - $method:', CurrencyFormatter.format(total));
+      if (total >= 0) {
+        bytes += _renderRow(generator, method, CurrencyFormatter.formatNumber(total));
       }
     });
+
     bytes += generator.text('--------------------------------');
-
-    // Top Products
-    bytes += generator.text('Produk Terlaris:', styles: const PosStyles(bold: true));
-    for (var prod in topProducts) {
-      final name = prod['nama'] as String;
-      final qty = prod['qty'] as int;
-      final total = prod['total'] as double;
-      bytes += generator.text('$name');
-      bytes += _renderSummaryRow(generator, '   Qty: $qty', CurrencyFormatter.format(total));
-    }
-
+    bytes += _renderRow(
+      generator,
+      'TOTAL OMZET',
+      CurrencyFormatter.formatNumber(totalSales),
+      bold: true,
+    );
     bytes += generator.text('================================');
+
+    // Physical Cash Reconciliation Banner
+    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
+    final double actCash = actualCash ?? expCash;
+    final double diffCash = selisihCash ?? (actCash - expCash);
+
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text('  PENCOCOKAN KAS FISIK (TUNAI)  ');
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
+    bytes += generator.text('--------------------------------');
+    bytes += _renderRow(generator, 'Sistem (Expected)', CurrencyFormatter.formatNumber(expCash));
+    bytes += _renderRow(generator, 'Laci Kas (Actual)', CurrencyFormatter.formatNumber(actCash));
+    bytes += generator.text('--------------------------------');
+    bytes += _renderRow(generator, 'SELISIH', CurrencyFormatter.formatNumber(diffCash), bold: true);
+    bytes += generator.text('================================');
+
+    // Footer
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
+    bytes += generator.text('      Validasi Sistem POS       ');
     bytes += generator.feed(3);
     bytes += generator.cut();
 
     return bytes;
   }
 
-  static List<int> _renderSummaryRow(
+  // Helper method to format left-aligned label and right-aligned value in 32-character line
+  static List<int> _renderRow(
     Generator generator,
-    String label,
-    String value, {
+    String left,
+    String right, {
     bool bold = false,
   }) {
-    final spaceCount = 32 - label.length - value.length;
-    final spaces = spaceCount > 0 ? ' ' * spaceCount : ' ';
-    return generator.text('$label$spaces$value', styles: PosStyles(bold: bold));
+    const int totalWidth = 32;
+    final spaceCount = totalWidth - left.length - right.length;
+    if (spaceCount > 0) {
+      final line = '$left${' ' * spaceCount}$right';
+      return generator.text(line, styles: PosStyles(bold: bold));
+    } else {
+      // If overflowing 32 chars, print left then right on next line
+      List<int> rBytes = generator.text(left, styles: PosStyles(bold: bold));
+      final rightSpaces = totalWidth - right.length;
+      final rightLine = '${' ' * (rightSpaces > 0 ? rightSpaces : 0)}$right';
+      rBytes += generator.text(rightLine, styles: PosStyles(bold: bold));
+      return rBytes;
+    }
   }
 }

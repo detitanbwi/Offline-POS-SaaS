@@ -10,6 +10,7 @@ class AppTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final bool obscureText;
   final TextInputType keyboardType;
+  final TextInputAction textInputAction;
   final IconData? prefixIcon;
   final Widget? suffixIcon;
   final List<TextInputFormatter>? inputFormatters;
@@ -28,6 +29,7 @@ class AppTextField extends StatelessWidget {
     this.validator,
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
+    this.textInputAction = TextInputAction.next,
     this.prefixIcon,
     this.suffixIcon,
     this.inputFormatters,
@@ -48,15 +50,20 @@ class AppTextField extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       onChanged: onChanged,
+      textInputAction: textInputAction,
       readOnly: readOnly,
       onTap: onTap,
       maxLines: maxLines,
       maxLength: maxLength,
-      style: AppTypography.bodyLarge,
+      style: AppTypography.bodyLarge.copyWith(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
         counterText: "",
+        filled: true,
+        fillColor: AppColors.surface,
+        labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+        hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppColors.textSecondary) : null,
         prefixText: prefixText,
         suffixIcon: suffixIcon,

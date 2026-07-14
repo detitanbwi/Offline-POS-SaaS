@@ -119,7 +119,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primary,
-      body: Center(
+      body: SafeArea(
+        child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.l),
           child: ConstrainedBox(
@@ -155,6 +156,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                       hintText: 'Contoh: owner atau Nama Kasir',
                       hintStyle: TextStyle(color: Colors.white38),
                       prefixIcon: Icon(Icons.person_outline_rounded, color: Colors.white70),
+                      filled: false,
                       enabledBorder: UnderlineInputBorder(
                         borderSide: BorderSide(color: Colors.white54),
                       ),
@@ -215,6 +217,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

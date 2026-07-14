@@ -11,6 +11,7 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
 import 'about_screen.dart';
+import 'store_profile_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -131,6 +132,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.l),
           children: [
+            // Store Profile Option
+            _buildSettingsTile(
+              context,
+              title: 'Profil & Informasi Toko',
+              subtitle: 'Atur nama toko, alamat lengkap, dan nomor telepon cetakan struk',
+              icon: Icons.storefront_rounded,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StoreProfileScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+
             // Printers Config Option
             _buildSettingsTile(
               context,

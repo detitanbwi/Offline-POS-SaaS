@@ -18,8 +18,18 @@ class PrinterService {
   String? _connectedCashierAddress;
   String? _connectedKitchenAddress;
 
+  Future<bool> isBluetoothEnabled() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      return await PrintBluetoothThermal.bluetoothEnabled;
+    } catch (e) {
+      debugPrint('Error checking bluetooth status: $e');
+      return false;
+    }
+  }
+
   Future<bool> checkBluetoothPermissions() async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid) return true;
     try {
       final bool result = await PrintBluetoothThermal.isPermissionBluetoothGranted;
       return result;
@@ -39,13 +49,21 @@ class PrinterService {
     }
 
     try {
+      final bool enabled = await PrintBluetoothThermal.bluetoothEnabled;
+      if (!enabled) {
+        throw Exception('Bluetooth HP dalam keadaan mati. Silakan aktifkan Bluetooth HP Anda.');
+      }
+
       final List<BluetoothInfo> list = await PrintBluetoothThermal.pairedBluetooths;
       return list
-          .map((d) => BluetoothDeviceModel(name: d.name, address: d.macAdress))
+          .map((d) => BluetoothDeviceModel(
+                name: d.name.isEmpty ? 'Printer Thermal (Perangkat Bluetooth)' : d.name,
+                address: d.macAdress,
+              ))
           .toList();
     } catch (e) {
       debugPrint('Error scanning devices: $e');
-      return [];
+      rethrow;
     }
   }
 

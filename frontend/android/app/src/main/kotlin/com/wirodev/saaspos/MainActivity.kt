@@ -1,4 +1,4 @@
-package com.example.frontend
+package com.wirodev.saaspos
 
 import io.flutter.embedding.android.FlutterActivity
 
