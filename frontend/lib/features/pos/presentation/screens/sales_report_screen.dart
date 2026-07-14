@@ -17,6 +17,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/sales_report_notifier.dart';
 
 
@@ -54,6 +55,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   }
 
   Future<void> _handlePrintReport(Map<String, dynamic> report) async {
+    final activeUser = ref.read(authSessionProvider);
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
     final dateStr = DateFormat('dd-MM-yyyy').format(_selectedDate);
@@ -65,6 +67,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       totalTax: report['total_tax'] as double,
       paymentBreakdown: paymentBreakdown,
       topProducts: topProducts,
+      cashierNama: activeUser?.nama,
     );
 
     if (!mounted) return;
@@ -79,6 +82,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalTax: report['total_tax'] as double,
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
+        cashierNama: activeUser?.nama,
       ),
       onGenerateEscPosBytes: () => ReceiptGenerator.generateReportReceipt(
         dateStr: dateStr,
@@ -87,6 +91,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalTax: report['total_tax'] as double,
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
+        cashierNama: activeUser?.nama,
       ),
     );
   }

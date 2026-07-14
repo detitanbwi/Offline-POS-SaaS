@@ -11,6 +11,18 @@ import 'currency_formatter.dart';
 class PdfReceiptGenerator {
   static const double _rollWidth = 58 * PdfPageFormat.mm;
 
+  static Future<String> _resolveCashierName(String? cashierNama) async {
+    if (cashierNama != null && cashierNama.trim().isNotEmpty) {
+      return cashierNama.trim();
+    }
+    final storage = SecureStorageService();
+    final owner = await storage.getOwnerUsername();
+    if (owner != null && owner.trim().isNotEmpty) {
+      return owner.trim();
+    }
+    return 'Kasir';
+  }
+
   // --------------------------------------------------------------------------
   // 1. TAGIHAN SEMENTARA (Temporary Bill PDF)
   // --------------------------------------------------------------------------
@@ -24,6 +36,7 @@ class PdfReceiptGenerator {
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final cashier = await _resolveCashierName(cashierNama);
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -47,7 +60,7 @@ class PdfReceiptGenerator {
 
               // Metadata
               pw.Text('Tgl   : $nowStr', style: pw.TextStyle(font: font, fontSize: 8)),
-              pw.Text('Kasir : ${cashierNama ?? 'Bima'}', style: pw.TextStyle(font: font, fontSize: 8)),
+              pw.Text('Kasir : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
               if (order.tableNama != null && order.tableNama!.isNotEmpty)
                 pw.Text('Meja  : ${order.tableNama}', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Status: BELUM DIBAYAR', style: pw.TextStyle(font: font, fontSize: 8)),
@@ -85,9 +98,9 @@ class PdfReceiptGenerator {
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
 
               // Footer
-              pw.Center(child: pw.Text('* Ini BUKAN bukti pembayaran', style: pw.TextStyle(font: font, fontSize: 8))),
-              pw.Center(child: pw.Text('sah. Silakan bawa tagihan ini', style: pw.TextStyle(font: font, fontSize: 8))),
-              pw.Center(child: pw.Text('ke meja kasir.', style: pw.TextStyle(font: font, fontSize: 8))),
+              pw.Center(child: pw.Text('  * Ini BUKAN bukti pembayaran  ', style: pw.TextStyle(font: font, fontSize: 8))),
+              pw.Center(child: pw.Text(' sah. Silakan bawa tagihan ini  ', style: pw.TextStyle(font: font, fontSize: 8))),
+              pw.Center(child: pw.Text('        ke meja kasir.          ', style: pw.TextStyle(font: font, fontSize: 8))),
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
             ],
           );
@@ -111,6 +124,7 @@ class PdfReceiptGenerator {
     final font = pw.Font.courier();
     final fontBold = pw.Font.courierBold();
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final cashier = await _resolveCashierName(cashierNama);
 
     pdf.addPage(
       pw.Page(
@@ -126,14 +140,14 @@ class PdfReceiptGenerator {
               pw.Text('Meja      : ${order.tableNama ?? '04'}', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Gelombang : ${waveInfo ?? '#1 (Baru)'}', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Waktu     : $nowStr', style: pw.TextStyle(font: font, fontSize: 8)),
-              pw.Text('Kasir     : ${cashierNama ?? 'Bima'}', style: pw.TextStyle(font: font, fontSize: 8)),
+              pw.Text('Kasir     : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('QTY  ITEM', style: pw.TextStyle(font: fontBold, fontSize: 8)),
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
               for (var item in itemsToPrint) ...[
                 pw.Text(
-                  '${item.qty.toString().padRight(4)} ${item.produkNama}',
+                  '${item.qty.toString().padLeft(2)}   ${item.produkNama}',
                   style: pw.TextStyle(font: fontBold, fontSize: 9),
                 ),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
@@ -163,6 +177,7 @@ class PdfReceiptGenerator {
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(transaction.createdAt);
+    final cashier = await _resolveCashierName(transaction.cashierNama);
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -183,7 +198,7 @@ class PdfReceiptGenerator {
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
 
               pw.Text('Tgl   : $dateStr', style: pw.TextStyle(font: font, fontSize: 8)),
-              pw.Text('Kasir : ${transaction.cashierNama ?? 'Bima'}', style: pw.TextStyle(font: font, fontSize: 8)),
+              pw.Text('Kasir : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('No.   : ${transaction.nomorTransaksi}', style: pw.TextStyle(font: font, fontSize: 8)),
               if (tableName != null && tableName.isNotEmpty)
                 pw.Text('Meja  : $tableName', style: pw.TextStyle(font: font, fontSize: 8)),
@@ -263,9 +278,10 @@ class PdfReceiptGenerator {
     final font = pw.Font.courier();
     final fontBold = pw.Font.courierBold();
 
-    final String cashier = cashierNama ?? 'Bima';
+    final String cashier = await _resolveCashierName(cashierNama);
+    final String nowFormatted = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final String start = startTimeStr ?? '$dateStr 08:00';
-    final String end = endTimeStr ?? '$dateStr 15:00';
+    final String end = endTimeStr ?? nowFormatted;
     final int itemsCount = totalItemsCount ?? topProducts.fold<int>(0, (sum, p) => sum + ((p['qty'] as num?)?.toInt() ?? 0));
 
     final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
@@ -334,8 +350,8 @@ class PdfReceiptGenerator {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
-        pw.Text(left, style: pw.TextStyle(font: font, fontSize: 8)),
-        pw.Text(right, style: pw.TextStyle(font: font, fontSize: 8)),
+        pw.Text(left, style: pw.TextStyle(font: isBold ? pw.Font.courierBold() : font, fontSize: 8)),
+        pw.Text(right, style: pw.TextStyle(font: isBold ? pw.Font.courierBold() : font, fontSize: 8)),
       ],
     );
   }

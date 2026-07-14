@@ -31,6 +31,7 @@ import '../../domain/models/order_item.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
 import '../../../../core/widgets/app_receipt_preview_modal.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 
 
 class PosScreen extends ConsumerStatefulWidget {
@@ -1019,9 +1020,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       AppSnackbar.showSuccess(context, 'Pesanan $tableName berhasil disimpan & dikirim ke dapur.');
 
       // Show Kitchen Ticket Preview & Printing Modal
+      final activeUser = ref.read(authSessionProvider);
       final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
         order: orderHeader,
         itemsToPrint: itemsToPrint,
+        cashierNama: activeUser?.nama,
       );
 
       if (!context.mounted) return;
@@ -1032,10 +1035,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
           order: orderHeader,
           itemsToPrint: itemsToPrint,
+          cashierNama: activeUser?.nama,
         ),
         onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
           order: orderHeader,
           itemsToPrint: itemsToPrint,
+          cashierNama: activeUser?.nama,
         ),
       );
     } else {
@@ -1073,9 +1078,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final items = orderState.activeOrderItems;
     if (order == null) return;
 
+    final activeUser = ref.read(authSessionProvider);
     final textPreview = await ReceiptGenerator.formatBillTextPreview(
       order: order,
       items: items,
+      cashierNama: activeUser?.nama,
     );
 
     if (!mounted) return;
@@ -1086,10 +1093,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
         order: order,
         items: items,
+        cashierNama: activeUser?.nama,
       ),
       onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
         order: order,
         items: items,
+        cashierNama: activeUser?.nama,
       ),
     );
   }
