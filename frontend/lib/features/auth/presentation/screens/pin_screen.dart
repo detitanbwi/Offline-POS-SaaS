@@ -60,8 +60,14 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       _goToMainMenu();
     } else {
       // 1. Check if login is owner
-      final lowerUser = username.toLowerCase();
-      if (lowerUser == 'owner' || lowerUser == 'pemilik' || lowerUser == 'pemilik toko') {
+      final savedOwnerUsername = await storage.getOwnerUsername() ?? 'owner';
+      final lowerUser = username.trim().toLowerCase();
+      final lowerOwner = savedOwnerUsername.trim().toLowerCase();
+
+      final isOwnerMatch = lowerUser == lowerOwner ||
+          (lowerOwner == 'owner' && (lowerUser == 'pemilik' || lowerUser == 'pemilik toko'));
+
+      if (isOwnerMatch) {
         final savedHashedPin = await storage.getLocalPIN();
         if (hashedPin == savedHashedPin) {
           ref.read(authSessionProvider.notifier).state = const AuthUser(

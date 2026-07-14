@@ -21,6 +21,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _ownerUsernameController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -35,12 +36,14 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final name = await storage.getStoreName() ?? '';
     final address = await storage.getStoreAddress() ?? '';
     final phone = await storage.getStorePhone() ?? '';
+    final ownerUsername = await storage.getOwnerUsername() ?? 'owner';
 
     if (mounted) {
       setState(() {
         _nameController.text = name;
         _addressController.text = address;
         _phoneController.text = phone;
+        _ownerUsernameController.text = ownerUsername;
         _isLoading = false;
       });
     }
@@ -59,6 +62,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
       address: _addressController.text.trim(),
       phone: _phoneController.text.trim(),
     );
+    await storage.saveOwnerUsername(_ownerUsernameController.text.trim());
 
     setState(() => _isSaving = false);
 
@@ -73,6 +77,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     _nameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
+    _ownerUsernameController.dispose();
     super.dispose();
   }
 
@@ -169,6 +174,19 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
                                   return 'Nomor Telepon wajib diisi!';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.l),
+                            AppTextField(
+                              controller: _ownerUsernameController,
+                              labelText: 'Username Owner / Pemilik (untuk Login)',
+                              hintText: 'Contoh: owner atau username baru',
+                              prefixIcon: Icons.person_outline_rounded,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Username Owner wajib diisi!';
                                 }
                                 return null;
                               },
