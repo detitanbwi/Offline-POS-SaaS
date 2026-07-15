@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -450,7 +451,7 @@ class _FilterChip extends StatelessWidget {
         style: TextStyle(
           color: isSelected ? Colors.white : AppColors.textSecondary,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontSize: 12,
+          fontSize: 13.sp,
         ),
       ),
       selected: isSelected,
@@ -543,7 +544,7 @@ class _ProductItemRow extends StatelessWidget {
                 Text(
                   product.nama,
                   style: AppTypography.titleMedium.copyWith(
-                    fontSize: 16,
+                    fontSize: 16.sp,
                     decoration: product.isActive ? null : TextDecoration.lineThrough,
                   ),
                 ),
@@ -552,7 +553,7 @@ class _ProductItemRow extends StatelessWidget {
                   '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
                   style: AppTypography.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
-                    fontSize: 12,
+                    fontSize: 12.sp,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -560,7 +561,7 @@ class _ProductItemRow extends StatelessWidget {
                   CurrencyFormatter.format(product.harga),
                   style: AppTypography.titleMedium.copyWith(
                     color: AppColors.secondary,
-                    fontSize: 14,
+                    fontSize: 14.sp,
                   ),
                 ),
               ],
@@ -708,7 +709,7 @@ class _ProductItemCard extends StatelessWidget {
                         product.kategoriNama ?? 'Tanpa Kategori',
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: 10,
+                          fontSize: 11.sp,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -723,7 +724,7 @@ class _ProductItemCard extends StatelessWidget {
                           CurrencyFormatter.format(product.harga),
                           style: AppTypography.titleMedium.copyWith(
                             color: AppColors.secondary,
-                            fontSize: 12,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
                           ),
                           maxLines: 1,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -123,11 +124,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Transaksi POS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('Transaksi POS', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
               if (tableName.isNotEmpty)
                 Text(
                   '$tableName ($orderNumber)',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  style: TextStyle(fontSize: 12.sp, color: Colors.white70),
                 ),
             ],
           ),
@@ -455,14 +456,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         children: [
                           Text(
                             product.nama,
-                            style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
+                            style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 1),
                           Text(
                             product.kategoriNama ?? 'Master',
-                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10),
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -476,7 +477,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               CurrencyFormatter.format(product.harga),
                               style: AppTypography.titleMedium.copyWith(
                                 color: AppColors.primary,
-                                fontSize: 12,
+                                fontSize: 13.sp,
                                 fontWeight: FontWeight.bold,
                               ),
                               maxLines: 1,
@@ -552,7 +553,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   ),
                   Text(
                     ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
-                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
                   ),
                   const Spacer(),
                   IconButton(
@@ -799,7 +800,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                           ),
                                           Text(
                                             ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
-                                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
                                           ),
                                           const Spacer(),
                                           IconButton(
@@ -1030,14 +1031,14 @@ class _CartItemRow extends StatelessWidget {
                   children: [
                     Text(
                       item.product.nama,
-                      style: AppTypography.titleMedium.copyWith(fontSize: 15),
+                      style: AppTypography.titleMedium.copyWith(fontSize: 15.sp),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       CurrencyFormatter.format(item.product.harga),
-                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
                     ),
                     if (item.catatan.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -1051,7 +1052,7 @@ class _CartItemRow extends StatelessWidget {
                           'Catatan: ${item.catatan}',
                           style: TextStyle(
                             color: AppColors.secondaryActive,
-                            fontSize: 11,
+                            fontSize: 11.sp,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -1063,7 +1064,7 @@ class _CartItemRow extends StatelessWidget {
               // Subtotal item text
               Text(
                 CurrencyFormatter.format(item.subtotal),
-                style: AppTypography.titleMedium.copyWith(fontSize: 14),
+                style: AppTypography.titleMedium.copyWith(fontSize: 14.sp),
               ),
             ],
           ),
@@ -1080,7 +1081,7 @@ class _CartItemRow extends StatelessWidget {
                 ),
                 label: Text(
                   item.catatan.isEmpty ? 'Tambah Catatan' : 'Ubah Catatan',
-                  style: TextStyle(color: AppColors.primary, fontSize: 12),
+                  style: TextStyle(color: AppColors.primary, fontSize: 12.sp),
                 ),
                 onPressed: onNoteTap,
                 style: TextButton.styleFrom(

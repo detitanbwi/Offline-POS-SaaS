@@ -115,8 +115,24 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isExpired = ref.watch(licenseExpiredProvider);
 
+    // Determine design size dynamically (mobile vs tablet)
+    final mediaQuery = MediaQuery.maybeOf(context);
+    double shortestSide = 360.0;
+    if (mediaQuery != null) {
+      shortestSide = mediaQuery.size.shortestSide;
+    } else {
+      final view = View.maybeOf(context);
+      if (view != null) {
+        shortestSide = (view.physicalSize / view.devicePixelRatio).shortestSide;
+      }
+    }
+
+    final designSize = shortestSide < 600
+        ? const Size(360, 800)
+        : const Size(768, 1024);
+
     return ScreenUtilInit(
-      designSize: const Size(768, 1024),
+      designSize: designSize,
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {

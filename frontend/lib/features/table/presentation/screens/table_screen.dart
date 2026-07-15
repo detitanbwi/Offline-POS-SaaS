@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -488,7 +489,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       'No: ${table.nomor}',
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.textSecondary,
-                        fontSize: 10,
+                        fontSize: 11.sp,
                       ),
                     ),
                   ],
@@ -508,7 +509,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         table.statusLabel,
                         style: TextStyle(
                           color: getStatusColor(),
-                          fontSize: 9,
+                          fontSize: 11.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -517,7 +518,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       'No: ${table.nomor}',
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.textSecondary,
-                        fontSize: 10,
+                        fontSize: 11.sp,
                       ),
                     ),
                   ],
@@ -534,7 +535,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               Text(
                 table.nama,
                 textAlign: TextAlign.center,
-                style: AppTypography.titleMedium.copyWith(fontSize: 12),
+                style: AppTypography.titleMedium.copyWith(fontSize: 13.sp),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

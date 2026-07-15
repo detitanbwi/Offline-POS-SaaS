@@ -217,7 +217,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       children: [
                         Expanded(
                           child: AppButton(
-                            text: 'Buat Cadangan',
+                            text: 'Cadangkan',
                             onPressed: _handleBackup,
                             icon: Icons.cloud_upload_outlined,
                           ),

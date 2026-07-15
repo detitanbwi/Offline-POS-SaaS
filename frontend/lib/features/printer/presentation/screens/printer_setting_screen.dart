@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -263,7 +264,13 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: AppTypography.titleMedium.copyWith(fontSize: 16)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.titleMedium.copyWith(fontSize: 16.sp),
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -275,7 +282,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                   isConfigured && printer.isConnected ? 'Terhubung' : 'Terputus',
                   style: TextStyle(
                     color: isConfigured && printer.isConnected ? AppColors.success : AppColors.disabled,
-                    fontSize: 10,
+                    fontSize: 10.sp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -283,7 +290,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Text(description, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12)),
+          Text(description, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
           const Divider(height: 24),
           if (isConfigured) ...[
             Row(
@@ -294,8 +301,8 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(printer.name, style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                      Text(printer.address, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11)),
+                      Text(printer.name, style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                      Text(printer.address, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp)),
                     ],
                   ),
                 ),

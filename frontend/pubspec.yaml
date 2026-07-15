@@ -45,9 +45,9 @@ dependencies:
   flutter_riverpod: ^2.5.1
   uuid: ^4.3.3
   google_fonts: ^6.1.0
-  print_bluetooth_thermal: ^1.2.2
+  print_bluetooth_thermal: ^1.2.1
   esc_pos_utils_plus: ^2.0.4
-  sqflite_common_ffi: ^2.4.2
+  sqflite_common_ffi: ^2.4.0
   sqlite3: ^3.3.4
   sqlite3_flutter_libs: ^0.6.0+eol
   image_picker: ^1.1.2
