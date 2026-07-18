@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 class BluetoothDeviceModel {
@@ -31,11 +32,30 @@ class PrinterService {
   Future<bool> checkBluetoothPermissions() async {
     if (!Platform.isAndroid) return true;
     try {
-      final bool result = await PrintBluetoothThermal.isPermissionBluetoothGranted;
-      return result;
+      // Meminta izin bluetoothConnect dan bluetoothScan untuk Android 12+ (Nearby Devices)
+      final Map<Permission, PermissionStatus> statuses = await [
+        Permission.bluetoothConnect,
+        Permission.bluetoothScan,
+      ].request();
+
+      final bool connectGranted = statuses[Permission.bluetoothConnect]?.isGranted ?? false;
+      final bool scanGranted = statuses[Permission.bluetoothScan]?.isGranted ?? false;
+
+      // Jika keduanya diberikan, maka true
+      if (connectGranted && scanGranted) {
+        return true;
+      }
+
+      // Fallback menggunakan metode bawaan library jika status tidak pasti
+      final bool libResult = await PrintBluetoothThermal.isPermissionBluetoothGranted;
+      return libResult;
     } catch (e) {
       debugPrint('Error checking bluetooth permissions: $e');
-      return false;
+      try {
+        return await PrintBluetoothThermal.isPermissionBluetoothGranted;
+      } catch (_) {
+        return false;
+      }
     }
   }
 
@@ -49,6 +69,11 @@ class PrinterService {
     }
 
     try {
+      final bool hasPermission = await checkBluetoothPermissions();
+      if (!hasPermission) {
+        throw Exception('Izin Bluetooth (Nearby Devices / Perangkat Sekitar) ditolak. Mohon berikan izin di pengaturan aplikasi HP Anda.');
+      }
+
       final bool enabled = await PrintBluetoothThermal.bluetoothEnabled;
       if (!enabled) {
         throw Exception('Bluetooth HP dalam keadaan mati. Silakan aktifkan Bluetooth HP Anda.');
@@ -84,7 +109,11 @@ class PrinterService {
         await PrintBluetoothThermal.disconnect;
       }
 
-      final bool success = await PrintBluetoothThermal.connect(macPrinterAddress: address);
+      final bool success = await PrintBluetoothThermal.connect(macPrinterAddress: address)
+          .timeout(const Duration(seconds: 4), onTimeout: () {
+            debugPrint('Connection attempt timed out for $address');
+            return false;
+          });
       if (success) {
         if (type == 'cashier') {
           _connectedCashierAddress = address;
@@ -145,7 +174,11 @@ class PrinterService {
               : null;
               
       if (!isConnected || currentConnectedAddress != targetAddress) {
-        final connected = await PrintBluetoothThermal.connect(macPrinterAddress: targetAddress);
+        final connected = await PrintBluetoothThermal.connect(macPrinterAddress: targetAddress)
+            .timeout(const Duration(seconds: 4), onTimeout: () {
+              debugPrint('Connection attempt timed out during printBytes for $targetAddress');
+              return false;
+            });
         if (!connected) return false;
       }
 

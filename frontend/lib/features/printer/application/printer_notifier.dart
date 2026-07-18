@@ -11,6 +11,8 @@ class PrinterState {
   final bool isLoading;
   final bool isScanning;
   final String? errorMessage;
+  final String? loadingType;
+  final bool isInitialLoading;
 
   PrinterState({
     this.configuredPrinters = const [],
@@ -18,6 +20,8 @@ class PrinterState {
     this.isLoading = false,
     this.isScanning = false,
     this.errorMessage,
+    this.loadingType,
+    this.isInitialLoading = true,
   });
 
   PrinterState copyWith({
@@ -26,6 +30,8 @@ class PrinterState {
     bool? isLoading,
     bool? isScanning,
     String? errorMessage,
+    String? Function()? loadingType,
+    bool? isInitialLoading,
   }) {
     return PrinterState(
       configuredPrinters: configuredPrinters ?? this.configuredPrinters,
@@ -33,6 +39,8 @@ class PrinterState {
       isLoading: isLoading ?? this.isLoading,
       isScanning: isScanning ?? this.isScanning,
       errorMessage: errorMessage,
+      loadingType: loadingType != null ? loadingType() : this.loadingType,
+      isInitialLoading: isInitialLoading ?? this.isInitialLoading,
     );
   }
 }
@@ -47,7 +55,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   }
 
   Future<void> loadPrinters() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true, loadingType: () => null, errorMessage: null);
     try {
       final list = await _repository.getPrintersConfig();
       
@@ -61,10 +69,14 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
       state = state.copyWith(
         configuredPrinters: verifiedList,
         isLoading: false,
+        isInitialLoading: false,
+        loadingType: () => null,
       );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        isInitialLoading: false,
+        loadingType: () => null,
         errorMessage: 'Gagal memuat konfigurasi printer: $e',
       );
     }
@@ -92,34 +104,48 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     required String address,
     required String type, // 'cashier' or 'kitchen'
   }) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    print('[PrinterNotifier] saveAndConnectPrinter starting for $name ($address) type $type');
+    state = state.copyWith(isLoading: true, loadingType: () => type, errorMessage: null);
     try {
+      print('[PrinterNotifier] Calling connectPrinter...');
       final connectSuccess = await _printerService.connectPrinter(address, type);
-      if (!connectSuccess) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Gagal terhubung ke printer Bluetooth.',
-        );
-        return false;
-      }
-
+      print('[PrinterNotifier] connectPrinter result: $connectSuccess');
+      
+      print('[PrinterNotifier] Getting existing config from repo...');
       final existing = await _repository.getPrinterConfigByType(type);
+      print('[PrinterNotifier] Existing config: $existing');
       
       final config = PrinterConfigModel(
         id: existing?.id ?? _uuid.v4(),
         name: name,
         address: address,
         type: type,
-        isConnected: true,
+        isConnected: connectSuccess,
         createdAt: existing?.createdAt ?? DateTime.now(),
       );
 
+      print('[PrinterNotifier] Saving config to repo: ${config.toMap()}');
       await _repository.savePrinterConfig(config);
+      print('[PrinterNotifier] Config saved successfully');
+      
+      print('[PrinterNotifier] Loading printers list...');
       await loadPrinters();
+      print('[PrinterNotifier] Printers list loaded');
+
+      if (!connectSuccess) {
+        state = state.copyWith(
+          errorMessage: 'Printer berhasil disimpan, tetapi tidak terhubung saat ini. Sistem akan mencoba terhubung otomatis ketika Anda mencetak.',
+        );
+      }
+      
+      print('[PrinterNotifier] saveAndConnectPrinter finished with true');
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      print('[PrinterNotifier] Exception in saveAndConnectPrinter: $e');
+      print('[PrinterNotifier] Stacktrace: $stack');
       state = state.copyWith(
         isLoading: false,
+        loadingType: () => null,
         errorMessage: 'Gagal menyimpan konfigurasi printer: $e',
       );
       return false;
@@ -127,7 +153,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   }
 
   Future<bool> disconnectPrinter(String type) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true, loadingType: () => type, errorMessage: null);
     try {
       await _printerService.disconnectPrinter(type);
       
@@ -141,6 +167,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        loadingType: () => null,
         errorMessage: 'Gagal memutuskan printer: $e',
       );
       return false;
@@ -151,6 +178,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final config = state.configuredPrinters.firstWhere((p) => p.id == id);
+      state = state.copyWith(isLoading: true, loadingType: () => config.type, errorMessage: null);
       await _printerService.disconnectPrinter(config.type);
       await _repository.deletePrinterConfig(id);
       await loadPrinters();
@@ -158,6 +186,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        loadingType: () => null,
         errorMessage: 'Gagal menghapus printer: $e',
       );
       return false;

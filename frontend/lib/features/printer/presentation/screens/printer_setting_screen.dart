@@ -37,18 +37,40 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
       final generator = Generator(PaperSize.mm58, profile);
       List<int> bytes = [];
 
-      bytes += generator.setStyles(const PosStyles(align: PosAlign.center, bold: true));
-      bytes += generator.text('KASIR POS OFFLINE');
-      bytes += generator.text('TEST PRINT SUKSES');
-      bytes += generator.text('--------------------------------');
-      bytes += generator.setStyles(const PosStyles(align: PosAlign.left));
-      bytes += generator.text('Nama Printer: ${printer.name}');
-      bytes += generator.text('Tipe: ${printer.isCashier ? "Kasir Utama" : "Dapur/Kitchen"}');
-      bytes += generator.text('Waktu: ${DateTime.now().toString().split('.').first}');
-      bytes += generator.text('Status: TERHUBUNG');
-      bytes += generator.text('--------------------------------');
+      bytes += generator.text(
+        'KASIR POS OFFLINE',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+      bytes += generator.text(
+        'TEST PRINT SUKSES',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+      bytes += generator.text(
+        '==============================================',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        'Nama Printer : ${printer.name}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        'Tipe         : ${printer.isCashier ? "Kasir Utama" : "Dapur/Kitchen"}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        'Waktu        : ${DateTime.now().toString().split('.').first}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        'Status       : TERHUBUNG',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        '==============================================',
+        styles: const PosStyles(align: PosAlign.left),
+      );
       bytes += generator.feed(3);
-      bytes += generator.cut();
+      // bytes += generator.cut();
 
       final success = await PrinterService.instance.printBytes(bytes, printer.address);
       if (!mounted) return;
@@ -135,12 +157,18 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     TextButton(
-                                      onPressed: () => _setupPrinterConfig(context, dev.name, dev.address, 'cashier'),
+                                      onPressed: () {
+                                        Navigator.pop(context); // Pop bottom sheet using its local context
+                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'cashier'); // Use screen context (mounted)
+                                      },
                                       child: const Text('Kasir'),
                                     ),
                                     const SizedBox(width: 4),
                                     TextButton(
-                                      onPressed: () => _setupPrinterConfig(context, dev.name, dev.address, 'kitchen'),
+                                      onPressed: () {
+                                        Navigator.pop(context); // Pop bottom sheet using its local context
+                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'kitchen'); // Use screen context (mounted)
+                                      },
                                       child: const Text('Dapur'),
                                     ),
                                   ],
@@ -159,25 +187,52 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
   }
 
   Future<void> _setupPrinterConfig(BuildContext context, String name, String address, String type) async {
-    Navigator.pop(context); // Close bottom sheet
+    debugPrint('[PrinterSetting] _setupPrinterConfig called for $name ($address) type $type');
+
     AppDialog.show(
       context: context,
       title: 'Hubungkan Printer',
       message: 'Hubungkan "$name" sebagai Printer ${type == "cashier" ? "Kasir Utama" : "Dapur"}?',
       confirmText: 'Hubungkan',
       onConfirm: () async {
-        Navigator.pop(context); // Close confirm dialog
-        final success = await ref.read(printerNotifierProvider.notifier).saveAndConnectPrinter(
-              name: name,
-              address: address,
-              type: type,
-            );
-        if (!context.mounted) return;
-        if (success) {
-          AppSnackbar.showSuccess(context, 'Berhasil menghubungkan printer $name');
-        } else {
-          final err = ref.read(printerNotifierProvider).errorMessage;
-          AppSnackbar.showError(context, err ?? 'Gagal menghubungkan printer.');
+        debugPrint('[PrinterSetting] Confirm clicked');
+        try {
+          Navigator.of(context).pop(); // Close confirm dialog safely
+          debugPrint('[PrinterSetting] Confirm dialog popped');
+        } catch (e) {
+          debugPrint('[PrinterSetting] Error popping confirm dialog: $e');
+        }
+
+        try {
+          debugPrint('[PrinterSetting] Starting saveAndConnectPrinter');
+          final success = await ref.read(printerNotifierProvider.notifier).saveAndConnectPrinter(
+                name: name,
+                address: address,
+                type: type,
+              );
+          debugPrint('[PrinterSetting] saveAndConnectPrinter result: $success');
+          
+          if (!context.mounted) {
+            debugPrint('[PrinterSetting] Context is not mounted after saveAndConnectPrinter');
+            return;
+          }
+          
+          if (success) {
+            final err = ref.read(printerNotifierProvider).errorMessage;
+            debugPrint('[PrinterSetting] Success, error message: $err');
+            if (err != null) {
+              AppSnackbar.showWarning(context, err);
+            } else {
+              AppSnackbar.showSuccess(context, 'Berhasil menghubungkan printer $name');
+            }
+          } else {
+            final err = ref.read(printerNotifierProvider).errorMessage;
+            debugPrint('[PrinterSetting] Failed, error message: $err');
+            AppSnackbar.showError(context, err ?? 'Gagal menghubungkan printer.');
+          }
+        } catch (e, stack) {
+          debugPrint('[PrinterSetting] Exception during confirm action: $e');
+          debugPrint('[PrinterSetting] Stacktrace: $stack');
         }
       },
     );
@@ -203,7 +258,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
         title: const Text('Pengaturan Thermal Printer'),
       ),
       body: SafeArea(
-        child: state.isLoading
+        child: state.isInitialLoading
             ? const AppLoading(message: 'Memuat data konfigurasi printer...')
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSpacing.l),
@@ -253,7 +308,9 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
     required PrinterConfigModel? printer,
     required String type,
   }) {
+    final state = ref.watch(printerNotifierProvider);
     final isConfigured = printer != null;
+    final isLoadingThisCard = state.isLoading && state.loadingType == type;
 
     return AppCard(
       borderSide: const BorderSide(color: AppColors.divider),
@@ -274,14 +331,19 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isConfigured && printer.isConnected ? AppColors.success : AppColors.disabled).withValues(alpha: 0.1),
-
+                  color: (isConfigured && printer.isConnected 
+                      ? AppColors.success 
+                      : (isConfigured ? AppColors.info : AppColors.disabled)).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isConfigured && printer.isConnected ? 'Terhubung' : 'Terputus',
+                  isConfigured && printer.isConnected 
+                      ? 'Terhubung' 
+                      : (isConfigured ? 'Siap' : 'Terputus'),
                   style: TextStyle(
-                    color: isConfigured && printer.isConnected ? AppColors.success : AppColors.disabled,
+                    color: isConfigured && printer.isConnected 
+                        ? AppColors.success 
+                        : (isConfigured ? AppColors.info : AppColors.disabled),
                     fontSize: 10.sp,
                     fontWeight: FontWeight.bold,
                   ),
@@ -312,39 +374,56 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.print_rounded, size: 16),
-                  label: const Text('Test Print'),
-                  onPressed: () => _handleTestPrint(printer),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                if (isLoadingThisCard)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else ...[
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 16),
+                    label: const Text('Test Print'),
+                    onPressed: () => _handleTestPrint(printer),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.link_off_rounded, size: 16, color: AppColors.error),
-                  label: const Text('Putuskan', style: TextStyle(color: AppColors.error)),
-                  onPressed: () async {
-                    final success = await ref.read(printerNotifierProvider.notifier).disconnectPrinter(type);
-                    if (success && mounted) {
-                      AppSnackbar.showSuccess(context, 'Printer berhasil diputuskan.');
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    side: const BorderSide(color: AppColors.error),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.link_off_rounded, size: 16, color: AppColors.error),
+                    label: const Text('Putuskan', style: TextStyle(color: AppColors.error)),
+                    onPressed: () async {
+                      final success = await ref.read(printerNotifierProvider.notifier).deletePrinter(printer.id);
+                      if (success && mounted) {
+                        AppSnackbar.showSuccess(context, 'Printer berhasil diputuskan.');
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      side: const BorderSide(color: AppColors.error),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ] else ...[
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  'Belum ada printer terkonfigurasi.',
-                  style: AppTypography.bodyMedium.copyWith(color: AppColors.disabled, fontStyle: FontStyle.italic),
-                ),
+                child: isLoadingThisCard
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        'Belum ada printer terkonfigurasi.',
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.disabled, fontStyle: FontStyle.italic),
+                      ),
               ),
             ),
           ],
