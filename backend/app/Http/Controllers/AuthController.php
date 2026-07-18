@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -18,7 +18,7 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         // Verifikasi keberadaan user dan kecocokan password
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json(['success' => false, 'message' => 'Kredensial tidak valid'], 401);
         }
 

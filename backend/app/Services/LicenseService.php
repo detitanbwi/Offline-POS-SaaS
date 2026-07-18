@@ -2,220 +2,257 @@
 
 namespace App\Services;
 
-use App\Models\License;
+use App\Enums\DeviceStatus;
+use App\Enums\SubscriptionStatus;
+use App\Enums\TokenStatus;
 use App\Models\Device;
-use App\Models\Tenant;
-use App\Models\Subscription;
-use App\Models\SystemSetting;
-use Illuminate\Support\Str;
+use App\Models\LicenseToken;
+use App\Repositories\DeviceRepository;
+use App\Repositories\LicenseTokenRepository;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 class LicenseService
 {
-    public function generateLicense(string $tenantId, string $plan, int $deviceLimit, ?int $expiresInDays = null)
+    public function __construct(
+        protected LicenseTokenRepository $tokenRepository,
+        protected DeviceRepository $deviceRepository,
+        protected AuditService $auditService,
+    ) {}
+
+    /**
+     * Aktivasi token — bind ke device.
+     *
+     * Flow:
+     * 1. Cari token berdasarkan token_key
+     * 2. Validasi status token, subscription, tenant
+     * 3. Cek apakah token sudah dipakai (1 token = 1 device)
+     * 4. Bind device baru
+     * 5. Generate offline activation token (JWT)
+     */
+    public function activateDevice(string $tokenKey, string $fingerprintHash, array $deviceInfo): array
     {
-        $tenant = Tenant::findOrFail($tenantId);
+        $token = $this->tokenRepository->findByTokenKeyWithRelations($tokenKey);
 
-        // Find or create subscription
-        $startsAt = Carbon::now();
-        $expiresAt = null;
-
-        if ($plan === 'trial') {
-            $trialDays = (int) SystemSetting::getVal('default_trial_days', 14);
-            $expiresAt = Carbon::now()->addDays($trialDays);
-        } elseif ($expiresInDays) {
-            $expiresAt = Carbon::now()->addDays($expiresInDays);
-        } elseif ($plan === 'monthly') {
-            $expiresAt = Carbon::now()->addMonth();
-        } elseif ($plan === 'yearly') {
-            $expiresAt = Carbon::now()->addYear();
-        } else {
-            // Lifetime
-            $expiresAt = Carbon::parse('2099-12-31 23:59:59');
+        if (! $token) {
+            return ['success' => false, 'message' => 'Token lisensi tidak ditemukan', 'code' => 404];
         }
 
-        $subscription = Subscription::create([
-            'id' => (string) Str::uuid(),
-            'tenant_id' => $tenant->id,
-            'plan' => $plan,
-            'status' => 'active',
-            'starts_at' => $startsAt,
-            'expires_at' => $expiresAt,
-        ]);
-
-        $licenseKey = 'LIC-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4));
-        $serverSecret = Str::random(32);
-
-        $license = License::create([
-            'tenant_id' => $tenant->id,
-            'subscription_id' => $subscription->id,
-            'license_key' => $licenseKey,
-            'device_limit' => $deviceLimit,
-            'device_count' => 0,
-            'server_secret' => $serverSecret,
-            'status' => 'AVAILABLE',
-            'expires_at' => $expiresAt,
-        ]);
-
-        AuditService::log('license_generate', $tenant->id, $license->id, null, "License key: $licenseKey, Plan: $plan, Device Limit: $deviceLimit");
-
-        return $license;
-    }
-
-    public function activateDevice(string $licenseKey, string $fingerprintHash, array $deviceInfo)
-    {
-        $license = License::where('license_key', $licenseKey)->first();
-
-        if (!$license) {
-            return ['success' => false, 'message' => 'Lisensi tidak ditemukan', 'code' => 404];
+        // Cek status token
+        if ($token->status === TokenStatus::REVOKED) {
+            return ['success' => false, 'message' => 'Token telah dicabut', 'code' => 403];
         }
 
-        if ($license->status === 'REVOKED') {
-            return ['success' => false, 'message' => 'Lisensi telah dicabut', 'code' => 403];
+        if ($token->status === TokenStatus::EXPIRED) {
+            return ['success' => false, 'message' => 'Token telah kedaluwarsa', 'code' => 403];
         }
 
-        // Verify tenant status
-        if ($license->tenant && $license->tenant->status !== 'active') {
+        // Cek tenant
+        if ($token->tenant && $token->tenant->status->value !== 'active') {
             return ['success' => false, 'message' => 'Tenant dinonaktifkan', 'code' => 403];
         }
 
-        // Check if subscription has expired
-        if ($license->expires_at->isPast()) {
-            $license->status = 'EXPIRED';
-            $license->save();
-            return ['success' => false, 'message' => 'Lisensi telah kedaluwarsa', 'code' => 403];
+        // Cek subscription
+        $subscription = $token->subscription;
+        if (! $subscription || $subscription->status !== SubscriptionStatus::ACTIVE) {
+            return ['success' => false, 'message' => 'Subscription tidak aktif', 'code' => 403];
         }
 
-        // Check if device already registered
-        $device = Device::where('license_id', $license->id)
-            ->where('fingerprint_hash', $fingerprintHash)
-            ->first();
+        // Cek expiry subscription
+        if ($subscription->expiry_date->isPast()) {
+            $subscription->update(['status' => SubscriptionStatus::EXPIRED]);
+            $token->update(['status' => TokenStatus::EXPIRED]);
 
-        if (!$device) {
-            // Check device limit
-            $activeCount = Device::where('license_id', $license->id)->where('status', 'active')->count();
-            if ($activeCount >= $license->device_limit) {
-                return ['success' => false, 'message' => 'Limit jumlah perangkat tercapai untuk lisensi ini', 'code' => 400];
+            return ['success' => false, 'message' => 'Subscription telah kedaluwarsa', 'code' => 403];
+        }
+
+        return DB::transaction(function () use ($token, $fingerprintHash, $deviceInfo, $subscription) {
+            // Cek apakah token sudah terikat ke device (1 Token = 1 Device)
+            $existingDevice = $token->device;
+
+            if ($existingDevice) {
+                // Jika device yang sama → re-validasi
+                if ($existingDevice->fingerprint_hash === $fingerprintHash) {
+                    if ($existingDevice->status === DeviceStatus::DEACTIVATED) {
+                        return ['success' => false, 'message' => 'Perangkat telah dinonaktifkan. Hubungi admin.', 'code' => 403];
+                    }
+
+                    // Update last validation
+                    $existingDevice->update(['last_validated_at' => Carbon::now()]);
+                    $token->update(['last_validated_at' => Carbon::now()]);
+
+                    $offlineToken = $this->generateOfflineToken($token, $existingDevice);
+
+                    return [
+                        'success' => true,
+                        'offline_token' => $offlineToken,
+                        'expires_at' => $subscription->expiry_date->toIso8601String(),
+                    ];
+                }
+
+                // Device berbeda → tolak (1 token = 1 device)
+                return [
+                    'success' => false,
+                    'message' => 'Token sudah digunakan pada perangkat lain. Hubungi admin untuk reset.',
+                    'code' => 400,
+                ];
             }
 
-            // Bind new device
+            // Token belum terikat — bind device baru
             $device = Device::create([
-                'id' => (string) Str::uuid(),
-                'license_id' => $license->id,
+                'license_token_id' => $token->id,
+                'tenant_id' => $token->tenant_id,
                 'fingerprint_hash' => $fingerprintHash,
-                'device_name' => $deviceInfo['device_name'] ?? 'Android Device',
-                'device_model' => $deviceInfo['device_model'] ?? 'Model',
-                'device_brand' => $deviceInfo['device_brand'] ?? 'Brand',
-                'status' => 'active',
+                'android_id_hash' => $deviceInfo['android_id_hash'] ?? null,
+                'manufacturer' => $deviceInfo['manufacturer'] ?? null,
+                'brand' => $deviceInfo['brand'] ?? null,
+                'model' => $deviceInfo['model'] ?? null,
+                'installation_uuid_hash' => $deviceInfo['installation_uuid_hash'] ?? null,
+                'status' => DeviceStatus::ACTIVE,
                 'activated_at' => Carbon::now(),
                 'last_validated_at' => Carbon::now(),
             ]);
 
-            // Update license device count
-            $license->device_count = Device::where('license_id', $license->id)->where('status', 'active')->count();
-            $license->status = 'ACTIVE';
-            if (!$license->activated_at) {
-                $license->activated_at = Carbon::now();
-            }
-            $license->save();
-        } else {
-            // If device is already registered but was inactive, reactivate it
-            if ($device->status !== 'active') {
-                $device->status = 'active';
-                $device->last_validated_at = Carbon::now();
-                $device->save();
-                
-                $license->device_count = Device::where('license_id', $license->id)->where('status', 'active')->count();
-                $license->save();
-            } else {
-                $device->last_validated_at = Carbon::now();
-                $device->save();
-            }
+            // Update token status
+            $token->update([
+                'status' => TokenStatus::ACTIVE,
+                'activated_at' => Carbon::now(),
+                'last_validated_at' => Carbon::now(),
+            ]);
+
+            $offlineToken = $this->generateOfflineToken($token, $device);
+
+            $this->auditService->log(
+                'device_activation',
+                $token->tenant_id,
+                $token->id,
+                $device->id,
+                "Token {$token->token_key} diaktifkan pada perangkat {$device->display_name}"
+            );
+
+            return [
+                'success' => true,
+                'offline_token' => $offlineToken,
+                'expires_at' => $subscription->expiry_date->toIso8601String(),
+            ];
+        });
+    }
+
+    /**
+     * Validasi token yang sudah aktif.
+     */
+    public function validateToken(string $tokenKey, string $fingerprintHash): array
+    {
+        $token = $this->tokenRepository->findByTokenKeyWithRelations($tokenKey);
+
+        if (! $token) {
+            return ['success' => false, 'message' => 'Token tidak ditemukan'];
         }
 
-        // Update license validation
-        $license->last_validated_at = Carbon::now();
-        $license->save();
+        if ($token->status === TokenStatus::REVOKED) {
+            return ['success' => false, 'message' => 'Token dicabut'];
+        }
 
-        // Generate offline activation token
-        $offlineToken = $this->generateOfflineToken($license, $device);
+        // Cek subscription expiry
+        $subscription = $token->subscription;
+        if (! $subscription || $subscription->expiry_date->isPast()) {
+            if ($subscription) {
+                $subscription->update(['status' => SubscriptionStatus::EXPIRED]);
+            }
+            $token->update(['status' => TokenStatus::EXPIRED]);
 
-        AuditService::log('device_activation', $license->tenant_id, $license->id, $device->id, "Device: " . ($deviceInfo['device_name'] ?? ''));
+            return ['success' => false, 'message' => 'Subscription kedaluwarsa'];
+        }
+
+        // Cek device
+        $device = $token->device;
+        if (! $device || $device->fingerprint_hash !== $fingerprintHash) {
+            return ['success' => false, 'message' => 'Perangkat tidak terdaftar'];
+        }
+
+        if ($device->status !== DeviceStatus::ACTIVE) {
+            return ['success' => false, 'message' => 'Perangkat dinonaktifkan'];
+        }
+
+        // Update validasi
+        $device->update(['last_validated_at' => Carbon::now()]);
+        $token->update(['last_validated_at' => Carbon::now()]);
+
+        $offlineToken = $this->generateOfflineToken($token, $device);
+
+        $this->auditService->log(
+            'license_validation',
+            $token->tenant_id,
+            $token->id,
+            $device->id
+        );
 
         return [
             'success' => true,
             'offline_token' => $offlineToken,
-            'server_secret' => $license->server_secret,
-            'expires_at' => $license->expires_at->toIso8601String(),
+            'expires_at' => $subscription->expiry_date->toIso8601String(),
         ];
     }
 
-    public function validateLicense(string $licenseKey, string $fingerprintHash)
+    /**
+     * Reset device dari token — admin action.
+     */
+    public function resetDevice(string $tokenId): bool
     {
-        $license = License::where('license_key', $licenseKey)->first();
+        return DB::transaction(function () use ($tokenId) {
+            $token = $this->tokenRepository->findByIdOrFail($tokenId);
+            $device = $token->device;
 
-        if (!$license) {
-            return ['success' => false, 'message' => 'Lisensi tidak ditemukan'];
-        }
+            if ($device) {
+                $device->update(['status' => DeviceStatus::DEACTIVATED]);
 
-        if ($license->status === 'REVOKED') {
-            return ['success' => false, 'message' => 'Lisensi dicabut'];
-        }
+                $this->auditService->log(
+                    'device_reset',
+                    $token->tenant_id,
+                    $token->id,
+                    $device->id,
+                    "Device {$device->display_name} di-reset dari token {$token->token_key}"
+                );
+            }
 
-        if ($license->expires_at->isPast()) {
-            $license->status = 'EXPIRED';
-            $license->save();
-            return ['success' => false, 'message' => 'Lisensi kedaluwarsa'];
-        }
+            // Token kembali ke available agar bisa dipakai device lain
+            $token->update(['status' => TokenStatus::AVAILABLE]);
 
-        $device = Device::where('license_id', $license->id)
-            ->where('fingerprint_hash', $fingerprintHash)
-            ->where('status', 'active')
-            ->first();
-
-        if (!$device) {
-            return ['success' => false, 'message' => 'Perangkat tidak terdaftar/dinonaktifkan'];
-        }
-
-        $device->last_validated_at = Carbon::now();
-        $device->save();
-
-        $license->last_validated_at = Carbon::now();
-        $license->save();
-
-        // Re-generate token with updated times
-        $offlineToken = $this->generateOfflineToken($license, $device);
-
-        AuditService::log('license_validation', $license->tenant_id, $license->id, $device->id);
-
-        return [
-            'success' => true,
-            'offline_token' => $offlineToken,
-            'expires_at' => $license->expires_at->toIso8601String(),
-        ];
+            return true;
+        });
     }
 
-    public function resetDevice(int $licenseId, string $deviceId)
+    /**
+     * Revoke (cabut) token.
+     */
+    public function revokeToken(string $tokenId): bool
     {
-        $license = License::findOrFail($licenseId);
-        $device = Device::where('license_id', $licenseId)->where('id', $deviceId)->firstOrFail();
+        return DB::transaction(function () use ($tokenId) {
+            $token = $this->tokenRepository->findByIdOrFail($tokenId);
 
-        $device->status = 'deactivated';
-        $device->save();
+            // Deactivate device jika ada
+            if ($token->device && $token->device->status === DeviceStatus::ACTIVE) {
+                $token->device->update(['status' => DeviceStatus::DEACTIVATED]);
+            }
 
-        $license->device_count = Device::where('license_id', $licenseId)->where('status', 'active')->count();
-        if ($license->device_count === 0 && $license->status === 'ACTIVE') {
-            $license->status = 'AVAILABLE';
-        }
-        $license->save();
+            $token->update(['status' => TokenStatus::REVOKED]);
 
-        AuditService::log('device_reset', $license->tenant_id, $license->id, $device->id, "Reset device " . $device->device_name);
+            $this->auditService->log(
+                'token_revoked',
+                $token->tenant_id,
+                $token->id,
+                $token->device?->id,
+                "Token {$token->token_key} dicabut"
+            );
 
-        return true;
+            return true;
+        });
     }
 
-    private function generateOfflineToken(License $license, Device $device)
+    /**
+     * Generate offline JWT token untuk Flutter client.
+     */
+    private function generateOfflineToken(LicenseToken $token, Device $device): string
     {
         $base64UrlEncode = function ($data) {
             return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($data));
@@ -223,15 +260,18 @@ class LicenseService
 
         $header = json_encode([
             'alg' => 'HS256',
-            'typ' => 'JWT'
+            'typ' => 'JWT',
         ]);
 
+        $subscription = $token->subscription;
+
         $payload = json_encode([
-            'license_key' => $license->license_key,
+            'token_key' => $token->token_key,
             'fingerprint_hash' => $device->fingerprint_hash,
-            'exp' => $license->expires_at->timestamp,
-            'tenant_id' => $license->tenant_id,
+            'exp' => $subscription->expiry_date->timestamp,
+            'tenant_id' => $token->tenant_id,
             'device_id' => $device->id,
+            'iat' => now()->timestamp,
         ]);
 
         $base64UrlHeader = $base64UrlEncode($header);
@@ -242,9 +282,9 @@ class LicenseService
             throw new \RuntimeException('JWT_SECRET is not configured. Set JWT_SECRET in your .env file.');
         }
 
-        $signature = hash_hmac('sha256', $base64UrlHeader . '.' . $base64UrlPayload, $secretKey, true);
+        $signature = hash_hmac('sha256', $base64UrlHeader.'.'.$base64UrlPayload, $secretKey, true);
         $base64UrlSignature = $base64UrlEncode($signature);
 
-        return $base64UrlHeader . '.' . $base64UrlPayload . '.' . $base64UrlSignature;
+        return $base64UrlHeader.'.'.$base64UrlPayload.'.'.$base64UrlSignature;
     }
 }

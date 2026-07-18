@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tenant;
-use App\Models\License;
-use App\Models\Device;
+use App\Enums\DeviceStatus;
+use App\Enums\InvoiceStatus;
+use App\Enums\SubscriptionStatus;
+use App\Enums\TenantStatus;
+use App\Enums\TokenStatus;
 use App\Models\AuditLog;
-use App\Models\SystemSetting;
-use Illuminate\Http\Request;
+use App\Models\Device;
+use App\Models\Invoice;
+use App\Models\LicenseToken;
+use App\Models\Subscription;
+use App\Models\Tenant;
 
 class DashboardController extends Controller
 {
@@ -15,26 +20,21 @@ class DashboardController extends Controller
     {
         $stats = [
             'total_tenants' => Tenant::count(),
-            'active_tenants' => Tenant::where('status', 'active')->count(),
-            'total_licenses' => License::count(),
-            'active_licenses' => License::where('status', 'ACTIVE')->count(),
-            'total_devices' => Device::where('status', 'active')->count(),
-            'recent_activities' => AuditLog::orderBy('created_at', 'desc')->take(10)->get(),
+            'active_tenants' => Tenant::where('status', TenantStatus::ACTIVE)->count(),
+            'total_invoices' => Invoice::count(),
+            'unpaid_invoices' => Invoice::where('status', InvoiceStatus::UNPAID)->count(),
+            'paid_invoices' => Invoice::where('status', InvoiceStatus::PAID)->count(),
+            'active_subscriptions' => Subscription::where('status', SubscriptionStatus::ACTIVE)->count(),
+            'total_tokens' => LicenseToken::count(),
+            'active_tokens' => LicenseToken::where('status', TokenStatus::ACTIVE)->count(),
+            'available_tokens' => LicenseToken::where('status', TokenStatus::AVAILABLE)->count(),
+            'total_devices' => Device::where('status', DeviceStatus::ACTIVE)->count(),
+            'recent_activities' => AuditLog::with('tenant')
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get(),
         ];
 
-        $defaultTrialDays = SystemSetting::getVal('default_trial_days', 14);
-
-        return view('admin.dashboard', compact('stats', 'defaultTrialDays'));
-    }
-
-    public function updateSettings(Request $request)
-    {
-        $request->validate([
-            'default_trial_days' => 'required|integer|min:1',
-        ]);
-
-        SystemSetting::setVal('default_trial_days', $request->default_trial_days);
-
-        return redirect()->back()->with('success', 'Pengaturan berhasil diperbarui!');
+        return view('admin.dashboard', compact('stats'));
     }
 }

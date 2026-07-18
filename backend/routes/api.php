@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ActivationController;
+use App\Http\Controllers\AuthController;
+use Illuminate\Support\Facades\Route;
 
 // Endpoint publik (untuk login) — rate limited: 10 requests per minute
 Route::middleware('throttle:10,1')->group(function () {

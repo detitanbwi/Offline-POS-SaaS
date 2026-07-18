@@ -1,103 +1,72 @@
 @extends('admin.layouts.app')
-
-@section('title', 'Detail Tenant — POS SaaS')
-@section('header_title', 'Detail Informasi Tenant')
+@section('title', "Tenant {{ $tenant->name }} — POS SaaS Admin")
+@section('header_title', $tenant->name)
 
 @section('content')
-    <div class="grid grid-3">
-        <!-- Informasi Utama Tenant -->
-        <div class="card" style="grid-column: span 1;">
-            <div class="card-header">
-                <h2 class="card-title">Profil Tenant</h2>
-                <a href="{{ route('admin.tenants.edit', $tenant->id) }}" class="btn btn-primary btn-sm">Edit</a>
-            </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-                <div>
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">ID Tenant</label>
-                    <code style="font-size: 13px;">{{ $tenant->id }}</code>
-                </div>
-                
-                <div>
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Nama Bisnis</label>
-                    <div style="font-weight: 600; font-size: 16px; color: var(--primary);">{{ $tenant->name }}</div>
-                </div>
-
-                <div>
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Nama Owner</label>
-                    <div style="font-weight: 500;">{{ $tenant->owner_name }}</div>
-                </div>
-
-                <div>
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Kontak</label>
-                    <div>Email: {{ $tenant->email }}</div>
-                    <div>WhatsApp: {{ $tenant->phone ?? '-' }}</div>
-                </div>
-
-                <div>
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Nama & Alamat Toko</label>
-                    <div>Outlet: {{ $tenant->store_name ?? '-' }}</div>
-                    <div style="font-size: 13px; color: var(--text-secondary);">{{ $tenant->store_address ?? '-' }}</div>
-                </div>
-
-                <div>
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Status</label>
-                    <div>
-                        @if($tenant->status === 'active')
-                            <span class="badge badge-success">Aktif</span>
-                        @elseif($tenant->status === 'suspended')
-                            <span class="badge badge-warning">Ditangguhkan</span>
-                        @else
-                            <span class="badge badge-danger">{{ $tenant->status }}</span>
-                        @endif
-                    </div>
-                </div>
-            </div>
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Informasi Tenant</h3>
+            <span class="badge {{ $tenant->status->badgeClass() }}">{{ $tenant->status->label() }}</span>
         </div>
-
-        <!-- Daftar Lisensi Tenant -->
-        <div class="card" style="grid-column: span 2;">
-            <div class="card-header">
-                <h2 class="card-title">Daftar Lisensi Penerbitan</h2>
-                <a href="{{ route('admin.licenses.index', ['search' => $tenant->name]) }}" class="btn btn-outline btn-sm">Lihat Semua Lisensi</a>
-            </div>
-            
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Lisensi Key</th>
-                            <th>Masa Berlaku</th>
-                            <th>Limit Perangkat</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($tenant->licenses as $license)
-                            <tr>
-                                <td>
-                                    <a href="{{ route('admin.licenses.show', $license->id) }}" style="font-family: monospace; font-weight: 600; color: var(--primary);">{{ $license->license_key }}</a>
-                                </td>
-                                <td>{{ $license->expires_at->format('d/m/Y') }}</td>
-                                <td>{{ $license->device_count }} / {{ $license->device_limit }} Perangkat</td>
-                                <td>
-                                    @if($license->status === 'ACTIVE')
-                                        <span class="badge badge-success">Aktif</span>
-                                    @elseif($license->status === 'AVAILABLE')
-                                        <span class="badge badge-info">Tersedia</span>
-                                    @else
-                                        <span class="badge badge-danger">{{ $license->status }}</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 24px;">Belum ada lisensi diterbitkan untuk tenant ini.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+        <div class="detail-grid">
+            <div class="detail-label">Nama</div><div class="detail-value">{{ $tenant->name }}</div>
+            <div class="detail-label">Pemilik</div><div class="detail-value">{{ $tenant->owner_name }}</div>
+            <div class="detail-label">Email</div><div class="detail-value">{{ $tenant->email }}</div>
+            <div class="detail-label">Telepon</div><div class="detail-value">{{ $tenant->phone ?? '-' }}</div>
+            <div class="detail-label">Toko</div><div class="detail-value">{{ $tenant->store_name ?? '-' }}</div>
+            <div class="detail-label">Alamat</div><div class="detail-value">{{ $tenant->store_address ?? '-' }}</div>
+            <div class="detail-label">Bergabung</div><div class="detail-value">{{ $tenant->created_at->format('d F Y') }}</div>
+        </div>
+        <div class="flex gap-3 mt-4 flex-wrap">
+            <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-sm">Edit</a>
+            @if ($tenant->status->value === 'active')
+                <form method="POST" action="{{ route('admin.tenants.suspend', $tenant) }}" onsubmit="return confirm('Tangguhkan tenant ini?')">@csrf<button class="btn btn-warning btn-sm">Tangguhkan</button></form>
+            @elseif ($tenant->status->value === 'suspended')
+                <form method="POST" action="{{ route('admin.tenants.reactivate', $tenant) }}" onsubmit="return confirm('Aktifkan kembali tenant ini?')">@csrf<button class="btn btn-success btn-sm">Aktifkan</button></form>
+            @endif
+            <form method="POST" action="{{ route('admin.tenants.destroy', $tenant) }}" onsubmit="return confirm('Hapus tenant ini? Data akan dihapus.')">@csrf @method('DELETE')<button class="btn btn-danger btn-sm">Hapus</button></form>
         </div>
     </div>
+
+    <div class="card">
+        <div class="card-header"><h3 class="card-title">Invoice Terbaru</h3></div>
+        @if ($tenant->invoices->count() > 0)
+            @foreach ($tenant->invoices as $inv)
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--divider);">
+                <div>
+                    <span class="font-mono text-sm" style="font-weight:600;">{{ $inv->invoice_number }}</span>
+                    <span class="badge {{ $inv->status->badgeClass() }}" style="margin-left:8px;">{{ $inv->status->label() }}</span>
+                </div>
+                <a href="{{ route('admin.invoices.show', $inv) }}" class="text-sm" style="color:var(--primary);">Detail →</a>
+            </div>
+            @endforeach
+        @else
+            <p class="text-muted text-sm">Belum ada invoice.</p>
+        @endif
+    </div>
+</div>
+
+@if ($tenant->licenseTokens->count() > 0)
+<div class="card">
+    <div class="card-header"><h3 class="card-title">Token Lisensi ({{ $tenant->licenseTokens->count() }})</h3></div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Token</th><th>Status</th><th>Perangkat</th><th>Aksi</th></tr></thead>
+            <tbody>
+                @foreach ($tenant->licenseTokens as $token)
+                <tr>
+                    <td><span class="token-display">{{ $token->token_key }}</span></td>
+                    <td><span class="badge {{ $token->status->badgeClass() }}">{{ $token->status->label() }}</span></td>
+                    <td>{{ $token->device?->display_name ?? '-' }}</td>
+                    <td><a href="{{ route('admin.tokens.show', $token) }}" class="btn btn-outline btn-xs">Detail</a></td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
+<a href="{{ route('admin.tenants.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
 @endsection

@@ -12,6 +12,7 @@ class AdminAuthController extends Controller
         if (Auth::check() && Auth::user()->is_admin) {
             return redirect()->route('admin.dashboard');
         }
+
         return view('admin.auth.login');
     }
 
@@ -26,10 +27,12 @@ class AdminAuthController extends Controller
             $user = Auth::user();
             if ($user->is_admin) {
                 $request->session()->regenerate();
+
                 return redirect()->intended(route('admin.dashboard'));
             }
 
             Auth::logout();
+
             return redirect()->back()->withErrors([
                 'email' => 'Anda tidak memiliki hak akses administrator.',
             ]);

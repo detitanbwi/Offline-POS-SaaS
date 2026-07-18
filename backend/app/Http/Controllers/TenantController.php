@@ -2,32 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TenantStatus;
+use App\Http\Requests\CreateTenantRequest;
+use App\Http\Requests\UpdateTenantRequest;
 use App\Models\Tenant;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use App\Repositories\TenantRepository;
 
 class TenantController extends Controller
 {
-    public function index(Request $request)
+    public function __construct(
+        protected TenantRepository $tenantRepository,
+    ) {}
+
+    public function index()
     {
-        $query = Tenant::query();
+        $tenants = $this->tenantRepository->paginate(request()->only(['search', 'status']));
+        $statuses = TenantStatus::cases();
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%$search%")
-                  ->orWhere('owner_name', 'like', "%$search%")
-                  ->orWhere('email', 'like', "%$search%");
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        $tenants = $query->orderBy('created_at', 'desc')->paginate(10);
-
-        return view('admin.tenants.index', compact('tenants'));
+        return view('admin.tenants.index', compact('tenants', 'statuses'));
     }
 
     public function create()
@@ -35,27 +27,27 @@ class TenantController extends Controller
         return view('admin.tenants.create');
     }
 
-    public function store(Request $request)
+    public function store(CreateTenantRequest $request)
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'owner_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:tenants,email',
-            'phone' => 'nullable|string|max:20',
-            'store_name' => 'nullable|string|max:255',
-            'store_address' => 'nullable|string|max:255',
-        ]);
+        $data = $request->validated();
+        $data['status'] = TenantStatus::ACTIVE;
 
-        $data['id'] = (string) Str::uuid();
-        $data['status'] = 'active';
+        $this->tenantRepository->create($data);
 
-        Tenant::create($data);
-
-        return redirect()->route('admin.tenants.index')->with('success', 'Tenant berhasil dibuat!');
+        return redirect()->route('admin.tenants.index')
+            ->with('success', 'Tenant berhasil dibuat!');
     }
 
     public function show(Tenant $tenant)
     {
+        $tenant->load(['invoices' => function ($q) {
+            $q->latest()->take(5);
+        }, 'subscriptions' => function ($q) {
+            $q->latest()->take(5);
+        }, 'licenseTokens' => function ($q) {
+            $q->latest()->take(10);
+        }]);
+
         return view('admin.tenants.show', compact('tenant'));
     }
 
@@ -64,37 +56,35 @@ class TenantController extends Controller
         return view('admin.tenants.edit', compact('tenant'));
     }
 
-    public function update(Request $request, Tenant $tenant)
+    public function update(UpdateTenantRequest $request, Tenant $tenant)
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'owner_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:tenants,email,' . $tenant->id,
-            'phone' => 'nullable|string|max:20',
-            'store_name' => 'nullable|string|max:255',
-            'store_address' => 'nullable|string|max:255',
-        ]);
+        $this->tenantRepository->update($tenant, $request->validated());
 
-        $tenant->update($data);
-
-        return redirect()->route('admin.tenants.index')->with('success', 'Tenant berhasil diperbarui!');
+        return redirect()->route('admin.tenants.index')
+            ->with('success', 'Tenant berhasil diperbarui!');
     }
 
     public function destroy(Tenant $tenant)
     {
-        $tenant->delete();
-        return redirect()->route('admin.tenants.index')->with('success', 'Tenant berhasil dihapus!');
+        $this->tenantRepository->delete($tenant);
+
+        return redirect()->route('admin.tenants.index')
+            ->with('success', 'Tenant berhasil dihapus!');
     }
 
     public function suspend(Tenant $tenant)
     {
-        $tenant->update(['status' => 'suspended']);
-        return redirect()->back()->with('success', 'Tenant berhasil ditangguhkan (suspended)!');
+        $this->tenantRepository->update($tenant, ['status' => TenantStatus::SUSPENDED]);
+
+        return redirect()->back()
+            ->with('success', 'Tenant berhasil ditangguhkan!');
     }
 
     public function reactivate(Tenant $tenant)
     {
-        $tenant->update(['status' => 'active']);
-        return redirect()->back()->with('success', 'Tenant berhasil diaktifkan kembali!');
+        $this->tenantRepository->update($tenant, ['status' => TenantStatus::ACTIVE]);
+
+        return redirect()->back()
+            ->with('success', 'Tenant berhasil diaktifkan kembali!');
     }
 }

@@ -2,11 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
-use App\Models\Tenant;
+use App\Enums\InvoiceStatus;
+use App\Enums\SubscriptionStatus;
+use App\Enums\TokenStatus;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\LicenseToken;
+use App\Models\Package;
 use App\Models\Subscription;
-use App\Models\License;
-use App\Models\Device;
+use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -28,17 +33,17 @@ class ActivationControllerTest extends TestCase
         ]);
 
         $response->assertStatus(200)
-                 ->assertJsonPath('success', true)
-                 ->assertJsonStructure([
-                     'success',
-                     'message',
-                     'access_token',
-                     'user' => [
-                         'id',
-                         'name',
-                         'email'
-                     ]
-                 ]);
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'access_token',
+                'user' => [
+                    'id',
+                    'name',
+                    'email',
+                ],
+            ]);
 
         // Assert it does NOT return password/remember_token/etc
         $userResponse = $response->json('user');
@@ -51,7 +56,6 @@ class ActivationControllerTest extends TestCase
     {
         // 1. Setup Tenant and User
         $tenant = Tenant::create([
-            'id' => 'tenant-1',
             'name' => 'Wirodev Store',
             'owner_name' => 'Wiro',
             'email' => 'wiro@example.com',
@@ -65,55 +69,86 @@ class ActivationControllerTest extends TestCase
             'tenant_id' => $tenant->id,
         ]);
 
-        // 2. Setup Subscription & License
-        $subscription = Subscription::create([
-            'id' => 'sub-1',
-            'tenant_id' => $tenant->id,
-            'plan' => 'lifetime',
-            'status' => 'active',
-            'starts_at' => now(),
-            'expires_at' => now()->addYears(10),
+        // 2. Setup Package, Invoice, Subscription & License Token
+        $package = Package::create([
+            'name' => 'Pro Package',
+            'slug' => 'pro-package',
+            'price' => 350000,
+            'default_duration_days' => 365,
+            'device_limit_per_token' => 1,
+            'is_active' => true,
         ]);
 
-        $license = License::create([
+        $invoice = Invoice::create([
             'tenant_id' => $tenant->id,
-            'subscription_id' => $subscription->id,
-            'license_key' => 'LIC-TEST-KEY-123',
-            'device_limit' => 2,
-            'device_count' => 0,
-            'server_secret' => 'super_secret_never_expose_this',
-            'status' => 'AVAILABLE',
-            'expires_at' => now()->addYears(10),
+            'invoice_number' => 'INV-TEST-0001',
+            'status' => InvoiceStatus::PAID,
+            'subtotal' => 350000,
+            'total_amount' => 350000,
+            'paid_at' => now(),
         ]);
+
+        $invoiceItem = InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'package_id' => $package->id,
+            'package_name' => $package->name,
+            'quantity' => 1,
+            'duration_days' => 365,
+            'unit_price' => 350000,
+            'total_price' => 350000,
+        ]);
+
+        $subscription = Subscription::create([
+            'tenant_id' => $tenant->id,
+            'invoice_item_id' => $invoiceItem->id,
+            'package_id' => $package->id,
+            'package_name' => $package->name,
+            'status' => SubscriptionStatus::ACTIVE,
+            'start_date' => now()->toDateString(),
+            'expiry_date' => now()->addDays(365)->toDateString(),
+        ]);
+
+        $token = LicenseToken::create([
+            'subscription_id' => $subscription->id,
+            'tenant_id' => $tenant->id,
+            'token_key' => 'POS-PRO-TEST-KEY-123',
+            'server_secret' => 'super_secret_never_expose_this',
+            'status' => TokenStatus::AVAILABLE,
+        ]);
+
+        // Set JWT_SECRET in config for JWT signature generation in test
+        config(['app.jwt_secret' => 'test-jwt-secret-key-32-characters-minimum']);
 
         // 3. Authenticate with Sanctum
-        $token = $user->createToken('test-token')->plainTextToken;
+        $apiToken = $user->createToken('test-token')->plainTextToken;
 
         // 4. Request activation
         $response = $this->withHeaders([
-            'Authorization' => "Bearer $token",
+            'Authorization' => "Bearer $apiToken",
         ])->postJson('/api/activate', [
-            'license_key' => 'LIC-TEST-KEY-123',
+            'token_key' => 'POS-PRO-TEST-KEY-123',
             'fingerprint_hash' => hash('sha256', 'dummy_hash_123'),
-            'device_name' => 'Test Phone',
-            'device_model' => 'Model S',
-            'device_brand' => 'SaaSBrand',
+            'android_id_hash' => hash('sha256', 'android_id_123'),
+            'manufacturer' => 'SaaSBrand',
+            'brand' => 'SaaSBrand',
+            'model' => 'Model S',
+            'installation_uuid_hash' => hash('sha256', 'install_123'),
         ]);
 
         // 5. Assert response does NOT contain server_secret
         $response->assertStatus(200)
-                 ->assertJsonPath('success', true)
-                 ->assertJsonStructure([
-                     'success',
-                     'message',
-                     'offline_token',
-                     'expires_at'
-                 ]);
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'offline_token',
+                'expires_at',
+            ]);
 
         $response->assertJsonMissing([
-            'server_secret' => 'super_secret_never_expose_this'
+            'server_secret' => 'super_secret_never_expose_this',
         ]);
-        
+
         $this->assertArrayNotHasKey('server_secret', $response->json());
     }
 }

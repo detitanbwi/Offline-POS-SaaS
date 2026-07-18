@@ -7,19 +7,30 @@ use Illuminate\Http\Request;
 
 class AuditService
 {
-    public static function log(string $action, ?string $tenantId = null, ?int $licenseId = null, ?string $deviceId = null, ?string $details = null, ?Request $request = null)
-    {
+    /**
+     * Catat audit log.
+     */
+    public function log(
+        string $action,
+        ?string $tenantId = null,
+        ?string $licenseTokenId = null,
+        ?string $deviceId = null,
+        ?string $details = null,
+        ?array $metadata = null,
+        ?Request $request = null,
+    ): AuditLog {
         $ip = $request ? $request->ip() : request()->ip();
         $ua = $request ? $request->userAgent() : request()->userAgent();
         $userId = auth()->check() ? auth()->id() : null;
 
-        AuditLog::create([
+        return AuditLog::create([
             'tenant_id' => $tenantId,
-            'license_id' => $licenseId,
+            'license_token_id' => $licenseTokenId,
             'device_id' => $deviceId,
             'user_id' => $userId,
             'action' => $action,
             'details' => $details,
+            'metadata' => $metadata,
             'ip_address' => $ip,
             'user_agent' => $ua,
         ]);

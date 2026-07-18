@@ -2,29 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ActivateRequest;
-use App\Http\Requests\ValidateLicenseRequest;
+use App\Http\Requests\ActivateTokenRequest;
+use App\Http\Requests\ValidateTokenRequest;
 use App\Services\LicenseService;
 use Illuminate\Http\JsonResponse;
 
 class ActivationController extends Controller
 {
-    protected $licenseService;
+    public function __construct(
+        protected LicenseService $licenseService,
+    ) {}
 
-    public function __construct(LicenseService $licenseService)
-    {
-        $this->licenseService = $licenseService;
-    }
-
-    public function activate(ActivateRequest $request): JsonResponse
+    public function activate(ActivateTokenRequest $request): JsonResponse
     {
         $result = $this->licenseService->activateDevice(
-            $request->license_key,
+            $request->token_key,
             $request->fingerprint_hash,
-            $request->only(['device_name', 'device_model', 'device_brand'])
+            $request->only([
+                'android_id_hash',
+                'manufacturer',
+                'brand',
+                'model',
+                'installation_uuid_hash',
+            ])
         );
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return response()->json([
                 'success' => false,
                 'message' => $result['message'],
@@ -39,14 +42,14 @@ class ActivationController extends Controller
         ]);
     }
 
-    public function validateLicense(ValidateLicenseRequest $request): JsonResponse
+    public function validateLicense(ValidateTokenRequest $request): JsonResponse
     {
-        $result = $this->licenseService->validateLicense(
-            $request->license_key,
+        $result = $this->licenseService->validateToken(
+            $request->token_key,
             $request->fingerprint_hash
         );
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return response()->json([
                 'success' => false,
                 'message' => $result['message'],
