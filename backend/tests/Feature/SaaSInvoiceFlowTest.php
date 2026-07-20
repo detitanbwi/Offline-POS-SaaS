@@ -110,7 +110,7 @@ class SaaSInvoiceFlowTest extends TestCase
         $this->assertCount(2, $tokens);
         foreach ($tokens as $token) {
             $this->assertEquals(TokenStatus::AVAILABLE, $token->status);
-            $this->assertStringStartsWith('POS-PRO-', $token->token_key);
+            $this->assertStringStartsWith('WDEV-PRO-', $token->token_key);
         }
 
         // 7. Cashier activates first device using the first token key

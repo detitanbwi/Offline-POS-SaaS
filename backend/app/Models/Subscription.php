@@ -19,6 +19,7 @@ class Subscription extends Model
         'invoice_item_id',
         'package_id',
         'package_name',
+        'client_note',
         'status',
         'start_date',
         'expiry_date',

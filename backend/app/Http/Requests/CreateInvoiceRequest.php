@@ -17,6 +17,7 @@ class CreateInvoiceRequest extends FormRequest
             'tenant_id' => 'required|uuid|exists:tenants,id',
             'items' => 'required|array|min:1',
             'items.*.package_id' => 'required|uuid|exists:packages,id',
+            'items.*.client_note' => 'nullable|string|max:255',
             'items.*.quantity' => 'required|integer|min:1|max:20',
             'items.*.duration_days' => 'nullable|integer|min:1',
             'notes' => 'nullable|string|max:1000',

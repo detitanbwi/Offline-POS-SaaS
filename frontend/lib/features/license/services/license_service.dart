@@ -30,6 +30,7 @@ class LicenseService {
           'Authorization': 'Bearer $onlineToken',
         },
         body: jsonEncode({
+          'token_key': licenseKey,
           'license_key': licenseKey,
           'fingerprint_hash': fingerprint,
           'device_name': deviceInfo['device_name'],
@@ -80,6 +81,7 @@ class LicenseService {
           'Authorization': 'Bearer $onlineToken',
         },
         body: jsonEncode({
+          'token_key': licenseKey,
           'license_key': licenseKey,
           'fingerprint_hash': fingerprint,
         }),

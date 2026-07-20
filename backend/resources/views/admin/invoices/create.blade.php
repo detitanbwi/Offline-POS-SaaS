@@ -22,7 +22,7 @@
 
         <div class="card-title mb-4" style="margin-top: 24px;">Item Invoice</div>
         <div id="invoice-items">
-            <div class="item-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 16px; align-items: end;">
+            <div class="item-row" style="display: grid; grid-template-columns: 2fr 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 16px; align-items: end;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label">Paket *</label>
                     <select name="items[0][package_id]" class="form-control package-select" required>
@@ -33,6 +33,10 @@
                             </option>
                         @endforeach
                     </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Catatan Mesin Klien</label>
+                    <input type="text" name="items[0][client_note]" class="form-control" placeholder="Misal: Tablet Mesin Kasir Depan Utama">
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label">Qty *</label>
@@ -49,7 +53,7 @@
         <button type="button" id="addItem" class="btn btn-outline btn-sm" style="margin-bottom: 24px;">+ Tambah Item</button>
 
         <div class="form-group">
-            <label class="form-label">Catatan</label>
+            <label class="form-label">Catatan Invoice</label>
             <textarea name="notes" class="form-control" rows="3" placeholder="Catatan untuk invoice (opsional)">{{ old('notes') }}</textarea>
         </div>
 
@@ -78,11 +82,15 @@ document.getElementById('addItem').addEventListener('click', function() {
     const packagesOptions = document.querySelector('.package-select').innerHTML;
     const row = document.createElement('div');
     row.className = 'item-row';
-    row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 16px; align-items: end;';
+    row.style.cssText = 'display: grid; grid-template-columns: 2fr 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 16px; align-items: end;';
     row.innerHTML = `
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">Paket *</label>
             <select name="items[${itemIndex}][package_id]" class="form-control package-select" required>${packagesOptions}</select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Catatan Mesin Klien</label>
+            <input type="text" name="items[${itemIndex}][client_note]" class="form-control" placeholder="Misal: Tablet Tambahan Antrean Belakang">
         </div>
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">Qty *</label>

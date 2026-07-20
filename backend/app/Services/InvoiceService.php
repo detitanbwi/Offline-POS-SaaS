@@ -53,6 +53,7 @@ class InvoiceService
                     'invoice_id' => $invoice->id,
                     'package_id' => $package->id,
                     'package_name' => $package->name,
+                    'client_note' => $itemData['client_note'] ?? null,
                     'quantity' => $quantity,
                     'duration_days' => $durationDays,
                     'unit_price' => $unitPrice,
@@ -154,10 +155,16 @@ class InvoiceService
                 $tokenKey = LicenseToken::generateTokenKey($packagePrefix);
             } while (LicenseToken::where('token_key', $tokenKey)->exists());
 
+            $note = $item->client_note;
+            if ($item->quantity > 1 && $note) {
+                $note .= ' #'.($i + 1);
+            }
+
             LicenseToken::create([
                 'subscription_id' => $subscription->id,
                 'tenant_id' => $subscription->tenant_id,
                 'token_key' => $tokenKey,
+                'client_note' => $note,
                 'server_secret' => LicenseToken::generateServerSecret(),
                 'status' => TokenStatus::AVAILABLE,
             ]);

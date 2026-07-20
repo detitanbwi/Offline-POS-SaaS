@@ -11,10 +11,19 @@ class ActivateTokenRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (!$this->has('token_key') && $this->has('license_key')) {
+            $this->merge([
+                'token_key' => $this->input('license_key'),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
-            'token_key' => 'required|string|max:30',
+            'token_key' => 'required|string|max:50',
             'fingerprint_hash' => 'required|string|size:64',
             'android_id_hash' => 'nullable|string|size:64',
             'manufacturer' => 'nullable|string|max:255',

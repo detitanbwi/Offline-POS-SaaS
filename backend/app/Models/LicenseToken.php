@@ -16,6 +16,7 @@ class LicenseToken extends Model
         'subscription_id',
         'tenant_id',
         'token_key',
+        'client_note',
         'server_secret',
         'status',
         'activated_at',
@@ -79,23 +80,20 @@ class LicenseToken extends Model
 
     /**
      * Generate token key yang aman dan tidak dapat ditebak.
-     * Format: POS-{PKG}-XXXX-XXXX-XXXX
-     *
-     * Menggunakan random_bytes() untuk keamanan kriptografis.
+     * Format: WDEV-{PKG}-XXXX-XXXX-YYYY (misal: WDEV-PRO-789X-BIMA-2026)
      */
-    public static function generateTokenKey(string $packagePrefix = 'GEN'): string
+    public static function generateTokenKey(string $packagePrefix = 'PRO'): string
     {
         $segment = function () {
-            // Gunakan random_bytes untuk keamanan, lalu encode ke alfanumerik uppercase
             $bytes = random_bytes(3);
             $hex = strtoupper(bin2hex($bytes));
-
             return substr($hex, 0, 4);
         };
 
         $prefix = strtoupper(substr($packagePrefix, 0, 3));
+        $year = date('Y');
 
-        return "POS-{$prefix}-{$segment()}-{$segment()}-{$segment()}";
+        return "WDEV-{$prefix}-{$segment()}-{$segment()}-{$year}";
     }
 
     /**

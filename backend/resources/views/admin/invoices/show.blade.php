@@ -47,13 +47,14 @@
 {{-- Invoice Items --}}
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Daftar Paket</h3>
+        <h3 class="card-title">Rincian Transaksi Keranjang Lisensi</h3>
     </div>
     <div class="table-responsive">
         <table class="table">
             <thead>
                 <tr>
-                    <th>Paket</th>
+                    <th>Item Paket Lisensi</th>
+                    <th>Catatan Mesin Klien</th>
                     <th>Durasi</th>
                     <th>Qty</th>
                     <th>Harga Satuan</th>
@@ -64,6 +65,7 @@
                 @foreach ($invoice->items as $item)
                 <tr>
                     <td style="font-weight: 600;">{{ $item->package_name }}</td>
+                    <td>{{ $item->client_note ?? '-' }}</td>
                     <td>{{ $item->duration_days }} hari</td>
                     <td>{{ $item->quantity }}</td>
                     <td>Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
@@ -73,7 +75,7 @@
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="4" style="text-align: right; font-weight: 600;">Grand Total</td>
+                    <td colspan="5" style="text-align: right; font-weight: 600;">GRAND TOTAL PEMBAYARAN</td>
                     <td style="font-weight: 700; font-size: 16px; color: var(--primary);">Rp {{ number_format($invoice->total_amount, 0, ',', '.') }}</td>
                 </tr>
             </tfoot>
@@ -91,6 +93,7 @@
             <form method="POST" action="{{ route('admin.invoices.mark-paid', $invoice) }}" style="display: inline;" onsubmit="return confirm('Konfirmasi pembayaran invoice ini?')">
                 @csrf
                 <select name="payment_method" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--divider); font-size: 13px; margin-right: 4px;">
+                    <option value="bank_transfer">Transfer Bank (Mandiri)</option>
                     <option value="cash">Tunai</option>
                     <option value="qris">QRIS</option>
                     <option value="debit">Debit</option>
@@ -103,7 +106,7 @@
                 <button type="submit" class="btn btn-danger btn-sm">✕ Batalkan Invoice</button>
             </form>
         @endif
-        <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF</a>
+        <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur</a>
         <a href="{{ route('admin.invoices.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
     </div>
 </div>
@@ -112,16 +115,17 @@
 @if ($invoice->status->value === 'paid')
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Token Lisensi</h3>
+        <h3 class="card-title">Token Lisensi yang Diterbitkan (Rasio 1 Token = 1 Perangkat)</h3>
     </div>
     <div class="table-responsive">
         <table class="table">
             <thead>
                 <tr>
-                    <th>Token</th>
+                    <th>Catatan Mesin Klien</th>
+                    <th>Token Key</th>
                     <th>Paket</th>
                     <th>Status</th>
-                    <th>Perangkat</th>
+                    <th>Perangkat Terikat</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -129,7 +133,8 @@
                 @foreach ($invoice->subscriptions as $sub)
                     @foreach ($sub->licenseTokens as $token)
                     <tr>
-                        <td><span class="token-display">{{ $token->token_key }}</span></td>
+                        <td style="font-weight: 600;">{{ $token->client_note ?? $sub->client_note ?? '-' }}</td>
+                        <td><span class="token-display font-mono" style="color: var(--primary); font-weight: 700;">{{ $token->token_key }}</span></td>
                         <td>{{ $sub->package_name }}</td>
                         <td><span class="badge {{ $token->status->badgeClass() }}">{{ $token->status->label() }}</span></td>
                         <td>{{ $token->device?->display_name ?? 'Belum terikat' }}</td>

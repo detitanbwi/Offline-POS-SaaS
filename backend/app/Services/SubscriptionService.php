@@ -28,6 +28,7 @@ class SubscriptionService
             'invoice_item_id' => $item->id,
             'package_id' => $item->package_id,
             'package_name' => $item->package_name,
+            'client_note' => $item->client_note,
             'status' => SubscriptionStatus::ACTIVE,
             'start_date' => $startDate,
             'expiry_date' => $expiryDate,
