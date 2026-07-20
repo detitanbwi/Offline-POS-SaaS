@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('tenant_id');
-            $table->uuid('invoice_item_id');
+            $table->uuid('invoice_item_id')->nullable();
             $table->uuid('package_id');
             $table->string('package_name');
             $table->string('status')->default('pending');

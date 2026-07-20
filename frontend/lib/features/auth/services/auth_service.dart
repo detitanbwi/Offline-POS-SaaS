@@ -26,7 +26,21 @@ class AuthService {
           onlineToken: data['access_token'],
           offlineToken: await _storage.getOfflineToken() ?? '',
         );
-        return {'success': true};
+        if (data['tenant'] != null) {
+          final tenant = data['tenant'];
+          await _storage.saveStoreInfo(
+            name: tenant['store_name'] ?? tenant['name'] ?? '',
+            address: tenant['store_address'] ?? '',
+            phone: tenant['phone'] ?? '',
+          );
+        }
+        if (data['user'] != null && data['user']['name'] != null) {
+          await _storage.saveOwnerUsername(data['user']['name']);
+        }
+        return {
+          'success': true,
+          'license_tokens': data['license_tokens'] ?? [],
+        };
       } else {
         return {'success': false, 'message': data['message'] ?? 'Login Gagal'};
       }

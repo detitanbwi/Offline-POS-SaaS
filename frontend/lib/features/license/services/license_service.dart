@@ -104,6 +104,40 @@ class LicenseService {
     }
   }
 
+  Future<Map<String, dynamic>> getLicenseInfo() async {
+    try {
+      final onlineToken = await _storage.getOnlineToken();
+      if (onlineToken == null || onlineToken.isEmpty) {
+        return {'success': false, 'message': 'Token login tidak ditemukan'};
+      }
+
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/api/license-info'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $onlineToken',
+        },
+      ).timeout(const Duration(seconds: apiTimeoutSeconds));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        if (data['tenant'] != null) {
+          final tenant = data['tenant'];
+          await _storage.saveStoreInfo(
+            name: tenant['store_name'] ?? tenant['name'] ?? '',
+            address: tenant['store_address'] ?? '',
+            phone: tenant['phone'] ?? '',
+          );
+        }
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Gagal mengambil informasi lisensi'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Gagal terhubung ke server'};
+    }
+  }
+
   Future<bool> checkLicenseOffline() async {
     final expiryStr = await _storage.getLicenseExpiry();
     if (expiryStr == null || expiryStr.isEmpty) return false;

@@ -2,11 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SubscriptionStatus;
 use App\Enums\TenantStatus;
+use App\Enums\TokenStatus;
 use App\Http\Requests\CreateTenantRequest;
 use App\Http\Requests\UpdateTenantRequest;
+use App\Models\AuditLog;
+use App\Models\LicenseToken;
+use App\Models\Package;
+use App\Models\Subscription;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Repositories\TenantRepository;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class TenantController extends Controller
 {
@@ -24,18 +35,61 @@ class TenantController extends Controller
 
     public function create()
     {
-        return view('admin.tenants.create');
+        $packages = Package::where('is_active', true)->get();
+
+        return view('admin.tenants.create', compact('packages'));
     }
 
     public function store(CreateTenantRequest $request)
     {
-        $data = $request->validated();
-        $data['status'] = TenantStatus::ACTIVE;
+        return DB::transaction(function () use ($request) {
+            $data = $request->validated();
+            $data['status'] = TenantStatus::ACTIVE;
 
-        $this->tenantRepository->create($data);
+            $tenant = $this->tenantRepository->create($data);
 
-        return redirect()->route('admin.tenants.index')
-            ->with('success', 'Tenant berhasil dibuat!');
+            // 1. Buat User Kredensial Pemilik
+            $password = $request->input('password');
+            User::create([
+                'tenant_id' => $tenant->id,
+                'name' => $tenant->owner_name,
+                'email' => $tenant->email,
+                'password' => $password,
+                'is_admin' => false,
+            ]);
+
+            // 2. Otomasi Provisioning Subscription & Token Lisensi
+            $durationDays = (int) ($request->input('duration_days') ?? 365);
+            $package = Package::where('is_active', true)->first();
+
+            $subscription = Subscription::create([
+                'tenant_id' => $tenant->id,
+                'package_id' => $package?->id,
+                'package_name' => $package?->name ?? 'Pro Plan',
+                'status' => SubscriptionStatus::ACTIVE,
+                'start_date' => now()->toDateString(),
+                'expiry_date' => now()->addDays($durationDays)->toDateString(),
+            ]);
+
+            $tokenKey = LicenseToken::generateTokenKey($package?->getTokenPrefix() ?? 'WDEV-PRO-');
+            LicenseToken::create([
+                'subscription_id' => $subscription->id,
+                'tenant_id' => $tenant->id,
+                'token_key' => $tokenKey,
+                'client_note' => 'Initial Auto-Provisioned Token',
+                'server_secret' => LicenseToken::generateServerSecret(),
+                'status' => TokenStatus::AVAILABLE,
+            ]);
+
+            AuditLog::create([
+                'action' => 'tenant_provisioned',
+                'tenant_id' => $tenant->id,
+                'details' => "Tenant {$tenant->name} berhasil didaftarkan beserta user {$tenant->email} dan token lisensi {$tokenKey}",
+            ]);
+
+            return redirect()->route('admin.tenants.show', $tenant)
+                ->with('success', "Tenant berhasil didaftarkan! User login: {$tenant->email}, Token Lisensi: {$tokenKey}");
+        });
     }
 
     public function show(Tenant $tenant)
@@ -87,4 +141,65 @@ class TenantController extends Controller
         return redirect()->back()
             ->with('success', 'Tenant berhasil diaktifkan kembali!');
     }
+
+    /**
+     * Generator Lisensi: Update tanggal kadaluarsa & terbitkan token baru.
+     */
+    public function generateLicense(Request $request, Tenant $tenant)
+    {
+        $request->validate([
+            'expiry_date' => 'required|date',
+            'client_note' => 'nullable|string|max:255',
+        ]);
+
+        return DB::transaction(function () use ($request, $tenant) {
+            $expiryDate = Carbon::parse($request->input('expiry_date'));
+            $package = Package::where('is_active', true)->first();
+
+            // 1. Update/Buat Subscription Aktif
+            $subscription = $tenant->subscriptions()->where('status', SubscriptionStatus::ACTIVE)->first();
+            if ($subscription) {
+                $subscription->update([
+                    'expiry_date' => $expiryDate,
+                    'status' => SubscriptionStatus::ACTIVE,
+                ]);
+            } else {
+                $subscription = Subscription::create([
+                    'tenant_id' => $tenant->id,
+                    'package_id' => $package?->id,
+                    'package_name' => $package?->name ?? 'Pro Plan',
+                    'status' => SubscriptionStatus::ACTIVE,
+                    'start_date' => now()->toDateString(),
+                    'expiry_date' => $expiryDate->toDateString(),
+                ]);
+            }
+
+            // Pulihkan status token yang terikat pada subscription ini jika dulu expired
+            $tenant->licenseTokens()
+                ->where('subscription_id', $subscription->id)
+                ->where('status', TokenStatus::EXPIRED)
+                ->update(['status' => TokenStatus::ACTIVE]);
+
+            // 2. Terbitkan Token Lisensi Baru Siap Ditarik (Pull)
+            $tokenKey = LicenseToken::generateTokenKey($package?->getTokenPrefix() ?? 'WDEV-PRO-');
+            LicenseToken::create([
+                'subscription_id' => $subscription->id,
+                'tenant_id' => $tenant->id,
+                'token_key' => $tokenKey,
+                'client_note' => $request->input('client_note') ?? 'Token Baru Generator Lisensi',
+                'server_secret' => LicenseToken::generateServerSecret(),
+                'status' => TokenStatus::AVAILABLE,
+            ]);
+
+            AuditLog::create([
+                'action' => 'license_generated',
+                'tenant_id' => $tenant->id,
+                'details' => "Admin memperbarui kedaluwarsa lisensi ke {$expiryDate->format('Y-m-d')} dan membuat token baru: {$tokenKey}",
+            ]);
+
+            return redirect()->back()
+                ->with('success', "Lisensi berhasil diperbarui! Kedaluwarsa: {$expiryDate->format('d F Y')}. Token Baru: {$tokenKey}");
+        });
+    }
 }
+

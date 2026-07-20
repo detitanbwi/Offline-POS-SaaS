@@ -21,6 +21,44 @@ class ActivationScreen extends ConsumerStatefulWidget {
 class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   final _licenseController = TextEditingController();
   bool _isLoading = false;
+  bool _isFetchingToken = false;
+  String? _pulledTokenKey;
+  String? _pulledStoreName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLicenseInfo();
+  }
+
+  Future<void> _fetchLicenseInfo() async {
+    setState(() => _isFetchingToken = true);
+    final licenseService = ref.read(licenseServiceProvider);
+    final result = await licenseService.getLicenseInfo();
+    if (!mounted) return;
+    setState(() => _isFetchingToken = false);
+
+    if (result['success'] == true && result['data'] != null) {
+      final data = result['data'];
+      if (data['tenant'] != null) {
+        _pulledStoreName = data['tenant']['store_name'] ?? data['tenant']['name'];
+      }
+      final tokens = data['tokens'] as List?;
+      if (tokens != null && tokens.isNotEmpty) {
+        // Cari token yang available atau active
+        final availableToken = tokens.firstWhere(
+          (t) => t['status'] == 'available' || t['status'] == 'active',
+          orElse: () => tokens.first,
+        );
+        if (availableToken != null && availableToken['token_key'] != null) {
+          setState(() {
+            _pulledTokenKey = availableToken['token_key'];
+            _licenseController.text = _pulledTokenKey!;
+          });
+        }
+      }
+    }
+  }
 
   Future<void> _handleActivation() async {
     final key = _licenseController.text.trim();
@@ -93,6 +131,35 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (_isFetchingToken) ...[
+                      SizedBox(height: 12.h),
+                      const Center(child: CircularProgressIndicator()),
+                    ] else if (_pulledTokenKey != null) ...[
+                      SizedBox(height: 12.h),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20.r),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: Text(
+                                "Lisensi Ditemukan untuk ${_pulledStoreName ?? 'Toko Anda'}",
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     SizedBox(height: 20.h),
                     AppTextField(
                       controller: _licenseController,

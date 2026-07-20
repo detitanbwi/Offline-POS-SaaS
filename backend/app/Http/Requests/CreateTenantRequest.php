@@ -20,6 +20,8 @@ class CreateTenantRequest extends FormRequest
             'phone' => 'nullable|string|max:20',
             'store_name' => 'nullable|string|max:255',
             'store_address' => 'nullable|string|max:500',
+            'password' => 'required|string|min:6',
+            'duration_days' => 'nullable|integer|min:1',
         ];
     }
 }

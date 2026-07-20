@@ -24,12 +24,26 @@ class AuthController extends Controller
 
         // Buat token Sanctum
         $token = $user->createToken('mobile-app')->plainTextToken;
+        $tenant = $user->tenant;
 
         return response()->json([
             'success' => true,
             'message' => 'Login berhasil',
             'access_token' => $token,
             'user' => $user->only('id', 'name', 'email'),
+            'tenant' => $tenant ? [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'owner_name' => $tenant->owner_name,
+                'store_name' => $tenant->store_name,
+                'store_address' => $tenant->store_address,
+                'phone' => $tenant->phone,
+            ] : null,
+            'license_tokens' => $tenant ? $tenant->licenseTokens()->whereIn('status', ['available', 'active'])->get()->map(fn ($t) => [
+                'token_key' => $t->token_key,
+                'status' => $t->status->value ?? $t->status,
+                'expiry_date' => $t->subscription?->expiry_date?->toIso8601String(),
+            ]) : [],
         ]);
     }
 }

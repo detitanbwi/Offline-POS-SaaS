@@ -34,6 +34,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Tenants CRUD & Actions
     Route::post('/tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->name('tenants.suspend');
     Route::post('/tenants/{tenant}/reactivate', [TenantController::class, 'reactivate'])->name('tenants.reactivate');
+    Route::post('/tenants/{tenant}/generate-license', [TenantController::class, 'generateLicense'])->name('tenants.generate-license');
     Route::resource('tenants', TenantController::class);
 
     // Packages CRUD

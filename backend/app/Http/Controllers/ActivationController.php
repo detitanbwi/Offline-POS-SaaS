@@ -63,4 +63,47 @@ class ActivationController extends Controller
             'expires_at' => $result['expires_at'],
         ]);
     }
+
+    public function getLicenseInfo(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $tenant = $user->tenant;
+
+        if (! $tenant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant tidak ditemukan untuk akun ini',
+            ], 404);
+        }
+
+        $subscription = $tenant->subscriptions()->where('status', \App\Enums\SubscriptionStatus::ACTIVE)->first();
+        $tokens = $tenant->licenseTokens()->get();
+
+        return response()->json([
+            'success' => true,
+            'tenant' => [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'owner_name' => $tenant->owner_name,
+                'store_name' => $tenant->store_name,
+                'store_address' => $tenant->store_address,
+                'phone' => $tenant->phone,
+                'status' => $tenant->status->value ?? $tenant->status,
+            ],
+            'subscription' => $subscription ? [
+                'id' => $subscription->id,
+                'package_name' => $subscription->package_name,
+                'status' => $subscription->status->value ?? $subscription->status,
+                'start_date' => $subscription->start_date?->toIso8601String(),
+                'expiry_date' => $subscription->expiry_date?->toIso8601String(),
+                'is_expired' => $subscription->expiry_date ? $subscription->expiry_date->isPast() : false,
+            ] : null,
+            'tokens' => $tokens->map(fn ($t) => [
+                'token_key' => $t->token_key,
+                'status' => $t->status->value ?? $t->status,
+                'client_note' => $t->client_note,
+                'activated_at' => $t->activated_at?->toIso8601String(),
+            ]),
+        ]);
+    }
 }

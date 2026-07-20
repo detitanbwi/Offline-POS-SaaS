@@ -30,20 +30,23 @@
     </div>
 
     <div class="card">
-        <div class="card-header"><h3 class="card-title">Invoice Terbaru</h3></div>
-        @if ($tenant->invoices->count() > 0)
-            @foreach ($tenant->invoices as $inv)
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--divider);">
-                <div>
-                    <span class="font-mono text-sm" style="font-weight:600;">{{ $inv->invoice_number }}</span>
-                    <span class="badge {{ $inv->status->badgeClass() }}" style="margin-left:8px;">{{ $inv->status->label() }}</span>
-                </div>
-                <a href="{{ route('admin.invoices.show', $inv) }}" class="text-sm" style="color:var(--primary);">Detail →</a>
+        <div class="card-header"><h3 class="card-title">Generator Lisensi (Perbarui Expired & Terbitkan Token)</h3></div>
+        @php
+            $activeSub = $tenant->subscriptions->where('status', \App\Enums\SubscriptionStatus::ACTIVE)->first();
+            $defaultDate = $activeSub ? $activeSub->expiry_date->format('Y-m-d') : now()->addYear()->format('Y-m-d');
+        @endphp
+        <form action="{{ route('admin.tenants.generate-license', $tenant) }}" method="POST" style="margin-top: 12px;">
+            @csrf
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label class="form-label" for="expiry_date">Tanggal Kedaluwarsa Lisensi Klien</label>
+                <input class="form-control" type="date" id="expiry_date" name="expiry_date" value="{{ $defaultDate }}" required>
             </div>
-            @endforeach
-        @else
-            <p class="text-muted text-sm">Belum ada invoice.</p>
-        @endif
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label class="form-label" for="client_note">Catatan Tambahan (Opsional)</label>
+                <input class="form-control" type="text" id="client_note" name="client_note" placeholder="Misal: Perpanjangan Paket 1 Tahun">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">Perbarui Tanggal & Generate Token Baru</button>
+        </form>
     </div>
 </div>
 

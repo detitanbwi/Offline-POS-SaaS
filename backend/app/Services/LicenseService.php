@@ -164,6 +164,14 @@ class LicenseService
             return ['success' => false, 'message' => 'Subscription kedaluwarsa'];
         }
 
+        // Pulihkan status token & subscription jika sebelumnya marked expired tetapi admin sudah perpanjang
+        if ($subscription->status === SubscriptionStatus::EXPIRED) {
+            $subscription->update(['status' => SubscriptionStatus::ACTIVE]);
+        }
+        if ($token->status === TokenStatus::EXPIRED) {
+            $token->update(['status' => TokenStatus::ACTIVE]);
+        }
+
         // Cek device
         $device = $token->device;
         if (! $device || $device->fingerprint_hash !== $fingerprintHash) {

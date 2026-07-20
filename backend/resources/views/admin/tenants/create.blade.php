@@ -21,8 +21,13 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="email">Email</label>
+                <label class="form-label" for="email">Email Kredensial (Login App)</label>
                 <input class="form-control" type="email" id="email" name="email" required placeholder="Contoh: owner@majubersama.com">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Password Kredensial (Login App)</label>
+                <input class="form-control" type="password" id="password" name="password" required placeholder="Minimal 6 karakter">
             </div>
 
             <div class="form-group">
@@ -38,6 +43,11 @@
             <div class="form-group">
                 <label class="form-label" for="store_address">Alamat Toko</label>
                 <input class="form-control" type="text" id="store_address" name="store_address" placeholder="Contoh: Jl. Diponegoro No. 12">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="duration_days">Masa Berlaku Lisensi Awal (Hari)</label>
+                <input class="form-control" type="number" id="duration_days" name="duration_days" value="365" required placeholder="365">
             </div>
 
             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 32px;">

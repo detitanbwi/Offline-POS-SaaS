@@ -10,7 +10,6 @@ import 'features/auth/presentation/screens/pin_screen.dart';
 import 'features/auth/presentation/screens/onboarding_screen.dart';
 import 'features/auth/presentation/providers/auth_providers.dart';
 import 'features/license/presentation/screens/activation_screen.dart';
-import 'features/license/presentation/screens/license_expired_screen.dart';
 import 'features/license/presentation/screens/license_lock_screen.dart';
 import 'core/di/providers.dart';
 import 'core/services/app_logger.dart';
@@ -52,8 +51,8 @@ class MyApp extends ConsumerWidget {
     }
   }
 
-  // Toggle this to true to automatically bypass login and license checks in local development
-  static const bool autoBypassAuthAndLicense = true;
+  // Set to false for real SaaS integration testing between Web Back Office and Mobile App
+  static const bool autoBypassAuthAndLicense = false;
 
   Future<Widget> _getInitialRoute(WidgetRef ref) async {
     final storage = ref.read(secureStorageServiceProvider);
@@ -92,7 +91,10 @@ class MyApp extends ConsumerWidget {
     final licenseService = ref.read(licenseServiceProvider);
     final isLicenseValid = await licenseService.checkLicenseOffline();
     if (!isLicenseValid) {
-      return const LicenseExpiredScreen(reason: 'Lisensi Anda telah kedaluwarsa secara offline.');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(licenseExpiredProvider.notifier).state = true;
+      });
+      return const LicenseLockScreen();
     }
 
     // 4. Background validation (triggered asynchronously)
