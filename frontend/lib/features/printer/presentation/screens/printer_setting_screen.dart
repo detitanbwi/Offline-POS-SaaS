@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -11,6 +12,8 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/utils/receipt_generator.dart';
+import '../../../../features/pos/domain/models/transaction.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../printer/domain/models/printer_config.dart';
 import '../../../../core/services/printer_service.dart';
@@ -34,9 +37,11 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
   Future<void> _handleTestPrint(PrinterConfigModel printer) async {
     try {
       final profile = await CapabilityProfile.load();
-      final generator = Generator(PaperSize.mm58, profile);
+      final charsPerLine = printer.effectiveCharsPerLine;
+      final generator = Generator(printer.escPosPaperSize, profile);
       List<int> bytes = [];
 
+      final eqLine = '=' * charsPerLine;
       bytes += generator.text(
         'KASIR POS OFFLINE',
         styles: const PosStyles(align: PosAlign.center, bold: true),
@@ -45,10 +50,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
         'TEST PRINT SUKSES',
         styles: const PosStyles(align: PosAlign.center, bold: true),
       );
-      bytes += generator.text(
-        '==============================================',
-        styles: const PosStyles(align: PosAlign.left),
-      );
+      bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
       bytes += generator.text(
         'Nama Printer : ${printer.name}',
         styles: const PosStyles(align: PosAlign.left),
@@ -58,19 +60,30 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
         styles: const PosStyles(align: PosAlign.left),
       );
       bytes += generator.text(
-        'Waktu        : ${DateTime.now().toString().split('.').first}',
+        'Ukuran Kertas: ${printer.paperSize} mm',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        'Karakter/Baris: $charsPerLine ${printer.charsPerLine == 0 ? "(Otomatis)" : "(Manual)"}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        'Auto Cut     : ${printer.autoCut ? "Aktif" : "Nonaktif"}',
+        styles: const PosStyles(align: PosAlign.left),
+      );
+      bytes += generator.text(
+        'Waktu        : ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}',
         styles: const PosStyles(align: PosAlign.left),
       );
       bytes += generator.text(
         'Status       : TERHUBUNG',
         styles: const PosStyles(align: PosAlign.left),
       );
-      bytes += generator.text(
-        '==============================================',
-        styles: const PosStyles(align: PosAlign.left),
-      );
+      bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
       bytes += generator.feed(3);
-      // bytes += generator.cut();
+      if (printer.autoCut) {
+        bytes += generator.cut();
+      }
 
       final success = await PrinterService.instance.printBytes(bytes, printer.address);
       if (!mounted) return;
@@ -82,6 +95,187 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
     } catch (e) {
       AppSnackbar.showError(context, 'Error test print: $e');
     }
+  }
+
+  Future<void> _showPreviewDialog(PrinterConfigModel printer) async {
+    final charsPerLine = printer.effectiveCharsPerLine;
+    String previewText = '';
+
+    if (printer.isCashier) {
+      final dummyTx = TransactionHeader(
+        id: 'dummy-tx-1',
+        nomorTransaksi: 'TRX-20260720-001',
+        subtotal: 30000,
+        taxPercentage: 11,
+        taxAmount: 3300,
+        grandTotal: 33300,
+        nominalBayar: 50000,
+        kembalian: 16700,
+        paymentMethodId: 'pm-tunai',
+        paymentMethodNama: 'Tunai',
+        cashierNama: 'Budi Kasir',
+        createdAt: DateTime.now(),
+      );
+
+      final dummyItems = [
+        const TransactionItem(
+          id: 'item-1',
+          transactionId: 'dummy-tx-1',
+          produkId: 'prod-1',
+          produkNama: 'Nasi Goreng Spesial',
+          produkHarga: 25000,
+          qty: 1,
+          subtotal: 25000,
+          catatan: 'Pedas sedang',
+        ),
+        const TransactionItem(
+          id: 'item-2',
+          transactionId: 'dummy-tx-1',
+          produkId: 'prod-2',
+          produkNama: 'Es Teh Manis',
+          produkHarga: 5000,
+          qty: 1,
+          subtotal: 5000,
+        ),
+      ];
+
+      previewText = await ReceiptGenerator.formatCashierTextPreview(
+        transaction: dummyTx,
+        items: dummyItems,
+        tableName: 'Meja 03',
+        charsPerLine: charsPerLine,
+      );
+    } else {
+      // Kitchen Preview
+      final dummyItems = [
+        const TransactionItem(
+          id: 'item-1',
+          transactionId: 'dummy-tx-1',
+          produkId: 'prod-1',
+          produkNama: 'Nasi Goreng Spesial',
+          produkHarga: 25000,
+          qty: 2,
+          subtotal: 50000,
+          catatan: 'Pedas sedang, tanpa timun',
+        ),
+        const TransactionItem(
+          id: 'item-2',
+          transactionId: 'dummy-tx-1',
+          produkId: 'prod-2',
+          produkNama: 'Ayam Bakar Madu',
+          produkHarga: 30000,
+          qty: 1,
+          subtotal: 30000,
+          catatan: 'Paha atas',
+        ),
+      ];
+
+      final eqLine = '=' * charsPerLine;
+      final dashLine = '-' * charsPerLine;
+      final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+
+      final buffer = StringBuffer();
+      buffer.writeln(eqLine);
+      buffer.writeln(ReceiptGenerator.centerText('PESANAN DAPUR', width: charsPerLine));
+      buffer.writeln(eqLine);
+      buffer.writeln('Meja      : Meja 03');
+      buffer.writeln('Gelombang : #1 (Baru)');
+      buffer.writeln('Waktu     : $nowStr');
+      buffer.writeln('Kasir     : Budi Kasir');
+      buffer.writeln(dashLine);
+      buffer.writeln('QTY  ITEM');
+      buffer.writeln(dashLine);
+      for (var item in dummyItems) {
+        buffer.writeln('${item.qty.toString().padLeft(2)}   ${item.produkNama}');
+        if (item.catatan != null && item.catatan!.isNotEmpty) {
+          buffer.writeln('     - ${item.catatan}');
+        }
+      }
+      buffer.writeln(eqLine);
+      previewText = buffer.toString();
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 420.w,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.l),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Preview Struk (${printer.paperSize}mm)', style: AppTypography.titleMedium),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Lebar Layout: $charsPerLine Karakter per Baris',
+                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Center(
+                        child: Text(
+                          previewText,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: charsPerLine > 36 ? 11.sp : 13.sp,
+                            height: 1.25,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        text: 'Tutup',
+                        type: AppButtonType.outlined,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AppButton(
+                        text: 'Test Print',
+                        icon: Icons.print_rounded,
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _handleTestPrint(printer);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showScanBottomSheet(BuildContext context) {
@@ -175,16 +369,16 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                                   children: [
                                     TextButton(
                                       onPressed: () {
-                                        Navigator.pop(context); // Pop bottom sheet using its local context
-                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'cashier'); // Use screen context (mounted)
+                                        Navigator.pop(context);
+                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'cashier');
                                       },
                                       child: const Text('Kasir'),
                                     ),
                                     const SizedBox(width: 4),
                                     TextButton(
                                       onPressed: () {
-                                        Navigator.pop(context); // Pop bottom sheet using its local context
-                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'kitchen'); // Use screen context (mounted)
+                                        Navigator.pop(context);
+                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'kitchen');
                                       },
                                       child: const Text('Dapur'),
                                     ),
@@ -205,7 +399,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
 
   Future<void> _setupPrinterConfig(BuildContext sheetContext, String name, String address, String type) async {
     final rootContext = context;
-    Navigator.of(sheetContext).pop(); // Close bottom sheet modal safely
+    Navigator.of(sheetContext).pop();
 
     if (!mounted) return;
 
@@ -215,7 +409,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
       message: 'Hubungkan "$name" sebagai Printer ${type == "cashier" ? "Kasir Utama" : "Dapur"}?',
       confirmText: 'Hubungkan',
       onConfirm: () async {
-        Navigator.of(rootContext).pop(); // Close confirm dialog safely
+        Navigator.of(rootContext).pop();
         final success = await ref.read(printerNotifierProvider.notifier).saveAndConnectPrinter(
               name: name,
               address: address,
@@ -259,10 +453,10 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Konfigurasi Printer 58mm', style: AppTypography.headlineLarge.copyWith(fontSize: 24)),
+                    Text('Konfigurasi Thermal Printer', style: AppTypography.headlineLarge.copyWith(fontSize: 24)),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Pilih printer thermal bluetooth untuk mencetak struk belanja kasir dan tiket pesanan ke dapur.',
+                      'Atur printer Bluetooth untuk kasir dan dapur. Pilih lebar kertas (58mm/80mm) dan jumlah karakter per baris yang sesuai.',
                       style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: AppSpacing.l),
@@ -365,6 +559,126 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
               ],
             ),
             const SizedBox(height: 16),
+            
+            // -----------------------------------------------------------------
+            // SETTINGS: Paper Size, Characters per Line, Auto Cut, Density
+            // -----------------------------------------------------------------
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ukuran Kertas', style: AppTypography.titleMedium.copyWith(fontSize: 13.sp)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<int>(
+                          title: const Text('58 mm', style: TextStyle(fontSize: 13)),
+                          subtitle: const Text('Def: 32 Karakter', style: TextStyle(fontSize: 11)),
+                          value: 58,
+                          groupValue: printer.paperSize,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          onChanged: (val) {
+                            if (val != null) {
+                              ref.read(printerNotifierProvider.notifier).updatePrinterSettings(
+                                id: printer.id,
+                                paperSize: val,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<int>(
+                          title: const Text('80 mm', style: TextStyle(fontSize: 13)),
+                          subtitle: const Text('Def: 48 Karakter', style: TextStyle(fontSize: 11)),
+                          value: 80,
+                          groupValue: printer.paperSize,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          onChanged: (val) {
+                            if (val != null) {
+                              ref.read(printerNotifierProvider.notifier).updatePrinterSettings(
+                                id: printer.id,
+                                paperSize: val,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Jumlah Karakter per Baris', style: AppTypography.titleMedium.copyWith(fontSize: 13.sp)),
+                            Text('Ditentukan oleh tipe/font printer', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp)),
+                          ],
+                        ),
+                      ),
+                      DropdownButton<int>(
+                        value: printer.charsPerLine,
+                        style: AppTypography.bodyMedium.copyWith(fontSize: 13),
+                        underline: const SizedBox(),
+                        items: [
+                          DropdownMenuItem(
+                            value: 0,
+                            child: Text('Otomatis (${printer.paperSize == 80 ? "48" : "32"})'),
+                          ),
+                          const DropdownMenuItem(value: 28, child: Text('28 Karakter')),
+                          const DropdownMenuItem(value: 30, child: Text('30 Karakter')),
+                          const DropdownMenuItem(value: 32, child: Text('32 Karakter (58mm)')),
+                          const DropdownMenuItem(value: 42, child: Text('42 Karakter')),
+                          const DropdownMenuItem(value: 48, child: Text('48 Karakter (80mm)')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref.read(printerNotifierProvider.notifier).updatePrinterSettings(
+                              id: printer.id,
+                              charsPerLine: val,
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Auto Cut (Potong Kertas)', style: AppTypography.titleMedium.copyWith(fontSize: 13.sp)),
+                          Text('Potong kertas otomatis setelah mencetak', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp)),
+                        ],
+                      ),
+                      Switch(
+                        value: printer.autoCut,
+                        onChanged: (val) {
+                          ref.read(printerNotifierProvider.notifier).updatePrinterSettings(
+                            id: printer.id,
+                            autoCut: val,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -379,11 +693,20 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                   )
                 else ...[
                   OutlinedButton.icon(
+                    icon: const Icon(Icons.remove_red_eye_rounded, size: 16),
+                    label: const Text('Preview'),
+                    onPressed: () => _showPreviewDialog(printer),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
                     icon: const Icon(Icons.print_rounded, size: 16),
                     label: const Text('Test Print'),
                     onPressed: () => _handleTestPrint(printer),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -397,7 +720,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                       }
                     },
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       side: const BorderSide(color: AppColors.error),
                     ),
                   ),

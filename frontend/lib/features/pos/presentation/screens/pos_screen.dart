@@ -22,6 +22,8 @@ import '../../../product/domain/models/product.dart';
 import '../../domain/models/cart_item.dart';
 import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
+import '../../../printer/application/printer_notifier.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../table/domain/models/table.dart';
 import 'payment_screen.dart';
@@ -1408,11 +1410,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       AppSnackbar.showSuccess(context, 'Pesanan $tableName berhasil disimpan & dikirim ke dapur.');
 
       // Show Kitchen Ticket Preview & Printing Modal
+      final printerState = ref.read(printerNotifierProvider);
+      final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+      final kitchenPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
+
       final activeUser = ref.read(authSessionProvider);
       final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
         order: orderHeader,
         itemsToPrint: itemsToPrint,
         cashierNama: activeUser?.nama,
+        charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
       );
 
       if (!context.mounted) return;
@@ -1429,6 +1436,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           order: orderHeader,
           itemsToPrint: itemsToPrint,
           cashierNama: activeUser?.nama,
+          paperSize: kitchenPrinter?.escPosPaperSize ?? PaperSize.mm58,
+          charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
+          autoCut: kitchenPrinter?.autoCut ?? false,
         ),
       );
     } else {
@@ -1466,11 +1476,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final items = orderState.activeOrderItems;
     if (order == null) return;
 
+    final printerState = ref.read(printerNotifierProvider);
+    final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+    final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
     final activeUser = ref.read(authSessionProvider);
     final textPreview = await ReceiptGenerator.formatBillTextPreview(
       order: order,
       items: items,
       cashierNama: activeUser?.nama,
+      charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
     );
 
     if (!mounted) return;
@@ -1487,6 +1502,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         order: order,
         items: items,
         cashierNama: activeUser?.nama,
+        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: cashierPrinter?.autoCut ?? false,
       ),
     );
   }

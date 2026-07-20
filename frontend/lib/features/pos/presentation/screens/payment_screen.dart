@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -244,16 +245,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       // 2. Format and print Cashier Receipt
       final printerState = ref.read(printerNotifierProvider);
-      final hasCashierPrinter = printerState.configuredPrinters.any((p) => p.isCashier);
+      final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+      final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
 
       final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
         transaction: header,
         items: items,
         tableName: orderState.selectedTable?.nama,
+        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: cashierPrinter?.autoCut ?? false,
       );
 
-      if (hasCashierPrinter) {
-        final cashierPrinter = printerState.configuredPrinters.firstWhere((p) => p.isCashier);
+      if (cashierPrinter != null) {
         await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
       } else {
         if (kDebugMode) {
@@ -343,9 +347,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () async {
+                final printerState = ref.read(printerNotifierProvider);
+                final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+                final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
                 final textPreview = await ReceiptGenerator.formatCashierTextPreview(
                   transaction: header,
                   items: items,
+                  charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
                 );
                 if (!context.mounted) return;
                 AppReceiptPreviewModal.show(
@@ -359,6 +368,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   onGenerateEscPosBytes: () => ReceiptGenerator.generateCashierReceipt(
                     transaction: header,
                     items: items,
+                    paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+                    charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+                    autoCut: cashierPrinter?.autoCut ?? false,
                   ),
                 );
               },

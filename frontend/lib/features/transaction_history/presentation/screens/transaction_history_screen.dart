@@ -16,6 +16,8 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
 import '../../../../core/widgets/app_receipt_preview_modal.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import '../../../printer/application/printer_notifier.dart';
 import '../../application/transaction_history_notifier.dart';
 import '../../../pos/domain/models/transaction.dart';
 
@@ -57,9 +59,14 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     if (!context.mounted) return;
     Navigator.pop(context); // Dismiss loading dialog
 
+    final printerState = ref.read(printerNotifierProvider);
+    final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+    final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
     final textPreview = await ReceiptGenerator.formatCashierTextPreview(
       transaction: tx,
       items: items,
+      charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
     );
 
     if (!mounted) return;
@@ -74,6 +81,9 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
       onGenerateEscPosBytes: () => ReceiptGenerator.generateCashierReceipt(
         transaction: tx,
         items: items,
+        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: cashierPrinter?.autoCut ?? false,
       ),
     );
   }

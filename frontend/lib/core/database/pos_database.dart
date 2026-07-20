@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 5,
+            version: 6,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 5,
+          version: 6,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -61,7 +61,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 5,
+        version: 6,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -71,7 +71,7 @@ class PosDatabase {
       try {
         db = await openDatabase(
           path,
-          version: 5,
+          version: 6,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -260,6 +260,11 @@ class PosDatabase {
         name TEXT NOT NULL,
         address TEXT NOT NULL,
         type TEXT NOT NULL,
+        paper_size INTEGER NOT NULL DEFAULT 58,
+        chars_per_line INTEGER NOT NULL DEFAULT 0,
+        auto_cut INTEGER NOT NULL DEFAULT 0,
+        print_density TEXT NOT NULL DEFAULT 'normal',
+        auto_reconnect INTEGER NOT NULL DEFAULT 1,
         is_connected INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
@@ -400,6 +405,23 @@ class PosDatabase {
         await db.execute('ALTER TABLE orders ADD COLUMN cashier_nama TEXT');
       } catch (e) {
         // ignore
+      }
+    }
+
+    if (oldVersion < 6) {
+      final alterColumns = [
+        'ALTER TABLE printers_config ADD COLUMN paper_size INTEGER NOT NULL DEFAULT 58',
+        'ALTER TABLE printers_config ADD COLUMN chars_per_line INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE printers_config ADD COLUMN auto_cut INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE printers_config ADD COLUMN print_density TEXT NOT NULL DEFAULT \'normal\'',
+        'ALTER TABLE printers_config ADD COLUMN auto_reconnect INTEGER NOT NULL DEFAULT 1',
+      ];
+      for (final sql in alterColumns) {
+        try {
+          await db.execute(sql);
+        } catch (e) {
+          debugPrint('Migration error (version 6): $e');
+        }
       }
     }
   }

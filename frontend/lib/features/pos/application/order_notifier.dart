@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/di/providers.dart';
 import '../../table/domain/models/table.dart';
@@ -166,19 +167,21 @@ class OrderNotifier extends StateNotifier<OrderState> {
       // 1. If there are items to print, generate receipt & send to kitchen printer
       if (itemsToPrint.isNotEmpty) {
         final printerState = _ref.read(printerNotifierProvider);
-        final hasKitchenPrinter = printerState.configuredPrinters.any((p) => p.isKitchen);
+        final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+        final targetPrinter = kitchenPrinterList.isNotEmpty 
+            ? kitchenPrinterList.first 
+            : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
 
         final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
           order: orderHeader,
           itemsToPrint: itemsToPrint,
+          paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
+          charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+          autoCut: targetPrinter?.autoCut ?? false,
         );
 
-        if (hasKitchenPrinter) {
-          final kitchenPrinter = printerState.configuredPrinters.firstWhere((p) => p.isKitchen);
-          await _ref.read(printerNotifierProvider.notifier).printBytes(kitchenPrinter, receiptBytes);
-        } else if (printerState.configuredPrinters.isNotEmpty) {
-          final defaultPrinter = printerState.configuredPrinters.first;
-          await _ref.read(printerNotifierProvider.notifier).printBytes(defaultPrinter, receiptBytes);
+        if (targetPrinter != null) {
+          await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
         } else {
           if (kDebugMode) {
             debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');

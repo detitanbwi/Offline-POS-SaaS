@@ -26,6 +26,9 @@ class ReceiptGenerator {
     return 'Kasir';
   }
 
+  static String _equalsDivider(int width) => '=' * width;
+  static String _dashDivider(int width) => '-' * width;
+
   // --------------------------------------------------------------------------
   // 1. TAGIHAN SEMENTARA (Temporary Bill)
   // --------------------------------------------------------------------------
@@ -33,9 +36,12 @@ class ReceiptGenerator {
     required OrderModel order,
     required List<OrderItemModel> items,
     String? cashierNama,
+    PaperSize paperSize = PaperSize.mm58,
+    int charsPerLine = 32,
+    bool autoCut = false,
   }) async {
     final profile = await _getProfile();
-    final generator = Generator(PaperSize.mm58, profile);
+    final generator = Generator(paperSize, profile);
     List<int> bytes = [];
 
     final storage = SecureStorageService();
@@ -44,6 +50,9 @@ class ReceiptGenerator {
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final cashier = await _resolveCashierName(cashierNama);
+
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
 
     // Title & Store Info Header
     bytes += generator.text('Tagihan Sementara', styles: const PosStyles(align: PosAlign.center, bold: true));
@@ -54,7 +63,7 @@ class ReceiptGenerator {
     if (storePhone.isNotEmpty) {
       bytes += generator.text('Telp: $storePhone', styles: const PosStyles(align: PosAlign.center));
     }
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Metadata
     bytes += generator.text('Tgl   : $nowStr', styles: const PosStyles(align: PosAlign.left));
@@ -63,7 +72,7 @@ class ReceiptGenerator {
       bytes += generator.text('Meja  : ${order.tableNama}', styles: const PosStyles(align: PosAlign.left));
     }
     bytes += generator.text('Status: BELUM DIBAYAR', styles: const PosStyles(align: PosAlign.left));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
     // Items Listing
     for (var item in items) {
@@ -71,44 +80,49 @@ class ReceiptGenerator {
       final unitPrice = CurrencyFormatter.formatNumber(item.produkHarga);
       final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
       final qtyPrice = '  @ $unitPrice';
-      bytes += _renderRow(generator, qtyPrice, subtotal);
+      bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
 
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
       }
     }
 
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
     // Totals Summary
     bytes += _renderRow(
       generator,
       'Subtotal',
       CurrencyFormatter.formatNumber(order.subtotal),
+      totalWidth: charsPerLine,
     );
     if (order.taxAmount > 0) {
       bytes += _renderRow(
         generator,
         'Pajak (${order.taxPercentage.toStringAsFixed(0)}%)',
         CurrencyFormatter.formatNumber(order.taxAmount),
+        totalWidth: charsPerLine,
       );
     }
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += _renderRow(
       generator,
       'TOTAL TAGIHAN',
       CurrencyFormatter.formatNumber(order.grandTotal),
       bold: true,
+      totalWidth: charsPerLine,
     );
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Warning Footer
-    bytes += generator.text('  * Ini BUKAN bukti pembayaran  ', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text(' sah. Silakan bawa tagihan ini  ', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text('        ke meja kasir.          ', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(centerText('* Ini BUKAN bukti pembayaran *', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(centerText('sah. Silakan bawa tagihan ini', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(centerText('ke meja kasir.', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
     bytes += generator.feed(3);
-    bytes += generator.cut();
+    if (autoCut) {
+      bytes += generator.cut();
+    }
 
     return bytes;
   }
@@ -121,27 +135,33 @@ class ReceiptGenerator {
     required List<OrderItemModel> itemsToPrint,
     String? waveInfo,
     String? cashierNama,
+    PaperSize paperSize = PaperSize.mm58,
+    int charsPerLine = 32,
+    bool autoCut = false,
   }) async {
     final profile = await _getProfile();
-    final generator = Generator(PaperSize.mm58, profile);
+    final generator = Generator(paperSize, profile);
     List<int> bytes = [];
 
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final cashier = await _resolveCashierName(cashierNama);
 
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
+
     // Banner Header
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
     bytes += generator.text('PESANAN DAPUR', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Metadata
     bytes += generator.text('Meja      : ${order.tableNama ?? '04'}', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Gelombang : ${waveInfo ?? '#1 (Baru)'}', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Waktu     : $nowStr', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Kasir     : $cashier', styles: const PosStyles(align: PosAlign.left));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('QTY  ITEM', styles: const PosStyles(align: PosAlign.left, bold: true));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
     // Items List
     for (var item in itemsToPrint) {
@@ -152,9 +172,11 @@ class ReceiptGenerator {
       }
     }
 
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
     bytes += generator.feed(3);
-    bytes += generator.cut();
+    if (autoCut) {
+      bytes += generator.cut();
+    }
 
     return bytes;
   }
@@ -166,9 +188,12 @@ class ReceiptGenerator {
     required TransactionHeader transaction,
     required List<TransactionItem> items,
     String? tableName,
+    PaperSize paperSize = PaperSize.mm58,
+    int charsPerLine = 32,
+    bool autoCut = false,
   }) async {
     final profile = await _getProfile();
-    final generator = Generator(PaperSize.mm58, profile);
+    final generator = Generator(paperSize, profile);
     List<int> bytes = [];
 
     final storage = SecureStorageService();
@@ -178,6 +203,9 @@ class ReceiptGenerator {
     final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(transaction.createdAt);
     final cashier = await _resolveCashierName(transaction.cashierNama);
 
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
+
     // Store Info Header
     bytes += generator.text(storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
     for (var line in storeAddress.split('\n')) {
@@ -186,7 +214,7 @@ class ReceiptGenerator {
     if (storePhone.isNotEmpty) {
       bytes += generator.text('Telp: $storePhone', styles: const PosStyles(align: PosAlign.center));
     }
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Metadata
     bytes += generator.text('Tgl   : $dateStr', styles: const PosStyles(align: PosAlign.left));
@@ -195,7 +223,7 @@ class ReceiptGenerator {
     if (tableName != null && tableName.isNotEmpty) {
       bytes += generator.text('Meja  : $tableName', styles: const PosStyles(align: PosAlign.left));
     }
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
     // Items List
     for (var item in items) {
@@ -203,55 +231,62 @@ class ReceiptGenerator {
       final unitPrice = CurrencyFormatter.formatNumber(item.produkHarga);
       final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
       final qtyPrice = '  @ $unitPrice';
-      bytes += _renderRow(generator, qtyPrice, subtotal);
+      bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
 
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
       }
     }
 
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
     // Summary Totals
     bytes += _renderRow(
       generator,
       'Subtotal',
       CurrencyFormatter.formatNumber(transaction.subtotal),
+      totalWidth: charsPerLine,
     );
     if (transaction.taxAmount > 0) {
       bytes += _renderRow(
         generator,
         'Pajak (${transaction.taxPercentage.toStringAsFixed(0)}%)',
         CurrencyFormatter.formatNumber(transaction.taxAmount),
+        totalWidth: charsPerLine,
       );
     }
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += _renderRow(
       generator,
       'TOTAL',
       CurrencyFormatter.formatNumber(transaction.grandTotal),
       bold: true,
+      totalWidth: charsPerLine,
     );
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Payment & Change
     bytes += _renderRow(
       generator,
       transaction.paymentMethodNama.isEmpty ? 'Tunai' : transaction.paymentMethodNama,
       CurrencyFormatter.formatNumber(transaction.nominalBayar),
+      totalWidth: charsPerLine,
     );
     bytes += _renderRow(
       generator,
       'Kembalian',
       CurrencyFormatter.formatNumber(transaction.kembalian),
+      totalWidth: charsPerLine,
     );
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Footer
-    bytes += generator.text('       Terima Kasih Atas ', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text('        Kunjungan Anda!', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(centerText('Terima Kasih Atas', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(centerText('Kunjungan Anda!', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
     bytes += generator.feed(3);
-    bytes += generator.cut();
+    if (autoCut) {
+      bytes += generator.cut();
+    }
 
     return bytes;
   }
@@ -273,9 +308,12 @@ class ReceiptGenerator {
     double? expectedCash,
     double? actualCash,
     double? selisihCash,
+    PaperSize paperSize = PaperSize.mm58,
+    int charsPerLine = 32,
+    bool autoCut = false,
   }) async {
     final profile = await _getProfile();
-    final generator = Generator(PaperSize.mm58, profile);
+    final generator = Generator(paperSize, profile);
     List<int> bytes = [];
 
     final String cashier = await _resolveCashierName(cashierNama);
@@ -284,20 +322,23 @@ class ReceiptGenerator {
     final String end = endTimeStr ?? nowFormatted;
     final int itemsCount = totalItemsCount ?? topProducts.fold<int>(0, (sum, p) => sum + ((p['qty'] as num?)?.toInt() ?? 0));
 
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
+
     // Shift Header Banner
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
     bytes += generator.text('TUTUP SHIFT KASIR', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Metadata
     bytes += generator.text('Kasir   : $cashier', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Mulai   : $start', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Selesai : $end', styles: const PosStyles(align: PosAlign.left));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
     // Revenue Breakdown Header
     bytes += generator.text('RINCIAN PENDAPATAN', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Transaksi : $totalTransactions', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Item      : $itemsCount', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('', styles: const PosStyles(align: PosAlign.left));
@@ -305,18 +346,19 @@ class ReceiptGenerator {
     // Payment Methods Breakdown
     paymentBreakdown.forEach((method, total) {
       if (total >= 0) {
-        bytes += _renderRow(generator, method, CurrencyFormatter.formatNumber(total));
+        bytes += _renderRow(generator, method, CurrencyFormatter.formatNumber(total), totalWidth: charsPerLine);
       }
     });
 
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += _renderRow(
       generator,
       'TOTAL OMZET',
       CurrencyFormatter.formatNumber(totalSales),
       bold: true,
+      totalWidth: charsPerLine,
     );
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Physical Cash Reconciliation Banner
     final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
@@ -324,29 +366,31 @@ class ReceiptGenerator {
     final double diffCash = selisihCash ?? (actCash - expCash);
 
     bytes += generator.text('PENCOCOKAN KAS FISIK (TUNAI)', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
-    bytes += _renderRow(generator, 'Sistem (Expected)', CurrencyFormatter.formatNumber(expCash));
-    bytes += _renderRow(generator, 'Laci Kas (Actual)', CurrencyFormatter.formatNumber(actCash));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.left));
-    bytes += _renderRow(generator, 'SELISIH', CurrencyFormatter.formatNumber(diffCash), bold: true);
-    bytes += generator.text('================================', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+    bytes += _renderRow(generator, 'Sistem (Expected)', CurrencyFormatter.formatNumber(expCash), totalWidth: charsPerLine);
+    bytes += _renderRow(generator, 'Laci Kas (Actual)', CurrencyFormatter.formatNumber(actCash), totalWidth: charsPerLine);
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+    bytes += _renderRow(generator, 'SELISIH', CurrencyFormatter.formatNumber(diffCash), bold: true, totalWidth: charsPerLine);
+    bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Footer
     bytes += generator.text('Validasi Sistem POS', styles: const PosStyles(align: PosAlign.center));
     bytes += generator.feed(3);
-    bytes += generator.cut();
+    if (autoCut) {
+      bytes += generator.cut();
+    }
 
     return bytes;
   }
 
-  // Helper method to format left-aligned label and right-aligned value in 32-character line
+  // Helper method to format left-aligned label and right-aligned value in custom character line
   static List<int> _renderRow(
     Generator generator,
     String left,
     String right, {
     bool bold = false,
+    int totalWidth = 32,
   }) {
-    const int totalWidth = 32;
     final spaceCount = totalWidth - left.length - right.length;
     if (spaceCount > 0) {
       final line = '$left${' ' * spaceCount}$right';
@@ -361,7 +405,7 @@ class ReceiptGenerator {
   }
 
   // --------------------------------------------------------------------------
-  // TEXT PREVIEW HELPERS (For 58mm Thermal Simulation Screen View)
+  // TEXT PREVIEW HELPERS (For Thermal Simulation Screen View)
   // --------------------------------------------------------------------------
   static String formatTextRow(String left, String right, {int width = 32}) {
     final spaces = width - left.length - right.length;
@@ -382,6 +426,7 @@ class ReceiptGenerator {
     required OrderModel order,
     required List<OrderItemModel> items,
     String? cashierNama,
+    int charsPerLine = 32,
   }) async {
     final storage = SecureStorageService();
     final storeName = await storage.getStoreName() ?? 'KOS QAEZAR KAFE';
@@ -390,42 +435,45 @@ class ReceiptGenerator {
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final cashier = await _resolveCashierName(cashierNama);
 
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
+
     final buffer = StringBuffer();
-    buffer.writeln(centerText('Tagihan Sementara'));
-    buffer.writeln(centerText(storeName));
+    buffer.writeln(centerText('Tagihan Sementara', width: charsPerLine));
+    buffer.writeln(centerText(storeName, width: charsPerLine));
     for (var line in storeAddress.split('\n')) {
-      buffer.writeln(centerText(line));
+      buffer.writeln(centerText(line, width: charsPerLine));
     }
     if (storePhone.isNotEmpty) {
-      buffer.writeln(centerText('Telp: $storePhone'));
+      buffer.writeln(centerText('Telp: $storePhone', width: charsPerLine));
     }
-    buffer.writeln('================================');
+    buffer.writeln(eqLine);
     buffer.writeln('Tgl   : $nowStr');
     buffer.writeln('Kasir : $cashier');
     if (order.tableNama != null && order.tableNama!.isNotEmpty) {
       buffer.writeln('Meja  : ${order.tableNama}');
     }
     buffer.writeln('Status: BELUM DIBAYAR');
-    buffer.writeln('--------------------------------');
+    buffer.writeln(dashLine);
     for (var item in items) {
       buffer.writeln('${item.qty}x ${item.produkNama}');
-      buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal)));
+      buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         buffer.writeln('     - ${item.catatan}');
       }
     }
-    buffer.writeln('--------------------------------');
-    buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(order.subtotal)));
+    buffer.writeln(dashLine);
+    buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(order.subtotal), width: charsPerLine));
     if (order.taxAmount > 0) {
-      buffer.writeln(formatTextRow('Pajak (${order.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(order.taxAmount)));
+      buffer.writeln(formatTextRow('Pajak (${order.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(order.taxAmount), width: charsPerLine));
     }
-    buffer.writeln('--------------------------------');
-    buffer.writeln(formatTextRow('TOTAL TAGIHAN', CurrencyFormatter.formatNumber(order.grandTotal)));
-    buffer.writeln('================================');
-    buffer.writeln('  * Ini BUKAN bukti pembayaran  ');
-    buffer.writeln(' sah. Silakan bawa tagihan ini  ');
-    buffer.writeln('        ke meja kasir.          ');
-    buffer.writeln('================================');
+    buffer.writeln(dashLine);
+    buffer.writeln(formatTextRow('TOTAL TAGIHAN', CurrencyFormatter.formatNumber(order.grandTotal), width: charsPerLine));
+    buffer.writeln(eqLine);
+    buffer.writeln(centerText('* Ini BUKAN bukti pembayaran *', width: charsPerLine));
+    buffer.writeln(centerText('sah. Silakan bawa tagihan ini', width: charsPerLine));
+    buffer.writeln(centerText('ke meja kasir.', width: charsPerLine));
+    buffer.writeln(eqLine);
     return buffer.toString();
   }
 
@@ -434,21 +482,25 @@ class ReceiptGenerator {
     required List<OrderItemModel> itemsToPrint,
     String? waveInfo,
     String? cashierNama,
+    int charsPerLine = 32,
   }) async {
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final cashier = await _resolveCashierName(cashierNama);
 
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
+
     final buffer = StringBuffer();
-    buffer.writeln('================================');
-    buffer.writeln(centerText('PESANAN DAPUR'));
-    buffer.writeln('================================');
+    buffer.writeln(eqLine);
+    buffer.writeln(centerText('PESANAN DAPUR', width: charsPerLine));
+    buffer.writeln(eqLine);
     buffer.writeln('Meja      : ${order.tableNama ?? '04'}');
     buffer.writeln('Gelombang : ${waveInfo ?? '#1 (Baru)'}');
     buffer.writeln('Waktu     : $nowStr');
     buffer.writeln('Kasir     : $cashier');
-    buffer.writeln('--------------------------------');
+    buffer.writeln(dashLine);
     buffer.writeln('QTY  ITEM');
-    buffer.writeln('--------------------------------');
+    buffer.writeln(dashLine);
     for (var item in itemsToPrint) {
       final qtyStr = item.qty.toString().padLeft(2);
       buffer.writeln('$qtyStr   ${item.produkNama}');
@@ -456,7 +508,7 @@ class ReceiptGenerator {
         buffer.writeln('     - ${item.catatan}');
       }
     }
-    buffer.writeln('================================');
+    buffer.writeln(eqLine);
     return buffer.toString();
   }
 
@@ -464,6 +516,7 @@ class ReceiptGenerator {
     required TransactionHeader transaction,
     required List<TransactionItem> items,
     String? tableName,
+    int charsPerLine = 32,
   }) async {
     final storage = SecureStorageService();
     final storeName = await storage.getStoreName() ?? 'KOS QAEZAR KAFE';
@@ -472,42 +525,45 @@ class ReceiptGenerator {
     final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(transaction.createdAt);
     final cashier = await _resolveCashierName(transaction.cashierNama);
 
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
+
     final buffer = StringBuffer();
-    buffer.writeln(centerText(storeName));
+    buffer.writeln(centerText(storeName, width: charsPerLine));
     for (var line in storeAddress.split('\n')) {
-      buffer.writeln(centerText(line));
+      buffer.writeln(centerText(line, width: charsPerLine));
     }
     if (storePhone.isNotEmpty) {
-      buffer.writeln(centerText('Telp: $storePhone'));
+      buffer.writeln(centerText('Telp: $storePhone', width: charsPerLine));
     }
-    buffer.writeln('================================');
+    buffer.writeln(eqLine);
     buffer.writeln('Tgl   : $dateStr');
     buffer.writeln('Kasir : $cashier');
     buffer.writeln('No.   : ${transaction.nomorTransaksi}');
     if (tableName != null && tableName.isNotEmpty) {
       buffer.writeln('Meja  : $tableName');
     }
-    buffer.writeln('--------------------------------');
+    buffer.writeln(dashLine);
     for (var item in items) {
       buffer.writeln('${item.qty}x ${item.produkNama}');
-      buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal)));
+      buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         buffer.writeln('     - ${item.catatan}');
       }
     }
-    buffer.writeln('--------------------------------');
-    buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal)));
+    buffer.writeln(dashLine);
+    buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal), width: charsPerLine));
     if (transaction.taxAmount > 0) {
-      buffer.writeln(formatTextRow('Pajak (${transaction.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(transaction.taxAmount)));
+      buffer.writeln(formatTextRow('Pajak (${transaction.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(transaction.taxAmount), width: charsPerLine));
     }
-    buffer.writeln('--------------------------------');
-    buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(transaction.grandTotal)));
-    buffer.writeln('================================');
-    buffer.writeln(formatTextRow(transaction.paymentMethodNama.isEmpty ? 'Tunai' : transaction.paymentMethodNama, CurrencyFormatter.formatNumber(transaction.nominalBayar)));
-    buffer.writeln(formatTextRow('Kembalian', CurrencyFormatter.formatNumber(transaction.kembalian)));
-    buffer.writeln('================================');
-    buffer.writeln(centerText('Terima Kasih Atas'));
-    buffer.writeln(centerText('Kunjungan Anda!'));
+    buffer.writeln(dashLine);
+    buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(transaction.grandTotal), width: charsPerLine));
+    buffer.writeln(eqLine);
+    buffer.writeln(formatTextRow(transaction.paymentMethodNama.isEmpty ? 'Tunai' : transaction.paymentMethodNama, CurrencyFormatter.formatNumber(transaction.nominalBayar), width: charsPerLine));
+    buffer.writeln(formatTextRow('Kembalian', CurrencyFormatter.formatNumber(transaction.kembalian), width: charsPerLine));
+    buffer.writeln(eqLine);
+    buffer.writeln(centerText('Terima Kasih Atas', width: charsPerLine));
+    buffer.writeln(centerText('Kunjungan Anda!', width: charsPerLine));
     return buffer.toString();
   }
 
@@ -525,6 +581,7 @@ class ReceiptGenerator {
     double? expectedCash,
     double? actualCash,
     double? selisihCash,
+    int charsPerLine = 32,
   }) async {
     final String cashier = await _resolveCashierName(cashierNama);
     final String nowFormatted = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
@@ -536,35 +593,38 @@ class ReceiptGenerator {
     final double actCash = actualCash ?? expCash;
     final double diffCash = selisihCash ?? (actCash - expCash);
 
+    final eqLine = _equalsDivider(charsPerLine);
+    final dashLine = _dashDivider(charsPerLine);
+
     final buffer = StringBuffer();
-    buffer.writeln('================================');
-    buffer.writeln(centerText('TUTUP SHIFT KASIR'));
-    buffer.writeln('================================');
+    buffer.writeln(eqLine);
+    buffer.writeln(centerText('TUTUP SHIFT KASIR', width: charsPerLine));
+    buffer.writeln(eqLine);
     buffer.writeln('Kasir   : $cashier');
     buffer.writeln('Mulai   : $start');
     buffer.writeln('Selesai : $end');
-    buffer.writeln('--------------------------------');
-    buffer.writeln(centerText('RINCIAN PENDAPATAN'));
-    buffer.writeln('--------------------------------');
+    buffer.writeln(dashLine);
+    buffer.writeln(centerText('RINCIAN PENDAPATAN', width: charsPerLine));
+    buffer.writeln(dashLine);
     buffer.writeln('Total Transaksi : $totalTransactions');
     buffer.writeln('Total Item      : $itemsCount');
     buffer.writeln('');
     paymentBreakdown.forEach((method, total) {
       if (total >= 0) {
-        buffer.writeln(formatTextRow(method, CurrencyFormatter.formatNumber(total)));
+        buffer.writeln(formatTextRow(method, CurrencyFormatter.formatNumber(total), width: charsPerLine));
       }
     });
-    buffer.writeln('--------------------------------');
-    buffer.writeln(formatTextRow('TOTAL OMZET', CurrencyFormatter.formatNumber(totalSales)));
-    buffer.writeln('================================');
-    buffer.writeln(centerText('PENCOCOKAN KAS FISIK (TUNAI)'));
-    buffer.writeln('--------------------------------');
-    buffer.writeln(formatTextRow('Sistem (Expected)', CurrencyFormatter.formatNumber(expCash)));
-    buffer.writeln(formatTextRow('Laci Kas (Actual)', CurrencyFormatter.formatNumber(actCash)));
-    buffer.writeln('--------------------------------');
-    buffer.writeln(formatTextRow('SELISIH', CurrencyFormatter.formatNumber(diffCash)));
-    buffer.writeln('================================');
-    buffer.writeln(centerText('Validasi Sistem POS'));
+    buffer.writeln(dashLine);
+    buffer.writeln(formatTextRow('TOTAL OMZET', CurrencyFormatter.formatNumber(totalSales), width: charsPerLine));
+    buffer.writeln(eqLine);
+    buffer.writeln(centerText('PENCOCOKAN KAS FISIK (TUNAI)', width: charsPerLine));
+    buffer.writeln(dashLine);
+    buffer.writeln(formatTextRow('Sistem (Expected)', CurrencyFormatter.formatNumber(expCash), width: charsPerLine));
+    buffer.writeln(formatTextRow('Laci Kas (Actual)', CurrencyFormatter.formatNumber(actCash), width: charsPerLine));
+    buffer.writeln(dashLine);
+    buffer.writeln(formatTextRow('SELISIH', CurrencyFormatter.formatNumber(diffCash), width: charsPerLine));
+    buffer.writeln(eqLine);
+    buffer.writeln(centerText('Validasi Sistem POS', width: charsPerLine));
     return buffer.toString();
   }
 }

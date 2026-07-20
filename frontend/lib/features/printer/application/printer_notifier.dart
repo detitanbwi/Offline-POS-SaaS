@@ -120,6 +120,11 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
         name: name,
         address: address,
         type: type,
+        paperSize: existing?.paperSize ?? 58,
+        charsPerLine: existing?.charsPerLine ?? 0,
+        autoCut: existing?.autoCut ?? false,
+        printDensity: existing?.printDensity ?? 'normal',
+        autoReconnect: existing?.autoReconnect ?? true,
         isConnected: connectSuccess,
         createdAt: existing?.createdAt ?? DateTime.now(),
       );
@@ -147,6 +152,38 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
         isLoading: false,
         loadingType: () => null,
         errorMessage: 'Gagal menyimpan konfigurasi printer: $e',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> updatePrinterSettings({
+    required String id,
+    int? paperSize,
+    int? charsPerLine,
+    bool? autoCut,
+    String? printDensity,
+    bool? autoReconnect,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final existingIndex = state.configuredPrinters.indexWhere((p) => p.id == id);
+      if (existingIndex == -1) return false;
+      final existing = state.configuredPrinters[existingIndex];
+      final updated = existing.copyWith(
+        paperSize: paperSize,
+        charsPerLine: charsPerLine,
+        autoCut: autoCut,
+        printDensity: printDensity,
+        autoReconnect: autoReconnect,
+      );
+      await _repository.savePrinterConfig(updated);
+      await loadPrinters();
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Gagal memperbarui pengaturan printer: $e',
       );
       return false;
     }

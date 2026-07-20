@@ -17,6 +17,8 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import '../../../printer/application/printer_notifier.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/sales_report_notifier.dart';
 
@@ -60,6 +62,10 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
     final dateStr = DateFormat('dd-MM-yyyy').format(_selectedDate);
 
+    final printerState = ref.read(printerNotifierProvider);
+    final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+    final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
     final textPreview = await ReceiptGenerator.formatReportTextPreview(
       dateStr: dateStr,
       totalSales: report['total_sales'] as double,
@@ -68,6 +74,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       paymentBreakdown: paymentBreakdown,
       topProducts: topProducts,
       cashierNama: activeUser?.nama,
+      charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
     );
 
     if (!mounted) return;
@@ -92,6 +99,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
         cashierNama: activeUser?.nama,
+        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: cashierPrinter?.autoCut ?? false,
       ),
     );
   }
