@@ -208,6 +208,7 @@ class ProductFormState extends State<ProductForm> {
               labelText: 'Nama Produk',
               hintText: 'Masukkan nama produk (contoh: Nasi Goreng)',
               prefixIcon: Icons.shopping_bag_outlined,
+              maxLength: 100,
               validator: (v) => Validators.required(v, 'Nama Produk'),
             ),
             const SizedBox(height: 16),
@@ -261,7 +262,7 @@ class ProductFormState extends State<ProductForm> {
                           child: Validators.isValidLocalFile(_imagePath!)
                               ? Image.file(
                                   File(_imagePath!),
-                                  fit: BoxFit.cover,
+                                  fit: BoxFit.contain,
                                   errorBuilder: (_, _, _) => const Center(
                                     child: Icon(Icons.broken_image_outlined, size: 40, color: AppColors.error),
                                   ),
@@ -450,6 +451,9 @@ class ProductFormState extends State<ProductForm> {
 }
 
 class RupiahInputFormatter extends TextInputFormatter {
+  final int maxDigits;
+  RupiahInputFormatter({this.maxDigits = 10});
+
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
@@ -460,6 +464,9 @@ class RupiahInputFormatter extends TextInputFormatter {
     }
 
     final String cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanText.length > maxDigits) {
+      return oldValue;
+    }
     final double value = double.tryParse(cleanText) ?? 0;
     
     final formatter = NumberFormat.decimalPattern('id_ID');

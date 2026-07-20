@@ -202,7 +202,7 @@ class CategoryFormState extends State<CategoryForm> {
                         child: Validators.isValidLocalFile(_imagePath!)
                             ? Image.file(
                                 File(_imagePath!),
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 errorBuilder: (_, _, _) => const Center(
                                   child: Icon(Icons.broken_image_outlined, size: 40, color: AppColors.error),
                                 ),

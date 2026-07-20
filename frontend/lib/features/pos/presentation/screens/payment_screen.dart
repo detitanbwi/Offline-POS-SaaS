@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:uuid/uuid.dart';
+import '../../../product/presentation/widgets/product_form.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -77,7 +79,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   // Preset buttons for cash payment
   void _applyPresetAmount(double amount) {
     setState(() {
-      _amountPaidController.text = amount.toStringAsFixed(0);
+      _amountPaidController.text = CurrencyFormatter.formatNumber(amount);
     });
   }
 
@@ -182,7 +184,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         AppSnackbar.showWarning(context, 'Masukkan nominal pembayaran tunai.');
         return;
       }
-      amountPaid = double.tryParse(_amountPaidController.text) ?? 0;
+      amountPaid = double.tryParse(_amountPaidController.text.replaceAll('.', '')) ?? 0;
       if (amountPaid < grandTotal) {
         AppSnackbar.showWarning(context, 'Jumlah bayar kurang dari total transaksi.');
         return;
@@ -412,7 +414,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     double amountPaid = 0;
     if (isCash) {
-      amountPaid = double.tryParse(_amountPaidController.text) ?? 0;
+      amountPaid = double.tryParse(_amountPaidController.text.replaceAll('.', '')) ?? 0;
     } else {
       amountPaid = grandTotal;
     }
@@ -670,8 +672,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             AppTextField(
               controller: _amountPaidController,
               labelText: 'Nominal Uang Diterima',
-              prefixIcon: Icons.money_rounded,
+              prefixText: 'Rp ',
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                RupiahInputFormatter(maxDigits: 10),
+              ],
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),

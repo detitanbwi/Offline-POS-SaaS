@@ -57,6 +57,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                     labelText: 'Nama Lengkap Kasir',
                     hintText: 'Masukkan nama kasir',
                     prefixIcon: Icons.person_outline_rounded,
+                    maxLength: 50,
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
                         return 'Nama tidak boleh kosong';

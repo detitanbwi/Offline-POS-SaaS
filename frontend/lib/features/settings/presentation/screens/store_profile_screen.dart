@@ -139,12 +139,13 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 20.h),
+                             SizedBox(height: 20.h),
                             AppTextField(
                               controller: _nameController,
                               labelText: 'Nama Toko / Usaha',
                               hintText: 'Contoh: Kopi Maju Bersama',
                               prefixIcon: Icons.storefront_outlined,
+                              maxLength: 100,
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
                                   return 'Nama Toko wajib diisi!';
@@ -152,12 +153,15 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 return null;
                               },
                             ),
-                            SizedBox(height: 12.h),
+                            SizedBox(height: 18.h),
                             AppTextField(
                               controller: _addressController,
                               labelText: 'Alamat Lengkap Toko',
                               hintText: 'Contoh: Jl. Merdeka No. 45, Jakarta Pusat',
                               prefixIcon: Icons.location_on_outlined,
+                              maxLines: 3,
+                              keyboardType: TextInputType.multiline,
+                              textInputAction: TextInputAction.newline,
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
                                   return 'Alamat Toko wajib diisi!';
@@ -165,13 +169,14 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 return null;
                               },
                             ),
-                            SizedBox(height: 12.h),
+                            SizedBox(height: 18.h),
                             AppTextField(
                               controller: _phoneController,
                               labelText: 'Nomor Telepon Toko',
                               hintText: 'Contoh: 081234567890',
                               prefixIcon: Icons.phone_outlined,
                               keyboardType: TextInputType.phone,
+                              maxLength: 20,
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
                                   return 'Nomor Telepon wajib diisi!';
@@ -179,12 +184,13 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 return null;
                               },
                             ),
-                            SizedBox(height: 12.h),
+                            SizedBox(height: 18.h),
                             AppTextField(
                               controller: _ownerUsernameController,
                               labelText: 'Username Owner / Pemilik (untuk Login)',
                               hintText: 'Contoh: owner atau username baru',
                               prefixIcon: Icons.person_outline_rounded,
+                              maxLength: 50,
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
                                   return 'Username Owner wajib diisi!';

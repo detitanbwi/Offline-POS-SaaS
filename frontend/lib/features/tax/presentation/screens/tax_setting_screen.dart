@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -136,11 +137,16 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
                               labelText: 'Persentase Pajak (%)',
                               hintText: 'Contoh: 11',
                               prefixIcon: Icons.percent_rounded,
-                              keyboardType: TextInputType.number,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              maxLength: 7,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,4}')),
+                              ],
                               validator: (v) {
                                 final err = Validators.number(v, 'Persentase Pajak');
                                 if (err != null) return err;
-                                final val = double.parse(v!);
+                                final val = double.tryParse(v!);
+                                if (val == null) return 'Persentase Pajak tidak valid';
                                 if (val < 0 || val > 100) return 'Persentase harus berada di antara 0% - 100%';
                                 return null;
                               },

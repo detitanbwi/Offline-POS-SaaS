@@ -1095,7 +1095,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Subtotal', style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary)),
-            Text(CurrencyFormatter.format(state.subtotal), style: AppTypography.bodyLarge),
+            const SizedBox(width: 8),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(CurrencyFormatter.format(state.subtotal), style: AppTypography.bodyLarge),
+              ),
+            ),
           ],
         ),
         if (state.taxRate > 0) ...[
@@ -1105,7 +1112,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             children: [
               Text('Pajak (PPN ${state.taxRate.toStringAsFixed(0)}%)',
                   style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary)),
-              Text(CurrencyFormatter.format(state.taxAmount), style: AppTypography.bodyLarge),
+              const SizedBox(width: 8),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(CurrencyFormatter.format(state.taxAmount), style: AppTypography.bodyLarge),
+                ),
+              ),
             ],
           ),
         ],
@@ -1114,11 +1128,18 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Total Bayar', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold)),
-            Text(
-              CurrencyFormatter.format(state.grandTotal),
-              style: AppTypography.titleLarge.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+            const SizedBox(width: 8),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  CurrencyFormatter.format(state.grandTotal),
+                  style: AppTypography.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1568,9 +1589,16 @@ class _CartItemRow extends StatelessWidget {
                 ),
               ),
               // Subtotal item text
-              Text(
-                CurrencyFormatter.format(item.subtotal),
-                style: AppTypography.titleMedium.copyWith(fontSize: 14.sp),
+              const SizedBox(width: 8),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    CurrencyFormatter.format(item.subtotal),
+                    style: AppTypography.titleMedium.copyWith(fontSize: 14.sp),
+                  ),
+                ),
               ),
             ],
           ),

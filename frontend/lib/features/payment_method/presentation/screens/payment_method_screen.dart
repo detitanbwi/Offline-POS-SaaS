@@ -138,7 +138,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                           onActionPressed: () => _showAddEditDialog(context),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(AppSpacing.m),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 80),
                           itemCount: state.filteredMethods.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
@@ -274,6 +274,7 @@ class _PaymentMethodFormState extends State<_PaymentMethodForm> {
               hintText: 'Contoh: Gopay, Bank Mandiri, QRIS',
               prefixIcon: Icons.payment_rounded,
               readOnly: widget.method?.id == 'pm-tunai', // Default Tunai name cannot be edited
+              maxLength: 50,
               validator: (v) => Validators.required(v, 'Nama Metode Pembayaran'),
             ),
             if (widget.method != null && widget.method?.id != 'pm-tunai') ...[

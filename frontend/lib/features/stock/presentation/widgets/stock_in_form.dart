@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -117,10 +118,14 @@ class StockInFormState extends State<StockInForm> {
               hintText: 'Masukkan jumlah produk masuk',
               prefixIcon: Icons.add_circle_outline_rounded,
               keyboardType: TextInputType.number,
+              maxLength: 5,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               validator: (v) {
                 final err = Validators.integer(v, 'Jumlah Masuk');
                 if (err != null) return err;
-                if (int.parse(v!) <= 0) return 'Jumlah masuk harus lebih besar dari 0';
+                final val = int.tryParse(v!);
+                if (val == null || val <= 0) return 'Jumlah masuk harus lebih besar dari 0';
+                if (val > 99999) return 'Jumlah masuk maksimal 99.999';
                 return null;
               },
             ),

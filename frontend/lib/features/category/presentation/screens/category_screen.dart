@@ -430,16 +430,22 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                   ? const AppLoading(message: 'Memproses data...')
                   : state.filteredCategories.isEmpty
                       ? AppEmptyState(
-                          title: 'Kategori Kosong',
-                          description: _searchController.text.isNotEmpty
-                              ? 'Tidak ada kategori yang cocok dengan kata kunci Anda.'
-                              : 'Tambahkan kategori produk pertama Anda sekarang.',
+                          title: state.statusFilter == 0
+                              ? 'Tidak Ada Kategori Nonaktif'
+                              : state.statusFilter == 1
+                                  ? 'Tidak Ada Kategori Aktif'
+                                  : 'Kategori Kosong',
+                          description: state.statusFilter == 0
+                              ? 'Saat ini semua kategori bernilai aktif.'
+                              : _searchController.text.isNotEmpty
+                                  ? 'Tidak ada kategori yang cocok dengan kata kunci Anda.'
+                                  : 'Tambahkan kategori produk pertama Anda sekarang.',
                           icon: Icons.category_outlined,
-                          actionText: _searchController.text.isNotEmpty ? null : 'Tambah Kategori',
+                          actionText: (_searchController.text.isNotEmpty || state.statusFilter != null) ? null : 'Tambah Kategori',
                           onActionPressed: () => _showAddEditDialog(context),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(AppSpacing.m),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 80),
                           itemCount: state.filteredCategories.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {

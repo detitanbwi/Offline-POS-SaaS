@@ -684,7 +684,6 @@ class _ProductItemRow extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: (product.isActive ? AppColors.primary : AppColors.disabled).withValues(alpha: 0.1),
-
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.divider),
               ),
@@ -705,7 +704,6 @@ class _ProductItemRow extends StatelessWidget {
                               )
                             : const Icon(Icons.inventory_2_outlined, color: AppColors.primary))
                     : Icon(
-
                         Icons.inventory_2_outlined,
                         color: product.isActive ? AppColors.primary : AppColors.disabled,
                         size: 24,
@@ -720,24 +718,34 @@ class _ProductItemRow extends StatelessWidget {
                 Text(
                   product.nama,
                   style: AppTypography.titleMedium.copyWith(
-                    fontSize: 16.sp,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.bold,
                     decoration: product.isActive ? null : TextDecoration.lineThrough,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
                   style: AppTypography.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
-                    fontSize: 12.sp,
+                    fontSize: 11.sp,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  CurrencyFormatter.format(product.harga),
-                  style: AppTypography.titleMedium.copyWith(
-                    color: AppColors.secondary,
-                    fontSize: 14.sp,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    CurrencyFormatter.format(product.harga),
+                    style: AppTypography.titleMedium.copyWith(
+                      color: AppColors.secondary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -747,10 +755,12 @@ class _ProductItemRow extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
               onPressed: onEdit,
+              tooltip: 'Ubah',
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
               onPressed: onDelete,
+              tooltip: 'Hapus',
             ),
           ],
         ],
@@ -812,7 +822,7 @@ class _ProductItemCard extends StatelessWidget {
                                       fit: BoxFit.contain,
                                       errorBuilder: (_, _, _) => const Center(
                                         child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
-                                        ),
+                                      ),
                                     )
                                   : const Center(
                                       child: Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 36),
@@ -823,8 +833,8 @@ class _ProductItemCard extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 6,
+                    right: 6,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
@@ -841,6 +851,36 @@ class _ProductItemCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (!isSelectionMode)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 13,
+                            backgroundColor: Colors.white.withValues(alpha: 0.9),
+                            child: IconButton(
+                              icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 14),
+                              onPressed: onEdit,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          CircleAvatar(
+                            radius: 13,
+                            backgroundColor: Colors.white.withValues(alpha: 0.9),
+                            child: IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 14),
+                              onPressed: onDelete,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (isSelectionMode)
                     Positioned(
                       top: 4,
@@ -862,7 +902,7 @@ class _ProductItemCard extends StatelessWidget {
           Expanded(
             flex: 3,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -873,11 +913,11 @@ class _ProductItemCard extends StatelessWidget {
                       Text(
                         product.nama,
                         style: AppTypography.titleMedium.copyWith(
-                          fontSize: 13,
+                          fontSize: 13.sp,
                           fontWeight: FontWeight.bold,
                           decoration: product.isActive ? null : TextDecoration.lineThrough,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 1),
@@ -885,50 +925,24 @@ class _ProductItemCard extends StatelessWidget {
                         product.kategoriNama ?? 'Tanpa Kategori',
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: 11.sp,
+                          fontSize: 10.sp,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          CurrencyFormatter.format(product.harga),
-                          style: AppTypography.titleMedium.copyWith(
-                            color: AppColors.secondary,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      CurrencyFormatter.format(product.harga),
+                      style: AppTypography.titleMedium.copyWith(
+                        color: AppColors.secondary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.bold,
                       ),
-                      if (!isSelectionMode)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 18),
-                              onPressed: onEdit,
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                              onPressed: onDelete,
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ),
-                    ],
+                    ),
                   ),
                 ],
               ),
