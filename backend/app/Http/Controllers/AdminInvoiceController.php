@@ -11,6 +11,8 @@ use App\Repositories\TenantRepository;
 use App\Services\InvoicePdfService;
 use App\Services\InvoiceService;
 
+use App\Http\Requests\UploadPaymentProofRequest;
+
 class AdminInvoiceController extends Controller
 {
     public function __construct(
@@ -56,6 +58,24 @@ class AdminInvoiceController extends Controller
         return view('admin.invoices.show', compact('invoice'));
     }
 
+    public function uploadPaymentProof(UploadPaymentProofRequest $request, string $id)
+    {
+        $invoice = $this->invoiceRepository->findByIdOrFail($id);
+
+        try {
+            $this->invoiceService->uploadPaymentProof(
+                $invoice,
+                $request->file('payment_proof')
+            );
+
+            return redirect()->back()
+                ->with('success', "Bukti transfer untuk invoice {$invoice->invoice_number} berhasil diunggah!");
+        } catch (\LogicException $e) {
+            return redirect()->back()
+                ->with('error', $e->getMessage());
+        }
+    }
+
     public function markAsPaid(MarkInvoicePaidRequest $request, string $id)
     {
         $invoice = $this->invoiceRepository->findByIdOrFail($id);
@@ -63,11 +83,12 @@ class AdminInvoiceController extends Controller
         try {
             $this->invoiceService->markAsPaid(
                 $invoice,
-                $request->payment_method
+                $request->payment_method,
+                $request->file('payment_proof')
             );
 
             return redirect()->back()
-                ->with('success', "Invoice {$invoice->invoice_number} berhasil dikonfirmasi pembayarannya!");
+                ->with('success', "Pembayaran invoice {$invoice->invoice_number} berhasil disetujui (Approved) dan lisensi telah diterbitkan!");
         } catch (\LogicException $e) {
             return redirect()->back()
                 ->with('error', $e->getMessage());

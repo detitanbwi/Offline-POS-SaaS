@@ -14,7 +14,8 @@ class MarkInvoicePaidRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'payment_method' => 'required|string|in:cash,qris,debit,credit',
+            'payment_method' => 'required|string|in:bank_transfer,cash,qris,debit,credit',
+            'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ];
     }
 

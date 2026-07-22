@@ -10,7 +10,9 @@ use App\Models\LicenseToken;
 use App\Models\Package;
 use App\Models\Subscription;
 use App\Repositories\InvoiceRepository;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class InvoiceService
 {
@@ -81,21 +83,62 @@ class InvoiceService
     }
 
     /**
-     * Tandai invoice sebagai PAID.
+     * Upload bukti transfer pembayaran invoice.
+     */
+    public function uploadPaymentProof(Invoice $invoice, UploadedFile $file): Invoice
+    {
+        if ($invoice->status === InvoiceStatus::CANCELLED) {
+            throw new \LogicException("Tidak dapat mengunggah bukti transfer untuk invoice yang sudah dibatalkan.");
+        }
+
+        // Hapus file bukti lama jika ada
+        if ($invoice->payment_proof && Storage::disk('public')->exists($invoice->payment_proof)) {
+            Storage::disk('public')->delete($invoice->payment_proof);
+        }
+
+        $path = $file->store('payment_proofs', 'public');
+
+        $invoice->update([
+            'payment_proof' => $path,
+        ]);
+
+        $this->auditService->log(
+            'payment_proof_uploaded',
+            $invoice->tenant_id,
+            null,
+            null,
+            "Bukti transfer untuk Invoice {$invoice->invoice_number} berhasil diunggah"
+        );
+
+        return $invoice;
+    }
+
+    /**
+     * Tandai invoice sebagai PAID (Approval Pembayaran).
      * Ini akan otomatis membuat Subscription dan Generate Token.
      */
-    public function markAsPaid(Invoice $invoice, ?string $paymentMethod = null): Invoice
+    public function markAsPaid(Invoice $invoice, ?string $paymentMethod = null, ?UploadedFile $proofFile = null): Invoice
     {
         if ($invoice->status !== InvoiceStatus::UNPAID) {
             throw new \LogicException("Invoice {$invoice->invoice_number} tidak dalam status UNPAID.");
         }
 
-        return DB::transaction(function () use ($invoice, $paymentMethod) {
+        return DB::transaction(function () use ($invoice, $paymentMethod, $proofFile) {
+            $proofPath = $invoice->payment_proof;
+
+            if ($proofFile) {
+                if ($invoice->payment_proof && Storage::disk('public')->exists($invoice->payment_proof)) {
+                    Storage::disk('public')->delete($invoice->payment_proof);
+                }
+                $proofPath = $proofFile->store('payment_proofs', 'public');
+            }
+
             // Update status invoice
             $invoice->update([
                 'status' => InvoiceStatus::PAID,
                 'paid_at' => now(),
-                'payment_method' => $paymentMethod,
+                'payment_method' => $paymentMethod ?? $invoice->payment_method ?? 'bank_transfer',
+                'payment_proof' => $proofPath,
             ]);
 
             // Load items

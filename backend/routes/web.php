@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminDeviceController;
 use App\Http\Controllers\AdminInvoiceController;
 use App\Http\Controllers\AdminLicenseTokenController;
 use App\Http\Controllers\AdminPackageController;
+use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
@@ -31,6 +32,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Profile & Credentials Editing
+    Route::get('/profile', [AdminProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [AdminProfileController::class, 'update'])->name('profile.update');
+
     // Tenants CRUD & Actions
     Route::post('/tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->name('tenants.suspend');
     Route::post('/tenants/{tenant}/reactivate', [TenantController::class, 'reactivate'])->name('tenants.reactivate');
@@ -41,6 +46,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::resource('packages', AdminPackageController::class);
 
     // Invoices & Actions
+    Route::post('/invoices/{invoice}/upload-proof', [AdminInvoiceController::class, 'uploadPaymentProof'])->name('invoices.upload-proof');
     Route::post('/invoices/{invoice}/mark-paid', [AdminInvoiceController::class, 'markAsPaid'])->name('invoices.mark-paid');
     Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->name('invoices.cancel');
     Route::get('/invoices/{invoice}/download-pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.download-pdf');

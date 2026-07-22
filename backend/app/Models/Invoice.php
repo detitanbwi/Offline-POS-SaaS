@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Invoice extends Model
@@ -26,6 +27,7 @@ class Invoice extends Model
         'due_date',
         'paid_at',
         'payment_method',
+        'payment_proof',
         'notes',
     ];
 
@@ -127,5 +129,13 @@ class Invoice extends Model
         $this->subtotal = $subtotal;
         $this->total_amount = $subtotal + $this->tax_amount;
         $this->save();
+    }
+
+    /**
+     * Ambil URL publik file bukti transfer.
+     */
+    public function getPaymentProofUrlAttribute(): ?string
+    {
+        return $this->payment_proof ? Storage::disk('public')->url($this->payment_proof) : null;
     }
 }

@@ -304,6 +304,13 @@
 
                 <div class="sidebar-section">Sistem</div>
 
+                <li class="sidebar-menu-item {{ Request::routeIs('admin.profile.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.profile.edit') }}">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <span>Edit Profil Login</span>
+                    </a>
+                </li>
+
                 <li class="sidebar-menu-item {{ Request::routeIs('admin.audit-logs.*') ? 'active' : '' }}">
                     <a href="{{ route('admin.audit-logs.index') }}">
                         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
@@ -326,12 +333,12 @@
         <main class="main-content">
             <header class="main-header">
                 <div class="header-title">@yield('header_title', 'SaaS Dashboard')</div>
-                <div class="user-profile">
+                <a href="{{ route('admin.profile.edit') }}" class="user-profile" style="text-decoration: none; color: inherit;" title="Klik untuk edit data login">
                     <div class="user-avatar">
                         {{ strtoupper(substr(Auth::user()->name ?? 'A', 0, 1)) }}
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">{{ Auth::user()->name ?? 'Administrator' }}</span>
-                </div>
+                </a>
             </header>
 
             <div class="content-body">

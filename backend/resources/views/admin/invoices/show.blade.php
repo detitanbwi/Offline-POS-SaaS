@@ -20,7 +20,17 @@
             <div class="detail-label">Dibayar Pada</div>
             <div class="detail-value">{{ $invoice->paid_at?->format('d F Y, H:i') ?? '-' }}</div>
             <div class="detail-label">Metode Bayar</div>
-            <div class="detail-value">{{ $invoice->payment_method ?? '-' }}</div>
+            <div class="detail-value">{{ $invoice->payment_method ? strtoupper(str_replace('_', ' ', $invoice->payment_method)) : '-' }}</div>
+            <div class="detail-label">Bukti Transfer</div>
+            <div class="detail-value">
+                @if ($invoice->payment_proof)
+                    <a href="{{ $invoice->payment_proof_url }}" target="_blank" class="btn btn-outline btn-xs" style="text-decoration: none;">
+                        🖼️ Lihat Bukti Transfer
+                    </a>
+                @else
+                    <span class="text-muted">Belum ada bukti transfer</span>
+                @endif
+            </div>
         </div>
     </div>
 
@@ -43,6 +53,46 @@
         </div>
     </div>
 </div>
+
+{{-- Upload & Bukti Transfer Card (If UNPAID) --}}
+@if ($invoice->status->value === 'unpaid')
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Unggah Bukti Transfer</h3>
+    </div>
+    <div style="max-width: 600px;">
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+            Unggah bukti transfer dari pelanggan sebelum melakukan konfirmasi/approval status lunas.
+        </p>
+        <form action="{{ route('admin.invoices.upload-proof', $invoice) }}" method="POST" enctype="multipart/form-data" class="flex gap-3 items-center flex-wrap">
+            @csrf
+            <input type="file" name="payment_proof" class="form-control" style="max-width: 320px;" accept="image/jpeg,image/png,image/jpg,application/pdf" required>
+            <button type="submit" class="btn btn-primary btn-sm">⬆ Upload Bukti Transfer</button>
+        </form>
+        @error('payment_proof')
+            <div class="form-error mt-2">{{ $message }}</div>
+        @enderror
+    </div>
+</div>
+@endif
+
+{{-- Preview Bukti Transfer --}}
+@if ($invoice->payment_proof)
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Preview Bukti Transfer</h3>
+    </div>
+    <div>
+        @if (Str::endsWith(strtolower($invoice->payment_proof), '.pdf'))
+            <a href="{{ $invoice->payment_proof_url }}" target="_blank" class="btn btn-outline btn-sm">📄 Buka Dokumen PDF Bukti Transfer</a>
+        @else
+            <a href="{{ $invoice->payment_proof_url }}" target="_blank">
+                <img src="{{ $invoice->payment_proof_url }}" alt="Bukti Transfer" style="max-width: 400px; max-height: 400px; border-radius: 12px; border: 1px solid var(--divider); object-fit: contain;">
+            </a>
+        @endif
+    </div>
+</div>
+@endif
 
 {{-- Invoice Items --}}
 <div class="card">
@@ -86,27 +136,33 @@
 {{-- Actions --}}
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Aksi</h3>
+        <h3 class="card-title">Aksi Admin & Approval</h3>
     </div>
-    <div class="flex gap-3 flex-wrap">
+    <div class="flex gap-3 flex-wrap items-center">
         @if ($invoice->status->value === 'unpaid')
-            <form method="POST" action="{{ route('admin.invoices.mark-paid', $invoice) }}" style="display: inline;" onsubmit="return confirm('Konfirmasi pembayaran invoice ini?')">
+            <form method="POST" action="{{ route('admin.invoices.mark-paid', $invoice) }}" enctype="multipart/form-data" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" onsubmit="return confirm('Apakah Anda yakin ingin meng-approve pembayaran invoice ini?')">
                 @csrf
-                <select name="payment_method" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--divider); font-size: 13px; margin-right: 4px;">
-                    <option value="bank_transfer">Transfer Bank (Mandiri)</option>
-                    <option value="cash">Tunai</option>
-                    <option value="qris">QRIS</option>
-                    <option value="debit">Debit</option>
-                    <option value="credit">Kartu Kredit</option>
+                <label style="font-size: 13px; font-weight: 500;">Metode Bayar:</label>
+                <select name="payment_method" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--divider); font-size: 13px;">
+                    <option value="bank_transfer" {{ $invoice->payment_method === 'bank_transfer' ? 'selected' : '' }}>Transfer Bank</option>
+                    <option value="cash" {{ $invoice->payment_method === 'cash' ? 'selected' : '' }}>Tunai</option>
+                    <option value="qris" {{ $invoice->payment_method === 'qris' ? 'selected' : '' }}>QRIS</option>
+                    <option value="debit" {{ $invoice->payment_method === 'debit' ? 'selected' : '' }}>Debit</option>
+                    <option value="credit" {{ $invoice->payment_method === 'credit' ? 'selected' : '' }}>Kartu Kredit</option>
                 </select>
-                <button type="submit" class="btn btn-success btn-sm">✓ Konfirmasi Pembayaran</button>
+                <button type="submit" class="btn btn-success btn-sm">✓ Approve & Mark as Paid (Lunas)</button>
             </form>
             <form method="POST" action="{{ route('admin.invoices.cancel', $invoice) }}" style="display: inline;" onsubmit="return confirm('Batalkan invoice ini?')">
                 @csrf
                 <button type="submit" class="btn btn-danger btn-sm">✕ Batalkan Invoice</button>
             </form>
         @endif
-        <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur</a>
+
+        @if ($invoice->status->value === 'unpaid')
+            <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur Belum Lunas</a>
+        @else
+            <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur Lunas</a>
+        @endif
         <a href="{{ route('admin.invoices.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
     </div>
 </div>
