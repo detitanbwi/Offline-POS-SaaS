@@ -615,14 +615,14 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Jumlah Karakter per Baris', style: AppTypography.titleMedium.copyWith(fontSize: 13.sp)),
-                            Text('Ditentukan oleh tipe/font printer', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp)),
+                            Text('Jumlah Karakter per Baris', style: AppTypography.titleMedium.copyWith(fontSize: 12)),
+                            Text('Ditentukan oleh tipe/font printer', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10)),
                           ],
                         ),
                       ),
                       DropdownButton<int>(
                         value: printer.charsPerLine,
-                        style: AppTypography.bodyMedium.copyWith(fontSize: 13),
+                        style: AppTypography.bodyMedium.copyWith(fontSize: 12),
                         underline: const SizedBox(),
                         items: [
                           DropdownMenuItem(
@@ -646,66 +646,44 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                       ),
                     ],
                   ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Auto Cut (Potong Kertas)', style: AppTypography.titleMedium.copyWith(fontSize: 13.sp)),
-                          Text('Potong kertas otomatis setelah mencetak', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp)),
-                        ],
-                      ),
-                      Switch(
-                        value: printer.autoCut,
-                        onChanged: (val) {
-                          ref.read(printerNotifierProvider.notifier).updatePrinterSettings(
-                            id: printer.id,
-                            autoCut: val,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (isLoadingThisCard)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                else ...[
+            const SizedBox(height: 12),
+            if (isLoadingThisCard)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.remove_red_eye_rounded, size: 16),
-                    label: const Text('Preview'),
+                    icon: const Icon(Icons.remove_red_eye_rounded, size: 14),
+                    label: const Text('Preview', style: TextStyle(fontSize: 12)),
                     onPressed: () => _showPreviewDialog(printer),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.print_rounded, size: 16),
-                    label: const Text('Test Print'),
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Test Print', style: TextStyle(fontSize: 12)),
                     onPressed: () => _handleTestPrint(printer),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.link_off_rounded, size: 16, color: AppColors.error),
-                    label: const Text('Putuskan', style: TextStyle(color: AppColors.error)),
+                    icon: const Icon(Icons.link_off_rounded, size: 14, color: AppColors.error),
+                    label: const Text('Putuskan', style: TextStyle(color: AppColors.error, fontSize: 12)),
                     onPressed: () async {
                       final success = await ref.read(printerNotifierProvider.notifier).deletePrinter(printer.id);
                       if (success && mounted) {
@@ -713,13 +691,12 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                       }
                     },
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       side: const BorderSide(color: AppColors.error),
                     ),
                   ),
                 ],
-              ],
-            ),
+              ),
           ] else ...[
             Center(
               child: Padding(

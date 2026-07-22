@@ -21,8 +21,6 @@ import '../../../payment_method/domain/models/payment_method.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
 import '../../../../core/utils/receipt_generator.dart';
-import '../../../../core/utils/pdf_receipt_generator.dart';
-import '../../../../core/widgets/app_receipt_preview_modal.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 import '../../application/order_notifier.dart';
@@ -338,45 +336,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             _buildDialogRow('Total Belanja', CurrencyFormatter.format(header.grandTotal)),
             _buildDialogRow('Jumlah Bayar', CurrencyFormatter.format(header.nominalBayar)),
             _buildDialogRow('Kembalian', CurrencyFormatter.format(header.kembalian), isHighlighted: true),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.receipt_long_rounded),
-              label: const Text('Pratinjau / Cetak Struk'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () async {
-                final printerState = ref.read(printerNotifierProvider);
-                final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
-                final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
-
-                final textPreview = await ReceiptGenerator.formatCashierTextPreview(
-                  transaction: header,
-                  items: items,
-                  charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
-                );
-                if (!context.mounted) return;
-                AppReceiptPreviewModal.show(
-                  context,
-                  title: 'Struk Pembayaran',
-                  receiptTextPreview: textPreview,
-                  onGeneratePdf: () => PdfReceiptGenerator.generateCashierReceiptPdf(
-                    transaction: header,
-                    items: items,
-                  ),
-                  onGenerateEscPosBytes: () => ReceiptGenerator.generateCashierReceipt(
-                    transaction: header,
-                    items: items,
-                    paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
-                    charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
-                    autoCut: cashierPrinter?.autoCut ?? false,
-                  ),
-                );
-              },
-            ),
           ],
         ),
       ),

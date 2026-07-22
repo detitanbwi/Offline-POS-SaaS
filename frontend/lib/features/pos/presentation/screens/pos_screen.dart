@@ -1436,10 +1436,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       final kitchenPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
 
       final activeUser = ref.read(authSessionProvider);
+      final batchCount = await ref.read(orderRepositoryProvider).getBatchCount(orderHeader.id);
+      final waveInfo = batchCount <= 1 ? '#1 (Baru)' : '#$batchCount (Tambahan)';
+
       final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
         order: orderHeader,
         itemsToPrint: itemsToPrint,
         cashierNama: activeUser?.nama,
+        waveInfo: waveInfo,
         charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
       );
 
@@ -1452,11 +1456,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           order: orderHeader,
           itemsToPrint: itemsToPrint,
           cashierNama: activeUser?.nama,
+          waveInfo: waveInfo,
         ),
         onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
           order: orderHeader,
           itemsToPrint: itemsToPrint,
           cashierNama: activeUser?.nama,
+          waveInfo: waveInfo,
           paperSize: kitchenPrinter?.escPosPaperSize ?? PaperSize.mm58,
           charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
           autoCut: kitchenPrinter?.autoCut ?? false,

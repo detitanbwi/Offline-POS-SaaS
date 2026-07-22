@@ -57,8 +57,53 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   }
 
   Future<void> _handlePrintReport(Map<String, dynamic> report) async {
-    final activeUser = ref.read(authSessionProvider);
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
+    final expectedCash = paymentBreakdown['Tunai'] ?? (report['total_sales'] as double? ?? 0.0);
+
+    final actualCashController = TextEditingController(text: expectedCash.toInt().toString());
+
+    final actualCash = await showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Input Kas Fisik (Tutup Shift)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Expected Kas (Sistem): ${CurrencyFormatter.format(expectedCash)}', style: AppTypography.bodyMedium),
+            const SizedBox(height: 12),
+            TextField(
+              controller: actualCashController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Jumlah Uang Fisik di Laci (Actual)',
+                prefixText: 'Rp ',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(actualCashController.text) ?? expectedCash;
+              Navigator.pop(context, val);
+            },
+            child: const Text('Lanjutkan Cetak'),
+          ),
+        ],
+      ),
+    );
+
+    if (actualCash == null) return;
+    final selisihCash = actualCash - expectedCash;
+
+    final activeUser = ref.read(authSessionProvider);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
     final dateStr = DateFormat('dd-MM-yyyy').format(_selectedDate);
 
@@ -74,6 +119,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       paymentBreakdown: paymentBreakdown,
       topProducts: topProducts,
       cashierNama: activeUser?.nama,
+      expectedCash: expectedCash,
+      actualCash: actualCash,
+      selisihCash: selisihCash,
       charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
     );
 
@@ -90,6 +138,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
         cashierNama: activeUser?.nama,
+        expectedCash: expectedCash,
+        actualCash: actualCash,
+        selisihCash: selisihCash,
       ),
       onGenerateEscPosBytes: () => ReceiptGenerator.generateReportReceipt(
         dateStr: dateStr,
@@ -99,6 +150,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
         cashierNama: activeUser?.nama,
+        expectedCash: expectedCash,
+        actualCash: actualCash,
+        selisihCash: selisihCash,
         paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
         charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
         autoCut: cashierPrinter?.autoCut ?? false,

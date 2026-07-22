@@ -323,6 +323,18 @@ class PdfReceiptGenerator {
               ),
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
 
+              if (topProducts.isNotEmpty) ...[
+                pw.Center(child: pw.Text('5 PRODUK TERLARIS', style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+                for (var p in topProducts.take(5))
+                  _buildRowPdf(
+                    font,
+                    (p['nama'] ?? p['name'] ?? p['produk_nama'] ?? 'Produk').toString(),
+                    '${p['qty'] ?? 0}x',
+                  ),
+                pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
+
               pw.Center(child: pw.Text('PENCOCOKAN KAS FISIK (TUNAI)', style: pw.TextStyle(font: fontBold, fontSize: 9))),
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
               _buildRowPdf(font, 'Sistem (Expected)', CurrencyFormatter.formatNumber(expCash)),

@@ -422,26 +422,31 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Status filters
-                        Row(
-                          children: [
-                            _FilterChip(
-                              label: 'Semua Status',
-                              isSelected: state.statusFilter == null,
-                              onTap: () => notifier.setStatusFilter(null),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                _FilterChip(
+                                  label: 'Semua',
+                                  isSelected: state.statusFilter == null,
+                                  onTap: () => notifier.setStatusFilter(null),
+                                ),
+                                const SizedBox(width: 8),
+                                _FilterChip(
+                                  label: 'Aktif',
+                                  isSelected: state.statusFilter == 1,
+                                  onTap: () => notifier.setStatusFilter(1),
+                                ),
+                                const SizedBox(width: 8),
+                                _FilterChip(
+                                  label: 'Nonaktif',
+                                  isSelected: state.statusFilter == 0,
+                                  onTap: () => notifier.setStatusFilter(0),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            _FilterChip(
-                              label: 'Aktif',
-                              isSelected: state.statusFilter == 1,
-                              onTap: () => notifier.setStatusFilter(1),
-                            ),
-                            const SizedBox(width: 8),
-                            _FilterChip(
-                              label: 'Nonaktif',
-                              isSelected: state.statusFilter == 0,
-                              onTap: () => notifier.setStatusFilter(0),
-                            ),
-                          ],
+                          ),
                         ),
                         // Sorting menu
                         PopupMenuButton<String>(

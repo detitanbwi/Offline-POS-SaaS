@@ -166,6 +166,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
       // 1. If there are items to print, generate receipt & send to kitchen printer
       if (itemsToPrint.isNotEmpty) {
+        int batchCount = await _repository.getBatchCount(orderId);
+        if (batchCount == 0 && dbItems.any((x) => x.isPrinted || x.statusCetak == 1)) {
+          batchCount = 1;
+        }
+        final currentBatchNo = batchCount + 1;
+        final waveInfo = currentBatchNo == 1 ? '#1 (Baru)' : '#$currentBatchNo (Tambahan)';
+
         final printerState = _ref.read(printerNotifierProvider);
         final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
         final targetPrinter = kitchenPrinterList.isNotEmpty 
@@ -175,6 +182,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
           order: orderHeader,
           itemsToPrint: itemsToPrint,
+          waveInfo: waveInfo,
           paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
           charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
           autoCut: targetPrinter?.autoCut ?? false,
@@ -189,6 +197,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
             debugPrint('----------------------------------');
           }
         }
+
+        await _repository.recordPrintBatch(orderId);
       }
 
       // 2. Save order to SQLite and mark printed items as printed

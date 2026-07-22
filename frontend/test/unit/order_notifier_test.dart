@@ -49,6 +49,14 @@ class OrderRepositoryMock implements OrderRepository {
   }
 
   @override
+  Future<int> getBatchCount(String orderId) async {
+    return 0;
+  }
+
+  @override
+  Future<void> recordPrintBatch(String orderId) async {}
+
+  @override
   Future<void> completeOrder(String orderId) async {
     mockActiveOrder = null;
     mockOrderItems = [];

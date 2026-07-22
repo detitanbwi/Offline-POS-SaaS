@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
@@ -9,6 +10,29 @@ class OrderRepositoryImpl implements OrderRepository {
   final PosDatabase _db;
 
   OrderRepositoryImpl(this._db);
+
+  @override
+  Future<int> getBatchCount(String orderId) async {
+    final db = await _db.database;
+    final res = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM print_batches WHERE order_id = ?',
+      [orderId],
+    );
+    if (res.isNotEmpty) {
+      return (res.first['count'] as num?)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
+  @override
+  Future<void> recordPrintBatch(String orderId) async {
+    final db = await _db.database;
+    await db.insert('print_batches', {
+      'id': const Uuid().v4(),
+      'order_id': orderId,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
 
   @override
   Future<OrderModel?> getActiveOrderForTable(String tableId) async {

@@ -281,8 +281,8 @@ class ReceiptGenerator {
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Footer
-    bytes += generator.text(centerText('Terima Kasih Atas', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text(centerText('Kunjungan Anda!', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('Terima Kasih Atas', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('Kunjungan Anda!', styles: const PosStyles(align: PosAlign.center));
     bytes += generator.feed(3);
     if (autoCut) {
       bytes += generator.cut();
@@ -359,6 +359,19 @@ class ReceiptGenerator {
       totalWidth: charsPerLine,
     );
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+
+    // Top 5 Best Selling Products Section
+    if (topProducts.isNotEmpty) {
+      bytes += generator.text('5 PRODUK TERLARIS', styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+      final top5 = topProducts.take(5).toList();
+      for (var p in top5) {
+        final nama = (p['nama'] ?? p['name'] ?? p['produk_nama'] ?? 'Produk').toString();
+        final qty = (p['qty'] ?? 0).toString();
+        bytes += _renderRow(generator, nama, '${qty}x', totalWidth: charsPerLine);
+      }
+      bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+    }
 
     // Physical Cash Reconciliation Banner
     final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
@@ -617,6 +630,17 @@ class ReceiptGenerator {
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('TOTAL OMZET', CurrencyFormatter.formatNumber(totalSales), width: charsPerLine));
     buffer.writeln(eqLine);
+    if (topProducts.isNotEmpty) {
+      buffer.writeln(centerText('5 PRODUK TERLARIS', width: charsPerLine));
+      buffer.writeln(dashLine);
+      final top5 = topProducts.take(5).toList();
+      for (var p in top5) {
+        final nama = (p['nama'] ?? p['name'] ?? p['produk_nama'] ?? 'Produk').toString();
+        final qty = (p['qty'] ?? 0).toString();
+        buffer.writeln(formatTextRow(nama, '${qty}x', width: charsPerLine));
+      }
+      buffer.writeln(eqLine);
+    }
     buffer.writeln(centerText('PENCOCOKAN KAS FISIK (TUNAI)', width: charsPerLine));
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Sistem (Expected)', CurrencyFormatter.formatNumber(expCash), width: charsPerLine));

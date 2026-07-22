@@ -16,4 +16,6 @@ abstract class OrderRepository {
   );
   Future<String> generateNextOrderNumber();
   Future<Map<String, OrderModel>> getActiveOrdersMap();
+  Future<int> getBatchCount(String orderId);
+  Future<void> recordPrintBatch(String orderId);
 }
