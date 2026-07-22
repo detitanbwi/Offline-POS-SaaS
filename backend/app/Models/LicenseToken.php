@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeviceStatus;
 use App\Enums\TokenStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -49,6 +50,11 @@ class LicenseToken extends Model
         return $this->hasOne(Device::class);
     }
 
+    public function activeDevice(): HasOne
+    {
+        return $this->hasOne(Device::class)->where('status', DeviceStatus::ACTIVE);
+    }
+
     // ─── Scopes ────────────────────────────────────────────
 
     public function scopeAvailable($query)
@@ -87,6 +93,7 @@ class LicenseToken extends Model
         $segment = function () {
             $bytes = random_bytes(3);
             $hex = strtoupper(bin2hex($bytes));
+
             return substr($hex, 0, 4);
         };
 

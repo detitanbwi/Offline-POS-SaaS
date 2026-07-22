@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Detail Lisensi — POS SaaS')
+@section('title', 'Detail Lisensi - POS SaaS')
 @section('header_title', 'Detail Informasi Lisensi')
 
 @section('content')

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SubscriptionStatus;
 use App\Http\Requests\ActivateTokenRequest;
 use App\Http\Requests\ValidateTokenRequest;
 use App\Services\LicenseService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ActivationController extends Controller
 {
@@ -64,7 +66,7 @@ class ActivationController extends Controller
         ]);
     }
 
-    public function getLicenseInfo(\Illuminate\Http\Request $request): JsonResponse
+    public function getLicenseInfo(Request $request): JsonResponse
     {
         $user = $request->user();
         $tenant = $user->tenant;
@@ -76,7 +78,7 @@ class ActivationController extends Controller
             ], 404);
         }
 
-        $subscription = $tenant->subscriptions()->where('status', \App\Enums\SubscriptionStatus::ACTIVE)->first();
+        $subscription = $tenant->subscriptions()->where('status', SubscriptionStatus::ACTIVE)->first();
         $tokens = $tenant->licenseTokens()->get();
 
         return response()->json([

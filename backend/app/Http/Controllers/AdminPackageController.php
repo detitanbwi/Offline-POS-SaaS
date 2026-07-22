@@ -30,6 +30,7 @@ class AdminPackageController extends Controller
         if (empty($data['slug'])) {
             $data['slug'] = Package::generateSlug($data['name']);
         }
+        $data['is_active'] = $request->boolean('is_active', true);
 
         $this->packageRepository->create($data);
 
@@ -44,7 +45,10 @@ class AdminPackageController extends Controller
 
     public function update(CreatePackageRequest $request, Package $package)
     {
-        $this->packageRepository->update($package, $request->validated());
+        $data = $request->validated();
+        $data['is_active'] = $request->has('is_active');
+
+        $this->packageRepository->update($package, $data);
 
         return redirect()->route('admin.packages.index')
             ->with('success', 'Paket berhasil diperbarui!');

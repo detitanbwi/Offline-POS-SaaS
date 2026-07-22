@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Subscription — POS SaaS Admin')
+@section('title', 'Subscription - POS SaaS Admin')
 @section('header_title', 'Kelola Subscription')
 
 @section('content')

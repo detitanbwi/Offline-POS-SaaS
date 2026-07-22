@@ -12,33 +12,39 @@
             @csrf
             @method('PUT')
             <div class="form-group">
-                <label class="form-label" for="name">Nama Bisnis / Perusahaan</label>
+                <label class="form-label" for="name">Nama Bisnis / Perusahaan *</label>
                 <input class="form-control" type="text" id="name" name="name" value="{{ old('name', $tenant->name) }}" required>
+                @error('name') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="owner_name">Nama Pemilik (Owner)</label>
+                <label class="form-label" for="owner_name">Nama Pemilik (Owner) *</label>
                 <input class="form-control" type="text" id="owner_name" name="owner_name" value="{{ old('owner_name', $tenant->owner_name) }}" required>
+                @error('owner_name') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="email">Email</label>
+                <label class="form-label" for="email">Email *</label>
                 <input class="form-control" type="email" id="email" name="email" value="{{ old('email', $tenant->email) }}" required>
+                @error('email') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="phone">Telepon / WhatsApp</label>
-                <input class="form-control" type="text" id="phone" name="phone" value="{{ old('phone', $tenant->phone) }}">
+                <label class="form-label" for="phone">Telepon / WhatsApp (Hanya Angka)</label>
+                <input class="form-control" type="text" id="phone" name="phone" value="{{ old('phone', $tenant->phone) }}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" pattern="[0-9]*">
+                @error('phone') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
                 <label class="form-label" for="store_name">Nama Toko / Outlet</label>
                 <input class="form-control" type="text" id="store_name" name="store_name" value="{{ old('store_name', $tenant->store_name) }}">
+                @error('store_name') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
                 <label class="form-label" for="store_address">Alamat Toko</label>
                 <input class="form-control" type="text" id="store_address" name="store_address" value="{{ old('store_address', $tenant->store_address) }}">
+                @error('store_address') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 32px;">

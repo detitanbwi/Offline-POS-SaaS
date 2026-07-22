@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Audit Log — POS SaaS Admin')
+@section('title', 'Audit Log - POS SaaS Admin')
 @section('header_title', 'Audit Log Keamanan')
 
 @section('content')

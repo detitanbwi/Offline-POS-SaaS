@@ -13,16 +13,17 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->decimal('price', 12, 2)->default(0);
-            $table->integer('default_duration_days')->default(30);
+            $table->string('validity_type')->default('duration');
+            $table->integer('default_duration_days')->nullable()->default(30);
+            $table->date('start_date')->nullable();
+            $table->date('end_date')->nullable();
             $table->integer('device_limit_per_token')->default(1);
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->integer('sort_order')->default(0);
             $table->timestamps();
             $table->softDeletes();
 
             $table->index('is_active');
-            $table->index('sort_order');
         });
     }
 

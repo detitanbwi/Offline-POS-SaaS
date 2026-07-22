@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Buat Invoice — POS SaaS Admin')
+@section('title', 'Buat Invoice - POS SaaS Admin')
 @section('header_title', 'Buat Invoice Baru')
 
 @section('content')
@@ -13,7 +13,7 @@
                 <option value="">Pilih Tenant</option>
                 @foreach ($tenants as $tenant)
                     <option value="{{ $tenant->id }}" {{ old('tenant_id') === $tenant->id ? 'selected' : '' }}>
-                        {{ $tenant->name }} — {{ $tenant->email }}
+                        {{ $tenant->name }} - {{ $tenant->email }}
                     </option>
                 @endforeach
             </select>
@@ -29,7 +29,7 @@
                         <option value="">Pilih Paket</option>
                         @foreach ($packages as $pkg)
                             <option value="{{ $pkg->id }}" data-price="{{ $pkg->price }}" data-duration="{{ $pkg->default_duration_days }}">
-                                {{ $pkg->name }} — Rp {{ number_format($pkg->price, 0, ',', '.') }}
+                                {{ $pkg->name }} - Rp {{ number_format($pkg->price, 0, ',', '.') }}
                             </option>
                         @endforeach
                     </select>

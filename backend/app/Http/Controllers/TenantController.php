@@ -14,15 +14,16 @@ use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Repositories\TenantRepository;
+use App\Services\InvoiceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class TenantController extends Controller
 {
     public function __construct(
         protected TenantRepository $tenantRepository,
+        protected InvoiceService $invoiceService,
     ) {}
 
     public function index()
@@ -58,37 +59,30 @@ class TenantController extends Controller
                 'is_admin' => false,
             ]);
 
-            // 2. Otomasi Provisioning Subscription & Token Lisensi
-            $durationDays = (int) ($request->input('duration_days') ?? 365);
-            $package = Package::where('is_active', true)->first();
+            // 2. Otomasi Provisioning Invoice, Subscription & Token Lisensi
+            $package = Package::findOrFail($request->input('package_id'));
+            $invoice = $this->invoiceService->createInvoice($tenant->id, [
+                [
+                    'package_id' => $package->id,
+                    'quantity' => 1,
+                    'duration_days' => $package->default_duration_days,
+                    'client_note' => 'Initial Auto-Provisioned Subscription',
+                ]
+            ], 'Otomatis dibuat saat pendaftaran tenant.');
 
-            $subscription = Subscription::create([
-                'tenant_id' => $tenant->id,
-                'package_id' => $package?->id,
-                'package_name' => $package?->name ?? 'Pro Plan',
-                'status' => SubscriptionStatus::ACTIVE,
-                'start_date' => now()->toDateString(),
-                'expiry_date' => now()->addDays($durationDays)->toDateString(),
-            ]);
-
-            $tokenKey = LicenseToken::generateTokenKey($package?->getTokenPrefix() ?? 'WDEV-PRO-');
-            LicenseToken::create([
-                'subscription_id' => $subscription->id,
-                'tenant_id' => $tenant->id,
-                'token_key' => $tokenKey,
-                'client_note' => 'Initial Auto-Provisioned Token',
-                'server_secret' => LicenseToken::generateServerSecret(),
-                'status' => TokenStatus::AVAILABLE,
-            ]);
+            $invoice = $this->invoiceService->markAsPaid($invoice, 'Auto Provisioning');
+            $subscription = $invoice->subscriptions->first();
+            $token = $subscription?->licenseTokens->first();
+            $tokenKey = $token?->token_key ?? '-';
 
             AuditLog::create([
                 'action' => 'tenant_provisioned',
                 'tenant_id' => $tenant->id,
-                'details' => "Tenant {$tenant->name} berhasil didaftarkan beserta user {$tenant->email} dan token lisensi {$tokenKey}",
+                'details' => "Tenant {$tenant->name} berhasil didaftarkan dengan paket {$package->name} beserta invoice {$invoice->invoice_number}, user {$tenant->email}, dan token lisensi {$tokenKey}",
             ]);
 
             return redirect()->route('admin.tenants.show', $tenant)
-                ->with('success', "Tenant berhasil didaftarkan! User login: {$tenant->email}, Token Lisensi: {$tokenKey}");
+                ->with('success', "Tenant berhasil didaftarkan! Invoice {$invoice->invoice_number} terbuat. User login: {$tenant->email}, Paket: {$package->name}, Token Lisensi: {$tokenKey}");
         });
     }
 
@@ -166,6 +160,7 @@ class TenantController extends Controller
             } else {
                 $subscription = Subscription::create([
                     'tenant_id' => $tenant->id,
+                    'invoice_item_id' => null,
                     'package_id' => $package?->id,
                     'package_name' => $package?->name ?? 'Pro Plan',
                     'status' => SubscriptionStatus::ACTIVE,
@@ -202,4 +197,3 @@ class TenantController extends Controller
         });
     }
 }
-

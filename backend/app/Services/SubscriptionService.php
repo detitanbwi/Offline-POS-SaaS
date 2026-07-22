@@ -20,8 +20,15 @@ class SubscriptionService
      */
     public function createFromInvoiceItem(InvoiceItem $item, string $tenantId): Subscription
     {
-        $startDate = Carbon::today();
-        $expiryDate = Carbon::today()->addDays($item->duration_days);
+        $package = $item->package;
+        if ($package) {
+            $dates = $package->calculateSubscriptionDates();
+            $startDate = Carbon::parse($dates['start_date']);
+            $expiryDate = Carbon::parse($dates['expiry_date']);
+        } else {
+            $startDate = Carbon::today();
+            $expiryDate = Carbon::today()->addDays($item->duration_days ?: 30);
+        }
 
         return Subscription::create([
             'tenant_id' => $tenantId,

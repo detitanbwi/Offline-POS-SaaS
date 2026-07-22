@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Dashboard — POS SaaS Admin')
+@section('title', 'Dashboard - POS SaaS Admin')
 @section('header_title', 'Dashboard')
 
 @section('content')

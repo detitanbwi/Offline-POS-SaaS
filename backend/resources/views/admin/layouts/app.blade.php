@@ -165,6 +165,17 @@
             font-family: inherit; font-size: 14px; color: var(--text-primary);
             transition: border-color 0.2s ease;
         }
+        select, select.form-control {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px 16px;
+            padding-right: 40px !important;
+            cursor: pointer;
+        }
         .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(20,70,131,0.15); }
         .form-error { color: var(--error); font-size: 12px; margin-top: 4px; }
 
@@ -282,18 +293,12 @@
                     </a>
                 </li>
 
-                <div class="sidebar-section">Lisensi</div>
+                <div class="sidebar-section">Lisensi & Perangkat</div>
 
-                <li class="sidebar-menu-item {{ Request::routeIs('admin.tokens.*') ? 'active' : '' }}">
+                <li class="sidebar-menu-item {{ Request::routeIs('admin.tokens.*') || Request::routeIs('admin.devices.*') ? 'active' : '' }}">
                     <a href="{{ route('admin.tokens.index') }}">
                         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-                        <span>Token Lisensi</span>
-                    </a>
-                </li>
-                <li class="sidebar-menu-item {{ Request::routeIs('admin.devices.*') ? 'active' : '' }}">
-                    <a href="{{ route('admin.devices.index') }}">
-                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                        <span>Perangkat</span>
+                        <span>Lisensi & Perangkat</span>
                     </a>
                 </li>
 

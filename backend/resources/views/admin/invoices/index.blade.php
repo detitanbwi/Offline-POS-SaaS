@@ -1,12 +1,11 @@
 @extends('admin.layouts.app')
-@section('title', 'Invoice — POS SaaS Admin')
+@section('title', 'Invoice - POS SaaS Admin')
 @section('header_title', 'Kelola Invoice')
 
 @section('content')
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Daftar Invoice</h3>
-        <a href="{{ route('admin.invoices.create') }}" class="btn btn-primary btn-sm">+ Buat Invoice</a>
+        <h3 class="card-title">Daftar Invoice (Otomatis)</h3>
     </div>
 
     <form method="GET" class="search-bar">

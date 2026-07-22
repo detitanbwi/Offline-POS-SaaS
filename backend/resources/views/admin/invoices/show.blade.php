@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
-@section('title', "Invoice {{ $invoice->invoice_number }} — POS SaaS Admin")
-@section('header_title', "Invoice {{ $invoice->invoice_number }}")
+@section('title', 'Invoice ' . $invoice->invoice_number . ' - POS SaaS Admin')
+@section('header_title', 'Invoice ' . $invoice->invoice_number)
 
 @section('content')
 <div class="grid grid-2">

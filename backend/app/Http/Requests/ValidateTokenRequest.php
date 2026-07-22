@@ -13,7 +13,7 @@ class ValidateTokenRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (!$this->has('token_key') && $this->has('license_key')) {
+        if (! $this->has('token_key') && $this->has('license_key')) {
             $this->merge([
                 'token_key' => $this->input('license_key'),
             ]);

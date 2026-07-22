@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Faktur Pembelian Lisensi SaaS — {{ $invoice->invoice_number }}</title>
+    <title>Faktur Pembelian Lisensi SaaS - {{ $invoice->invoice_number }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #1e293b; line-height: 1.5; padding: 32px; }
@@ -130,7 +130,7 @@
     @endif
 
     <div class="footer">
-        Dokumen ini diterbitkan secara otomatis oleh Wirodev SaaS Engine — {{ $invoice->invoice_number }}
+        Dokumen ini diterbitkan secara otomatis - {{ $invoice->invoice_number }}
     </div>
 </body>
 </html>

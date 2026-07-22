@@ -67,21 +67,16 @@ class LicenseService
         }
 
         return DB::transaction(function () use ($token, $fingerprintHash, $deviceInfo, $subscription) {
-            // Cek apakah token sudah terikat ke device (1 Token = 1 Device)
-            $existingDevice = $token->device;
+            // Cek apakah token sedang aktif terikat ke device aktif
+            $activeDevice = $token->activeDevice;
 
-            if ($existingDevice) {
+            if ($token->status === TokenStatus::ACTIVE && $activeDevice) {
                 // Jika device yang sama → re-validasi
-                if ($existingDevice->fingerprint_hash === $fingerprintHash) {
-                    if ($existingDevice->status === DeviceStatus::DEACTIVATED) {
-                        return ['success' => false, 'message' => 'Perangkat telah dinonaktifkan. Hubungi admin.', 'code' => 403];
-                    }
-
-                    // Update last validation
-                    $existingDevice->update(['last_validated_at' => Carbon::now()]);
+                if ($activeDevice->fingerprint_hash === $fingerprintHash) {
+                    $activeDevice->update(['last_validated_at' => Carbon::now()]);
                     $token->update(['last_validated_at' => Carbon::now()]);
 
-                    $offlineToken = $this->generateOfflineToken($token, $existingDevice);
+                    $offlineToken = $this->generateOfflineToken($token, $activeDevice);
 
                     return [
                         'success' => true,
@@ -98,22 +93,41 @@ class LicenseService
                 ];
             }
 
-            // Token belum terikat — bind device baru
-            $device = Device::create([
-                'license_token_id' => $token->id,
-                'tenant_id' => $token->tenant_id,
-                'fingerprint_hash' => $fingerprintHash,
-                'android_id_hash' => $deviceInfo['android_id_hash'] ?? null,
-                'manufacturer' => $deviceInfo['manufacturer'] ?? null,
-                'brand' => $deviceInfo['brand'] ?? null,
-                'model' => $deviceInfo['model'] ?? null,
-                'installation_uuid_hash' => $deviceInfo['installation_uuid_hash'] ?? null,
-                'status' => DeviceStatus::ACTIVE,
-                'activated_at' => Carbon::now(),
-                'last_validated_at' => Carbon::now(),
-            ]);
+            // Token siap terikat (AVAILABLE) atau baru di-reset — cari jika device record sudah ada
+            $device = Device::where('license_token_id', $token->id)
+                ->where('fingerprint_hash', $fingerprintHash)
+                ->first();
 
-            // Update token status
+            if ($device) {
+                // Reactivate existing device
+                $device->update([
+                    'status' => DeviceStatus::ACTIVE,
+                    'android_id_hash' => $deviceInfo['android_id_hash'] ?? $device->android_id_hash,
+                    'manufacturer' => $deviceInfo['manufacturer'] ?? $device->manufacturer,
+                    'brand' => $deviceInfo['brand'] ?? $device->brand,
+                    'model' => $deviceInfo['model'] ?? $device->model,
+                    'installation_uuid_hash' => $deviceInfo['installation_uuid_hash'] ?? $device->installation_uuid_hash,
+                    'activated_at' => Carbon::now(),
+                    'last_validated_at' => Carbon::now(),
+                ]);
+            } else {
+                // Bind device baru
+                $device = Device::create([
+                    'license_token_id' => $token->id,
+                    'tenant_id' => $token->tenant_id,
+                    'fingerprint_hash' => $fingerprintHash,
+                    'android_id_hash' => $deviceInfo['android_id_hash'] ?? null,
+                    'manufacturer' => $deviceInfo['manufacturer'] ?? null,
+                    'brand' => $deviceInfo['brand'] ?? null,
+                    'model' => $deviceInfo['model'] ?? null,
+                    'installation_uuid_hash' => $deviceInfo['installation_uuid_hash'] ?? null,
+                    'status' => DeviceStatus::ACTIVE,
+                    'activated_at' => Carbon::now(),
+                    'last_validated_at' => Carbon::now(),
+                ]);
+            }
+
+            // Update token status ke ACTIVE
             $token->update([
                 'status' => TokenStatus::ACTIVE,
                 'activated_at' => Carbon::now(),
@@ -173,7 +187,7 @@ class LicenseService
         }
 
         // Cek device
-        $device = $token->device;
+        $device = $token->activeDevice;
         if (! $device || $device->fingerprint_hash !== $fingerprintHash) {
             return ['success' => false, 'message' => 'Perangkat tidak terdaftar'];
         }

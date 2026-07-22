@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', "Token {{ $token->token_key }} — POS SaaS Admin")
+@section('title', 'Token ' . $token->token_key . ' - POS SaaS Admin')
 @section('header_title', 'Detail Token')
 
 @section('content')

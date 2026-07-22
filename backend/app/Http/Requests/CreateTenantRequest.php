@@ -17,11 +17,19 @@ class CreateTenantRequest extends FormRequest
             'name' => 'required|string|max:255',
             'owner_name' => 'required|string|max:255',
             'email' => 'required|email|unique:tenants,email',
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|regex:/^[0-9]+$/|max:20',
             'store_name' => 'nullable|string|max:255',
             'store_address' => 'nullable|string|max:500',
             'password' => 'required|string|min:6',
-            'duration_days' => 'nullable|integer|min:1',
+            'package_id' => 'required|exists:packages,id',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'phone.regex' => 'Nomor telepon/WhatsApp hanya boleh berupa angka.',
+            'package_id.required' => 'Silakan pilih paket untuk tenant.',
         ];
     }
 }

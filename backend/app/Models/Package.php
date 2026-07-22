@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,11 +17,13 @@ class Package extends Model
         'name',
         'slug',
         'price',
+        'validity_type',
         'default_duration_days',
+        'start_date',
+        'end_date',
         'device_limit_per_token',
         'description',
         'is_active',
-        'sort_order',
     ];
 
     protected function casts(): array
@@ -30,7 +33,8 @@ class Package extends Model
             'default_duration_days' => 'integer',
             'device_limit_per_token' => 'integer',
             'is_active' => 'boolean',
-            'sort_order' => 'integer',
+            'start_date' => 'date',
+            'end_date' => 'date',
         ];
     }
 
@@ -53,11 +57,46 @@ class Package extends Model
     }
 
     /**
-     * Scope: urut berdasarkan sort_order.
+     * Scope: urut berdasarkan nama.
      */
     public function scopeOrdered($query)
     {
-        return $query->orderBy('sort_order')->orderBy('name');
+        return $query->orderBy('name');
+    }
+
+    /**
+     * Hitung tanggal mulai dan kedaluwarsa subscription berdasarkan tipe masa berlaku paket.
+     */
+    public function calculateSubscriptionDates(?Carbon $customStartDate = null): array
+    {
+        $startDate = $customStartDate ? $customStartDate->copy() : Carbon::today();
+
+        if ($this->validity_type === 'date_range') {
+            $start = $this->start_date ? Carbon::parse($this->start_date) : $startDate;
+            $expiry = $this->end_date ? Carbon::parse($this->end_date) : $start->copy()->addDays(30);
+
+            return [
+                'start_date' => $start->toDateString(),
+                'expiry_date' => $expiry->toDateString(),
+            ];
+        }
+
+        if ($this->validity_type === 'fixed_date') {
+            $expiry = $this->end_date ? Carbon::parse($this->end_date) : $startDate->copy()->addDays(30);
+
+            return [
+                'start_date' => $startDate->toDateString(),
+                'expiry_date' => $expiry->toDateString(),
+            ];
+        }
+
+        // Default: 'duration'
+        $days = (int) ($this->default_duration_days ?? 30);
+
+        return [
+            'start_date' => $startDate->toDateString(),
+            'expiry_date' => $startDate->copy()->addDays($days)->toDateString(),
+        ];
     }
 
     /**

@@ -13,10 +13,22 @@ class ActivateTokenRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $mergeData = [];
+
         if (!$this->has('token_key') && $this->has('license_key')) {
-            $this->merge([
-                'token_key' => $this->input('license_key'),
-            ]);
+            $mergeData['token_key'] = $this->input('license_key');
+        }
+
+        if (!$this->has('brand') && $this->has('device_brand')) {
+            $mergeData['brand'] = $this->input('device_brand');
+        }
+
+        if (!$this->has('model') && $this->has('device_model')) {
+            $mergeData['model'] = $this->input('device_model');
+        }
+
+        if (!empty($mergeData)) {
+            $this->merge($mergeData);
         }
     }
 
