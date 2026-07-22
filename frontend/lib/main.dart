@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -28,10 +27,23 @@ void main() async {
   );
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
-  Future<void> _triggerBackgroundValidation(WidgetRef ref) async {
+  @override
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  late final Future<Widget> _initialRouteFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialRouteFuture = _getInitialRoute();
+  }
+
+  Future<void> _triggerBackgroundValidation() async {
     final storage = ref.read(secureStorageServiceProvider);
     final lastValidationStr = await storage.getLastValidation();
     if (lastValidationStr != null && lastValidationStr.isNotEmpty) {
@@ -51,28 +63,8 @@ class MyApp extends ConsumerWidget {
     }
   }
 
-  // Set to false for real SaaS integration testing between Web Back Office and Mobile App
-  static const bool autoBypassAuthAndLicense = false;
-
-  Future<Widget> _getInitialRoute(WidgetRef ref) async {
+  Future<Widget> _getInitialRoute() async {
     final storage = ref.read(secureStorageServiceProvider);
-
-    if (kDebugMode && autoBypassAuthAndLicense) {
-      final existingToken = await storage.getOnlineToken();
-      if (existingToken == null || existingToken.isEmpty) {
-        await storage.saveTokens(
-          onlineToken: 'dummy_online_token_for_dev_bypass',
-          offlineToken: 'dummy_offline_token_for_dev_bypass',
-        );
-        await storage.saveActivationData(
-          activationToken: 'dummy_offline_token_for_dev_bypass',
-          licenseKey: 'LIC-DEV-BYPASS-TEST',
-          encryptionKey: 'dummy_encryption_key_for_dev_bypass',
-          fingerprintHash: 'dummy_fingerprint_for_dev_bypass',
-          expiryDateStr: DateTime.now().add(const Duration(days: 365)).toIso8601String(),
-        );
-      }
-    }
 
     final onlineToken = await storage.getOnlineToken();
     final activationToken = await storage.getActivationToken();
@@ -98,7 +90,7 @@ class MyApp extends ConsumerWidget {
     }
 
     // 4. Background validation (triggered asynchronously)
-    _triggerBackgroundValidation(ref);
+    _triggerBackgroundValidation();
 
     // 5. Normal PIN routing
     final savedPin = await storage.getLocalPIN();
@@ -110,7 +102,7 @@ class MyApp extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isExpired = ref.watch(licenseExpiredProvider);
 
     // Determine design size dynamically (mobile vs tablet)
@@ -151,7 +143,7 @@ class MyApp extends ConsumerWidget {
           themeMode: ThemeMode.light,
           debugShowCheckedModeBanner: false,
           home: FutureBuilder<Widget>(
-            future: _getInitialRoute(ref),
+            future: _initialRouteFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(

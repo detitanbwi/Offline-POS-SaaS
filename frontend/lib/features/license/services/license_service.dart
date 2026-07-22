@@ -27,6 +27,7 @@ class LicenseService {
         Uri.parse('$apiBaseUrl/api/activate'),
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': 'Bearer $onlineToken',
         },
         body: jsonEncode({
@@ -78,6 +79,7 @@ class LicenseService {
         Uri.parse('$apiBaseUrl/api/validate-license'),
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': 'Bearer $onlineToken',
         },
         body: jsonEncode({
@@ -115,6 +117,7 @@ class LicenseService {
         Uri.parse('$apiBaseUrl/api/license-info'),
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': 'Bearer $onlineToken',
         },
       ).timeout(const Duration(seconds: apiTimeoutSeconds));

@@ -12,7 +12,10 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/api/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({
           'email': email,
           'password': password,
@@ -42,10 +45,20 @@ class AuthService {
           'license_tokens': data['license_tokens'] ?? [],
         };
       } else {
-        return {'success': false, 'message': data['message'] ?? 'Login Gagal'};
+        String errorMsg = data['message'] ?? 'Login Gagal';
+        if (data['errors'] != null && data['errors'] is Map) {
+          final errorsMap = data['errors'] as Map<String, dynamic>;
+          if (errorsMap.isNotEmpty) {
+            final firstVal = errorsMap.values.first;
+            if (firstVal is List && firstVal.isNotEmpty) {
+              errorMsg = firstVal.first.toString();
+            }
+          }
+        }
+        return {'success': false, 'message': errorMsg};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Gagal terhubung ke server (Timeout/Offline)'};
+      return {'success': false, 'message': 'Gagal terhubung ke server ($apiBaseUrl)'};
     }
   }
 }

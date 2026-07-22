@@ -3,7 +3,7 @@
 
 /// API base URL for the SaaS backend server.
 /// In production, this should be configured via environment or build config.
-const String apiBaseUrl = 'https://demo2.wirodev.com';
+const String apiBaseUrl = 'https://rare-victory-production.up.railway.app';
 
 /// Application metadata
 const String appVersion = '1.0.0';
