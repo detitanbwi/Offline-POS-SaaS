@@ -368,18 +368,12 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'cashier');
-                                      },
+                                      onPressed: () => _setupPrinterConfig(context, dev.name, dev.address, 'cashier'),
                                       child: const Text('Kasir'),
                                     ),
                                     const SizedBox(width: 4),
                                     TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        _setupPrinterConfig(this.context, dev.name, dev.address, 'kitchen');
-                                      },
+                                      onPressed: () => _setupPrinterConfig(context, dev.name, dev.address, 'kitchen'),
                                       child: const Text('Dapur'),
                                     ),
                                   ],
@@ -398,18 +392,17 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
   }
 
   Future<void> _setupPrinterConfig(BuildContext sheetContext, String name, String address, String type) async {
-    final rootContext = context;
     Navigator.of(sheetContext).pop();
 
     if (!mounted) return;
 
     AppDialog.show(
-      context: rootContext,
+      context: context,
       title: 'Hubungkan Printer',
       message: 'Hubungkan "$name" sebagai Printer ${type == "cashier" ? "Kasir Utama" : "Dapur"}?',
       confirmText: 'Hubungkan',
       onConfirm: () async {
-        Navigator.of(rootContext).pop();
+        Navigator.of(context).pop();
         final success = await ref.read(printerNotifierProvider.notifier).saveAndConnectPrinter(
               name: name,
               address: address,

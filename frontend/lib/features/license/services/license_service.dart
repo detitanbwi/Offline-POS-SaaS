@@ -35,8 +35,9 @@ class LicenseService {
           'license_key': licenseKey,
           'fingerprint_hash': fingerprint,
           'device_name': deviceInfo['device_name'],
-          'device_model': deviceInfo['device_model'],
-          'device_brand': deviceInfo['device_brand'],
+          'manufacturer': deviceInfo['manufacturer'],
+          'brand': deviceInfo['device_brand'],
+          'model': deviceInfo['device_model'],
         }),
       ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
