@@ -97,7 +97,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
     }
   }
 
-  Future<bool> saveCurrentOrderDraft(
+  Future<List<OrderItemModel>?> saveCurrentOrderDraft(
     List<CartItem> cartItems,
     double subtotal,
     double taxRate,
@@ -108,7 +108,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
     final table = state.selectedTable;
     if (table == null) {
       state = state.copyWith(errorMessage: 'Meja belum dipilih.');
-      return false;
+      return null;
     }
 
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -164,7 +164,10 @@ class OrderNotifier extends StateNotifier<OrderState> {
         }
       }
 
-      // 1. If there are items to print, generate receipt & send to kitchen printer
+      // 1. Save order to SQLite FIRST so order Header exists before foreign key reference in print_batches!
+      await _repository.saveOrder(orderHeader, allOrderItems, markAsPrinted: true);
+
+      // 2. If there are items to print, generate receipt & send to kitchen printer & record print batch
       if (itemsToPrint.isNotEmpty) {
         int batchCount = await _repository.getBatchCount(orderId);
         if (batchCount == 0 && dbItems.any((x) => x.isPrinted || x.statusCetak == 1)) {
@@ -200,17 +203,14 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
         await _repository.recordPrintBatch(orderId);
       }
-
-      // 2. Save order to SQLite and mark printed items as printed
-      await _repository.saveOrder(orderHeader, allOrderItems, markAsPrinted: true);
       
       _ref.read(tableNotifierProvider.notifier).loadTables();
       await loadActiveOrdersMap();
       await loadActiveOrderForTable(table.id);
-      return true;
+      return itemsToPrint;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal menyimpan draft order: $e');
-      return false;
+      return null;
     }
   }
 

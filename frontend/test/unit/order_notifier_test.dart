@@ -4,8 +4,44 @@ import 'package:frontend/features/pos/application/order_notifier.dart';
 import 'package:frontend/features/pos/domain/repositories/order_repository.dart';
 import 'package:frontend/features/pos/domain/models/order.dart';
 import 'package:frontend/features/pos/domain/models/order_item.dart';
+import 'package:frontend/features/pos/domain/models/cart_item.dart';
+import 'package:frontend/features/product/domain/models/product.dart';
 import 'package:frontend/features/table/domain/models/table.dart';
+import 'package:frontend/features/table/domain/repositories/table_repository.dart';
+import 'package:frontend/features/printer/domain/repositories/printer_repository.dart';
+import 'package:frontend/features/printer/domain/models/printer_config.dart';
 import 'package:frontend/core/di/providers.dart';
+
+class TableRepositoryMock implements TableRepository {
+  final List<TableModel> tables = [];
+  @override
+  Future<List<TableModel>> getAllTables() async => tables;
+  @override
+  Future<TableModel?> getTableById(String id) async => null;
+  @override
+  Future<void> saveTable(TableModel table) async {}
+  @override
+  Future<void> deleteTable(String id) async {}
+  @override
+  Future<bool> isTableNameExists(String name, {String? excludeId}) async => false;
+  @override
+  Future<bool> isTableNumberExists(String number, {String? excludeId}) async => false;
+  @override
+  Future<void> updateTableStatus(String id, int status) async {}
+}
+
+class PrinterRepositoryMock implements PrinterRepository {
+  @override
+  Future<List<PrinterConfigModel>> getPrintersConfig() async => [];
+  @override
+  Future<PrinterConfigModel?> getPrinterConfigByType(String type) async => null;
+  @override
+  Future<void> savePrinterConfig(PrinterConfigModel config) async {}
+  @override
+  Future<void> deletePrinterConfig(String id) async {}
+  @override
+  Future<void> updatePrinterConnectionStatus(String id, bool isConnected) async {}
+}
 
 class OrderRepositoryMock implements OrderRepository {
   OrderModel? mockActiveOrder;
@@ -91,6 +127,8 @@ void main() {
       container = ProviderContainer(
         overrides: [
           orderRepositoryProvider.overrideWithValue(orderRepoMock),
+          tableRepositoryProvider.overrideWithValue(TableRepositoryMock()),
+          printerRepositoryProvider.overrideWithValue(PrinterRepositoryMock()),
         ],
       );
 
@@ -181,6 +219,39 @@ void main() {
 
       final state = container.read(orderNotifierProvider);
       expect(state.activeOrder, isNull);
+    });
+
+    test('saveCurrentOrderDraft saves order and returns items to print', () async {
+      final notifier = container.read(orderNotifierProvider.notifier);
+      notifier.selectTable(sampleTable);
+
+      final product = Product(
+        id: 'prod-1',
+        nama: 'Kopi Susu',
+        harga: 15000.0,
+        stok: 10,
+        kategoriId: 'cat-1',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final cartItems = [
+        CartItem(product: product, qty: 2),
+      ];
+
+      final printedItems = await notifier.saveCurrentOrderDraft(
+        cartItems,
+        30000.0,
+        0.11,
+        3300.0,
+        33300.0,
+      );
+
+      expect(printedItems, isNotNull);
+      expect(printedItems!.length, 1);
+      expect(printedItems.first.produkNama, 'Kopi Susu');
+      expect(printedItems.first.qty, 2);
+      expect(orderRepoMock.saveOrderCalled, isTrue);
     });
   });
 }

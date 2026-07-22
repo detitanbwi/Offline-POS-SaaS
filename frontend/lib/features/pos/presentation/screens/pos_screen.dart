@@ -1402,21 +1402,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       updatedAt: DateTime.now(),
     );
 
-    final List<OrderItemModel> itemsToPrint = cartState.items.map((cartItem) {
-      return OrderItemModel(
-        id: const Uuid().v4(),
-        orderId: orderHeader.id,
-        produkId: cartItem.product.id,
-        produkNama: cartItem.product.nama,
-        produkHarga: cartItem.product.harga,
-        qty: cartItem.qty,
-        subtotal: cartItem.subtotal,
-        catatan: cartItem.catatan,
-        statusCetak: 0,
-      );
-    }).toList();
-
-    final success = await orderNotifier.saveCurrentOrderDraft(
+    final printedItems = await orderNotifier.saveCurrentOrderDraft(
       cartState.items,
       cartState.subtotal,
       cartState.taxRate,
@@ -1425,49 +1411,51 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
 
     if (!context.mounted) return;
-    if (success) {
+    if (printedItems != null) {
       cartNotifier.clear();
       ref.read(orderNotifierProvider.notifier).clearActiveOrder();
       AppSnackbar.showSuccess(context, 'Pesanan $tableName berhasil disimpan & dikirim ke dapur.');
 
-      // Show Kitchen Ticket Preview & Printing Modal
-      final printerState = ref.read(printerNotifierProvider);
-      final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-      final kitchenPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
+      if (printedItems.isNotEmpty) {
+        // Show Kitchen Ticket Preview & Printing Modal
+        final printerState = ref.read(printerNotifierProvider);
+        final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+        final kitchenPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
 
-      final activeUser = ref.read(authSessionProvider);
-      final batchCount = await ref.read(orderRepositoryProvider).getBatchCount(orderHeader.id);
-      final waveInfo = batchCount <= 1 ? '#1 (Baru)' : '#$batchCount (Tambahan)';
+        final activeUser = ref.read(authSessionProvider);
+        final batchCount = await ref.read(orderRepositoryProvider).getBatchCount(orderHeader.id);
+        final waveInfo = batchCount <= 1 ? '#1 (Baru)' : '#$batchCount (Tambahan)';
 
-      final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
-        order: orderHeader,
-        itemsToPrint: itemsToPrint,
-        cashierNama: activeUser?.nama,
-        waveInfo: waveInfo,
-        charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
-      );
-
-      if (!context.mounted) return;
-      AppReceiptPreviewModal.show(
-        context,
-        title: 'Struk Pesanan Dapur',
-        receiptTextPreview: textPreview,
-        onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
+        final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
           order: orderHeader,
-          itemsToPrint: itemsToPrint,
+          itemsToPrint: printedItems,
           cashierNama: activeUser?.nama,
           waveInfo: waveInfo,
-        ),
-        onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
-          order: orderHeader,
-          itemsToPrint: itemsToPrint,
-          cashierNama: activeUser?.nama,
-          waveInfo: waveInfo,
-          paperSize: kitchenPrinter?.escPosPaperSize ?? PaperSize.mm58,
           charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
-          autoCut: kitchenPrinter?.autoCut ?? false,
-        ),
-      );
+        );
+
+        if (!context.mounted) return;
+        AppReceiptPreviewModal.show(
+          context,
+          title: 'Struk Pesanan Dapur',
+          receiptTextPreview: textPreview,
+          onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
+            order: orderHeader,
+            itemsToPrint: printedItems,
+            cashierNama: activeUser?.nama,
+            waveInfo: waveInfo,
+          ),
+          onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
+            order: orderHeader,
+            itemsToPrint: printedItems,
+            cashierNama: activeUser?.nama,
+            waveInfo: waveInfo,
+            paperSize: kitchenPrinter?.escPosPaperSize ?? PaperSize.mm58,
+            charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
+            autoCut: kitchenPrinter?.autoCut ?? false,
+          ),
+        );
+      }
     } else {
       final err = ref.read(orderNotifierProvider).errorMessage;
       AppSnackbar.showError(context, err ?? 'Gagal menyimpan pesanan.');
