@@ -20,10 +20,22 @@ class InvoicePdfService
             ? 'pdf.invoice-paid'
             : 'pdf.invoice-unpaid';
 
+        $providerSettings = [
+            'company_name' => \App\Models\SystemSetting::getVal('company_name', 'Wirodev Digital Architecture'),
+            'company_subtitle' => \App\Models\SystemSetting::getVal('company_subtitle', 'Pusat Pengembangan Sistem SaaS'),
+            'company_email' => \App\Models\SystemSetting::getVal('company_email', 'billing@wirodev.com'),
+            'company_phone' => \App\Models\SystemSetting::getVal('company_phone', ''),
+            'company_address' => \App\Models\SystemSetting::getVal('company_address', ''),
+            'bank_name' => \App\Models\SystemSetting::getVal('bank_name', 'Bank Mandiri'),
+            'bank_account_number' => \App\Models\SystemSetting::getVal('bank_account_number', '8899-0022-1133'),
+            'bank_account_holder' => \App\Models\SystemSetting::getVal('bank_account_holder', 'PT Wirodev Digital Architecture'),
+        ];
+
         $data = [
             'invoice' => $invoice,
             'tenant' => $invoice->tenant,
             'items' => $invoice->items,
+            'providerSettings' => $providerSettings,
             'tokens' => $invoice->status === InvoiceStatus::PAID
                 ? $invoice->subscriptions->flatMap->licenseTokens
                 : collect(),

@@ -55,6 +55,7 @@
 </div>
 
 {{-- Upload & Bukti Transfer Card (If UNPAID) --}}
+{{-- Upload & Bukti Transfer Card (If UNPAID) --}}
 @if ($invoice->status->value === 'unpaid')
 <div class="card">
     <div class="card-header">
@@ -62,9 +63,9 @@
     </div>
     <div style="max-width: 600px;">
         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-            Unggah bukti transfer dari pelanggan sebelum melakukan konfirmasi/approval status lunas.
+            Unggah bukti transfer dari pelanggan. File bukti akan tersimpan untuk diperiksa sebelum dikonfirmasi LUNAS.
         </p>
-        <form action="{{ route('admin.invoices.upload-proof', $invoice) }}" method="POST" enctype="multipart/form-data" class="flex gap-3 items-center flex-wrap" onsubmit="return confirm('Apakah Anda yakin ingin mengunggah bukti transfer? Invoice akan langsung ditandai LUNAS dan lisensi diterbitkan.')">
+        <form action="{{ route('admin.invoices.upload-proof', $invoice) }}" method="POST" enctype="multipart/form-data" class="flex gap-3 items-center flex-wrap" onsubmit="return confirm('Apakah Anda yakin ingin mengunggah bukti transfer ini?')">
             @csrf
             <input type="file" name="payment_proof" class="form-control" style="max-width: 320px;" accept="image/jpeg,image/png,image/jpg,application/pdf" required>
             <button type="submit" class="btn btn-primary btn-sm">⬆ Upload Bukti Transfer</button>
@@ -140,32 +141,70 @@
     </div>
     <div class="flex gap-3 flex-wrap items-center">
         @if ($invoice->status->value === 'unpaid')
-            <form method="POST" action="{{ route('admin.invoices.mark-paid', $invoice) }}" enctype="multipart/form-data" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" onsubmit="return confirm('Apakah Anda yakin ingin meng-approve pembayaran invoice ini?')">
+            <form id="approvalForm" method="POST" action="{{ route('admin.invoices.mark-paid', $invoice) }}" enctype="multipart/form-data" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 @csrf
                 <label style="font-size: 13px; font-weight: 500;">Metode Bayar:</label>
-                <select name="payment_method" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--divider); font-size: 13px;">
+                <select name="payment_method" id="payment_method_select" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--divider); font-size: 13px;">
                     <option value="bank_transfer" {{ $invoice->payment_method === 'bank_transfer' ? 'selected' : '' }}>Transfer Bank</option>
                     <option value="cash" {{ $invoice->payment_method === 'cash' ? 'selected' : '' }}>Tunai</option>
                     <option value="qris" {{ $invoice->payment_method === 'qris' ? 'selected' : '' }}>QRIS</option>
                     <option value="debit" {{ $invoice->payment_method === 'debit' ? 'selected' : '' }}>Debit</option>
                     <option value="credit" {{ $invoice->payment_method === 'credit' ? 'selected' : '' }}>Kartu Kredit</option>
                 </select>
-                <button type="submit" class="btn btn-success btn-sm">✓ Approve & Mark as Paid (Lunas)</button>
+                <button type="button" onclick="showApprovalModal()" class="btn btn-success btn-sm">✓ Approve & Mark as Paid (Lunas)</button>
             </form>
-            <form method="POST" action="{{ route('admin.invoices.cancel', $invoice) }}" style="display: inline;" onsubmit="return confirm('Batalkan invoice ini?')">
+            <form method="POST" action="{{ route('admin.invoices.cancel', $invoice) }}" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan invoice {{ $invoice->invoice_number }}?')">
                 @csrf
                 <button type="submit" class="btn btn-danger btn-sm">✕ Batalkan Invoice</button>
             </form>
         @endif
 
         @if ($invoice->status->value === 'unpaid')
-            <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur Belum Lunas</a>
+            <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur Tagihan (Belum Lunas)</a>
         @else
-            <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur Lunas</a>
+            <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">⬇ Download PDF Faktur Lunas (Paid)</a>
         @endif
         <a href="{{ route('admin.invoices.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
     </div>
 </div>
+
+{{-- Approval Modal Confirmation --}}
+@if ($invoice->status->value === 'unpaid')
+<div id="approvalModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: white; border-radius: 16px; width: 100%; max-width: 480px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <div style="background: #dcfce7; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #16a34a; font-size: 24px;">✓</div>
+            <div>
+                <h4 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0;">Konfirmasi Approval Pelunasan</h4>
+                <p style="font-size: 13px; color: #64748b; margin: 2px 0 0 0;">Invoice {{ $invoice->invoice_number }}</p>
+            </div>
+        </div>
+        <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 16px;">
+            Apakah Anda yakin ingin menyetujui pembayaran invoice ini? Status akan otomatis berubah menjadi <strong>LUNAS (PAID)</strong> dan <strong>Token Lisensi</strong> akan diterbitkan untuk tenant <strong>{{ $invoice->tenant->name }}</strong>.
+        </p>
+        <div style="background: #f8fafc; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 13px; border: 1px solid #e2e8f0;">
+            <div><strong>Total Tagihan:</strong> Rp {{ number_format($invoice->total_amount, 0, ',', '.') }}</div>
+            <div style="margin-top: 4px;"><strong>Bukti Transfer:</strong> {{ $invoice->payment_proof ? 'Sudah Diunggah ✓' : 'Belum Diunggah' }}</div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button type="button" onclick="hideApprovalModal()" class="btn btn-outline btn-sm">Batal</button>
+            <button type="button" onclick="submitApprovalForm()" class="btn btn-success btn-sm">Ya, Setujui & Lunaskan</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showApprovalModal() {
+        document.getElementById('approvalModal').style.display = 'flex';
+    }
+    function hideApprovalModal() {
+        document.getElementById('approvalModal').style.display = 'none';
+    }
+    function submitApprovalForm() {
+        document.getElementById('approvalForm').submit();
+    }
+</script>
+@endif
 
 {{-- Tokens (only if PAID) --}}
 @if ($invoice->status->value === 'paid')

@@ -21,6 +21,14 @@ class UpdateProfileRequest extends FormRequest
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             'current_password' => ['nullable', 'required_with:password'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'company_subtitle' => ['nullable', 'string', 'max:255'],
+            'company_email' => ['nullable', 'email', 'max:255'],
+            'company_phone' => ['nullable', 'string', 'max:255'],
+            'company_address' => ['nullable', 'string', 'max:1000'],
+            'bank_name' => ['nullable', 'string', 'max:255'],
+            'bank_account_number' => ['nullable', 'string', 'max:255'],
+            'bank_account_holder' => ['nullable', 'string', 'max:255'],
         ];
     }
 

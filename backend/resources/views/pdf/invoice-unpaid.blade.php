@@ -42,21 +42,42 @@
 </head>
 <body>
     <div class="header-title">FAKTUR PEMBELIAN LISENSI SAAS</div>
-    <div class="invoice-info">
-        <div><strong>Nomor Faktur:</strong> {{ $invoice->invoice_number }}</div>
-        <div><strong>Tanggal Penerbitan:</strong> {{ $invoice->created_at->translatedFormat('d F Y') }}</div>
-        <div><strong>Batas Waktu (Due Date):</strong> {{ $invoice->due_date ? $invoice->due_date->translatedFormat('d F Y') : '-' }}</div>
-        <div><strong>Status Pembayaran:</strong> <span class="status-unpaid">BELUM DIBAYAR (UNPAID)</span></div>
-    </div>
+    
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
+        <tr>
+            <td style="width: 150px; padding: 3px 0; font-weight: 700; color: #0f172a;">Nomor Faktur:</td>
+            <td style="padding: 3px 0; font-weight: 600; color: #0f172a;">{{ $invoice->invoice_number }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 3px 0; font-weight: 700; color: #0f172a;">Tanggal Penerbitan:</td>
+            <td style="padding: 3px 0;">{{ $invoice->created_at->translatedFormat('d F Y') }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 3px 0; font-weight: 700; color: #0f172a;">Batas Waktu (Due Date):</td>
+            <td style="padding: 3px 0;">{{ $invoice->due_date ? $invoice->due_date->translatedFormat('d F Y') : '-' }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 3px 0; font-weight: 700; color: #0f172a;">Status Pembayaran:</td>
+            <td style="padding: 3px 0;"><span class="status-unpaid">BELUM DIBAYAR (UNPAID)</span></td>
+        </tr>
+    </table>
 
     <table class="parties-grid">
         <tr>
             <td>
                 <div class="section-heading">Penyedia Layanan:</div>
                 <div class="party-box">
-                    <p style="font-weight: 700; color: #0f172a;">Wirodev Digital Architecture</p>
-                    <p>Pusat Pengembangan Sistem SaaS</p>
-                    <p>Email: billing@wirodev.com</p>
+                    <p style="font-weight: 700; color: #0f172a;">{{ $providerSettings['company_name'] ?? 'Wirodev Digital Architecture' }}</p>
+                    <p>{{ $providerSettings['company_subtitle'] ?? 'Pusat Pengembangan Sistem SaaS' }}</p>
+                    @if (!empty($providerSettings['company_email']))
+                        <p>Email: {{ $providerSettings['company_email'] }}</p>
+                    @endif
+                    @if (!empty($providerSettings['company_phone']))
+                        <p>Telp/WA: {{ $providerSettings['company_phone'] }}</p>
+                    @endif
+                    @if (!empty($providerSettings['company_address']))
+                        <p>{{ $providerSettings['company_address'] }}</p>
+                    @endif
                 </div>
             </td>
             <td>
@@ -111,15 +132,15 @@
             <table>
                 <tr>
                     <td class="pay-label">Bank Tujuan</td>
-                    <td class="pay-val">Bank Mandiri</td>
+                    <td class="pay-val">{{ $providerSettings['bank_name'] ?? 'Bank Mandiri' }}</td>
                 </tr>
                 <tr>
                     <td class="pay-label">Nomor Rekening / Virtual Account</td>
-                    <td class="pay-val" style="letter-spacing: 1px; font-family: monospace; font-size: 13px;">8899-0022-1133</td>
+                    <td class="pay-val" style="letter-spacing: 1px; font-family: monospace; font-size: 13px;">{{ $providerSettings['bank_account_number'] ?? '8899-0022-1133' }}</td>
                 </tr>
                 <tr>
                     <td class="pay-label">Atas Nama</td>
-                    <td class="pay-val">PT Wirodev Digital Architecture</td>
+                    <td class="pay-val">{{ $providerSettings['bank_account_holder'] ?? 'PT Wirodev Digital Architecture' }}</td>
                 </tr>
                 <tr>
                     <td class="pay-label">Jumlah Tagihan</td>
