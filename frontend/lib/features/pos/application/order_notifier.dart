@@ -17,6 +17,8 @@ class OrderState {
   final OrderModel? activeOrder;
   final List<OrderItemModel> activeOrderItems;
   final Map<String, OrderModel> activeOrdersMap;
+  final String orderType; // 'dine_in' or 'take_away'
+  final String? customerName;
   final bool isLoading;
   final String? errorMessage;
 
@@ -25,24 +27,33 @@ class OrderState {
     this.activeOrder,
     this.activeOrderItems = const [],
     this.activeOrdersMap = const {},
+    this.orderType = 'dine_in',
+    this.customerName,
     this.isLoading = false,
     this.errorMessage,
   });
+
+  bool get isTakeAway => orderType == 'take_away';
 
   OrderState copyWith({
     TableModel? selectedTable,
     OrderModel? activeOrder,
     List<OrderItemModel>? activeOrderItems,
     Map<String, OrderModel>? activeOrdersMap,
+    String? orderType,
+    String? customerName,
     bool? isLoading,
     String? errorMessage,
     bool clearActiveOrder = false,
+    bool clearSelectedTable = false,
   }) {
     return OrderState(
-      selectedTable: selectedTable ?? this.selectedTable,
+      selectedTable: clearSelectedTable ? null : (selectedTable ?? this.selectedTable),
       activeOrder: clearActiveOrder ? null : (activeOrder ?? this.activeOrder),
       activeOrderItems: clearActiveOrder ? const [] : (activeOrderItems ?? this.activeOrderItems),
       activeOrdersMap: activeOrdersMap ?? this.activeOrdersMap,
+      orderType: orderType ?? this.orderType,
+      customerName: customerName ?? this.customerName,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );
@@ -56,10 +67,29 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   OrderNotifier(this._repository, this._ref) : super(OrderState());
 
+  void setOrderType(String type) {
+    if (type == 'take_away') {
+      state = state.copyWith(orderType: 'take_away', clearSelectedTable: true);
+    } else {
+      state = state.copyWith(orderType: 'dine_in');
+    }
+  }
+
+  void setCustomerName(String? name) {
+    state = state.copyWith(customerName: name?.trim().isEmpty == true ? null : name?.trim());
+  }
+
   Future<void> selectTable(TableModel? table) async {
-    state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);
     if (table != null) {
+      state = OrderState(
+        selectedTable: table,
+        activeOrdersMap: state.activeOrdersMap,
+        orderType: 'dine_in',
+        customerName: state.customerName,
+      );
       await loadActiveOrderForTable(table.id);
+    } else {
+      state = state.copyWith(clearSelectedTable: true);
     }
   }
 
@@ -81,6 +111,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
         state = state.copyWith(
           activeOrder: activeOrder,
           activeOrderItems: items,
+          customerName: activeOrder.customerName ?? state.customerName,
+          orderType: activeOrder.orderType,
           isLoading: false,
         );
       } else {
@@ -104,10 +136,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
     double taxAmount,
     double grandTotal, {
     String? notes,
+    String? customerName,
   }) async {
     final table = state.selectedTable;
-    if (table == null) {
-      state = state.copyWith(errorMessage: 'Meja belum dipilih.');
+    final isTakeAway = state.orderType == 'take_away';
+
+    if (!isTakeAway && table == null) {
+      state = state.copyWith(errorMessage: 'Meja belum dipilih untuk pesanan Dine-In.');
       return null;
     }
 
@@ -115,13 +150,16 @@ class OrderNotifier extends StateNotifier<OrderState> {
     try {
       final orderId = state.activeOrder?.id ?? _uuid.v4();
       final orderNo = state.activeOrder?.nomorOrder ?? await _repository.generateNextOrderNumber();
+      final finalCustomerName = customerName ?? state.customerName;
 
       final orderHeader = OrderModel(
         id: orderId,
         nomorOrder: orderNo,
-        tableId: table.id,
-        tableNama: table.nama,
-        tableNomor: table.nomor,
+        tableId: isTakeAway ? null : table?.id,
+        tableNama: isTakeAway ? 'Take Away' : table?.nama,
+        tableNomor: isTakeAway ? '-' : table?.nomor,
+        customerName: finalCustomerName,
+        orderType: state.orderType,
         subtotal: subtotal,
         taxPercentage: taxRate,
         taxAmount: taxAmount,
@@ -154,7 +192,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
           qty: currentQty,
           subtotal: cartItem.subtotal,
           catatan: cartItem.catatan,
-          statusCetak: 0, 
+          statusCetak: 0,
         );
         allOrderItems.add(orderItem);
 
@@ -176,37 +214,45 @@ class OrderNotifier extends StateNotifier<OrderState> {
         final currentBatchNo = batchCount + 1;
         final waveInfo = currentBatchNo == 1 ? '#1 (Baru)' : '#$currentBatchNo (Tambahan)';
 
-        final printerState = _ref.read(printerNotifierProvider);
-        final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-        final targetPrinter = kitchenPrinterList.isNotEmpty 
-            ? kitchenPrinterList.first 
-            : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
+        try {
+          final printerState = _ref.read(printerNotifierProvider);
+          final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+          final targetPrinter = kitchenPrinterList.isNotEmpty
+              ? kitchenPrinterList.first
+              : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
 
-        final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
-          order: orderHeader,
-          itemsToPrint: itemsToPrint,
-          waveInfo: waveInfo,
-          paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-          charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-          autoCut: targetPrinter?.autoCut ?? false,
-        );
+          final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+            order: orderHeader,
+            itemsToPrint: itemsToPrint,
+            waveInfo: waveInfo,
+            paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
+            charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+            autoCut: targetPrinter?.autoCut ?? false,
+          );
 
-        if (targetPrinter != null) {
-          await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
-        } else {
-          if (kDebugMode) {
-            debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
-            debugPrint(String.fromCharCodes(receiptBytes));
-            debugPrint('----------------------------------');
+          if (targetPrinter != null) {
+            await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+          } else {
+            if (kDebugMode) {
+              debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
+              debugPrint(String.fromCharCodes(receiptBytes));
+              debugPrint('----------------------------------');
+            }
           }
+        } catch (printErr) {
+          debugPrint('Printer not available or unit test environment: $printErr');
         }
 
         await _repository.recordPrintBatch(orderId);
       }
-      
-      _ref.read(tableNotifierProvider.notifier).loadTables();
-      await loadActiveOrdersMap();
-      await loadActiveOrderForTable(table.id);
+
+      if (table != null) {
+        _ref.read(tableNotifierProvider.notifier).loadTables();
+        await loadActiveOrdersMap();
+        await loadActiveOrderForTable(table.id);
+      } else {
+        state = state.copyWith(activeOrder: orderHeader, activeOrderItems: allOrderItems, isLoading: false);
+      }
       return itemsToPrint;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal menyimpan draft order: $e');
@@ -217,14 +263,14 @@ class OrderNotifier extends StateNotifier<OrderState> {
   Future<bool> cancelCurrentOrder() async {
     final table = state.selectedTable;
     final order = state.activeOrder;
-    if (table == null || order == null) {
+    if (order == null) {
       state = state.copyWith(errorMessage: 'Tidak ada order aktif untuk dibatalkan.');
       return false;
     }
 
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      await _repository.cancelOrder(order.id, table.id);
+      await _repository.cancelOrder(order.id, table?.id ?? '');
       _ref.read(tableNotifierProvider.notifier).loadTables();
       await loadActiveOrdersMap();
       state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);

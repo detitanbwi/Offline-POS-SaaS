@@ -61,8 +61,12 @@ class PdfReceiptGenerator {
               // Metadata
               pw.Text('Tgl   : $nowStr', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Kasir : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
-              if (order.tableNama != null && order.tableNama!.isNotEmpty)
+              if (order.isTakeAway)
+                pw.Text('Order : TAKE AWAY', style: pw.TextStyle(font: fontBold, fontSize: 8))
+              else if (order.tableNama != null && order.tableNama!.isNotEmpty)
                 pw.Text('Meja  : ${order.tableNama}', style: pw.TextStyle(font: font, fontSize: 8)),
+              if (order.customerName != null && order.customerName!.isNotEmpty)
+                pw.Text('Nama  : ${order.customerName}', style: pw.TextStyle(font: fontBold, fontSize: 8)),
               pw.Text('Status: BELUM DIBAYAR', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
@@ -200,8 +204,12 @@ class PdfReceiptGenerator {
               pw.Text('Tgl   : $dateStr', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Kasir : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('No.   : ${transaction.nomorTransaksi}', style: pw.TextStyle(font: font, fontSize: 8)),
-              if (tableName != null && tableName.isNotEmpty)
+              if (transaction.orderType == 'take_away')
+                pw.Text('Order : TAKE AWAY', style: pw.TextStyle(font: fontBold, fontSize: 8))
+              else if (tableName != null && tableName.isNotEmpty)
                 pw.Text('Meja  : $tableName', style: pw.TextStyle(font: font, fontSize: 8)),
+              if (transaction.customerName != null && transaction.customerName!.isNotEmpty)
+                pw.Text('Nama  : ${transaction.customerName}', style: pw.TextStyle(font: fontBold, fontSize: 8)),
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
               for (var item in items) ...[

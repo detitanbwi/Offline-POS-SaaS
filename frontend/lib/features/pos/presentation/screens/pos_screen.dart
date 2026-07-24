@@ -36,7 +36,6 @@ import '../../../../core/widgets/app_receipt_preview_modal.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/di/providers.dart';
 
-
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
 
@@ -46,6 +45,7 @@ class PosScreen extends ConsumerStatefulWidget {
 
 class _PosScreenState extends ConsumerState<PosScreen> {
   final _searchController = TextEditingController();
+  final _customerNameController = TextEditingController();
   String? _selectedCategoryId;
   Timer? _debounceTimer;
   String _searchQuery = '';
@@ -59,19 +59,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       ref.read(categoryNotifierProvider.notifier).loadCategories();
       ref.read(tableNotifierProvider.notifier).loadTables();
       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+
+      final existingCustomerName = ref.read(orderNotifierProvider).customerName;
+      if (existingCustomerName != null) {
+        _customerNameController.text = existingCustomerName;
+      }
     });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _customerNameController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
 
   void _showNoteDialog(BuildContext context, CartItem item) {
     final noteController = TextEditingController(text: item.catatan);
-    
+
     AppDialog.show(
       context: context,
       title: 'Catatan Item: ${item.product.nama}',
@@ -96,7 +102,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final categoryState = ref.watch(categoryNotifierProvider);
     final cartState = ref.watch(cartNotifierProvider);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
-    
+
     // Filter active items for checkout grid
     final activeProducts = productState.allProducts
         .where((p) => p.isActive)
@@ -116,6 +122,19 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final orderState = ref.watch(orderNotifierProvider);
     final tableName = orderState.selectedTable?.nama ?? '';
     final orderNumber = orderState.activeOrder?.nomorOrder ?? 'Order Baru';
+    final isTakeAway = orderState.isTakeAway;
+    final customerName = orderState.customerName;
+
+    String subtitleText = '';
+    if (isTakeAway) {
+      subtitleText = customerName != null && customerName.isNotEmpty
+          ? '🥡 Take Away ($customerName)'
+          : '🥡 Take Away (Tanpa Meja)';
+    } else if (tableName.isNotEmpty) {
+      subtitleText = customerName != null && customerName.isNotEmpty
+          ? '🍽️ $tableName ($customerName)'
+          : '🍽️ $tableName ($orderNumber)';
+    }
 
     return PopScope(
       canPop: false,
@@ -133,9 +152,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Transaksi POS', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
-              if (tableName.isNotEmpty)
+              if (subtitleText.isNotEmpty)
                 Text(
-                  '$tableName ($orderNumber)',
+                  subtitleText,
                   style: TextStyle(fontSize: 12.sp, color: Colors.white70),
                 ),
             ],
@@ -179,7 +198,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     ],
                   ),
                 ),
-                const VerticalDivider(),
+                const VerticalDivider(width: 1),
                 // Right side: Shopping Cart Panel
                 Expanded(
                   flex: 2,
@@ -198,7 +217,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     await AppDialog.show(
       context: context,
       title: 'Keluar Transaksi POS',
-      message: 'Apakah Anda yakin ingin keluar?.',
+      message: 'Apakah Anda yakin ingin keluar?',
       confirmText: 'Keluar',
       cancelText: 'Batal',
       isDestructive: true,
@@ -211,12 +230,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   Future<bool> _ensureTableSelected() async {
+    final orderState = ref.read(orderNotifierProvider);
+    if (orderState.isTakeAway) {
+      return true; // Take Away does not require a table
+    }
+
     final tableState = ref.read(tableNotifierProvider);
     if (tableState.allTables.isEmpty) {
       return true;
     }
 
-    final orderState = ref.read(orderNotifierProvider);
     if (orderState.selectedTable != null) {
       return true;
     }
@@ -251,7 +274,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Silakan pilih meja untuk pesanan atau pembayaran ini.',
+                      'Silakan pilih meja untuk pesanan Dine-In ini.',
                       style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -285,27 +308,36 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               ),
                             ),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            onTap: () {
-                              if (isOccupied) {
-                                _showOccupiedTableOptions(context, table, activeOrder, dialogContext);
-                              } else {
-                                ref.read(orderNotifierProvider.notifier).selectTable(table);
-                                Navigator.pop(dialogContext);
+                            onTap: () async {
+                              ref.read(orderNotifierProvider.notifier).selectTable(table);
+                              if (isOccupied && activeOrder != null) {
+                                final products = ref.read(productNotifierProvider).allProducts;
+                                final items = await ref.read(orderRepositoryProvider).getOrderItems(activeOrder.id);
+                                ref.read(cartNotifierProvider.notifier).loadDraftItems(items, products);
                               }
+                              Navigator.pop(dialogContext);
                             },
                           );
                         },
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                        },
-                        child: const Text('Batal'),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            ref.read(orderNotifierProvider.notifier).setOrderType('take_away');
+                            Navigator.pop(dialogContext);
+                          },
+                          icon: const Icon(Icons.takeout_dining_rounded),
+                          label: const Text('Ubah ke Take Away'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('Batal'),
+                        ),
+                      ],
                     ),
                   ],
                 );
@@ -316,396 +348,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       },
     );
 
-    return ref.read(orderNotifierProvider).selectedTable != null;
-  }
-
-  Future<bool> _confirmOverwriteCart(BuildContext context) async {
-    bool result = false;
-    await AppDialog.show(
-      context: context,
-      title: 'Peringatan: Keranjang Berisi Item',
-      message: 'Keranjang belanja Anda saat ini tidak kosong. Jika Anda melanjutkan transaksi meja ini, isi keranjang saat ini akan diganti dengan pesanan tersimpan di meja tersebut. Apakah Anda ingin melanjutkan?',
-      confirmText: 'Lanjutkan',
-      cancelText: 'Batal',
-      isDestructive: false,
-      onConfirm: () {
-        result = true;
-        Navigator.pop(context);
-      },
-    );
-    return result;
-  }
-
-  void _showOccupiedTableOptions(
-    BuildContext context,
-    TableModel table,
-    dynamic activeOrder,
-    BuildContext dialogContext,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.l),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${table.nama} (Nomor: ${table.nomor})',
-                      style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(sheetContext),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.hourglass_empty_rounded,
-                        color: AppColors.warning,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Status: Belum Dibayar (Draft)',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF78350F),
-                              ),
-                            ),
-                            if (activeOrder != null) ...[
-                              const SizedBox(height: 4),
-                              Text('No. Order: ${activeOrder.nomorOrder}', style: AppTypography.bodyMedium),
-                              Text(
-                                'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
-                                style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(sheetContext); // Close sheet
-                    
-                    final cartState = ref.read(cartNotifierProvider);
-                    bool proceed = true;
-                    if (cartState.items.isNotEmpty) {
-                      proceed = await _confirmOverwriteCart(context);
-                    }
-                    
-                    if (proceed) {
-                      await ref.read(orderNotifierProvider.notifier).selectTable(table);
-                      final updatedOrderState = ref.read(orderNotifierProvider);
-                      final products = ref.read(productNotifierProvider).allProducts;
-                      ref.read(cartNotifierProvider.notifier).loadDraftItems(updatedOrderState.activeOrderItems, products);
-                      
-                      if (context.mounted) {
-                        Navigator.pop(dialogContext); // Close the table selection dialog
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.shopping_cart_outlined),
-                  label: const Text('Lanjutkan Transaksi / Edit'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(sheetContext); // Close sheet
-                    _handleMoveTableForSelected(context, table, activeOrder);
-                  },
-                  icon: const Icon(Icons.move_up_rounded),
-                  label: const Text('Pindahkan Meja'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(sheetContext); // Close sheet
-                    _confirmClearTableInDialog(context, table, activeOrder);
-                  },
-                  icon: const Icon(Icons.cleaning_services_outlined, color: AppColors.error),
-                  label: const Text('Selesaikan & Kosongkan Meja', style: TextStyle(color: AppColors.error)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.error),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _confirmClearTableInDialog(BuildContext context, TableModel table, dynamic activeOrder) {
-    AppDialog.show(
-      context: context,
-      title: 'Kosongkan Meja',
-      message: 'Apakah Anda yakin ingin membatalkan pesanan dan mengosongkan meja "${table.nama}"?',
-      confirmText: 'Ya, Kosongkan',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () async {
-        Navigator.pop(context); // Close confirm dialog
-        
-        try {
-          final orderRepo = ref.read(orderRepositoryProvider);
-          await orderRepo.cancelOrder(activeOrder.id, table.id);
-          
-          await ref.read(tableNotifierProvider.notifier).loadTables();
-          await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-          
-          if (context.mounted) {
-            AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
-          }
-        } catch (e) {
-          if (context.mounted) {
-            AppSnackbar.showError(context, 'Gagal mengosongkan meja: $e');
-          }
-        }
-      },
-    );
-  }
-
-  void _showSelectedTableOptions(BuildContext context) {
-    final orderState = ref.read(orderNotifierProvider);
-    final selectedTable = orderState.selectedTable;
-    if (selectedTable == null) return;
-
-    final hasDraft = orderState.activeOrder != null;
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.l),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Kelola ${selectedTable.nama}',
-                      style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(sheetContext),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (hasDraft) ...[
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      _handleMoveTableForSelected(context, selectedTable, orderState.activeOrder!);
-                    },
-                    icon: const Icon(Icons.move_up_rounded),
-                    label: const Text('Pindahkan Meja'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      _confirmClearTableForSelected(context, selectedTable, orderState.activeOrder!);
-                    },
-                    icon: const Icon(Icons.cleaning_services_outlined, color: AppColors.error),
-                    label: const Text('Kosongkan Meja', style: TextStyle(color: AppColors.error)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.error),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(sheetContext);
-                    ref.read(orderNotifierProvider.notifier).selectTable(null);
-                    await _ensureTableSelected();
-                  },
-                  icon: const Icon(Icons.swap_horiz_rounded),
-                  label: const Text('Ganti / Pilih Meja Lain'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _handleMoveTableForSelected(BuildContext context, TableModel sourceTable, dynamic activeOrder) {
-    final tableState = ref.read(tableNotifierProvider);
-    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
-
-    if (emptyTables.isEmpty) {
-      AppSnackbar.showWarning(context, 'Tidak ada meja kosong yang tersedia untuk dipindahkan.');
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            width: MediaQuery.of(context).size.width > 500 ? 400 : MediaQuery.of(context).size.width * 0.9,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Pindah Meja - ${sourceTable.nama}', 
-                  style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)
-                ),
-                const SizedBox(height: 16),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 300),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: emptyTables.length,
-                    separatorBuilder: (_, _) => const Divider(),
-                    itemBuilder: (dialogContext, index) {
-                      final targetTable = emptyTables[index];
-                      return ListTile(
-                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
-                        title: Text(targetTable.nama),
-                        subtitle: Text('Nomor: ${targetTable.nomor}'),
-                        onTap: () async {
-                          Navigator.pop(dialogContext);
-                          
-                          final orderRepo = ref.read(orderRepositoryProvider);
-                          try {
-                            await orderRepo.transferOrderTable(
-                              activeOrder.id,
-                              sourceTable.id,
-                              targetTable.id,
-                              targetTable.nama,
-                              targetTable.nomor,
-                            );
-                            
-                            await ref.read(tableNotifierProvider.notifier).loadTables();
-                            await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                            
-                            await ref.read(orderNotifierProvider.notifier).selectTable(targetTable);
-                            
-                            if (context.mounted) {
-                              AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan ke ${targetTable.nama}');
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              AppSnackbar.showError(context, 'Gagal memindahkan meja: $e');
-                            }
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    child: const Text('Batal'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _confirmClearTableForSelected(BuildContext context, TableModel table, dynamic activeOrder) {
-    AppDialog.show(
-      context: context,
-      title: 'Kosongkan Meja',
-      message: 'Apakah Anda yakin ingin membatalkan pesanan dan mengosongkan meja "${table.nama}"?',
-      confirmText: 'Ya, Kosongkan',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () async {
-        Navigator.pop(context); // Close confirm dialog
-        
-        final success = await ref.read(orderNotifierProvider.notifier).cancelCurrentOrder();
-        if (success) {
-          ref.read(cartNotifierProvider.notifier).clear();
-          ref.read(orderNotifierProvider.notifier).selectTable(null);
-          
-          if (context.mounted) {
-            AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
-          }
-        } else {
-          if (context.mounted) {
-            final err = ref.read(orderNotifierProvider).errorMessage;
-            AppSnackbar.showError(context, err ?? 'Gagal mengosongkan meja.');
-          }
-        }
-      },
-    );
+    return ref.read(orderNotifierProvider).selectedTable != null || ref.read(orderNotifierProvider).isTakeAway;
   }
 
   // Header catalog with search field & category selection horizontal chips
@@ -800,10 +443,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  // Grid list of products matching searches/categories
-  Widget _buildCatalogGrid(List<Product> products, bool loading, CartNotifier cartNotifier) {
-    if (loading) {
-      return const AppLoading(message: 'Memuat produk kasir...');
+  Widget _buildCatalogGrid(List<Product> products, bool isLoading, CartNotifier cartNotifier) {
+    if (isLoading) {
+      return const AppLoading(message: 'Memuat katalog produk...');
     }
 
     if (products.isEmpty) {
@@ -814,13 +456,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       );
     }
 
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.m),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 180,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.72,
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: isLandscape ? 160 : 180,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: isLandscape ? 0.9 : 0.72,
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
@@ -908,7 +552,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              // overflow
                             ),
                           ),
                           Container(
@@ -939,10 +582,154 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
+  Widget _buildOrderTypeAndCustomerSection(
+    BuildContext context,
+    OrderState orderState,
+    OrderNotifier orderNotifier,
+  ) {
+    final isTakeAway = orderState.isTakeAway;
+    final tableName = orderState.selectedTable?.nama;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Toggle Order Type
+        Row(
+          children: [
+            Expanded(
+              child: ChoiceChip(
+                label: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.restaurant_rounded, size: 16),
+                    SizedBox(width: 4),
+                    Text('Dine-In'),
+                  ],
+                ),
+                selected: !isTakeAway,
+                onSelected: (selected) {
+                  if (selected) {
+                    orderNotifier.setOrderType('dine_in');
+                  }
+                },
+                selectedColor: AppColors.primaryContainer,
+                labelStyle: TextStyle(
+                  color: !isTakeAway ? AppColors.primary : AppColors.textSecondary,
+                  fontWeight: !isTakeAway ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ChoiceChip(
+                label: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.takeout_dining_rounded, size: 16),
+                    SizedBox(width: 4),
+                    Text('Take Away'),
+                  ],
+                ),
+                selected: isTakeAway,
+                onSelected: (selected) {
+                  if (selected) {
+                    orderNotifier.setOrderType('take_away');
+                  }
+                },
+                selectedColor: Colors.orange.shade100,
+                labelStyle: TextStyle(
+                  color: isTakeAway ? Colors.orange.shade900 : AppColors.textSecondary,
+                  fontWeight: isTakeAway ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (!isTakeAway) ...[
+          if (tableName != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
+                const SizedBox(width: 6),
+                Text('Meja: ', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  tableName,
+                  style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: AppColors.secondary),
+                ),
+                Text(
+                  ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
+                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 18, color: AppColors.primary),
+                  onPressed: () => _ensureTableSelected(),
+                  tooltip: 'Ganti Meja',
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ] else ...[
+            OutlinedButton.icon(
+              onPressed: () => _ensureTableSelected(),
+              icon: const Icon(Icons.table_restaurant_rounded, size: 16),
+              label: const Text('Pilih Meja Restoran'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.secondary,
+                side: const BorderSide(color: AppColors.secondary),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.takeout_dining_rounded, size: 16, color: Colors.orange.shade800),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Pesanan Bungkus / Take Away (Tanpa Meja)',
+                    style: TextStyle(fontSize: 12.sp, color: Colors.orange.shade900, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        // Atas Nama (Customer Name) Field
+        TextField(
+          controller: _customerNameController,
+          onChanged: (val) => orderNotifier.setCustomerName(val),
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Atas Nama / Nama Customer (Opsional)',
+            prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ],
+    );
+  }
+
   // Tablet Side-by-side Cart Panel
   Widget _buildCartPanel(BuildContext context, CartState state, CartNotifier cartNotifier) {
-    final tableState = ref.watch(tableNotifierProvider);
     final orderState = ref.watch(orderNotifierProvider);
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(AppSpacing.m),
@@ -960,54 +747,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               ),
             ],
           ),
-          if (tableState.allTables.isNotEmpty) ...[
-            if (orderState.selectedTable != null) ...[
-              Row(
-                children: [
-                  const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Meja: ',
-                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                  ),
-                  Text(
-                    orderState.selectedTable!.nama,
-                    style: AppTypography.bodyMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                  Text(
-                    ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
-                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
-                    onPressed: () {
-                      _showSelectedTableOptions(context);
-                    },
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-            ] else ...[
-              OutlinedButton.icon(
-                onPressed: () => _ensureTableSelected(),
-                icon: const Icon(Icons.table_restaurant_rounded, size: 16),
-                label: const Text('Pilih Meja Restoran'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.secondary,
-                  side: const BorderSide(color: AppColors.secondary),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const Divider(height: 24),
-            ],
-          ],
+          const SizedBox(height: 8),
+          _buildOrderTypeAndCustomerSection(context, orderState, orderNotifier),
+          const Divider(height: 16),
           // Cart Items List
           Expanded(
             child: state.items.isEmpty
@@ -1029,59 +771,69 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     },
                   ),
           ),
-          const Divider(height: 24),
-          // Subtotal/Tax/Grand Total calculations
-          _buildBillSummary(state),
-          const SizedBox(height: 16),
-          // Checkout Proceed Button
-          AppButton(
-            text: 'Lanjutkan ke Pembayaran',
-            onPressed: state.items.isEmpty
-                ? null
-                : () async {
-                    if (await _ensureTableSelected()) {
-                      if (!context.mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                      );
-                    }
-                  },
-            icon: Icons.arrow_forward_rounded,
-          ),
-          const SizedBox(height: 8),
-          AppButton(
-            text: 'Simpan Order (Kirim ke Dapur)',
-            type: AppButtonType.secondary,
-            onPressed: state.items.isEmpty
-                ? null
-                : () async {
-                    if (await _ensureTableSelected()) {
-                      if (!context.mounted) return;
-                      _handleSaveOrderDraft(context, state);
-                    }
-                  },
-            icon: Icons.kitchen_rounded,
-            width: double.infinity,
-          ),
-          if (ref.watch(orderNotifierProvider).activeOrder != null) ...[
-            const SizedBox(height: 8),
-            AppButton(
-              text: 'Cetak Bil (Tagihan Sementara)',
-              type: AppButtonType.secondary,
-              onPressed: _handlePrintBill,
-              icon: Icons.print_rounded,
-              width: double.infinity,
+          const Divider(height: 16),
+          // Scrollable Action Area for landscape overflow protection
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildBillSummary(state),
+                  const SizedBox(height: 12),
+                  AppButton(
+                    text: 'Lanjutkan ke Pembayaran',
+                    onPressed: state.items.isEmpty
+                        ? null
+                        : () async {
+                            if (await _ensureTableSelected()) {
+                              if (!context.mounted) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                              );
+                            }
+                          },
+                    icon: Icons.arrow_forward_rounded,
+                  ),
+                  const SizedBox(height: 8),
+                  AppButton(
+                    text: 'Simpan Order (Kirim ke Dapur)',
+                    type: AppButtonType.secondary,
+                    onPressed: state.items.isEmpty
+                        ? null
+                        : () async {
+                            if (await _ensureTableSelected()) {
+                              if (!context.mounted) return;
+                              _handleSaveOrderDraft(context, state);
+                            }
+                          },
+                    icon: Icons.kitchen_rounded,
+                    width: double.infinity,
+                  ),
+                  if (orderState.activeOrder != null) ...[
+                    const SizedBox(height: 8),
+                    AppButton(
+                      text: 'Cetak Bil (Tagihan Sementara)',
+                      type: AppButtonType.secondary,
+                      onPressed: _handlePrintBill,
+                      icon: Icons.print_rounded,
+                      width: double.infinity,
+                    ),
+                    const SizedBox(height: 8),
+                    AppButton(
+                      text: 'Batalkan Pesanan',
+                      type: AppButtonType.destructive,
+                      onPressed: () => _handleCancelOrder(context),
+                      icon: Icons.cancel_outlined,
+                      width: double.infinity,
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            AppButton(
-              text: 'Batalkan Pesanan Meja',
-              type: AppButtonType.destructive,
-              onPressed: () => _handleCancelOrder(context),
-              icon: Icons.cancel_outlined,
-              width: double.infinity,
-            ),
-          ],
+          ),
         ],
       ),
     );
@@ -1123,7 +875,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ],
           ),
         ],
-        const Divider(height: 24, thickness: 1.5),
+        const Divider(height: 16, thickness: 1.5),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1202,8 +954,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                             builder: (consumerContext, ref, child) {
                               final cState = ref.watch(cartNotifierProvider);
                               final cNotifier = ref.read(cartNotifierProvider.notifier);
-                              final tableState = ref.watch(tableNotifierProvider);
                               final orderState = ref.watch(orderNotifierProvider);
+                              final orderNotifier = ref.read(orderNotifierProvider.notifier);
+
                               return SafeArea(
                                 child: Padding(
                                   padding: const EdgeInsets.all(AppSpacing.m),
@@ -1232,58 +985,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                         ],
                                       ),
                                       const Divider(),
-                                      if (tableState.allTables.isNotEmpty) ...[
-                                        if (orderState.selectedTable != null) ...[
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.table_restaurant_rounded, size: 16, color: AppColors.secondary),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                'Meja: ',
-                                                style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                                              ),
-                                              Text(
-                                                orderState.selectedTable!.nama,
-                                                style: AppTypography.bodyMedium.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.secondary,
-                                                ),
-                                              ),
-                                              Text(
-                                                ' (${orderState.activeOrder?.nomorOrder ?? 'Order Baru'})',
-                                                style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
-                                              ),
-                                              const Spacer(),
-                                              IconButton(
-                                                icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
-                                                onPressed: () {
-                                                  Navigator.of(sheetContext).pop();
-                                                  _showSelectedTableOptions(context);
-                                                },
-                                                constraints: const BoxConstraints(),
-                                                padding: EdgeInsets.zero,
-                                              ),
-                                            ],
-                                          ),
-                                          const Divider(),
-                                        ] else ...[
-                                          OutlinedButton.icon(
-                                            onPressed: () async {
-                                              Navigator.of(sheetContext).pop();
-                                              await _ensureTableSelected();
-                                            },
-                                            icon: const Icon(Icons.table_restaurant_rounded, size: 16),
-                                            label: const Text('Pilih Meja Restoran'),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppColors.secondary,
-                                              side: const BorderSide(color: AppColors.secondary),
-                                              padding: const EdgeInsets.symmetric(vertical: 12),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                            ),
-                                          ),
-                                          const Divider(),
-                                        ],
-                                      ],
+                                      _buildOrderTypeAndCustomerSection(context, orderState, orderNotifier),
+                                      const Divider(),
                                       Expanded(
                                         child: ListView.separated(
                                           controller: scrollController,
@@ -1334,19 +1037,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                         icon: Icons.kitchen_rounded,
                                         width: double.infinity,
                                       ),
-                                      if (ref.watch(orderNotifierProvider).activeOrder != null) ...[
-                                        const SizedBox(height: 8),
-                                        AppButton(
-                                          text: 'Batalkan Pesanan Meja',
-                                          type: AppButtonType.destructive,
-                                          onPressed: () {
-                                            Navigator.of(sheetContext).pop();
-                                            _handleCancelOrder(rootContext);
-                                          },
-                                          icon: Icons.cancel_outlined,
-                                          width: double.infinity,
-                                        ),
-                                      ],
                                     ],
                                   ),
                                 ),
@@ -1385,22 +1075,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final orderState = ref.read(orderNotifierProvider);
 
     final selectedTable = orderState.selectedTable;
-    final tableName = selectedTable?.nama ?? 'Meja';
-    final orderId = orderState.activeOrder?.id ?? const Uuid().v4();
-
-    final orderHeader = OrderModel(
-      id: orderId,
-      nomorOrder: orderState.activeOrder?.nomorOrder ?? 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-      tableId: selectedTable?.id ?? '',
-      tableNama: selectedTable?.nama,
-      tableNomor: selectedTable?.nomor,
-      subtotal: cartState.subtotal,
-      taxPercentage: cartState.taxRate,
-      taxAmount: cartState.taxAmount,
-      grandTotal: cartState.grandTotal,
-      createdAt: orderState.activeOrder?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    final isTakeAway = orderState.isTakeAway;
+    final labelName = isTakeAway ? 'Take Away' : (selectedTable?.nama ?? 'Meja');
 
     final printedItems = await orderNotifier.saveCurrentOrderDraft(
       cartState.items,
@@ -1408,26 +1084,28 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       cartState.taxRate,
       cartState.taxAmount,
       cartState.grandTotal,
+      customerName: orderState.customerName,
     );
 
     if (!context.mounted) return;
     if (printedItems != null) {
       cartNotifier.clear();
-      ref.read(orderNotifierProvider.notifier).clearActiveOrder();
-      AppSnackbar.showSuccess(context, 'Pesanan $tableName berhasil disimpan & dikirim ke dapur.');
+      final savedOrderHeader = ref.read(orderNotifierProvider).activeOrder;
 
-      if (printedItems.isNotEmpty) {
+      AppSnackbar.showSuccess(context, 'Pesanan $labelName berhasil disimpan & dikirim ke dapur.');
+
+      if (printedItems.isNotEmpty && savedOrderHeader != null) {
         // Show Kitchen Ticket Preview & Printing Modal
         final printerState = ref.read(printerNotifierProvider);
         final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
         final kitchenPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
 
         final activeUser = ref.read(authSessionProvider);
-        final batchCount = await ref.read(orderRepositoryProvider).getBatchCount(orderHeader.id);
+        final batchCount = await ref.read(orderRepositoryProvider).getBatchCount(savedOrderHeader.id);
         final waveInfo = batchCount <= 1 ? '#1 (Baru)' : '#$batchCount (Tambahan)';
 
         final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
-          order: orderHeader,
+          order: savedOrderHeader,
           itemsToPrint: printedItems,
           cashierNama: activeUser?.nama,
           waveInfo: waveInfo,
@@ -1440,13 +1118,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           title: 'Struk Pesanan Dapur',
           receiptTextPreview: textPreview,
           onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
-            order: orderHeader,
+            order: savedOrderHeader,
             itemsToPrint: printedItems,
             cashierNama: activeUser?.nama,
             waveInfo: waveInfo,
           ),
           onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
-            order: orderHeader,
+            order: savedOrderHeader,
             itemsToPrint: printedItems,
             cashierNama: activeUser?.nama,
             waveInfo: waveInfo,
@@ -1466,7 +1144,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     AppDialog.show(
       context: context,
       title: 'Batalkan Pesanan',
-      message: 'Apakah Anda yakin ingin membatalkan pesanan meja ini dan mengosongkan meja kembali?',
+      message: 'Apakah Anda yakin ingin membatalkan pesanan ini?',
       confirmText: 'Batalkan Pesanan',
       isDestructive: true,
       onConfirm: () async {
@@ -1475,8 +1153,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         Navigator.pop(context); // Close confirm dialog
         if (success) {
           ref.read(cartNotifierProvider.notifier).clear();
-          AppSnackbar.showSuccess(context, 'Pesanan dibatalkan & meja dikosongkan.');
-          Navigator.pop(context); // Go back to Table Selector
+          AppSnackbar.showSuccess(context, 'Pesanan berhasil dibatalkan.');
         } else {
           final err = ref.read(orderNotifierProvider).errorMessage;
           AppSnackbar.showError(context, err ?? 'Gagal membatalkan pesanan.');

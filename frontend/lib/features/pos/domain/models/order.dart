@@ -1,9 +1,11 @@
 class OrderModel {
   final String id;
   final String nomorOrder;
-  final String tableId;
+  final String? tableId;
   final String? tableNama;
   final String? tableNomor;
+  final String? customerName;
+  final String orderType; // 'dine_in' or 'take_away'
   final double subtotal;
   final double taxPercentage;
   final double taxAmount;
@@ -16,9 +18,11 @@ class OrderModel {
   const OrderModel({
     required this.id,
     required this.nomorOrder,
-    required this.tableId,
+    this.tableId,
     this.tableNama,
     this.tableNomor,
+    this.customerName,
+    this.orderType = 'dine_in',
     this.subtotal = 0.0,
     this.taxPercentage = 0.0,
     this.taxAmount = 0.0,
@@ -32,6 +36,7 @@ class OrderModel {
   bool get isDraft => status == 'draft';
   bool get isCompleted => status == 'completed';
   bool get isCancelled => status == 'cancelled';
+  bool get isTakeAway => orderType == 'take_away';
 
   OrderModel copyWith({
     String? id,
@@ -39,6 +44,8 @@ class OrderModel {
     String? tableId,
     String? tableNama,
     String? tableNomor,
+    String? customerName,
+    String? orderType,
     double? subtotal,
     double? taxPercentage,
     double? taxAmount,
@@ -54,6 +61,8 @@ class OrderModel {
       tableId: tableId ?? this.tableId,
       tableNama: tableNama ?? this.tableNama,
       tableNomor: tableNomor ?? this.tableNomor,
+      customerName: customerName ?? this.customerName,
+      orderType: orderType ?? this.orderType,
       subtotal: subtotal ?? this.subtotal,
       taxPercentage: taxPercentage ?? this.taxPercentage,
       taxAmount: taxAmount ?? this.taxAmount,
@@ -72,6 +81,8 @@ class OrderModel {
       'table_id': tableId,
       'table_nama': tableNama,
       'table_nomor': tableNomor,
+      'customer_name': customerName,
+      'order_type': orderType,
       'subtotal': subtotal,
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
@@ -87,9 +98,11 @@ class OrderModel {
     return OrderModel(
       id: map['id'] as String,
       nomorOrder: map['nomor_order'] as String,
-      tableId: map['table_id'] as String,
+      tableId: map['table_id'] as String?,
       tableNama: map['table_nama'] as String?,
       tableNomor: map['table_nomor'] as String?,
+      customerName: map['customer_name'] as String?,
+      orderType: (map['order_type'] as String?) ?? 'dine_in',
       subtotal: (map['subtotal'] as num).toDouble(),
       taxPercentage: (map['tax_percentage'] as num).toDouble(),
       taxAmount: (map['tax_amount'] as num).toDouble(),

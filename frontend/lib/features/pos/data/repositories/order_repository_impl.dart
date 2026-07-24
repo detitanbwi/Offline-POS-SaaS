@@ -116,16 +116,18 @@ class OrderRepositoryImpl implements OrderRepository {
         );
       }
 
-      // 5. Update the table status to Terisi (1)
-      await txn.update(
-        'tables',
-        {
-          'status': 1,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [order.tableId],
-      );
+      // 5. Update the table status to Terisi (1) if tableId is present
+      if (order.tableId != null && order.tableId!.isNotEmpty) {
+        await txn.update(
+          'tables',
+          {
+            'status': 1,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [order.tableId],
+        );
+      }
     });
   }
 
@@ -145,16 +147,18 @@ class OrderRepositoryImpl implements OrderRepository {
         whereArgs: [orderId],
       );
 
-      // 2. Set table status back to Empty (0)
-      await txn.update(
-        'tables',
-        {
-          'status': 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [tableId],
-      );
+      // 2. Set table status back to Empty (0) if tableId exists
+      if (tableId.isNotEmpty) {
+        await txn.update(
+          'tables',
+          {
+            'status': 0,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [tableId],
+        );
+      }
     });
   }
 
@@ -186,7 +190,9 @@ class OrderRepositoryImpl implements OrderRepository {
     final Map<String, OrderModel> result = {};
     for (var m in maps) {
       final order = OrderModel.fromMap(m);
-      result[order.tableId] = order;
+      if (order.tableId != null && order.tableId!.isNotEmpty) {
+        result[order.tableId!] = order;
+      }
     }
     return result;
   }

@@ -63,13 +63,14 @@ class AdminInvoiceController extends Controller
         $invoice = $this->invoiceRepository->findByIdOrFail($id);
 
         try {
-            $this->invoiceService->uploadPaymentProof(
+            $this->invoiceService->markAsPaid(
                 $invoice,
+                'bank_transfer',
                 $request->file('payment_proof')
             );
 
             return redirect()->back()
-                ->with('success', "Bukti transfer untuk invoice {$invoice->invoice_number} berhasil diunggah!");
+                ->with('success', "Bukti transfer untuk invoice {$invoice->invoice_number} berhasil diunggah dan status telah berubah menjadi LUNAS!");
         } catch (\LogicException $e) {
             return redirect()->back()
                 ->with('error', $e->getMessage());

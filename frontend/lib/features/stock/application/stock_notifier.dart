@@ -83,6 +83,7 @@ class StockNotifier extends StateNotifier<StockState> {
     required String produkId,
     required int qty,
     required String tanggal,
+    String type = 'in',
     String? catatan,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -90,6 +91,7 @@ class StockNotifier extends StateNotifier<StockState> {
       final log = StockIn(
         id: _uuid.v4(),
         produkId: produkId,
+        type: type,
         qty: qty,
         tanggal: tanggal,
         catatan: catatan?.trim(),
@@ -105,7 +107,7 @@ class StockNotifier extends StateNotifier<StockState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal mencatat stok masuk: $e',
+        errorMessage: 'Gagal mencatat mutasi stok: ${e.toString().replaceAll('Exception: ', '')}',
       );
       return false;
     }

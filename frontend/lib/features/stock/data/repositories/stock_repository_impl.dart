@@ -47,7 +47,11 @@ class StockRepositoryImpl implements StockRepository {
 
       final currentStock = products.first['stok'] as int;
       if (currentStock != -1) {
-        final newStock = currentStock + stockIn.qty;
+        final changeQty = stockIn.isOut ? -stockIn.qty.abs() : stockIn.qty.abs();
+        final newStock = currentStock + changeQty;
+        if (newStock < 0) {
+          throw Exception('Gagal menyimpan transaksi stok: Stok produk tidak mencukupi. Sisa stok saat ini: $currentStock');
+        }
 
         // 3. Update product stock
         await txn.update(

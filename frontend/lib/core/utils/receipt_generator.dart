@@ -68,8 +68,13 @@ class ReceiptGenerator {
     // Metadata
     bytes += generator.text('Tgl   : $nowStr', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Kasir : $cashier', styles: const PosStyles(align: PosAlign.left));
-    if (order.tableNama != null && order.tableNama!.isNotEmpty) {
+    if (order.isTakeAway) {
+      bytes += generator.text('Order : TAKE AWAY', styles: const PosStyles(align: PosAlign.left, bold: true));
+    } else if (order.tableNama != null && order.tableNama!.isNotEmpty) {
       bytes += generator.text('Meja  : ${order.tableNama}', styles: const PosStyles(align: PosAlign.left));
+    }
+    if (order.customerName != null && order.customerName!.isNotEmpty) {
+      bytes += generator.text('Nama  : ${order.customerName}', styles: const PosStyles(align: PosAlign.left, bold: true));
     }
     bytes += generator.text('Status: BELUM DIBAYAR', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
@@ -155,7 +160,14 @@ class ReceiptGenerator {
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Metadata
-    bytes += generator.text('Meja      : ${order.tableNama ?? '04'}', styles: const PosStyles(align: PosAlign.left));
+    if (order.isTakeAway) {
+      bytes += generator.text('Order     : TAKE AWAY', styles: const PosStyles(align: PosAlign.left, bold: true));
+    } else {
+      bytes += generator.text('Meja      : ${order.tableNama ?? '-'}', styles: const PosStyles(align: PosAlign.left));
+    }
+    if (order.customerName != null && order.customerName!.isNotEmpty) {
+      bytes += generator.text('Nama      : ${order.customerName}', styles: const PosStyles(align: PosAlign.left, bold: true));
+    }
     bytes += generator.text('Gelombang : ${waveInfo ?? '#1 (Baru)'}', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Waktu     : $nowStr', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Kasir     : $cashier', styles: const PosStyles(align: PosAlign.left));
@@ -220,8 +232,13 @@ class ReceiptGenerator {
     bytes += generator.text('Tgl   : $dateStr', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Kasir : $cashier', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('No.   : ${transaction.nomorTransaksi}', styles: const PosStyles(align: PosAlign.left));
-    if (tableName != null && tableName.isNotEmpty) {
+    if (transaction.orderType == 'take_away') {
+      bytes += generator.text('Order : TAKE AWAY', styles: const PosStyles(align: PosAlign.left, bold: true));
+    } else if (tableName != null && tableName.isNotEmpty) {
       bytes += generator.text('Meja  : $tableName', styles: const PosStyles(align: PosAlign.left));
+    }
+    if (transaction.customerName != null && transaction.customerName!.isNotEmpty) {
+      bytes += generator.text('Nama  : ${transaction.customerName}', styles: const PosStyles(align: PosAlign.left, bold: true));
     }
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 

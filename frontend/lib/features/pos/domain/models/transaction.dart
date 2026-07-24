@@ -10,6 +10,8 @@ class TransactionHeader {
   final double nominalBayar;
   final double kembalian;
   final String? catatan;
+  final String? customerName;
+  final String orderType; // 'dine_in' or 'take_away'
   final String status; // 'completed', 'cancelled', 'voided'
   final DateTime createdAt;
   final String? cashierId;
@@ -27,6 +29,8 @@ class TransactionHeader {
     required this.nominalBayar,
     required this.kembalian,
     this.catatan,
+    this.customerName,
+    this.orderType = 'dine_in',
     this.status = 'completed',
     required this.createdAt,
     this.cashierId,
@@ -46,6 +50,8 @@ class TransactionHeader {
       'nominal_bayar': nominalBayar,
       'kembalian': kembalian,
       'catatan': catatan,
+      'customer_name': customerName,
+      'order_type': orderType,
       'status': status,
       'created_at': createdAt.toIso8601String(),
       'cashier_id': cashierId,
@@ -66,6 +72,8 @@ class TransactionHeader {
       nominalBayar: (map['nominal_bayar'] as num).toDouble(),
       kembalian: (map['kembalian'] as num).toDouble(),
       catatan: map['catatan'] as String?,
+      customerName: map['customer_name'] as String?,
+      orderType: (map['order_type'] as String?) ?? 'dine_in',
       status: map['status'] as String,
       createdAt: DateTime.parse(map['created_at'] as String),
       cashierId: map['cashier_id'] as String?,

@@ -196,8 +196,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     try {
       final txId = _uuid.v4();
       final activeUser = ref.read(authSessionProvider);
+      final orderState = ref.read(orderNotifierProvider);
       final header = TransactionHeader(
-
         id: txId,
         nomorTransaksi: _orderNumber,
         subtotal: subtotal,
@@ -209,6 +209,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         nominalBayar: amountPaid,
         kembalian: change,
         catatan: _notesController.text.trim(),
+        customerName: orderState.customerName,
+        orderType: orderState.orderType,
         createdAt: DateTime.now(),
         cashierId: activeUser?.id,
         cashierNama: activeUser?.nama,
@@ -230,10 +232,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }).toList();
 
       // Save transaction to local SQLite DB and deduct stock
-      await ref.read(transactionRepositoryProvider).saveTransaction(header, items);
-
-      final orderState = ref.read(orderNotifierProvider);
-      
       // 1. If this transaction is linked to a table order draft, mark it completed (but do not release table status to Empty)
       if (orderState.selectedTable != null && orderState.activeOrder != null) {
         await ref.read(orderRepositoryProvider).completeOrder(

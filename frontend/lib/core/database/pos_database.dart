@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 6,
+            version: 7,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 6,
+          version: 7,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -71,7 +71,7 @@ class PosDatabase {
       try {
         db = await openDatabase(
           path,
-          version: 6,
+          version: 7,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -123,6 +123,7 @@ class PosDatabase {
       CREATE TABLE stock_in (
         id TEXT PRIMARY KEY,
         produk_id TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'in',
         qty INTEGER NOT NULL,
         tanggal TEXT NOT NULL,
         catatan TEXT,
@@ -167,6 +168,8 @@ class PosDatabase {
         nominal_bayar REAL NOT NULL DEFAULT 0,
         kembalian REAL NOT NULL DEFAULT 0,
         catatan TEXT,
+        customer_name TEXT,
+        order_type TEXT NOT NULL DEFAULT 'dine_in',
         status TEXT NOT NULL DEFAULT 'completed',
         cashier_id TEXT,
         cashier_nama TEXT,
@@ -208,9 +211,11 @@ class PosDatabase {
       CREATE TABLE orders (
         id TEXT PRIMARY KEY,
         nomor_order TEXT NOT NULL UNIQUE,
-        table_id TEXT NOT NULL,
+        table_id TEXT,
         table_nama TEXT,
         table_nomor TEXT,
+        customer_name TEXT,
+        order_type TEXT NOT NULL DEFAULT 'dine_in',
         subtotal REAL NOT NULL DEFAULT 0,
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
@@ -220,8 +225,7 @@ class PosDatabase {
         cashier_id TEXT,
         cashier_nama TEXT,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE RESTRICT
+        updated_at TEXT NOT NULL
       )
     ''');
 
@@ -421,6 +425,23 @@ class PosDatabase {
           await db.execute(sql);
         } catch (e) {
           debugPrint('Migration error (version 6): $e');
+        }
+      }
+    }
+
+    if (oldVersion < 7) {
+      final v7AlterColumns = [
+        "ALTER TABLE stock_in ADD COLUMN type TEXT NOT NULL DEFAULT 'in'",
+        "ALTER TABLE orders ADD COLUMN customer_name TEXT",
+        "ALTER TABLE orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'dine_in'",
+        "ALTER TABLE transactions ADD COLUMN customer_name TEXT",
+        "ALTER TABLE transactions ADD COLUMN order_type TEXT NOT NULL DEFAULT 'dine_in'",
+      ];
+      for (final sql in v7AlterColumns) {
+        try {
+          await db.execute(sql);
+        } catch (e) {
+          debugPrint('Migration error (version 7): $e');
         }
       }
     }

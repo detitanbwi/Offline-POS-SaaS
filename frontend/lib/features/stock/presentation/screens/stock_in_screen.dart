@@ -30,7 +30,6 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
   }
 
   void _showAddDialog(BuildContext context) {
-    // Make sure product notifier has products loaded
     final productState = ref.read(productNotifierProvider);
     final activeProducts = productState.allProducts.where((p) => p.isActive).toList();
 
@@ -43,13 +42,14 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
 
     AppDialog.show(
       context: context,
-      title: 'Catat Stok Masuk',
+      title: 'Catat Mutasi Stok (Masuk/Keluar)',
       confirmText: 'Simpan',
       content: StockInForm(
         key: formKey,
         products: productState.allProducts,
         onSubmit: ({
           required String produkId,
+          required String type,
           required int qty,
           required String tanggal,
           String? catatan,
@@ -58,6 +58,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
 
           final success = await ref.read(stockNotifierProvider.notifier).addStockIn(
                 produkId: produkId,
+                type: type,
                 qty: qty,
                 tanggal: tanggal,
                 catatan: catatan,
@@ -66,7 +67,8 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
           if (!context.mounted) return;
           final state = ref.read(stockNotifierProvider);
           if (success) {
-            AppSnackbar.showSuccess(context, 'Stok masuk berhasil dicatat!');
+            final msg = type == 'in' ? 'Stok masuk berhasil dicatat!' : 'Stok keluar/minus berhasil dicatat!';
+            AppSnackbar.showSuccess(context, msg);
           } else if (state.errorMessage != null) {
             AppSnackbar.showError(context, state.errorMessage!);
           }
@@ -86,13 +88,14 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Stok Masuk (Stock In)'),
+        title: const Text('Manajemen Stok (In & Out)'),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        child: const Icon(Icons.add_circle_outline),
+        icon: const Icon(Icons.swap_vert_rounded),
+        label: const Text('Catat Stok'),
       ),
       body: SafeArea(
         child: Column(
@@ -103,24 +106,24 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
               padding: const EdgeInsets.all(AppSpacing.m),
               child: AppTextField(
                 controller: _searchController,
-                labelText: 'Cari Riwayat Stok',
+                labelText: 'Cari Riwayat Mutasi Stok',
                 prefixIcon: Icons.search,
                 onChanged: (val) => notifier.setSearchQuery(val),
               ),
             ),
-            const Divider(),
+            const Divider(height: 1),
             // Content
             Expanded(
               child: state.isLoading
                   ? const AppLoading(message: 'Memuat data riwayat stok...')
                   : state.filteredStockIn.isEmpty
                       ? AppEmptyState(
-                          title: 'Riwayat Stok Kosong',
+                          title: 'Riwayat Mutasi Stok Kosong',
                           description: _searchController.text.isNotEmpty
                               ? 'Tidak ada riwayat stok yang cocok dengan pencarian Anda.'
-                              : 'Belum ada transaksi pencatatan stok masuk.',
+                              : 'Belum ada pencatatan stok masuk atau keluar.',
                           icon: Icons.assignment_outlined,
-                          actionText: _searchController.text.isNotEmpty ? null : 'Catat Stok Masuk',
+                          actionText: _searchController.text.isNotEmpty ? null : 'Catat Stok',
                           onActionPressed: () => _showAddDialog(context),
                         )
                       : ListView.separated(
@@ -129,6 +132,14 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final log = state.filteredStockIn[index];
+                            final isOut = log.isOut;
+                            final iconColor = isOut ? AppColors.error : AppColors.success;
+                            final badgeBg = isOut
+                                ? AppColors.error.withValues(alpha: 0.1)
+                                : AppColors.primaryContainer;
+                            final badgeTextColor = isOut ? AppColors.error : AppColors.primary;
+                            final signPrefix = isOut ? '-' : '+';
+
                             return AppCard(
                               padding: const EdgeInsets.all(16),
                               borderSide: const BorderSide(color: AppColors.divider),
@@ -137,13 +148,12 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: AppColors.success.withValues(alpha: 0.1),
-
+                                      color: iconColor.withValues(alpha: 0.1),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                      Icons.add_box_outlined,
-                                      color: AppColors.success,
+                                    child: Icon(
+                                      isOut ? Icons.indeterminate_check_box_outlined : Icons.add_box_outlined,
+                                      color: iconColor,
                                       size: 24,
                                     ),
                                   ),
@@ -152,17 +162,24 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          log.produkNama ?? 'Produk Tidak Diketahui',
-                                          style: AppTypography.titleMedium.copyWith(fontSize: 16),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                log.produkNama ?? 'Produk Tidak Diketahui',
+                                                style: AppTypography.titleMedium.copyWith(fontSize: 16),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                         const SizedBox(height: 4),
                                         if (log.catatan != null && log.catatan!.isNotEmpty) ...[
                                           Text(
                                             log.catatan!,
                                             style: AppTypography.bodyMedium.copyWith(
-                                              color: AppColors.textSecondary,
+                                              color: isOut ? AppColors.textPrimary : AppColors.textSecondary,
                                               fontSize: 13,
+                                              fontWeight: isOut ? FontWeight.w500 : FontWeight.normal,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
@@ -177,16 +194,17 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryContainer,
+                                      color: badgeBg,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      '+${log.qty}',
+                                      '$signPrefix${log.qty.abs()}',
                                       style: TextStyle(
-                                        color: AppColors.primary,
+                                        color: badgeTextColor,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
                                       ),
@@ -204,4 +222,3 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
     );
   }
 }
-

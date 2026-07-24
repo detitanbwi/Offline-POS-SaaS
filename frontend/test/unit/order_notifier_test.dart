@@ -117,6 +117,8 @@ class OrderRepositoryMock implements OrderRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('OrderNotifier and Draft Tests', () {
     late ProviderContainer container;
     late OrderRepositoryMock orderRepoMock;
@@ -252,6 +254,41 @@ void main() {
       expect(printedItems.first.produkNama, 'Kopi Susu');
       expect(printedItems.first.qty, 2);
       expect(orderRepoMock.saveOrderCalled, isTrue);
+    });
+
+    test('saveCurrentOrderDraft supports Take Away without table', () async {
+      final notifier = container.read(orderNotifierProvider.notifier);
+      notifier.setOrderType('take_away');
+      notifier.setCustomerName('Budi Test');
+
+      final product = Product(
+        id: 'prod-1',
+        nama: 'Kopi Susu Take Away',
+        harga: 18000.0,
+        stok: 10,
+        kategoriId: 'cat-1',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final cartItems = [
+        CartItem(product: product, qty: 1),
+      ];
+
+      final printedItems = await notifier.saveCurrentOrderDraft(
+        cartItems,
+        18000.0,
+        0.0,
+        0.0,
+        18000.0,
+      );
+
+      expect(printedItems, isNotNull);
+      expect(printedItems!.length, 1);
+      expect(printedItems.first.produkNama, 'Kopi Susu Take Away');
+      expect(orderRepoMock.mockActiveOrder?.isTakeAway, isTrue);
+      expect(orderRepoMock.mockActiveOrder?.customerName, 'Budi Test');
+      expect(orderRepoMock.mockActiveOrder?.tableId, isNull);
     });
   });
 }

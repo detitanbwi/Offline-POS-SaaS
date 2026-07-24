@@ -64,7 +64,7 @@
         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
             Unggah bukti transfer dari pelanggan sebelum melakukan konfirmasi/approval status lunas.
         </p>
-        <form action="{{ route('admin.invoices.upload-proof', $invoice) }}" method="POST" enctype="multipart/form-data" class="flex gap-3 items-center flex-wrap">
+        <form action="{{ route('admin.invoices.upload-proof', $invoice) }}" method="POST" enctype="multipart/form-data" class="flex gap-3 items-center flex-wrap" onsubmit="return confirm('Apakah Anda yakin ingin mengunggah bukti transfer? Invoice akan langsung ditandai LUNAS dan lisensi diterbitkan.')">
             @csrf
             <input type="file" name="payment_proof" class="form-control" style="max-width: 320px;" accept="image/jpeg,image/png,image/jpg,application/pdf" required>
             <button type="submit" class="btn btn-primary btn-sm">⬆ Upload Bukti Transfer</button>
