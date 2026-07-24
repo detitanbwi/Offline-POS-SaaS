@@ -372,33 +372,30 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final paymentBreakdown = report['payment_breakdown'] as Map<String, double>;
     final topProducts = report['top_products'] as List<Map<String, dynamic>>;
 
-    return ListView(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: AppCard(
-                color: AppColors.primaryContainer.withValues(alpha: 0.3),
+    final isWide = MediaQuery.of(context).size.width >= 600 &&
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Total Omset', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text(
-                      CurrencyFormatter.format(totalSales),
-                      style: AppTypography.titleMedium.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ],
+    final overviewCards = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppCard(
+          color: AppColors.primaryContainer.withValues(alpha: 0.3),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Total Omset', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 4),
+              Text(
+                CurrencyFormatter.format(totalSales),
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  fontSize: 18,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -439,7 +436,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           ],
         ),
         const SizedBox(height: 20),
-
         AppCard(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -474,8 +470,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+      ],
+    );
 
+    final detailsCard = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         AppCard(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -523,7 +523,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           ),
         ),
         const SizedBox(height: 24),
-
         AppButton(
           text: 'Cetak Laporan Ringkasan',
           onPressed: totalTransactions == 0 ? null : () => _handlePrintReport(report),
@@ -538,5 +537,30 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         ),
       ],
     );
+
+    if (isWide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 1,
+            child: SingleChildScrollView(child: overviewCards),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            flex: 1,
+            child: SingleChildScrollView(child: detailsCard),
+          ),
+        ],
+      );
+    } else {
+      return ListView(
+        children: [
+          overviewCards,
+          const SizedBox(height: 20),
+          detailsCard,
+        ],
+      );
+    }
   }
 }

@@ -81,19 +81,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 480.w),
+              constraints: const BoxConstraints(maxWidth: 480),
               child: AppCard(
-                padding: EdgeInsets.all(24.r),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.storefront_rounded,
-                      size: 56.r,
+                      size: 56,
                       color: AppColors.primary,
                     ),
-                    SizedBox(height: 12.h),
+                    const SizedBox(height: 12),
                     Text(
                       "SaaS POS Offline",
                       textAlign: TextAlign.center,

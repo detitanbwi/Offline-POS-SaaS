@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 class ResponsiveLayout extends StatelessWidget {
   final Widget mobile;
+  final Widget? mobileLandscape;
   final Widget? tablet;
 
   const ResponsiveLayout({
     super.key,
     required this.mobile,
+    this.mobileLandscape,
     this.tablet,
   });
 
@@ -27,11 +29,19 @@ class ResponsiveLayout extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final shortestSide = MediaQuery.of(context).size.shortestSide;
+        final isLandscapeMode = MediaQuery.of(context).orientation == Orientation.landscape;
+
         if (shortestSide >= 600 && tablet != null) {
           return tablet!;
         }
+
+        if (shortestSide < 600 && isLandscapeMode && mobileLandscape != null) {
+          return mobileLandscape!;
+        }
+
         return mobile;
       },
     );
   }
 }
+

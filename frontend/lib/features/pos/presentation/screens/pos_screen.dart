@@ -25,11 +25,7 @@ import '../../application/order_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../../table/application/table_notifier.dart';
-import '../../../table/domain/models/table.dart';
 import 'payment_screen.dart';
-import 'package:uuid/uuid.dart';
-import '../../domain/models/order.dart';
-import '../../domain/models/order_item.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
 import '../../../../core/widgets/app_receipt_preview_modal.dart';
@@ -183,7 +179,27 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   ),
               ],
             ),
-            // Tablet / Landscape Split Layout
+            // Mobile Landscape & Tablet Split Layout
+            mobileLandscape: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    children: [
+                      _buildCatalogHeader(activeCategories),
+                      Expanded(
+                        child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
+                      ),
+                    ],
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  flex: 2,
+                  child: _buildCartPanel(context, cartState, cartNotifier),
+                ),
+              ],
+            ),
             tablet: Row(
               children: [
                 // Left side: Catalog
@@ -457,14 +473,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
 
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
 
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.m),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: isLandscape ? 160 : 180,
+        maxCrossAxisExtent: isLandscape ? (isTablet ? 180 : 150) : 180,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: isLandscape ? 0.9 : 0.72,
+        childAspectRatio: isLandscape ? (isTablet ? 0.85 : 0.75) : 0.72,
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
@@ -526,14 +543,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         children: [
                           Text(
                             product.nama,
-                            style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold),
+                            style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 1),
                           Text(
                             product.kategoriNama ?? 'Master',
-                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
+                            style: AppTypography.bodySmall,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -547,7 +564,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               CurrencyFormatter.format(product.harga),
                               style: AppTypography.titleMedium.copyWith(
                                 color: AppColors.primary,
-                                fontSize: 13.sp,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
                               maxLines: 1,

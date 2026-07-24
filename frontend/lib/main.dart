@@ -105,21 +105,28 @@ class _MyAppState extends ConsumerState<MyApp> {
   Widget build(BuildContext context) {
     final isExpired = ref.watch(licenseExpiredProvider);
 
-    // Determine design size dynamically (mobile vs tablet)
+    // Determine design size dynamically (mobile vs tablet, portrait vs landscape)
     final mediaQuery = MediaQuery.maybeOf(context);
     double shortestSide = 360.0;
+    bool isLandscape = false;
     if (mediaQuery != null) {
       shortestSide = mediaQuery.size.shortestSide;
+      isLandscape = mediaQuery.orientation == Orientation.landscape;
     } else {
       final view = View.maybeOf(context);
       if (view != null) {
-        shortestSide = (view.physicalSize / view.devicePixelRatio).shortestSide;
+        final size = view.physicalSize / view.devicePixelRatio;
+        shortestSide = size.shortestSide;
+        isLandscape = size.width > size.height;
       }
     }
 
-    final designSize = shortestSide < 600
-        ? const Size(360, 800)
-        : const Size(768, 1024);
+    final Size designSize;
+    if (shortestSide < 600) {
+      designSize = isLandscape ? const Size(800, 360) : const Size(360, 800);
+    } else {
+      designSize = isLandscape ? const Size(1024, 768) : const Size(768, 1024);
+    }
 
     return ScreenUtilInit(
       designSize: designSize,

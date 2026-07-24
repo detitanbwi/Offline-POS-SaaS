@@ -1,24 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_radius.dart';
 import '../constants/app_typography.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
+    final textTheme = TextTheme(
+      displayLarge: AppTypography.displayLarge,
+      displayMedium: AppTypography.displayMedium,
+      displaySmall: AppTypography.displaySmall,
+      headlineLarge: AppTypography.headlineLarge,
+      headlineMedium: AppTypography.headlineMedium,
+      headlineSmall: AppTypography.headlineSmall,
+      titleLarge: AppTypography.titleLarge,
+      titleMedium: AppTypography.titleMedium,
+      titleSmall: AppTypography.titleSmall,
+      bodyLarge: AppTypography.bodyLarge,
+      bodyMedium: AppTypography.bodyMedium,
+      bodySmall: AppTypography.bodySmall,
+      labelLarge: AppTypography.labelLarge,
+      labelMedium: AppTypography.labelMedium,
+      labelSmall: AppTypography.labelSmall,
+    );
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.light(
         primary: AppColors.primary,
         onPrimary: Colors.white,
         primaryContainer: AppColors.primaryContainer,
+        onPrimaryContainer: AppColors.primaryActive,
         secondary: AppColors.secondary,
         onSecondary: Colors.white,
         secondaryContainer: AppColors.secondaryContainer,
+        onSecondaryContainer: AppColors.secondaryActive,
         error: AppColors.error,
         onError: Colors.white,
         surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
+        surfaceContainerHighest: Color(0xFFF1F5F9),
+        outline: AppColors.divider,
+        outlineVariant: Color(0xFFCBD5E1),
       ),
       scaffoldBackgroundColor: AppColors.background,
       dividerTheme: const DividerThemeData(
@@ -100,7 +122,8 @@ class AppTheme {
         labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
       ),
-      textTheme: GoogleFonts.interTextTheme(),
+      textTheme: textTheme,
     );
   }
 }
+

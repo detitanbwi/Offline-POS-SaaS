@@ -288,7 +288,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       barrierDismissible: false,
       builder: (context) => AppDialog(
         title: 'Transaksi Sukses',
-        confirmText: 'Kembali Ke Transaksi',
+        confirmText: 'Kembali',
         cancelText: 'Menu Utama',
         onCancel: () {
           // Navigate to main menu and clear stack
@@ -661,6 +661,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 OutlinedButton(
                   onPressed: () => _applyPresetAmount(100000),
                   child: const Text('100.000'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _applyPresetAmount(200000),
+                  child: const Text('200.000'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _applyPresetAmount(500000),
+                  child: const Text('500.000'),
                 ),
               ],
             ),

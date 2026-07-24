@@ -128,15 +128,15 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 420.w),
+              constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.lock_person_rounded, size: 64.r, color: Colors.white),
-                  SizedBox(height: 16.h),
+                  const Icon(Icons.lock_person_rounded, size: 64, color: Colors.white),
+                  const SizedBox(height: 16),
                   Text(
                     widget.isSetup ? "Buat PIN Keamanan Baru" : "Masukkan PIN & Username",
                     textAlign: TextAlign.center,

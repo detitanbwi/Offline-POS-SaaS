@@ -22,30 +22,36 @@ class AppEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompactLandscape = MediaQuery.of(context).orientation == Orientation.landscape &&
+        MediaQuery.of(context).size.height < 500;
+
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.l),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(AppSpacing.l),
+              padding: EdgeInsets.all(isCompactLandscape ? AppSpacing.sm : AppSpacing.l),
               decoration: BoxDecoration(
                 color: AppColors.primaryContainer.withValues(alpha: 0.4),
-
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
-                size: 64,
+                size: isCompactLandscape ? 36 : 64,
                 color: AppColors.primary,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isCompactLandscape ? 12 : 24),
             Text(
               title,
-              style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+              style: AppTypography.titleLarge.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: isCompactLandscape ? 18 : 22,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -55,7 +61,7 @@ class AppEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (actionText != null && onActionPressed != null) ...[
-              const SizedBox(height: 24),
+              SizedBox(height: isCompactLandscape ? 12 : 24),
               AppButton(
                 text: actionText!,
                 onPressed: onActionPressed,

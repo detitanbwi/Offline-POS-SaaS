@@ -148,16 +148,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 520.w),
+              constraints: const BoxConstraints(maxWidth: 520),
               child: Card(
                 elevation: 4,
                 shadowColor: Colors.black12,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 color: Colors.white,
                 child: Padding(
-                  padding: EdgeInsets.all(24.r),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
