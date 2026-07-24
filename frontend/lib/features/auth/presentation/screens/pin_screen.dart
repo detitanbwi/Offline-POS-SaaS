@@ -155,6 +155,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                     TextField(
                       controller: _usernameController,
                       style: const TextStyle(color: Colors.white),
+                      textInputAction: TextInputAction.next,
                       autofocus: true,
                       decoration: const InputDecoration(
                         labelText: 'Username / Nama Karyawan',

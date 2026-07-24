@@ -21,6 +21,14 @@ class ResponsiveLayout extends StatelessWidget {
   static bool isLandscape(BuildContext context) =>
       MediaQuery.of(context).orientation == Orientation.landscape;
 
+  static bool isMobileLandscape(BuildContext context) =>
+      MediaQuery.of(context).size.shortestSide < 600 &&
+      MediaQuery.of(context).orientation == Orientation.landscape;
+
+  static bool isTabletLandscape(BuildContext context) =>
+      MediaQuery.of(context).size.shortestSide >= 600 &&
+      MediaQuery.of(context).orientation == Orientation.landscape;
+
   static bool isKeyboardOpen(BuildContext context) =>
       MediaQuery.of(context).viewInsets.bottom > 0;
 

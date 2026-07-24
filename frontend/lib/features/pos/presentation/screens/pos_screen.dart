@@ -132,6 +132,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           : '🍽️ $tableName ($orderNumber)';
     }
 
+    final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -144,14 +146,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
+          toolbarHeight: isMobileLandscape ? 42 : null,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Transaksi POS', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
+              Text('Transaksi POS', style: TextStyle(fontSize: isMobileLandscape ? 14 : 16, fontWeight: FontWeight.bold)),
               if (subtitleText.isNotEmpty)
                 Text(
                   subtitleText,
-                  style: TextStyle(fontSize: 12.sp, color: Colors.white70),
+                  style: TextStyle(fontSize: isMobileLandscape ? 10 : 12, color: Colors.white70),
                 ),
             ],
           ),
@@ -179,11 +182,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   ),
               ],
             ),
-            // Mobile Landscape & Tablet Split Layout
+            // Mobile Landscape Split Layout (flex 4:3 for more cart width)
             mobileLandscape: Row(
               children: [
                 Expanded(
-                  flex: 3,
+                  flex: 4,
                   child: Column(
                     children: [
                       _buildCatalogHeader(activeCategories),
@@ -195,11 +198,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
                 const VerticalDivider(width: 1),
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: _buildCartPanel(context, cartState, cartNotifier),
                 ),
               ],
             ),
+            // Tablet Split Layout (flex 3:2 untouched)
             tablet: Row(
               children: [
                 // Left side: Catalog
@@ -369,9 +373,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   // Header catalog with search field & category selection horizontal chips
   Widget _buildCatalogHeader(List<dynamic> activeCategories) {
+    final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
+
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.sm),
+      padding: EdgeInsets.all(isMobileLandscape ? AppSpacing.s : AppSpacing.m),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -394,25 +400,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               final vacantCount = tableState.allTables.where((t) => t.isEmpty).length;
               if (tableState.allTables.isEmpty) return const SizedBox.shrink();
               return Padding(
-                padding: const EdgeInsets.only(top: 8.0),
+                padding: const EdgeInsets.only(top: 4.0),
                 child: Row(
                   children: [
                     Icon(
                       Icons.table_restaurant_rounded,
-                      size: 16,
+                      size: 14,
                       color: vacantCount > 0 ? AppColors.success : AppColors.error,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Sisa Meja Tersedia: ',
-                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 13),
+                      'Sisa Meja: ',
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: isMobileLandscape ? 11 : 13),
                     ),
                     Text(
                       '$vacantCount dari ${tableState.allTables.length} meja',
                       style: AppTypography.bodyMedium.copyWith(
                         fontWeight: FontWeight.bold,
                         color: vacantCount > 0 ? AppColors.success : AppColors.error,
-                        fontSize: 13,
+                        fontSize: isMobileLandscape ? 11 : 13,
                       ),
                     ),
                   ],
@@ -420,7 +426,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               );
             }
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: isMobileLandscape ? 4 : 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -431,22 +437,26 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   onSelected: (_) => setState(() => _selectedCategoryId = null),
                   selectedColor: AppColors.primary,
                   checkmarkColor: Colors.white,
+                  visualDensity: isMobileLandscape ? VisualDensity.compact : null,
                   labelStyle: TextStyle(
                     color: _selectedCategoryId == null ? Colors.white : AppColors.textSecondary,
+                    fontSize: isMobileLandscape ? 11 : 13,
                   ),
                 ),
                 ...activeCategories.map((cat) {
                   final isSelected = _selectedCategoryId == cat.id;
                   return Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
+                    padding: const EdgeInsets.only(left: 6.0),
                     child: FilterChip(
                       label: Text(cat.nama),
                       selected: isSelected,
                       onSelected: (_) => setState(() => _selectedCategoryId = cat.id),
                       selectedColor: AppColors.primary,
                       checkmarkColor: Colors.white,
+                      visualDensity: isMobileLandscape ? VisualDensity.compact : null,
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.white : AppColors.textSecondary,
+                        fontSize: isMobileLandscape ? 11 : 13,
                       ),
                     ),
                   );
@@ -474,14 +484,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
 
     return GridView.builder(
-      padding: const EdgeInsets.all(AppSpacing.m),
+      padding: EdgeInsets.all(isMobileLandscape ? AppSpacing.s : AppSpacing.m),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: isLandscape ? (isTablet ? 180 : 150) : 180,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: isLandscape ? (isTablet ? 0.85 : 0.75) : 0.72,
+        maxCrossAxisExtent: isMobileLandscape ? 135 : (isTablet ? 180 : 180),
+        mainAxisSpacing: isMobileLandscape ? 8 : 12,
+        crossAxisSpacing: isMobileLandscape ? 8 : 12,
+        childAspectRatio: isMobileLandscape ? 0.85 : (isTablet && isLandscape ? 0.85 : 0.72),
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
@@ -746,27 +757,37 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Widget _buildCartPanel(BuildContext context, CartState state, CartNotifier cartNotifier) {
     final orderState = ref.watch(orderNotifierProvider);
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.all(AppSpacing.m),
+      padding: EdgeInsets.all(isMobileLandscape ? AppSpacing.s : AppSpacing.m),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Keranjang Belanja', style: AppTypography.titleMedium.copyWith(fontSize: 18)),
-              TextButton.icon(
-                icon: const Icon(Icons.delete_sweep_rounded, size: 18, color: AppColors.error),
-                label: const Text('Kosongkan', style: TextStyle(color: AppColors.error)),
+              Flexible(
+                child: Text(
+                  'Keranjang Belanja',
+                  style: AppTypography.titleMedium.copyWith(fontSize: isMobileLandscape ? 14 : 18),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.delete_sweep_rounded, size: 20, color: AppColors.error),
                 onPressed: state.items.isEmpty ? null : () => cartNotifier.clear(),
+                tooltip: 'Kosongkan Keranjang',
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _buildOrderTypeAndCustomerSection(context, orderState, orderNotifier),
-          const Divider(height: 16),
+          const Divider(height: 12),
           // Cart Items List
           Expanded(
             child: state.items.isEmpty
@@ -788,7 +809,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     },
                   ),
           ),
-          const Divider(height: 16),
+          const Divider(height: 12),
           // Scrollable Action Area for landscape overflow protection
           Flexible(
             fit: FlexFit.loose,
@@ -798,54 +819,120 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildBillSummary(state),
-                  const SizedBox(height: 12),
-                  AppButton(
-                    text: 'Lanjutkan ke Pembayaran',
-                    onPressed: state.items.isEmpty
-                        ? null
-                        : () async {
-                            if (await _ensureTableSelected()) {
-                              if (!context.mounted) return;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                              );
-                            }
-                          },
-                    icon: Icons.arrow_forward_rounded,
-                  ),
                   const SizedBox(height: 8),
-                  AppButton(
-                    text: 'Simpan Order (Kirim ke Dapur)',
-                    type: AppButtonType.secondary,
-                    onPressed: state.items.isEmpty
-                        ? null
-                        : () async {
-                            if (await _ensureTableSelected()) {
-                              if (!context.mounted) return;
-                              _handleSaveOrderDraft(context, state);
-                            }
-                          },
-                    icon: Icons.kitchen_rounded,
-                    width: double.infinity,
-                  ),
-                  if (orderState.activeOrder != null) ...[
+                  if (isMobileLandscape) ...[
+                    // Side-by-side action buttons for mobile landscape to save vertical height
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            text: 'Bayar',
+                            onPressed: state.items.isEmpty
+                                ? null
+                                : () async {
+                                    if (await _ensureTableSelected()) {
+                                      if (!context.mounted) return;
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                      );
+                                    }
+                                  },
+                            icon: Icons.arrow_forward_rounded,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: AppButton(
+                            text: 'Ke Dapur',
+                            type: AppButtonType.secondary,
+                            onPressed: state.items.isEmpty
+                                ? null
+                                : () async {
+                                    if (await _ensureTableSelected()) {
+                                      if (!context.mounted) return;
+                                      _handleSaveOrderDraft(context, state);
+                                    }
+                                  },
+                            icon: Icons.kitchen_rounded,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (orderState.activeOrder != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppButton(
+                              text: 'Cetak Bil',
+                              type: AppButtonType.secondary,
+                              onPressed: _handlePrintBill,
+                              icon: Icons.print_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: AppButton(
+                              text: 'Batal',
+                              type: AppButtonType.destructive,
+                              onPressed: () => _handleCancelOrder(context),
+                              icon: Icons.cancel_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ] else ...[
+                    // Standard full-width stacked action buttons for Tablet
+                    AppButton(
+                      text: 'Lanjutkan ke Pembayaran',
+                      onPressed: state.items.isEmpty
+                          ? null
+                          : () async {
+                              if (await _ensureTableSelected()) {
+                                if (!context.mounted) return;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                );
+                              }
+                            },
+                      icon: Icons.arrow_forward_rounded,
+                    ),
                     const SizedBox(height: 8),
                     AppButton(
-                      text: 'Cetak Bil (Tagihan Sementara)',
+                      text: 'Simpan Order (Kirim ke Dapur)',
                       type: AppButtonType.secondary,
-                      onPressed: _handlePrintBill,
-                      icon: Icons.print_rounded,
+                      onPressed: state.items.isEmpty
+                          ? null
+                          : () async {
+                              if (await _ensureTableSelected()) {
+                                if (!context.mounted) return;
+                                _handleSaveOrderDraft(context, state);
+                              }
+                            },
+                      icon: Icons.kitchen_rounded,
                       width: double.infinity,
                     ),
-                    const SizedBox(height: 8),
-                    AppButton(
-                      text: 'Batalkan Pesanan',
-                      type: AppButtonType.destructive,
-                      onPressed: () => _handleCancelOrder(context),
-                      icon: Icons.cancel_outlined,
-                      width: double.infinity,
-                    ),
+                    if (orderState.activeOrder != null) ...[
+                      const SizedBox(height: 8),
+                      AppButton(
+                        text: 'Cetak Bil (Tagihan Sementara)',
+                        type: AppButtonType.secondary,
+                        onPressed: _handlePrintBill,
+                        icon: Icons.print_rounded,
+                        width: double.infinity,
+                      ),
+                      const SizedBox(height: 8),
+                      AppButton(
+                        text: 'Batalkan Pesanan',
+                        type: AppButtonType.destructive,
+                        onPressed: () => _handleCancelOrder(context),
+                        icon: Icons.cancel_outlined,
+                        width: double.infinity,
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -977,8 +1064,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               return SafeArea(
                                 child: Padding(
                                   padding: const EdgeInsets.all(AppSpacing.m),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  child: ListView(
+                                    controller: scrollController,
                                     children: [
                                       Center(
                                         child: Container(
@@ -1004,56 +1091,100 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                       const Divider(),
                                       _buildOrderTypeAndCustomerSection(context, orderState, orderNotifier),
                                       const Divider(),
-                                      Expanded(
-                                        child: ListView.separated(
-                                          controller: scrollController,
-                                          itemCount: cState.items.length,
-                                          separatorBuilder: (_, _) => const Divider(),
-                                          itemBuilder: (context, index) {
-                                            final item = cState.items[index];
-                                            return _CartItemRow(
-                                              item: item,
-                                              cartNotifier: cNotifier,
-                                              onNoteTap: () => _showNoteDialog(rootContext, item),
-                                            );
-                                          },
+                                      if (cState.items.isEmpty)
+                                        const Padding(
+                                          padding: EdgeInsets.all(24),
+                                          child: Center(child: Text('Keranjang Kosong')),
+                                        )
+                                      else
+                                        ...cState.items.map(
+                                          (item) => Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              _CartItemRow(
+                                                item: item,
+                                                cartNotifier: cNotifier,
+                                                onNoteTap: () => _showNoteDialog(rootContext, item),
+                                              ),
+                                              const Divider(),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                      const Divider(),
                                       _buildBillSummary(cState),
                                       const SizedBox(height: 16),
-                                      AppButton(
-                                        text: 'Bayar Sekarang',
-                                        onPressed: cState.items.isEmpty
-                                            ? null
-                                            : () async {
-                                                Navigator.of(sheetContext).pop();
-                                                if (await _ensureTableSelected()) {
-                                                  if (!mounted) return;
-                                                  Navigator.of(rootContext).push(
-                                                    MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                                  );
-                                                }
-                                              },
-                                        icon: Icons.payment_rounded,
-                                        width: double.infinity,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      AppButton(
-                                        text: 'Simpan Order (Kirim ke Dapur)',
-                                        type: AppButtonType.secondary,
-                                        onPressed: cState.items.isEmpty
-                                            ? null
-                                            : () async {
-                                                Navigator.of(sheetContext).pop();
-                                                if (await _ensureTableSelected()) {
-                                                  if (!mounted) return;
-                                                  _handleSaveOrderDraft(rootContext, cState);
-                                                }
-                                              },
-                                        icon: Icons.kitchen_rounded,
-                                        width: double.infinity,
-                                      ),
+                                      if (ResponsiveLayout.isMobileLandscape(context)) ...[
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: AppButton(
+                                                text: 'Bayar Sekarang',
+                                                onPressed: cState.items.isEmpty
+                                                    ? null
+                                                    : () async {
+                                                        Navigator.of(sheetContext).pop();
+                                                        if (await _ensureTableSelected()) {
+                                                          if (!mounted) return;
+                                                          Navigator.of(rootContext).push(
+                                                            MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                                          );
+                                                        }
+                                                      },
+                                                icon: Icons.payment_rounded,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: AppButton(
+                                                text: 'Simpan Order',
+                                                type: AppButtonType.secondary,
+                                                onPressed: cState.items.isEmpty
+                                                    ? null
+                                                    : () async {
+                                                        Navigator.of(sheetContext).pop();
+                                                        if (await _ensureTableSelected()) {
+                                                          if (!mounted) return;
+                                                          _handleSaveOrderDraft(rootContext, cState);
+                                                        }
+                                                      },
+                                                icon: Icons.kitchen_rounded,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ] else ...[
+                                        AppButton(
+                                          text: 'Bayar Sekarang',
+                                          onPressed: cState.items.isEmpty
+                                              ? null
+                                              : () async {
+                                                  Navigator.of(sheetContext).pop();
+                                                  if (await _ensureTableSelected()) {
+                                                    if (!mounted) return;
+                                                    Navigator.of(rootContext).push(
+                                                      MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                                    );
+                                                  }
+                                                },
+                                          icon: Icons.payment_rounded,
+                                          width: double.infinity,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        AppButton(
+                                          text: 'Simpan Order (Kirim ke Dapur)',
+                                          type: AppButtonType.secondary,
+                                          onPressed: cState.items.isEmpty
+                                              ? null
+                                              : () async {
+                                                  Navigator.of(sheetContext).pop();
+                                                  if (await _ensureTableSelected()) {
+                                                    if (!mounted) return;
+                                                    _handleSaveOrderDraft(rootContext, cState);
+                                                  }
+                                                },
+                                          icon: Icons.kitchen_rounded,
+                                          width: double.infinity,
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),

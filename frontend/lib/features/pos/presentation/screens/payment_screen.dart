@@ -15,6 +15,7 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/responsive_layout.dart';
 import '../../../../core/di/providers.dart';
 import '../../../payment_method/application/payment_method_notifier.dart';
 import '../../../payment_method/domain/models/payment_method.dart';
@@ -390,7 +391,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
-          title: const Text('Pembayaran Transaksi'),
+          toolbarHeight: ResponsiveLayout.isMobileLandscape(context) ? 42 : null,
+          title: Text('Pembayaran Transaksi', style: TextStyle(fontSize: ResponsiveLayout.isMobileLandscape(context) ? 14 : 16)),
         ),
         body: SafeArea(
           child: _isProcessing
@@ -398,6 +400,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             : LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 600;
+                  final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
+                  final paddingVal = isMobileLandscape ? AppSpacing.s : AppSpacing.l;
                   
                   final billingPanel = _buildBillingPanel(
                     cartState, pmState, activeMethods, isCash, grandTotal,
@@ -411,17 +415,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          flex: 3,
+                          flex: isMobileLandscape ? 1 : 3,
                           child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(AppSpacing.l),
+                            padding: EdgeInsets.all(paddingVal),
                             child: billingPanel,
                           ),
                         ),
                         const VerticalDivider(width: 1),
                         Expanded(
-                          flex: 2,
+                          flex: isMobileLandscape ? 1 : 2,
                           child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(AppSpacing.l),
+                            padding: EdgeInsets.all(paddingVal),
                             child: paymentPanel,
                           ),
                         ),
@@ -429,7 +433,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     );
                   } else {
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.all(AppSpacing.l),
+                      padding: EdgeInsets.all(paddingVal),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
