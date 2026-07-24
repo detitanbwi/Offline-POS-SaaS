@@ -142,7 +142,7 @@ class PdfReceiptGenerator {
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
 
               pw.Text('Meja      : ${order.tableNama ?? '04'}', style: pw.TextStyle(font: font, fontSize: 8)),
-              pw.Text('Gelombang : ${waveInfo ?? '#1 (Baru)'}', style: pw.TextStyle(font: font, fontSize: 8)),
+              pw.Text('Batch : ${waveInfo ?? '#1 (Baru)'}', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Waktu     : $nowStr', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Kasir     : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),

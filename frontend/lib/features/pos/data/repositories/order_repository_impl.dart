@@ -25,13 +25,36 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Future<void> recordPrintBatch(String orderId) async {
+  Future<List<Map<String, dynamic>>> getPrintBatches(String orderId) async {
     final db = await _db.database;
+    return await db.query(
+      'print_batches',
+      where: 'order_id = ?',
+      whereArgs: [orderId],
+      orderBy: 'created_at ASC',
+    );
+  }
+
+  @override
+  Future<String> recordPrintBatch(String orderId) async {
+    final db = await _db.database;
+    final batchId = const Uuid().v4();
     await db.insert('print_batches', {
-      'id': const Uuid().v4(),
+      'id': batchId,
       'order_id': orderId,
       'created_at': DateTime.now().toIso8601String(),
     });
+    return batchId;
+  }
+
+  @override
+  Future<void> markItemsAsPrinted(String orderId, String batchId) async {
+    final db = await _db.database;
+    await db.rawUpdate(
+      'UPDATE order_items SET status_cetak = 1, print_batch_id = ? '
+      'WHERE order_id = ? AND (print_batch_id IS NULL OR print_batch_id = \'\')',
+      [batchId, orderId],
+    );
   }
 
   @override
@@ -63,60 +86,87 @@ class OrderRepositoryImpl implements OrderRepository {
     final db = await _db.database;
 
     await db.transaction((txn) async {
-      // 1. Check existing printed status for the items to preserve it
-      final List<Map<String, dynamic>> existingItems = await txn.query(
+      // 1. Read existing items from DB keyed by produk_id to preserve their id, print_batch_id, status_cetak
+      final List<Map<String, dynamic>> existingRows = await txn.query(
         'order_items',
-        columns: ['produk_id', 'status_cetak', 'print_batch_id'],
         where: 'order_id = ?',
         whereArgs: [order.id],
       );
 
-      final Map<String, Map<String, dynamic>> printStatusMap = {};
-      for (var row in existingItems) {
-        printStatusMap[row['produk_id'] as String] = {
-          'status_cetak': row['status_cetak'] as int,
-          'print_batch_id': row['print_batch_id'] as String?,
-        };
+      final Map<String, Map<String, dynamic>> existingByProdukId = {};
+      for (var row in existingRows) {
+        existingByProdukId[row['produk_id'] as String] = row;
       }
 
-      // 2. Insert or update the order header
+      // 2. Upsert the order header
       await txn.insert(
         'orders',
         order.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
-      // 3. Delete old items
-      await txn.delete(
-        'order_items',
-        where: 'order_id = ?',
-        whereArgs: [order.id],
-      );
+      // 3. Determine which produk_ids are in the new cart
+      final Set<String> newProdukIds = items.map((i) => i.produkId).toSet();
 
-      // 4. Insert new items preserving print status if matched
-      for (var item in items) {
-        int finalStatusCetak = markAsPrinted ? 1 : item.statusCetak;
-        String? finalPrintBatchId = item.printBatchId;
-
-        // If this product was already in the order, and we are not marking all as printed, preserve status
-        if (!markAsPrinted && printStatusMap.containsKey(item.produkId)) {
-          finalStatusCetak = printStatusMap[item.produkId]!['status_cetak'] as int;
-          finalPrintBatchId = printStatusMap[item.produkId]!['print_batch_id'] as String?;
+      // 4. Delete items that were removed from the cart
+      for (var existingProdukId in existingByProdukId.keys) {
+        if (!newProdukIds.contains(existingProdukId)) {
+          await txn.delete(
+            'order_items',
+            where: 'order_id = ? AND produk_id = ?',
+            whereArgs: [order.id, existingProdukId],
+          );
         }
-
-        final finalItem = item.copyWith(
-          statusCetak: finalStatusCetak,
-          printBatchId: finalPrintBatchId,
-        );
-
-        await txn.insert(
-          'order_items',
-          finalItem.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.fail,
-        );
       }
 
-      // 5. Update the table status to Terisi (1) if tableId is present
+      // 5. Upsert items: UPDATE existing, INSERT new
+      for (var item in items) {
+        final existing = existingByProdukId[item.produkId];
+
+        if (existing != null) {
+          // Item already exists in DB → UPDATE qty, subtotal, catatan only
+          // Preserve: id, print_batch_id, status_cetak
+          final Map<String, dynamic> updateData = {
+            'qty': item.qty,
+            'subtotal': item.subtotal,
+            'catatan': item.catatan,
+          };
+
+          // If qty increased, the new qty portion is "unprinted" — but we keep
+          // the existing print_batch_id because the whole item row is one entry.
+          // The difference detection (itemsToPrint) in the notifier handles
+          // what to send to the kitchen. We only clear print status if markAsPrinted is false
+          // and qty changed (new portion not yet printed).
+          if (item.qty != (existing['qty'] as int)) {
+            // Qty changed → mark as unprinted so it gets picked up by markItemsAsPrinted later
+            // But only clear if there are NEW items to print (qty increased)
+            if (item.qty > (existing['qty'] as int)) {
+              updateData['status_cetak'] = 0;
+              updateData['print_batch_id'] = null;
+            }
+          }
+
+          await txn.update(
+            'order_items',
+            updateData,
+            where: 'order_id = ? AND produk_id = ?',
+            whereArgs: [order.id, item.produkId],
+          );
+        } else {
+          // New item → INSERT with status_cetak=0, print_batch_id=null
+          final newItem = item.copyWith(
+            statusCetak: 0,
+            printBatchId: null,
+          );
+          await txn.insert(
+            'order_items',
+            newItem.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.fail,
+          );
+        }
+      }
+
+      // 6. Update the table status to Terisi (1) if tableId is present
       if (order.tableId != null && order.tableId!.isNotEmpty) {
         await txn.update(
           'tables',

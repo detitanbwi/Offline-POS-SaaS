@@ -202,17 +202,19 @@ class OrderNotifier extends StateNotifier<OrderState> {
         }
       }
 
-      // 1. Save order to SQLite FIRST so order Header exists before foreign key reference in print_batches!
-      await _repository.saveOrder(orderHeader, allOrderItems, markAsPrinted: true);
+      // 1. Save order to SQLite (upsert strategy — preserves existing item batch IDs)
+      await _repository.saveOrder(orderHeader, allOrderItems);
 
-      // 2. If there are items to print, generate receipt & send to kitchen printer & record print batch
+      // 2. If there are items to print, record batch, mark items, generate receipt & send to kitchen
       if (itemsToPrint.isNotEmpty) {
-        int batchCount = await _repository.getBatchCount(orderId);
-        if (batchCount == 0 && dbItems.any((x) => x.isPrinted || x.statusCetak == 1)) {
-          batchCount = 1;
-        }
+        final batchCount = await _repository.getBatchCount(orderId);
         final currentBatchNo = batchCount + 1;
         final waveInfo = currentBatchNo == 1 ? '#1 (Baru)' : '#$currentBatchNo (Tambahan)';
+
+        // Record the new batch and get its ID
+        final batchId = await _repository.recordPrintBatch(orderId);
+        // Mark all unprinted items (print_batch_id IS NULL) with this new batch
+        await _repository.markItemsAsPrinted(orderId, batchId);
 
         try {
           final printerState = _ref.read(printerNotifierProvider);
@@ -242,8 +244,6 @@ class OrderNotifier extends StateNotifier<OrderState> {
         } catch (printErr) {
           debugPrint('Printer not available or unit test environment: $printErr');
         }
-
-        await _repository.recordPrintBatch(orderId);
       }
 
       if (table != null) {

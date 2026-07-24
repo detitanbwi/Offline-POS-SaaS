@@ -14,8 +14,10 @@ import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../table/domain/models/table.dart';
+import '../../domain/models/order_item.dart';
 import '../../../../core/di/providers.dart';
 import 'pos_screen.dart';
+import 'payment_screen.dart';
 
 class TableSelectorScreen extends ConsumerStatefulWidget {
   const TableSelectorScreen({super.key});
@@ -74,129 +76,318 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
     });
   }
 
-  void _showOccupiedTableBottomSheet(TableModel table, dynamic activeOrder) {
-    final hasDraft = activeOrder != null;
+  Future<void> _navigateToPayment(TableModel table, dynamic activeOrder) async {
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+    final productState = ref.read(productNotifierProvider);
+
+    orderNotifier.selectTable(table);
+    if (table.isOccupied) {
+      await orderNotifier.loadActiveOrderForTable(table.id);
+      final orderState = ref.read(orderNotifierProvider);
+      
+      if (orderState.activeOrder != null) {
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+      } else {
+        cartNotifier.clear();
+      }
+    } else {
+      cartNotifier.clear();
+    }
+
+    if (!mounted) return;
     
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaymentScreen()),
+    ).then((_) {
+      ref.read(tableNotifierProvider.notifier).loadTables();
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    });
+  }
+
+  Future<void> _showOccupiedTableBottomSheet(TableModel table, dynamic activeOrder) async {
+    final hasDraft = activeOrder != null;
+    final repo = ref.read(orderRepositoryProvider);
+
+    List<OrderItemModel> items = [];
+    List<Map<String, dynamic>> batches = [];
+
+    if (hasDraft) {
+      items = await repo.getOrderItems(activeOrder.id);
+      batches = await repo.getPrintBatches(activeOrder.id);
+    }
+
+    // Build batch mapping
+    final Map<String, int> batchIndexMap = {};
+    for (int i = 0; i < batches.length; i++) {
+      final bId = batches[i]['id'] as String;
+      batchIndexMap[bId] = i + 1;
+    }
+
+    // Group items by batch title
+    final Map<String, List<OrderItemModel>> groupedItems = {};
+
+    for (var item in items) {
+      String batchTitle = 'Batch #1';
+      if (item.printBatchId != null && batchIndexMap.containsKey(item.printBatchId)) {
+        batchTitle = 'Batch #${batchIndexMap[item.printBatchId]}';
+      } else if (item.statusCetak == 0 && batches.isNotEmpty) {
+        batchTitle = 'Batch Baru (Belum Kirim Dapur)';
+      }
+
+      groupedItems.putIfAbsent(batchTitle, () => []).add(item);
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.85,
-            ),
-            padding: const EdgeInsets.all(AppSpacing.l),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.m),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rincian ${table.nama}',
+                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                        Text(
+                          'Atas Nama: ${activeOrder.customerName}',
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Status Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasDraft ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
+                      color: hasDraft ? AppColors.warning : AppColors.success,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasDraft ? 'Status: Belum Dibayar (Draft Active)' : 'Status: Kosong / Lunas',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: hasDraft ? const Color(0xFF78350F) : const Color(0xFF14532D),
+                            ),
+                          ),
+                          if (activeOrder != null) ...[
+                            Text('No. Order: ${activeOrder.nomorOrder}', style: const TextStyle(fontSize: 12)),
+                            Text(
+                              'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Items List Grouped by Batch
+              if (groupedItems.isNotEmpty) ...[
+                Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: ListView(
+                    children: groupedItems.entries.map((entry) {
+                      final batchTitle = entry.key;
+                      final batchItemList = entry.value;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    batchTitle,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '${batchItemList.length} Menu',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ...batchItemList.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${item.qty}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.produkNama, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                        if (item.catatan != null && item.catatan!.isNotEmpty)
+                                          Text('Note: ${item.catatan}', style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic)),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    CurrencyFormatter.format(item.subtotal),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            )),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ] else
+                const Expanded(
+                  child: Center(
+                    child: Text('Belum ada rincian pesanan'),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              // Action Buttons
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${table.nama} (Nomor: ${table.nomor})',
-                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _navigateToPos(table);
+                          },
+                          icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                          label: Text(hasDraft ? 'Tambah Menu' : 'Pesan Baru'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
+                      if (hasDraft) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _navigateToPayment(table, activeOrder);
+                            },
+                            icon: const Icon(Icons.payments_outlined, size: 18),
+                            label: const Text('Bayar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
+                  if (hasDraft) ...[
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        Icon(
-                          hasDraft ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
-                          color: hasDraft ? AppColors.warning : AppColors.success,
-                        ),
-                        const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                hasDraft ? 'Status: Belum Dibayar (Draft)' : 'Status: Sudah Dibayar (Lunas)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: hasDraft ? const Color(0xFF78350F) : const Color(0xFF14532D),
-                                ),
-                              ),
-                              if (activeOrder != null) ...[
-                                const SizedBox(height: 4),
-                                Text('No. Order: ${activeOrder.nomorOrder}', style: AppTypography.bodyMedium),
-                                Text(
-                                  'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
-                                  style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ],
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _handleMoveTable(context, table, activeOrder);
+                            },
+                            icon: const Icon(Icons.move_up_rounded, size: 18),
+                            label: const Text('Pindah'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.secondary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _confirmClearTable(table, activeOrder);
+                            },
+                            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.error),
+                            label: const Text('Kosongkan', style: TextStyle(color: AppColors.error, fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.error),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _navigateToPos(table);
-                    },
-                    icon: const Icon(Icons.shopping_cart_outlined),
-                    label: Text(hasDraft ? 'Lanjutkan Transaksi / Edit' : 'Pesan Baru (Buka POS)'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  if (hasDraft) ...[
-                    const SizedBox(height: 10),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _handleMoveTable(context, table, activeOrder);
-                      },
-                      icon: const Icon(Icons.move_up_rounded),
-                      label: const Text('Pindah Meja'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
                   ],
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _confirmClearTable(table, activeOrder);
-                    },
-                    icon: const Icon(Icons.cleaning_services_outlined, color: AppColors.error),
-                    label: const Text('Selesaikan & Kosongkan Meja', style: TextStyle(color: AppColors.error)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.error),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
                 ],
               ),
-            ),
+            ],
           ),
         );
       },

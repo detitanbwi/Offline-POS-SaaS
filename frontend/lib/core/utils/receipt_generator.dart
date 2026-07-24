@@ -168,7 +168,7 @@ class ReceiptGenerator {
     if (order.customerName != null && order.customerName!.isNotEmpty) {
       bytes += generator.text('Nama      : ${order.customerName}', styles: const PosStyles(align: PosAlign.left, bold: true));
     }
-    bytes += generator.text('Gelombang : ${waveInfo ?? '#1 (Baru)'}', styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text('Batch : ${waveInfo ?? '#1 (Baru)'}', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Waktu     : $nowStr', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Kasir     : $cashier', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
@@ -525,7 +525,7 @@ class ReceiptGenerator {
     buffer.writeln(centerText('PESANAN DAPUR', width: charsPerLine));
     buffer.writeln(eqLine);
     buffer.writeln('Meja      : ${order.tableNama ?? '04'}');
-    buffer.writeln('Gelombang : ${waveInfo ?? '#1 (Baru)'}');
+    buffer.writeln('Batch : ${waveInfo ?? '#1 (Baru)'}');
     buffer.writeln('Waktu     : $nowStr');
     buffer.writeln('Kasir     : $cashier');
     buffer.writeln(dashLine);

@@ -25,6 +25,8 @@ import '../../application/order_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../../table/application/table_notifier.dart';
+import '../../../table/domain/models/table.dart';
+import '../../domain/models/order_item.dart';
 import 'payment_screen.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
@@ -182,25 +184,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   ),
               ],
             ),
-            // Mobile Landscape Split Layout (flex 4:3 for more cart width)
-            mobileLandscape: Row(
+            // Mobile Landscape Layout (Full Width Catalog + Floating Cart Bar for maximum interaction space)
+            mobileLandscape: Stack(
               children: [
-                Expanded(
-                  flex: 4,
-                  child: Column(
-                    children: [
-                      _buildCatalogHeader(activeCategories),
-                      Expanded(
-                        child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
-                      ),
-                    ],
+                Column(
+                  children: [
+                    _buildCatalogHeader(activeCategories),
+                    Expanded(
+                      child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
+                    ),
+                    const SizedBox(height: 64), // Spacing for floating cart bar
+                  ],
+                ),
+                if (cartState.items.isNotEmpty)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: _buildMobileCartBar(context, cartState),
                   ),
-                ),
-                const VerticalDivider(width: 1),
-                Expanded(
-                  flex: 3,
-                  child: _buildCartPanel(context, cartState, cartNotifier),
-                ),
               ],
             ),
             // Tablet Split Layout (flex 3:2 untouched)
@@ -273,16 +275,18 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
-            width: MediaQuery.of(context).size.width > 500 ? 400 : MediaQuery.of(context).size.width * 0.9,
-            padding: const EdgeInsets.all(20),
+            width: MediaQuery.of(context).size.width > 500 ? 440 : MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(16),
             child: Consumer(
               builder: (consumerContext, ref, child) {
                 final tableState = ref.watch(tableNotifierProvider);
                 final orderState = ref.watch(orderNotifierProvider);
                 final allTables = tableState.allTables;
                 final activeOrdersMap = orderState.activeOrdersMap;
+                final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
@@ -292,56 +296,59 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       'Pilih Meja Restoran',
                       style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
                       'Silakan pilih meja untuk pesanan Dine-In ini.',
-                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
                     ),
-                    const SizedBox(height: 12),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.5,
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: allTables.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final table = allTables[index];
-                          final isOccupied = table.status == 1;
-                          final activeOrder = activeOrdersMap[table.id];
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * (isMobileLandscape ? 0.38 : 0.5),
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: allTables.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final table = allTables[index];
+                            final isOccupied = table.status == 1;
+                            final activeOrder = activeOrdersMap[table.id];
 
-                          return ListTile(
-                            leading: Icon(
-                              Icons.table_restaurant_rounded,
-                              color: isOccupied ? AppColors.secondary : AppColors.success,
-                            ),
-                            title: Text(table.nama),
-                            subtitle: Text(
-                              isOccupied
-                                  ? 'Terisi (${activeOrder?.nomorOrder ?? 'Pesanan Aktif'})'
-                                  : 'Kosong - Nomor: ${table.nomor}',
-                              style: TextStyle(
+                            return ListTile(
+                              dense: isMobileLandscape,
+                              leading: Icon(
+                                Icons.table_restaurant_rounded,
                                 color: isOccupied ? AppColors.secondary : AppColors.success,
-                                fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 12,
                               ),
-                            ),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            onTap: () async {
-                              ref.read(orderNotifierProvider.notifier).selectTable(table);
-                              if (isOccupied && activeOrder != null) {
-                                final products = ref.read(productNotifierProvider).allProducts;
-                                final items = await ref.read(orderRepositoryProvider).getOrderItems(activeOrder.id);
-                                ref.read(cartNotifierProvider.notifier).loadDraftItems(items, products);
-                              }
-                              Navigator.pop(dialogContext);
-                            },
-                          );
-                        },
+                              title: Text(table.nama, style: TextStyle(fontSize: isMobileLandscape ? 13 : 14)),
+                              subtitle: Text(
+                                isOccupied
+                                    ? 'Terisi (${activeOrder?.nomorOrder ?? 'Pesanan Aktif'})'
+                                    : 'Kosong - Nomor: ${table.nomor}',
+                                style: TextStyle(
+                                  color: isOccupied ? AppColors.secondary : AppColors.success,
+                                  fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              onTap: () async {
+                                Navigator.pop(dialogContext);
+                                if (isOccupied && activeOrder != null) {
+                                  _showOccupiedTableBottomSheet(table, activeOrder);
+                                } else {
+                                  ref.read(orderNotifierProvider.notifier).selectTable(table);
+                                  ref.read(cartNotifierProvider.notifier).clear();
+                                }
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -350,12 +357,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                             ref.read(orderNotifierProvider.notifier).setOrderType('take_away');
                             Navigator.pop(dialogContext);
                           },
-                          icon: const Icon(Icons.takeout_dining_rounded),
-                          label: const Text('Ubah ke Take Away'),
+                          icon: const Icon(Icons.takeout_dining_rounded, size: 18),
+                          label: const Text('Ubah ke Take Away', style: TextStyle(fontSize: 12)),
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('Batal'),
+                          child: const Text('Batal', style: TextStyle(fontSize: 12)),
                         ),
                       ],
                     ),
@@ -369,6 +376,128 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
 
     return ref.read(orderNotifierProvider).selectedTable != null || ref.read(orderNotifierProvider).isTakeAway;
+  }
+
+  Future<void> _showChangeTableDialog() async {
+    final orderState = ref.read(orderNotifierProvider);
+    final currentTable = orderState.selectedTable;
+    final activeOrder = orderState.activeOrder;
+
+    await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            width: MediaQuery.of(context).size.width > 500 ? 440 : MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(16),
+            child: Consumer(
+              builder: (consumerContext, ref, child) {
+                final tableState = ref.watch(tableNotifierProvider);
+                final oState = ref.watch(orderNotifierProvider);
+                final allTables = tableState.allTables;
+                final activeOrdersMap = oState.activeOrdersMap;
+                final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
+
+                // Only show empty tables (except current table)
+                final availableTables = allTables.where((t) {
+                  if (currentTable != null && t.id == currentTable.id) return false;
+                  final isOccupied = activeOrdersMap.containsKey(t.id);
+                  return !isOccupied && t.status == 0;
+                }).toList();
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Pindah Meja',
+                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      currentTable != null
+                          ? 'Pindahkan pesanan dari ${currentTable.nama} ke meja lain.'
+                          : 'Pilih meja tujuan.',
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    if (availableTables.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text('Tidak ada meja kosong tersedia.', style: TextStyle(color: AppColors.textSecondary)),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: MediaQuery.of(context).size.height * (isMobileLandscape ? 0.38 : 0.5),
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: availableTables.length,
+                            separatorBuilder: (_, _) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final targetTable = availableTables[index];
+                              return ListTile(
+                                dense: isMobileLandscape,
+                                leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.success),
+                                title: Text(targetTable.nama, style: TextStyle(fontSize: isMobileLandscape ? 13 : 14)),
+                                subtitle: Text(
+                                  'Kosong - Nomor: ${targetTable.nomor}',
+                                  style: const TextStyle(color: AppColors.success, fontSize: 11),
+                                ),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                onTap: () async {
+                                  Navigator.pop(dialogContext);
+
+                                  if (activeOrder != null && currentTable != null) {
+                                    // Transfer existing draft order to new table
+                                    await ref.read(orderRepositoryProvider).transferOrderTable(
+                                      activeOrder.id,
+                                      currentTable.id,
+                                      targetTable.id,
+                                      targetTable.nama,
+                                      targetTable.nomor,
+                                    );
+                                    ref.read(tableNotifierProvider.notifier).loadTables();
+                                    await ref.read(orderNotifierProvider.notifier).selectTable(targetTable);
+                                  } else {
+                                    // No active order, just switch table
+                                    ref.read(orderNotifierProvider.notifier).selectTable(targetTable);
+                                  }
+
+                                  if (!mounted) return;
+                                  AppSnackbar.showSuccess(
+                                    context,
+                                    'Pesanan dipindahkan ke ${targetTable.nama}.',
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Batal', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // Header catalog with search field & category selection horizontal chips
@@ -489,10 +618,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return GridView.builder(
       padding: EdgeInsets.all(isMobileLandscape ? AppSpacing.s : AppSpacing.m),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: isMobileLandscape ? 135 : (isTablet ? 180 : 180),
+        maxCrossAxisExtent: isMobileLandscape ? 160 : (isTablet ? 180 : 180),
         mainAxisSpacing: isMobileLandscape ? 8 : 12,
         crossAxisSpacing: isMobileLandscape ? 8 : 12,
-        childAspectRatio: isMobileLandscape ? 0.85 : (isTablet && isLandscape ? 0.85 : 0.72),
+        childAspectRatio: isMobileLandscape ? 0.9 : (isTablet && isLandscape ? 0.85 : 0.72),
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
@@ -544,7 +673,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               Expanded(
                 flex: 3,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: isMobileLandscape ? 4 : 6),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -604,6 +733,367 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showOccupiedTableBottomSheet(TableModel table, dynamic activeOrder) async {
+    final hasDraft = activeOrder != null;
+    final repo = ref.read(orderRepositoryProvider);
+
+    List<OrderItemModel> items = [];
+    List<Map<String, dynamic>> batches = [];
+
+    if (hasDraft) {
+      items = await repo.getOrderItems(activeOrder.id);
+      batches = await repo.getPrintBatches(activeOrder.id);
+    }
+
+    // Build batch mapping
+    final Map<String, int> batchIndexMap = {};
+    for (int i = 0; i < batches.length; i++) {
+      final bId = batches[i]['id'] as String;
+      batchIndexMap[bId] = i + 1;
+    }
+
+    // Group items by batch title
+    final Map<String, List<OrderItemModel>> groupedItems = {};
+
+    for (var item in items) {
+      String batchTitle = 'Batch #1';
+      if (item.printBatchId != null && batchIndexMap.containsKey(item.printBatchId)) {
+        batchTitle = 'Batch #${batchIndexMap[item.printBatchId]}';
+      } else if (item.statusCetak == 0 && batches.isNotEmpty) {
+        batchTitle = 'Batch Baru (Belum Kirim Dapur)';
+      }
+
+      groupedItems.putIfAbsent(batchTitle, () => []).add(item);
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.m),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rincian ${table.nama}',
+                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                        Text(
+                          'Atas Nama: ${activeOrder.customerName}',
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(sheetContext),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Status Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasDraft ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
+                      color: hasDraft ? AppColors.warning : AppColors.success,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasDraft ? 'Status: Belum Dibayar (Draft Active)' : 'Status: Kosong / Lunas',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: hasDraft ? const Color(0xFF78350F) : const Color(0xFF14532D),
+                            ),
+                          ),
+                          if (activeOrder != null) ...[
+                            Text('No. Order: ${activeOrder.nomorOrder}', style: const TextStyle(fontSize: 12)),
+                            Text(
+                              'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Items List Grouped by Batch
+              if (groupedItems.isNotEmpty) ...[
+                Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: ListView(
+                    children: groupedItems.entries.map((entry) {
+                      final batchTitle = entry.key;
+                      final batchItemList = entry.value;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    batchTitle,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '${batchItemList.length} Menu',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ...batchItemList.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${item.qty}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.produkNama, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                        if (item.catatan != null && item.catatan!.isNotEmpty)
+                                          Text('Note: ${item.catatan}', style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic)),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    CurrencyFormatter.format(item.subtotal),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            )),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ] else
+                const Expanded(
+                  child: Center(
+                    child: Text('Belum ada rincian pesanan'),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              // Action Buttons
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(sheetContext);
+                            ref.read(orderNotifierProvider.notifier).selectTable(table);
+                            final products = ref.read(productNotifierProvider).allProducts;
+                            final draftItems = await ref.read(orderRepositoryProvider).getOrderItems(activeOrder.id);
+                            ref.read(cartNotifierProvider.notifier).loadDraftItems(draftItems, products);
+                          },
+                          icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                          label: Text(hasDraft ? 'Tambah Menu' : 'Pesan Baru'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      if (hasDraft) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              Navigator.pop(sheetContext);
+                              ref.read(orderNotifierProvider.notifier).selectTable(table);
+                              final products = ref.read(productNotifierProvider).allProducts;
+                              final draftItems = await ref.read(orderRepositoryProvider).getOrderItems(activeOrder.id);
+                              ref.read(cartNotifierProvider.notifier).loadDraftItems(draftItems, products);
+
+                              if (!mounted) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                              );
+                            },
+                            icon: const Icon(Icons.payments_outlined, size: 18),
+                            label: const Text('Bayar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (hasDraft) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                              _handleMoveTableInPos(table, activeOrder);
+                            },
+                            icon: const Icon(Icons.move_up_rounded, size: 18),
+                            label: const Text('Pindah'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.secondary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                              _handleCancelOrder(context);
+                            },
+                            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.error),
+                            label: const Text('Kosongkan Meja', style: TextStyle(color: AppColors.error, fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.error),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleMoveTableInPos(TableModel sourceTable, dynamic activeOrder) {
+    final tableState = ref.read(tableNotifierProvider);
+    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
+
+    if (emptyTables.isEmpty) {
+      AppSnackbar.showWarning(context, 'Tidak ada meja kosong yang tersedia untuk dipindahkan.');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Pindahkan ${sourceTable.nama} ke:', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: emptyTables.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final targetTable = emptyTables[index];
+                      return ListTile(
+                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.success),
+                        title: Text(targetTable.nama),
+                        subtitle: Text('Nomor: ${targetTable.nomor} (Kosong)'),
+                        onTap: () async {
+                          Navigator.pop(dialogContext);
+                          await ref.read(orderRepositoryProvider).transferOrderTable(
+                                activeOrder.id,
+                                sourceTable.id,
+                                targetTable.id,
+                                targetTable.nama,
+                                targetTable.nomor,
+                              );
+                          ref.read(tableNotifierProvider.notifier).loadTables();
+                          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                          if (mounted) {
+                            AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan dari ${sourceTable.nama} ke ${targetTable.nama}');
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -693,7 +1183,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.swap_horiz_rounded, size: 18, color: AppColors.primary),
-                  onPressed: () => _ensureTableSelected(),
+                  onPressed: () => _showChangeTableDialog(),
                   tooltip: 'Ganti Meja',
                   constraints: const BoxConstraints(),
                   padding: EdgeInsets.zero,

@@ -49,6 +49,8 @@ class OrderRepositoryMock implements OrderRepository {
   Map<String, OrderModel> mockActiveOrdersMap = {};
   bool saveOrderCalled = false;
   bool cancelOrderCalled = false;
+  int batchCounter = 0;
+  bool markItemsAsPrintedCalled = false;
 
   @override
   Future<OrderModel?> getActiveOrderForTable(String tableId) async {
@@ -90,7 +92,20 @@ class OrderRepositoryMock implements OrderRepository {
   }
 
   @override
-  Future<void> recordPrintBatch(String orderId) async {}
+  Future<List<Map<String, dynamic>>> getPrintBatches(String orderId) async {
+    return [];
+  }
+
+  @override
+  Future<String> recordPrintBatch(String orderId) async {
+    batchCounter++;
+    return 'batch-$batchCounter';
+  }
+
+  @override
+  Future<void> markItemsAsPrinted(String orderId, String batchId) async {
+    markItemsAsPrintedCalled = true;
+  }
 
   @override
   Future<void> completeOrder(String orderId) async {

@@ -179,7 +179,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
       buffer.writeln(ReceiptGenerator.centerText('PESANAN DAPUR', width: charsPerLine));
       buffer.writeln(eqLine);
       buffer.writeln('Meja      : Meja 03');
-      buffer.writeln('Gelombang : #1 (Baru)');
+      buffer.writeln('Batch : #1 (Baru)');
       buffer.writeln('Waktu     : $nowStr');
       buffer.writeln('Kasir     : Budi Kasir');
       buffer.writeln(dashLine);
