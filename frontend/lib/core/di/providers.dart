@@ -25,6 +25,8 @@ import '../../features/settings/services/backup_service.dart';
 import '../services/device_fingerprint_service.dart';
 import '../../features/cashier/domain/repositories/cashier_repository.dart';
 import '../../features/cashier/data/repositories/cashier_repository_impl.dart';
+import '../../features/pos/domain/repositories/online_platform_repository.dart';
+import '../../features/pos/data/repositories/online_platform_repository_impl.dart';
 
 
 // Database Provider
@@ -105,4 +107,9 @@ final orderRepositoryProvider = Provider<OrderRepository>((ref) {
 final cashierRepositoryProvider = Provider<CashierRepository>((ref) {
   final db = ref.watch(posDatabaseProvider);
   return CashierRepositoryImpl(db);
+});
+
+final onlinePlatformRepositoryProvider = Provider<OnlinePlatformRepository>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return OnlinePlatformRepositoryImpl(db);
 });

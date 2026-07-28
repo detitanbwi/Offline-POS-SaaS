@@ -8,6 +8,9 @@ class OrderItemModel {
   final double subtotal;
   final String? catatan;
   final int statusCetak; // 0: Belum Dicetak, 1: Sudah Dicetak
+  final bool isCancelled;
+  final DateTime? cancelledAt;
+  final String? cancelledReason;
   final String? printBatchId;
 
   const OrderItemModel({
@@ -20,6 +23,9 @@ class OrderItemModel {
     required this.subtotal,
     this.catatan,
     this.statusCetak = 0,
+    this.isCancelled = false,
+    this.cancelledAt,
+    this.cancelledReason,
     this.printBatchId,
   });
 
@@ -35,6 +41,9 @@ class OrderItemModel {
     double? subtotal,
     String? catatan,
     int? statusCetak,
+    bool? isCancelled,
+    DateTime? cancelledAt,
+    String? cancelledReason,
     String? printBatchId,
   }) {
     return OrderItemModel(
@@ -47,6 +56,9 @@ class OrderItemModel {
       subtotal: subtotal ?? this.subtotal,
       catatan: catatan ?? this.catatan,
       statusCetak: statusCetak ?? this.statusCetak,
+      isCancelled: isCancelled ?? this.isCancelled,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      cancelledReason: cancelledReason ?? this.cancelledReason,
       printBatchId: printBatchId ?? this.printBatchId,
     );
   }
@@ -62,6 +74,9 @@ class OrderItemModel {
       'subtotal': subtotal,
       'catatan': catatan,
       'status_cetak': statusCetak,
+      'is_cancelled': isCancelled ? 1 : 0,
+      'cancelled_at': cancelledAt?.toIso8601String(),
+      'cancelled_reason': cancelledReason,
       'print_batch_id': printBatchId,
     };
   }
@@ -77,6 +92,9 @@ class OrderItemModel {
       subtotal: (map['subtotal'] as num).toDouble(),
       catatan: map['catatan'] as String?,
       statusCetak: map['status_cetak'] as int,
+      isCancelled: (map['is_cancelled'] as int?) == 1,
+      cancelledAt: map['cancelled_at'] != null ? DateTime.parse(map['cancelled_at'] as String) : null,
+      cancelledReason: map['cancelled_reason'] as String?,
       printBatchId: map['print_batch_id'] as String?,
     );
   }

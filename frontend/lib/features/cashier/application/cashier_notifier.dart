@@ -71,6 +71,7 @@ class CashierNotifier extends StateNotifier<CashierState> {
 
     state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
     try {
+      final isOwner = state.allCashiers.isEmpty ? 1 : 0;
       final hashedPin = _hashPIN(pin);
       final newCashier = CashierModel(
         id: _uuid.v4(),
@@ -78,6 +79,7 @@ class CashierNotifier extends StateNotifier<CashierState> {
         pin: hashedPin,
         status: 1,
         isDeleted: 0,
+        isOwner: isOwner,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

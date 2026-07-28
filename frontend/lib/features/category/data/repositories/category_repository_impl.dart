@@ -14,6 +14,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'categories',
+      where: 'is_deleted = 0',
       orderBy: 'nama ASC',
     );
     return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
@@ -24,7 +25,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'categories',
-      where: 'id = ?',
+      where: 'id = ? AND is_deleted = 0',
       whereArgs: [id],
       limit: 1,
     );
@@ -57,8 +58,12 @@ class CategoryRepositoryImpl implements CategoryRepository {
   Future<void> deleteCategory(String id) async {
     final db = await _db.database;
     try {
-      await db.delete(
+      await db.update(
         'categories',
+        {
+          'is_deleted': 1,
+          'deleted_at': DateTime.now().toIso8601String(),
+        },
         where: 'id = ?',
         whereArgs: [id],
       );
@@ -75,7 +80,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> result = await db.query(
       'categories',
-      where: excludeId == null ? 'LOWER(nama) = LOWER(?)' : 'LOWER(nama) = LOWER(?) AND id != ?',
+      where: excludeId == null ? 'LOWER(nama) = LOWER(?) AND is_deleted = 0' : 'LOWER(nama) = LOWER(?) AND id != ? AND is_deleted = 0',
       whereArgs: excludeId == null ? [name] : [name, excludeId],
     );
     return result.isNotEmpty;

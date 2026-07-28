@@ -341,6 +341,55 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
   }
 
+  Future<void> _handlePrintBill() async {
+    final orderState = ref.read(orderNotifierProvider);
+    final order = orderState.activeOrder;
+    final items = orderState.activeOrderItems;
+    if (order == null) {
+      AppSnackbar.showWarning(context, 'Tidak ada pesanan aktif (belum dikirim ke dapur).');
+      return;
+    }
+
+    final printerState = ref.read(printerNotifierProvider);
+    final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+    final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
+    final activeUser = ref.read(authSessionProvider);
+    final textPreview = await ReceiptGenerator.formatBillTextPreview(
+      order: order,
+      items: items,
+      cashierNama: activeUser?.nama,
+      charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+    );
+
+    if (!mounted) return;
+    
+    // Set table status to "Bill Printed" (4) if there's a table
+    if (orderState.selectedTable != null) {
+      await ref.read(tableNotifierProvider.notifier).updateStatus(orderState.selectedTable!.id, 4);
+      ref.read(tableNotifierProvider.notifier).loadTables();
+    }
+
+    AppReceiptPreviewModal.show(
+      context,
+      title: 'Tagihan Sementara',
+      receiptTextPreview: textPreview,
+      onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
+        order: order,
+        items: items,
+        cashierNama: activeUser?.nama,
+      ),
+      onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
+        order: order,
+        items: items,
+        cashierNama: activeUser?.nama,
+        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: cashierPrinter?.autoCut ?? false,
+      ),
+    );
+  }
+
   Widget _buildDialogRow(String label, String value, {bool isHighlighted = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -720,6 +769,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
           ],
           const SizedBox(height: 24),
+          if (ref.read(orderNotifierProvider).activeOrder != null) ...[
+            AppButton(
+              text: 'Cetak Tagihan Sementara',
+              type: AppButtonType.secondary,
+              onPressed: _handlePrintBill,
+              icon: Icons.receipt_long_rounded,
+              width: double.infinity,
+            ),
+            const SizedBox(height: 12),
+          ],
           AppButton(
             text: 'Selesaikan Transaksi',
             onPressed: isPayDisabled

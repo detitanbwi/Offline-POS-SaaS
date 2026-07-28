@@ -18,6 +18,8 @@ class OrderState {
   final List<OrderItemModel> activeOrderItems;
   final Map<String, OrderModel> activeOrdersMap;
   final String orderType; // 'dine_in' or 'take_away'
+  final String? takeAwaySubType;
+  final String? onlinePlatform;
   final String? customerName;
   final bool isLoading;
   final String? errorMessage;
@@ -28,6 +30,8 @@ class OrderState {
     this.activeOrderItems = const [],
     this.activeOrdersMap = const {},
     this.orderType = 'dine_in',
+    this.takeAwaySubType,
+    this.onlinePlatform,
     this.customerName,
     this.isLoading = false,
     this.errorMessage,
@@ -41,6 +45,8 @@ class OrderState {
     List<OrderItemModel>? activeOrderItems,
     Map<String, OrderModel>? activeOrdersMap,
     String? orderType,
+    String? takeAwaySubType,
+    String? onlinePlatform,
     String? customerName,
     bool? isLoading,
     String? errorMessage,
@@ -53,6 +59,8 @@ class OrderState {
       activeOrderItems: clearActiveOrder ? const [] : (activeOrderItems ?? this.activeOrderItems),
       activeOrdersMap: activeOrdersMap ?? this.activeOrdersMap,
       orderType: orderType ?? this.orderType,
+      takeAwaySubType: takeAwaySubType ?? this.takeAwaySubType,
+      onlinePlatform: onlinePlatform ?? this.onlinePlatform,
       customerName: customerName ?? this.customerName,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
@@ -67,11 +75,11 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   OrderNotifier(this._repository, this._ref) : super(OrderState());
 
-  void setOrderType(String type) {
+  void setOrderType(String type, {String? subType, String? platform}) {
     if (type == 'take_away') {
-      state = state.copyWith(orderType: 'take_away', clearSelectedTable: true);
+      state = state.copyWith(orderType: 'take_away', takeAwaySubType: subType, onlinePlatform: platform, clearSelectedTable: true);
     } else {
-      state = state.copyWith(orderType: 'dine_in');
+      state = state.copyWith(orderType: 'dine_in', takeAwaySubType: null, onlinePlatform: null);
     }
   }
 
@@ -113,6 +121,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
           activeOrderItems: items,
           customerName: activeOrder.customerName ?? state.customerName,
           orderType: activeOrder.orderType,
+          takeAwaySubType: activeOrder.takeAwaySubType,
+          onlinePlatform: activeOrder.onlinePlatform,
           isLoading: false,
         );
       } else {
@@ -160,6 +170,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
         tableNomor: isTakeAway ? '-' : table?.nomor,
         customerName: finalCustomerName,
         orderType: state.orderType,
+        takeAwaySubType: state.takeAwaySubType,
+        onlinePlatform: state.onlinePlatform,
         subtotal: subtotal,
         taxPercentage: taxRate,
         taxAmount: taxAmount,
@@ -283,6 +295,55 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   void clearActiveOrder() {
     state = OrderState();
+  }
+
+  Future<bool> cancelOrderItem(String itemId, String reason) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.cancelOrderItem(itemId, reason);
+      if (state.selectedTable != null) {
+        await loadActiveOrderForTable(state.selectedTable!.id);
+      }
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal membatalkan item: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelOrderBatch(String batchId, String reason) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.cancelOrderBatch(batchId, reason);
+      if (state.selectedTable != null) {
+        await loadActiveOrderForTable(state.selectedTable!.id);
+      }
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal membatalkan batch: $e');
+      return false;
+    }
+  }
+
+  Future<bool> clearTableOnly(String reason) async {
+    final table = state.selectedTable;
+    final order = state.activeOrder;
+    if (order == null || table == null) {
+      state = state.copyWith(errorMessage: 'Tidak ada order atau meja aktif.');
+      return false;
+    }
+
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.clearTableOnly(order.id, table.id, reason);
+      _ref.read(tableNotifierProvider.notifier).loadTables();
+      await loadActiveOrdersMap();
+      state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');
+      return false;
+    }
   }
 }
 

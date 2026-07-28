@@ -304,5 +304,75 @@ class OrderRepositoryImpl implements OrderRepository {
       );
     });
   }
+
+  @override
+  Future<void> cancelOrderItem(String itemId, String reason) async {
+    final db = await _db.database;
+    await db.update(
+      'order_items',
+      {
+        'is_cancelled': 1,
+        'cancelled_at': DateTime.now().toIso8601String(),
+        'cancelled_reason': reason,
+      },
+      where: 'id = ?',
+      whereArgs: [itemId],
+    );
+  }
+
+  @override
+  Future<void> cancelOrderBatch(String batchId, String reason) async {
+    final db = await _db.database;
+    await db.update(
+      'order_items',
+      {
+        'is_cancelled': 1,
+        'cancelled_at': DateTime.now().toIso8601String(),
+        'cancelled_reason': reason,
+      },
+      where: 'print_batch_id = ?',
+      whereArgs: [batchId],
+    );
+  }
+
+  @override
+  Future<void> clearTableOnly(String orderId, String tableId, String reason) async {
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'tables',
+        {
+          'status': 0,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [tableId],
+      );
+
+      await txn.update(
+        'orders',
+        {
+          'clear_table_reason': reason,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+    });
+  }
+
+  @override
+  Future<void> markTableBillPrinted(String tableId) async {
+    final db = await _db.database;
+    await db.update(
+      'tables',
+      {
+        'status': 4,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [tableId],
+    );
+  }
 }
 

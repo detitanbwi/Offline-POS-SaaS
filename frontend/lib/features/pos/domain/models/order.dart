@@ -6,6 +6,9 @@ class OrderModel {
   final String? tableNomor;
   final String? customerName;
   final String orderType; // 'dine_in' or 'take_away'
+  final String? takeAwaySubType;
+  final String? onlinePlatform;
+  final String? clearTableReason;
   final double subtotal;
   final double taxPercentage;
   final double taxAmount;
@@ -23,6 +26,9 @@ class OrderModel {
     this.tableNomor,
     this.customerName,
     this.orderType = 'dine_in',
+    this.takeAwaySubType,
+    this.onlinePlatform,
+    this.clearTableReason,
     this.subtotal = 0.0,
     this.taxPercentage = 0.0,
     this.taxAmount = 0.0,
@@ -46,6 +52,9 @@ class OrderModel {
     String? tableNomor,
     String? customerName,
     String? orderType,
+    String? takeAwaySubType,
+    String? onlinePlatform,
+    String? clearTableReason,
     double? subtotal,
     double? taxPercentage,
     double? taxAmount,
@@ -63,6 +72,9 @@ class OrderModel {
       tableNomor: tableNomor ?? this.tableNomor,
       customerName: customerName ?? this.customerName,
       orderType: orderType ?? this.orderType,
+      takeAwaySubType: takeAwaySubType ?? this.takeAwaySubType,
+      onlinePlatform: onlinePlatform ?? this.onlinePlatform,
+      clearTableReason: clearTableReason ?? this.clearTableReason,
       subtotal: subtotal ?? this.subtotal,
       taxPercentage: taxPercentage ?? this.taxPercentage,
       taxAmount: taxAmount ?? this.taxAmount,
@@ -83,6 +95,9 @@ class OrderModel {
       'table_nomor': tableNomor,
       'customer_name': customerName,
       'order_type': orderType,
+      'take_away_sub_type': takeAwaySubType,
+      'online_platform': onlinePlatform,
+      'clear_table_reason': clearTableReason,
       'subtotal': subtotal,
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
@@ -102,7 +117,10 @@ class OrderModel {
       tableNama: map['table_nama'] as String?,
       tableNomor: map['table_nomor'] as String?,
       customerName: map['customer_name'] as String?,
-      orderType: (map['order_type'] as String?) ?? 'dine_in',
+      orderType: map['order_type'] as String? ?? 'dine_in',
+      takeAwaySubType: map['take_away_sub_type'] as String?,
+      onlinePlatform: map['online_platform'] as String?,
+      clearTableReason: map['clear_table_reason'] as String?,
       subtotal: (map['subtotal'] as num).toDouble(),
       taxPercentage: (map['tax_percentage'] as num).toDouble(),
       taxAmount: (map['tax_amount'] as num).toDouble(),

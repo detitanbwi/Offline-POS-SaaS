@@ -1,45 +1,36 @@
-class CashierModel {
+class OnlinePlatformModel {
   final String id;
   final String nama;
-  final String pin; // hashed
-  final int status; // 1 = active, 0 = inactive
+  final int aktif; // 1 = aktif, 0 = nonaktif
   final int isDeleted; // 1 = soft-deleted, 0 = active
-  final int isOwner; // 1 = owner, 0 = standard cashier
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const CashierModel({
+  const OnlinePlatformModel({
     required this.id,
     required this.nama,
-    required this.pin,
-    this.status = 1,
+    this.aktif = 1,
     this.isDeleted = 0,
-    this.isOwner = 0,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  bool get isActive => status == 1;
+  bool get isActive => aktif == 1;
   bool get isSoftDeleted => isDeleted == 1;
-  bool get isOwnerCashier => isOwner == 1;
 
-  CashierModel copyWith({
+  OnlinePlatformModel copyWith({
     String? id,
     String? nama,
-    String? pin,
-    int? status,
+    int? aktif,
     int? isDeleted,
-    int? isOwner,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return CashierModel(
+    return OnlinePlatformModel(
       id: id ?? this.id,
       nama: nama ?? this.nama,
-      pin: pin ?? this.pin,
-      status: status ?? this.status,
+      aktif: aktif ?? this.aktif,
       isDeleted: isDeleted ?? this.isDeleted,
-      isOwner: isOwner ?? this.isOwner,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -49,23 +40,19 @@ class CashierModel {
     return {
       'id': id,
       'nama': nama,
-      'pin': pin,
-      'status': status,
+      'aktif': aktif,
       'is_deleted': isDeleted,
-      'is_owner': isOwner,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
   }
 
-  factory CashierModel.fromMap(Map<String, dynamic> map) {
-    return CashierModel(
+  factory OnlinePlatformModel.fromMap(Map<String, dynamic> map) {
+    return OnlinePlatformModel(
       id: map['id'] as String,
       nama: map['nama'] as String,
-      pin: map['pin'] as String,
-      status: map['status'] as int,
+      aktif: map['aktif'] as int,
       isDeleted: map['is_deleted'] as int,
-      isOwner: map['is_owner'] as int? ?? 0,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
