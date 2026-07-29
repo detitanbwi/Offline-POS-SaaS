@@ -37,7 +37,7 @@ class CategoryState {
       filteredCategories: filteredCategories ?? this.filteredCategories,
       searchQuery: searchQuery ?? this.searchQuery,
       sortBy: sortBy ?? this.sortBy,
-      statusFilter: statusFilter != null ? statusFilter : this.statusFilter,
+      statusFilter: statusFilter ?? this.statusFilter,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );

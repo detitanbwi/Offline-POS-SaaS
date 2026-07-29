@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -1443,9 +1444,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       ),
                     ],
                   ],
-                ],
+                ),
               ),
-            ),
           ),
         ],
       ),
@@ -2001,7 +2001,7 @@ class _TakeAwayOptionsDialogState extends ConsumerState<_TakeAwayOptionsDialog> 
               const Text('Belum ada platform online terdaftar.', style: TextStyle(color: AppColors.error))
             else
               DropdownButtonFormField<String>(
-                value: _selectedPlatform,
+                initialValue: _selectedPlatform,
                 decoration: const InputDecoration(
                   labelText: 'Pilih Platform',
                   border: OutlineInputBorder(),

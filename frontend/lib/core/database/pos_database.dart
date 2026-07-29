@@ -414,16 +414,24 @@ class PosDatabase {
       ''');
       try {
         await db.execute('ALTER TABLE transactions ADD COLUMN cashier_id TEXT');
-      } catch (e) {}
+      } catch (_) {
+        // Column may already exist
+      }
       try {
         await db.execute('ALTER TABLE transactions ADD COLUMN cashier_nama TEXT');
-      } catch (e) {}
+      } catch (_) {
+        // Column may already exist
+      }
       try {
         await db.execute('ALTER TABLE orders ADD COLUMN cashier_id TEXT');
-      } catch (e) {}
+      } catch (_) {
+        // Column may already exist
+      }
       try {
         await db.execute('ALTER TABLE orders ADD COLUMN cashier_nama TEXT');
-      } catch (e) {}
+      } catch (_) {
+        // Column may already exist
+      }
     }
 
     if (oldVersion < 6) {

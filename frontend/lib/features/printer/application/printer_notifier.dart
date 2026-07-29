@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/di/providers.dart';
@@ -104,16 +105,16 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     required String address,
     required String type, // 'cashier' or 'kitchen'
   }) async {
-    print('[PrinterNotifier] saveAndConnectPrinter starting for $name ($address) type $type');
+    debugPrint('[PrinterNotifier] saveAndConnectPrinter starting for $name ($address) type $type');
     state = state.copyWith(isLoading: true, loadingType: () => type, errorMessage: null);
     try {
-      print('[PrinterNotifier] Calling connectPrinter...');
+      debugPrint('[PrinterNotifier] Calling connectPrinter...');
       final connectSuccess = await _printerService.connectPrinter(address, type);
-      print('[PrinterNotifier] connectPrinter result: $connectSuccess');
+      debugPrint('[PrinterNotifier] connectPrinter result: $connectSuccess');
       
-      print('[PrinterNotifier] Getting existing config from repo...');
+      debugPrint('[PrinterNotifier] Getting existing config from repo...');
       final existing = await _repository.getPrinterConfigByType(type);
-      print('[PrinterNotifier] Existing config: $existing');
+      debugPrint('[PrinterNotifier] Existing config: $existing');
       
       final config = PrinterConfigModel(
         id: existing?.id ?? _uuid.v4(),
@@ -129,13 +130,13 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
         createdAt: existing?.createdAt ?? DateTime.now(),
       );
 
-      print('[PrinterNotifier] Saving config to repo: ${config.toMap()}');
+      debugPrint('[PrinterNotifier] Saving config to repo: ${config.toMap()}');
       await _repository.savePrinterConfig(config);
-      print('[PrinterNotifier] Config saved successfully');
+      debugPrint('[PrinterNotifier] Config saved successfully');
       
-      print('[PrinterNotifier] Loading printers list...');
+      debugPrint('[PrinterNotifier] Loading printers list...');
       await loadPrinters();
-      print('[PrinterNotifier] Printers list loaded');
+      debugPrint('[PrinterNotifier] Printers list loaded');
 
       if (!connectSuccess) {
         state = state.copyWith(
@@ -143,11 +144,11 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
         );
       }
       
-      print('[PrinterNotifier] saveAndConnectPrinter finished with true');
+      debugPrint('[PrinterNotifier] saveAndConnectPrinter finished with true');
       return true;
     } catch (e, stack) {
-      print('[PrinterNotifier] Exception in saveAndConnectPrinter: $e');
-      print('[PrinterNotifier] Stacktrace: $stack');
+      debugPrint('[PrinterNotifier] Exception in saveAndConnectPrinter: $e');
+      debugPrint('[PrinterNotifier] Stacktrace: $stack');
       state = state.copyWith(
         isLoading: false,
         loadingType: () => null,

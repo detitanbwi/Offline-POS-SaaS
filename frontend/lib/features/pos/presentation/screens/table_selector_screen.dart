@@ -7,7 +7,6 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
-import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -452,7 +451,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                 
                 await ref.read(orderNotifierProvider.notifier).clearTableOnly(reason);
                 
-                if (mounted) {
+                if (context.mounted) {
                   AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
                 }
               },
@@ -520,6 +519,8 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                 final cashierRepo = ref.read(cashierRepositoryProvider);
                 final cashier = await cashierRepo.getCashierByPin(hashedPin);
                 
+                if (!context.mounted) return;
+
                 if (cashier == null || cashier.isOwner != 1) {
                   AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
                   return;
@@ -533,7 +534,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                   await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
                 }
                 
-                if (mounted) {
+                if (context.mounted) {
                   AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
                 }
               },

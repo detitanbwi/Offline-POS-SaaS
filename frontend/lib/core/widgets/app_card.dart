@@ -6,6 +6,7 @@ import '../constants/app_spacing.dart';
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
   final Color? color;
   final BorderSide? borderSide;
@@ -16,6 +17,7 @@ class AppCard extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = AppSpacing.paddingM,
+    this.margin,
     this.onTap,
     this.color,
     this.borderSide,
@@ -28,6 +30,7 @@ class AppCard extends StatelessWidget {
     final cardWidget = Container(
       width: width,
       height: height,
+      margin: margin,
       decoration: BoxDecoration(
         color: color ?? AppColors.card,
         borderRadius: AppRadius.radius16,

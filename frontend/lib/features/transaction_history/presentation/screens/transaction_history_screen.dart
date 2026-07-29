@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -263,6 +264,11 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                       color: AppColors.primary,
                                       fontSize: 15,
                                     ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.block_rounded, color: AppColors.error, size: 20),
+                                    tooltip: 'Batal Transaksi (Void)',
+                                    onPressed: () => _handleVoidTransaction(context, tx),
                                   ),
                                 ],
                               ),

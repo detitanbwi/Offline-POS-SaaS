@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -167,10 +168,10 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
             : state.platforms.isEmpty
                 ? AppEmptyState(
                     title: 'Belum Ada Platform',
-                    message: 'Tambahkan platform online (misal: GoFood, GrabFood) untuk mendukung opsi Take Away Online.',
+                    description: 'Tambahkan platform online (misal: GoFood, GrabFood) untuk mendukung opsi Take Away Online.',
                     icon: Icons.delivery_dining_rounded,
                     actionText: 'Tambah Platform',
-                    onAction: () => _showAddEditDialog(context),
+                    onActionPressed: () => _showAddEditDialog(context),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.all(AppSpacing.l),

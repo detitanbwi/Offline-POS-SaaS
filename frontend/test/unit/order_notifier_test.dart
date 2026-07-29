@@ -129,6 +129,18 @@ class OrderRepositoryMock implements OrderRepository {
       );
     }
   }
+
+  @override
+  Future<void> cancelOrderItem(String itemId, String reason) async {}
+
+  @override
+  Future<void> cancelOrderBatch(String batchId, String reason) async {}
+
+  @override
+  Future<void> clearTableOnly(String orderId, String tableId, String reason) async {}
+
+  @override
+  Future<void> markTableBillPrinted(String tableId) async {}
 }
 
 void main() {

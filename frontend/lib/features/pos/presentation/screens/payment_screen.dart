@@ -22,6 +22,8 @@ import '../../../payment_method/domain/models/payment_method.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
 import '../../../../core/utils/receipt_generator.dart';
+import '../../../../core/utils/pdf_receipt_generator.dart';
+import '../../../../core/widgets/app_receipt_preview_modal.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 import '../../application/order_notifier.dart';
@@ -370,6 +372,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       ref.read(tableNotifierProvider.notifier).loadTables();
     }
 
+    if (!mounted) return;
     AppReceiptPreviewModal.show(
       context,
       title: 'Tagihan Sementara',
