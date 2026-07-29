@@ -6,7 +6,7 @@ abstract class OrderRepository {
   Future<List<OrderItemModel>> getOrderItems(String orderId);
   Future<void> saveOrder(OrderModel order, List<OrderItemModel> items, {bool markAsPrinted = false});
   Future<void> cancelOrder(String orderId, String tableId);
-  Future<void> completeOrder(String orderId);
+  Future<void> completeOrder(String orderId, {String? tableId});
   Future<void> transferOrderTable(
     String orderId,
     String oldTableId,

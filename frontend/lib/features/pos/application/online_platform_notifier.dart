@@ -51,7 +51,11 @@ class OnlinePlatformNotifier extends StateNotifier<OnlinePlatformState> {
       await loadPlatforms();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal menambah platform: $e');
+      String cleanErr = e.toString().replaceAll('Exception: ', '');
+      if (cleanErr.contains('UNIQUE constraint failed')) {
+        cleanErr = 'Platform online dengan nama "${nama.trim()}" sudah terdaftar.';
+      }
+      state = state.copyWith(isLoading: false, errorMessage: cleanErr);
       return false;
     }
   }
@@ -63,7 +67,11 @@ class OnlinePlatformNotifier extends StateNotifier<OnlinePlatformState> {
       await loadPlatforms();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengubah platform: $e');
+      String cleanErr = e.toString().replaceAll('Exception: ', '');
+      if (cleanErr.contains('UNIQUE constraint failed')) {
+        cleanErr = 'Platform online dengan nama "${nama.trim()}" sudah terdaftar.';
+      }
+      state = state.copyWith(isLoading: false, errorMessage: cleanErr);
       return false;
     }
   }
@@ -75,7 +83,8 @@ class OnlinePlatformNotifier extends StateNotifier<OnlinePlatformState> {
       await loadPlatforms();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal menghapus platform: $e');
+      String cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: cleanErr);
       return false;
     }
   }

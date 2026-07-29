@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 8,
+            version: 9,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 8,
+          version: 9,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -61,7 +61,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 6,
+        version: 9,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -501,7 +501,27 @@ class PosDatabase {
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
+        )
       ''');
+    }
+
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS tax_settings (
+          id INTEGER PRIMARY KEY DEFAULT 1,
+          enable INTEGER NOT NULL DEFAULT 0,
+          percentage REAL NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+      
+      final now = DateTime.now().toIso8601String();
+      await db.insert('tax_settings', {
+        'id': 1,
+        'enable': 0,
+        'percentage': 11.0,
+        'updated_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 

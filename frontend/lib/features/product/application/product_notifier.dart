@@ -184,9 +184,10 @@ class ProductNotifier extends StateNotifier<ProductState> {
       await loadProducts();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal menambah produk: $e',
+        errorMessage: 'Gagal menambah produk: $cleanErr',
       );
       return false;
     }
@@ -232,9 +233,10 @@ class ProductNotifier extends StateNotifier<ProductState> {
       await loadProducts();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal memperbarui produk: $e',
+        errorMessage: 'Gagal memperbarui produk: $cleanErr',
       );
       return false;
     }
@@ -247,9 +249,10 @@ class ProductNotifier extends StateNotifier<ProductState> {
       await loadProducts();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: cleanErr,
       );
       return false;
     }

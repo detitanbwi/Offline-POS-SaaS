@@ -82,7 +82,8 @@ class TableNotifier extends StateNotifier<TableState> {
       await loadTables();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal menambah meja: $e');
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal menambah meja: $cleanErr');
       return false;
     }
   }
@@ -118,7 +119,8 @@ class TableNotifier extends StateNotifier<TableState> {
       await loadTables();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal men-generate meja: $e');
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal men-generate meja: $cleanErr');
       return false;
     }
   }
@@ -157,7 +159,8 @@ class TableNotifier extends StateNotifier<TableState> {
       await loadTables();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal memperbarui meja: $e');
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal memperbarui meja: $cleanErr');
       return false;
     }
   }
@@ -169,9 +172,10 @@ class TableNotifier extends StateNotifier<TableState> {
       await loadTables();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: cleanErr,
       );
       return false;
     }

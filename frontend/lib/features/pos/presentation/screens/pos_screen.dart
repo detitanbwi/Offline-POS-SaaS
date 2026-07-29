@@ -881,18 +881,18 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
                                 color: AppColors.primaryContainer.withValues(alpha: 0.6),
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                  const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
                                   const SizedBox(width: 6),
                                   Text(
                                     batchTitle,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
                                   ),
                                   const Spacer(),
                                   Text(
@@ -903,25 +903,68 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               ),
                             ),
                             ...batchItemList.map((item) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('${item.qty}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Text(
+                                    '${item.qty}x',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                      color: item.isCancelled ? Colors.grey : Colors.black87,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(item.produkNama, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                item.produkNama,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                                  color: item.isCancelled ? Colors.grey : Colors.black87,
+                                                ),
+                                              ),
+                                            ),
+                                            if (item.isCancelled)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red.shade100,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  'DIBATALKAN',
+                                                  style: TextStyle(fontSize: 9, color: Colors.red.shade800, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                         if (item.catatan != null && item.catatan!.isNotEmpty)
-                                          Text('Note: ${item.catatan}', style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic)),
+                                          Text(
+                                            'Note: ${item.catatan}',
+                                            style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic),
+                                          ),
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     CurrencyFormatter.format(item.subtotal),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                      color: item.isCancelled ? Colors.grey : Colors.black87,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1378,7 +1421,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: AppButton(
-                            text: 'Ke Dapur',
+                            text: 'Simpan Batch ${orderState.nextBatchNumber}',
                             type: AppButtonType.secondary,
                             onPressed: state.items.isEmpty
                                 ? null
@@ -1421,7 +1464,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     ),
                     const SizedBox(height: 8),
                     AppButton(
-                      text: 'Simpan Order (Kirim ke Dapur)',
+                      text: 'Simpan Batch ${orderState.nextBatchNumber}',
                       type: AppButtonType.secondary,
                       onPressed: state.items.isEmpty
                           ? null
@@ -1679,7 +1722,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                         ),
                                         const SizedBox(height: 8),
                                         AppButton(
-                                          text: 'Simpan Order (Kirim ke Dapur)',
+                                          text: 'Simpan Batch ${orderState.nextBatchNumber}',
                                           type: AppButtonType.secondary,
                                           onPressed: cState.items.isEmpty
                                               ? null
@@ -1735,6 +1778,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final isTakeAway = orderState.isTakeAway;
     final labelName = isTakeAway ? 'Take Away' : (selectedTable?.nama ?? 'Meja');
 
+    final activeUser = ref.read(authSessionProvider);
+
     final printedItems = await orderNotifier.saveCurrentOrderDraft(
       cartState.items,
       cartState.subtotal,
@@ -1742,6 +1787,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       cartState.taxAmount,
       cartState.grandTotal,
       customerName: orderState.customerName,
+      cashierId: activeUser?.id,
+      cashierNama: activeUser?.nama,
     );
 
     if (!context.mounted) return;
@@ -1764,7 +1811,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
           order: savedOrderHeader,
           itemsToPrint: printedItems,
-          cashierNama: activeUser?.nama,
+          cashierNama: savedOrderHeader.cashierNama ?? activeUser?.nama,
           waveInfo: waveInfo,
           charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
         );
@@ -1777,13 +1824,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
             order: savedOrderHeader,
             itemsToPrint: printedItems,
-            cashierNama: activeUser?.nama,
+            cashierNama: savedOrderHeader.cashierNama ?? activeUser?.nama,
             waveInfo: waveInfo,
           ),
           onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
             order: savedOrderHeader,
             itemsToPrint: printedItems,
-            cashierNama: activeUser?.nama,
+            cashierNama: savedOrderHeader.cashierNama ?? activeUser?.nama,
             waveInfo: waveInfo,
             paperSize: kitchenPrinter?.escPosPaperSize ?? PaperSize.mm58,
             charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
@@ -1965,61 +2012,63 @@ class _TakeAwayOptionsDialogState extends ConsumerState<_TakeAwayOptionsDialog> 
 
     return AlertDialog(
       title: const Text('Opsi Take Away'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          RadioListTile<String>(
-            title: const Text('Reguler'),
-            value: 'reguler',
-            groupValue: _subType,
-            onChanged: (value) {
-              setState(() {
-                _subType = value!;
-                _selectedPlatform = null;
-              });
-            },
-          ),
-          RadioListTile<String>(
-            title: const Text('Online Food'),
-            value: 'online',
-            groupValue: _subType,
-            onChanged: (value) {
-              setState(() {
-                _subType = value!;
-                if (platforms.isNotEmpty) {
-                  _selectedPlatform = platforms.first.nama;
-                }
-              });
-            },
-          ),
-          if (_subType == 'online') ...[
-            const SizedBox(height: 12),
-            if (platformState.isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (platforms.isEmpty)
-              const Text('Belum ada platform online terdaftar.', style: TextStyle(color: AppColors.error))
-            else
-              DropdownButtonFormField<String>(
-                initialValue: _selectedPlatform,
-                decoration: const InputDecoration(
-                  labelText: 'Pilih Platform',
-                  border: OutlineInputBorder(),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            RadioListTile<String>(
+              title: const Text('Reguler'),
+              value: 'reguler',
+              groupValue: _subType,
+              onChanged: (value) {
+                setState(() {
+                  _subType = value!;
+                  _selectedPlatform = null;
+                });
+              },
+            ),
+            RadioListTile<String>(
+              title: const Text('Online Food'),
+              value: 'online',
+              groupValue: _subType,
+              onChanged: (value) {
+                setState(() {
+                  _subType = value!;
+                  if (platforms.isNotEmpty) {
+                    _selectedPlatform = platforms.first.nama;
+                  }
+                });
+              },
+            ),
+            if (_subType == 'online') ...[
+              const SizedBox(height: 12),
+              if (platformState.isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (platforms.isEmpty)
+                const Text('Belum ada platform online terdaftar.', style: TextStyle(color: AppColors.error))
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedPlatform,
+                  decoration: const InputDecoration(
+                    labelText: 'Pilih Platform',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: platforms.map((p) {
+                    return DropdownMenuItem<String>(
+                      value: p.nama,
+                      child: Text(p.nama),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedPlatform = value;
+                    });
+                  },
                 ),
-                items: platforms.map((p) {
-                  return DropdownMenuItem<String>(
-                    value: p.nama,
-                    child: Text(p.nama),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPlatform = value;
-                  });
-                },
-              ),
+            ],
           ],
-        ],
+        ),
       ),
       actions: [
         TextButton(

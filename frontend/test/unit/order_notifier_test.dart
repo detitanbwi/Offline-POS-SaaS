@@ -108,7 +108,7 @@ class OrderRepositoryMock implements OrderRepository {
   }
 
   @override
-  Future<void> completeOrder(String orderId) async {
+  Future<void> completeOrder(String orderId, {String? tableId}) async {
     mockActiveOrder = null;
     mockOrderItems = [];
   }

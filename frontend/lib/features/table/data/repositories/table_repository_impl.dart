@@ -46,6 +46,18 @@ class TableRepositoryImpl implements TableRepository {
   @override
   Future<void> deleteTable(String id) async {
     final db = await _db.database;
+    final tableMap = await db.query('tables', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (tableMap.isNotEmpty) {
+      final status = tableMap.first['status'] as int;
+      if (status == 1 || status == 4) {
+        throw const TableException('Meja tidak bisa dihapus karena sedang terisi pesanan atau tagihan aktif.');
+      }
+    }
+    final activeOrders = await db.query('orders', where: 'table_id = ? AND status = ?', whereArgs: [id, 'draft']);
+    if (activeOrders.isNotEmpty) {
+      throw const TableException('Meja tidak bisa dihapus karena memiliki pesanan draft yang belum selesai.');
+    }
+
     try {
       await db.update(
         'tables',

@@ -95,4 +95,26 @@ class CashierRepositoryImpl implements CashierRepository {
       whereArgs: [id],
     );
   }
+
+  @override
+  Future<bool> isNameExists(String name, {String? excludeId}) async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'cashiers',
+      where: excludeId == null ? 'LOWER(nama) = ? AND is_deleted = 0' : 'LOWER(nama) = ? AND id != ? AND is_deleted = 0',
+      whereArgs: excludeId == null ? [name.toLowerCase().trim()] : [name.toLowerCase().trim(), excludeId],
+    );
+    return maps.isNotEmpty;
+  }
+
+  @override
+  Future<bool> isPinExists(String hashedPin, {String? excludeId}) async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'cashiers',
+      where: excludeId == null ? 'pin = ? AND is_deleted = 0' : 'pin = ? AND id != ? AND is_deleted = 0',
+      whereArgs: excludeId == null ? [hashedPin] : [hashedPin, excludeId],
+    );
+    return maps.isNotEmpty;
+  }
 }

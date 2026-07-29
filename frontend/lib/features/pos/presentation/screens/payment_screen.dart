@@ -234,11 +234,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         );
       }).toList();
 
-      // Save transaction to local SQLite DB and deduct stock
-      // 1. If this transaction is linked to a table order draft, mark it completed (but do not release table status to Empty)
+      // 1. If this transaction is linked to a table order draft, mark it completed and release table status to Empty
       if (orderState.selectedTable != null && orderState.activeOrder != null) {
         await ref.read(orderRepositoryProvider).completeOrder(
           orderState.activeOrder!.id,
+          tableId: orderState.selectedTable!.id,
         );
         ref.read(orderNotifierProvider.notifier).clearActiveOrder();
         ref.read(tableNotifierProvider.notifier).loadTables();
@@ -360,7 +360,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final textPreview = await ReceiptGenerator.formatBillTextPreview(
       order: order,
       items: items,
-      cashierNama: activeUser?.nama,
+      cashierNama: order.cashierNama ?? activeUser?.nama,
       charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
     );
 
@@ -375,17 +375,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     if (!mounted) return;
     AppReceiptPreviewModal.show(
       context,
-      title: 'Tagihan Sementara',
+      title: 'TAGIHAN',
       receiptTextPreview: textPreview,
       onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
         order: order,
         items: items,
-        cashierNama: activeUser?.nama,
+        cashierNama: order.cashierNama ?? activeUser?.nama,
       ),
       onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
         order: order,
         items: items,
-        cashierNama: activeUser?.nama,
+        cashierNama: order.cashierNama ?? activeUser?.nama,
         paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
         charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
         autoCut: cashierPrinter?.autoCut ?? false,
@@ -774,7 +774,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           const SizedBox(height: 24),
           if (ref.read(orderNotifierProvider).activeOrder != null) ...[
             AppButton(
-              text: 'Cetak Tagihan Sementara',
+              text: 'Cetak Tagihan',
               type: AppButtonType.secondary,
               onPressed: _handlePrintBill,
               icon: Icons.receipt_long_rounded,

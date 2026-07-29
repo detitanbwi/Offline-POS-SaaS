@@ -60,7 +60,8 @@ class CashierNotifier extends StateNotifier<CashierState> {
   }
 
   Future<bool> addCashier(String name, String pin) async {
-    if (name.trim().isEmpty) {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
       state = state.copyWith(errorMessage: 'Nama kasir tidak boleh kosong.');
       return false;
     }
@@ -71,11 +72,21 @@ class CashierNotifier extends StateNotifier<CashierState> {
 
     state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
     try {
-      final isOwner = state.allCashiers.isEmpty ? 1 : 0;
+      if (await _repository.isNameExists(trimmedName)) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Nama kasir "$trimmedName" sudah terdaftar.');
+        return false;
+      }
+
       final hashedPin = _hashPIN(pin);
+      if (await _repository.isPinExists(hashedPin)) {
+        state = state.copyWith(isLoading: false, errorMessage: 'PIN 6-digit ini sudah digunakan oleh kasir lain.');
+        return false;
+      }
+
+      final isOwner = state.allCashiers.isEmpty ? 1 : 0;
       final newCashier = CashierModel(
         id: _uuid.v4(),
-        nama: name.trim(),
+        nama: trimmedName,
         pin: hashedPin,
         status: 1,
         isDeleted: 0,
@@ -89,13 +100,15 @@ class CashierNotifier extends StateNotifier<CashierState> {
       state = state.copyWith(successMessage: 'Kasir baru berhasil didaftarkan.');
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mendaftarkan kasir: $e');
+      String cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mendaftarkan kasir: $cleanErr');
       return false;
     }
   }
 
   Future<bool> updateCashier(String id, String name, String? newPin) async {
-    if (name.trim().isEmpty) {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
       state = state.copyWith(errorMessage: 'Nama kasir tidak boleh kosong.');
       return false;
     }
@@ -112,13 +125,22 @@ class CashierNotifier extends StateNotifier<CashierState> {
         return false;
       }
 
+      if (await _repository.isNameExists(trimmedName, excludeId: id)) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Nama kasir "$trimmedName" sudah terdaftar.');
+        return false;
+      }
+
       String finalPin = existing.pin;
       if (newPin != null && newPin.isNotEmpty) {
         finalPin = _hashPIN(newPin);
+        if (await _repository.isPinExists(finalPin, excludeId: id)) {
+          state = state.copyWith(isLoading: false, errorMessage: 'PIN 6-digit ini sudah digunakan oleh kasir lain.');
+          return false;
+        }
       }
 
       final updated = existing.copyWith(
-        nama: name.trim(),
+        nama: trimmedName,
         pin: finalPin,
         updatedAt: DateTime.now(),
       );
@@ -128,7 +150,8 @@ class CashierNotifier extends StateNotifier<CashierState> {
       state = state.copyWith(successMessage: 'Data kasir berhasil diperbarui.');
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal memperbarui kasir: $e');
+      String cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal memperbarui kasir: $cleanErr');
       return false;
     }
   }
@@ -141,7 +164,8 @@ class CashierNotifier extends StateNotifier<CashierState> {
       await loadCashiers();
       state = state.copyWith(successMessage: 'Status kasir berhasil diubah.');
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengubah status kasir: $e');
+      String cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengubah status kasir: $cleanErr');
     }
   }
 
@@ -150,9 +174,10 @@ class CashierNotifier extends StateNotifier<CashierState> {
     try {
       await _repository.softDelete(id);
       await loadCashiers();
-      state = state.copyWith(successMessage: 'Akun kasir berhasil dihapus (soft-delete).');
+      state = state.copyWith(successMessage: 'Akun kasir berhasil dihapus.');
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Gagal menghapus kasir: $e');
+      String cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal menghapus kasir: $cleanErr');
     }
   }
 }

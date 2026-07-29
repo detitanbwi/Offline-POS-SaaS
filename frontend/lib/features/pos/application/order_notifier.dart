@@ -23,6 +23,7 @@ class OrderState {
   final String? customerName;
   final bool isLoading;
   final String? errorMessage;
+  final int nextBatchNumber;
 
   OrderState({
     this.selectedTable,
@@ -35,6 +36,7 @@ class OrderState {
     this.customerName,
     this.isLoading = false,
     this.errorMessage,
+    this.nextBatchNumber = 1,
   });
 
   bool get isTakeAway => orderType == 'take_away';
@@ -50,6 +52,7 @@ class OrderState {
     String? customerName,
     bool? isLoading,
     String? errorMessage,
+    int? nextBatchNumber,
     bool clearActiveOrder = false,
     bool clearSelectedTable = false,
   }) {
@@ -63,7 +66,8 @@ class OrderState {
       onlinePlatform: onlinePlatform ?? this.onlinePlatform,
       customerName: customerName ?? this.customerName,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
+      nextBatchNumber: clearActiveOrder ? 1 : (nextBatchNumber ?? this.nextBatchNumber),
     );
   }
 }
@@ -116,6 +120,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final activeOrder = await _repository.getActiveOrderForTable(tableId);
       if (activeOrder != null) {
         final items = await _repository.getOrderItems(activeOrder.id);
+        final batchCount = await _repository.getBatchCount(activeOrder.id);
         state = state.copyWith(
           activeOrder: activeOrder,
           activeOrderItems: items,
@@ -124,6 +129,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
           takeAwaySubType: activeOrder.takeAwaySubType,
           onlinePlatform: activeOrder.onlinePlatform,
           isLoading: false,
+          nextBatchNumber: batchCount + 1,
         );
       } else {
         state = state.copyWith(
@@ -147,6 +153,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
     double grandTotal, {
     String? notes,
     String? customerName,
+    String? cashierId,
+    String? cashierNama,
   }) async {
     final table = state.selectedTable;
     final isTakeAway = state.orderType == 'take_away';
@@ -178,39 +186,60 @@ class OrderNotifier extends StateNotifier<OrderState> {
         grandTotal: grandTotal,
         status: 'draft',
         catatan: notes,
+        cashierId: cashierId ?? state.activeOrder?.cashierId,
+        cashierNama: cashierNama ?? state.activeOrder?.cashierNama,
         createdAt: state.activeOrder?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
       // Fetch existing items for this draft to calculate difference
       final dbItems = await _repository.getOrderItems(orderId);
-      final Map<String, int> dbQtyMap = {for (var x in dbItems) x.produkId: x.qty};
+      
+      final List<OrderItemModel> printedDbItems = [];
+      final Map<String, int> printedQtyMap = {};
 
-      // Determine which items are new or have quantity increases
+      for (var item in dbItems) {
+        if (item.statusCetak == 1 || item.printBatchId != null) {
+          printedDbItems.add(item);
+          if (!item.isCancelled) {
+            printedQtyMap[item.produkId] = (printedQtyMap[item.produkId] ?? 0) + item.qty;
+          }
+        }
+      }
+
       final List<OrderItemModel> itemsToPrint = [];
-      final List<OrderItemModel> allOrderItems = [];
+      final List<OrderItemModel> allOrderItems = List.from(printedDbItems);
 
+      final Map<String, CartItem> cartItemMap = {};
+      final Map<String, int> cartQtyMap = {};
       for (var cartItem in cartItems) {
         final prodId = cartItem.product.id;
-        final currentQty = cartItem.qty;
-        final dbQty = dbQtyMap[prodId] ?? 0;
+        cartQtyMap[prodId] = (cartQtyMap[prodId] ?? 0) + cartItem.qty;
+        cartItemMap[prodId] = cartItem;
+      }
 
-        final orderItem = OrderItemModel(
-          id: _uuid.v4(),
-          orderId: orderId,
-          produkId: prodId,
-          produkNama: cartItem.product.nama,
-          produkHarga: cartItem.product.harga,
-          qty: currentQty,
-          subtotal: cartItem.subtotal,
-          catatan: cartItem.catatan,
-          statusCetak: 0,
-        );
-        allOrderItems.add(orderItem);
+      for (var prodId in cartQtyMap.keys) {
+        final cartItem = cartItemMap[prodId]!;
+        final currentQty = cartQtyMap[prodId]!;
+        final printedQty = printedQtyMap[prodId] ?? 0;
 
-        if (currentQty > dbQty) {
-          final printQty = currentQty - dbQty;
-          itemsToPrint.add(orderItem.copyWith(qty: printQty, subtotal: cartItem.product.harga * printQty));
+        if (currentQty > printedQty) {
+          final unprintedQty = currentQty - printedQty;
+          
+          final orderItem = OrderItemModel(
+            id: _uuid.v4(),
+            orderId: orderId,
+            produkId: prodId,
+            produkNama: cartItem.product.nama,
+            produkHarga: cartItem.product.harga,
+            qty: unprintedQty,
+            subtotal: cartItem.product.harga * unprintedQty,
+            catatan: cartItem.catatan,
+            statusCetak: 0,
+            printBatchId: null,
+          );
+          allOrderItems.add(orderItem);
+          itemsToPrint.add(orderItem);
         }
       }
 

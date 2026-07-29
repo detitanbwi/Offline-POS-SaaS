@@ -15,6 +15,8 @@ class OrderModel {
   final double grandTotal;
   final String status; // 'draft', 'completed', 'cancelled'
   final String? catatan;
+  final String? cashierId;
+  final String? cashierNama;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -35,6 +37,8 @@ class OrderModel {
     this.grandTotal = 0.0,
     this.status = 'draft',
     this.catatan,
+    this.cashierId,
+    this.cashierNama,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -61,6 +65,8 @@ class OrderModel {
     double? grandTotal,
     String? status,
     String? catatan,
+    String? cashierId,
+    String? cashierNama,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -81,6 +87,8 @@ class OrderModel {
       grandTotal: grandTotal ?? this.grandTotal,
       status: status ?? this.status,
       catatan: catatan ?? this.catatan,
+      cashierId: cashierId ?? this.cashierId,
+      cashierNama: cashierNama ?? this.cashierNama,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -104,6 +112,8 @@ class OrderModel {
       'grand_total': grandTotal,
       'status': status,
       'catatan': catatan,
+      'cashier_id': cashierId,
+      'cashier_nama': cashierNama,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -127,6 +137,8 @@ class OrderModel {
       grandTotal: (map['grand_total'] as num).toDouble(),
       status: map['status'] as String,
       catatan: map['catatan'] as String?,
+      cashierId: map['cashier_id'] as String?,
+      cashierNama: map['cashier_nama'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

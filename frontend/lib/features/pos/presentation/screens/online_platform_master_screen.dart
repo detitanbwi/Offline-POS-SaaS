@@ -40,43 +40,45 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
           builder: (context, setState) {
             return AlertDialog(
               title: Text(platform == null ? 'Tambah Platform Online' : 'Ubah Platform Online'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AppTextField(
-                    controller: nameController,
-                    labelText: 'Nama Platform (Cth: GoFood, GrabFood)',
-                    prefixIcon: Icons.delivery_dining_rounded,
-                  ),
-                  const SizedBox(height: 16),
-                  if (platform != null) ...[
-                    Text('Status', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: RadioListTile<int>(
-                            title: const Text('Aktif', style: TextStyle(fontSize: 14)),
-                            value: 1,
-                            groupValue: status,
-                            onChanged: (val) => setState(() => status = val!),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        Expanded(
-                          child: RadioListTile<int>(
-                            title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
-                            value: 0,
-                            groupValue: status,
-                            onChanged: (val) => setState(() => status = val!),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ],
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppTextField(
+                      controller: nameController,
+                      labelText: 'Nama Platform (Cth: GoFood, GrabFood)',
+                      prefixIcon: Icons.delivery_dining_rounded,
                     ),
+                    const SizedBox(height: 16),
+                    if (platform != null) ...[
+                      Text('Status', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<int>(
+                              title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                              value: 1,
+                              groupValue: status,
+                              onChanged: (val) => setState(() => status = val!),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<int>(
+                              title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                              value: 0,
+                              groupValue: status,
+                              onChanged: (val) => setState(() => status = val!),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
               actions: [
                 TextButton(

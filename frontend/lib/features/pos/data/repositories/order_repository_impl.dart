@@ -86,84 +86,29 @@ class OrderRepositoryImpl implements OrderRepository {
     final db = await _db.database;
 
     await db.transaction((txn) async {
-      // 1. Read existing items from DB keyed by produk_id to preserve their id, print_batch_id, status_cetak
-      final List<Map<String, dynamic>> existingRows = await txn.query(
+      // 1. Upsert the order header without using replace to avoid CASCADE delete
+      final existing = await txn.query('orders', where: 'id = ?', whereArgs: [order.id]);
+      if (existing.isEmpty) {
+        await txn.insert('orders', order.toMap());
+      } else {
+        await txn.update('orders', order.toMap(), where: 'id = ?', whereArgs: [order.id]);
+      }
+
+
+      // 2. Delete ALL existing items for this order
+      await txn.delete(
         'order_items',
         where: 'order_id = ?',
         whereArgs: [order.id],
       );
 
-      final Map<String, Map<String, dynamic>> existingByProdukId = {};
-      for (var row in existingRows) {
-        existingByProdukId[row['produk_id'] as String] = row;
-      }
-
-      // 2. Upsert the order header
-      await txn.insert(
-        'orders',
-        order.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-
-      // 3. Determine which produk_ids are in the new cart
-      final Set<String> newProdukIds = items.map((i) => i.produkId).toSet();
-
-      // 4. Delete items that were removed from the cart
-      for (var existingProdukId in existingByProdukId.keys) {
-        if (!newProdukIds.contains(existingProdukId)) {
-          await txn.delete(
-            'order_items',
-            where: 'order_id = ? AND produk_id = ?',
-            whereArgs: [order.id, existingProdukId],
-          );
-        }
-      }
-
-      // 5. Upsert items: UPDATE existing, INSERT new
+      // 3. Insert all new items
       for (var item in items) {
-        final existing = existingByProdukId[item.produkId];
-
-        if (existing != null) {
-          // Item already exists in DB → UPDATE qty, subtotal, catatan only
-          // Preserve: id, print_batch_id, status_cetak
-          final Map<String, dynamic> updateData = {
-            'qty': item.qty,
-            'subtotal': item.subtotal,
-            'catatan': item.catatan,
-          };
-
-          // If qty increased, the new qty portion is "unprinted" — but we keep
-          // the existing print_batch_id because the whole item row is one entry.
-          // The difference detection (itemsToPrint) in the notifier handles
-          // what to send to the kitchen. We only clear print status if markAsPrinted is false
-          // and qty changed (new portion not yet printed).
-          if (item.qty != (existing['qty'] as int)) {
-            // Qty changed → mark as unprinted so it gets picked up by markItemsAsPrinted later
-            // But only clear if there are NEW items to print (qty increased)
-            if (item.qty > (existing['qty'] as int)) {
-              updateData['status_cetak'] = 0;
-              updateData['print_batch_id'] = null;
-            }
-          }
-
-          await txn.update(
-            'order_items',
-            updateData,
-            where: 'order_id = ? AND produk_id = ?',
-            whereArgs: [order.id, item.produkId],
-          );
-        } else {
-          // New item → INSERT with status_cetak=0, print_batch_id=null
-          final newItem = item.copyWith(
-            statusCetak: 0,
-            printBatchId: null,
-          );
-          await txn.insert(
-            'order_items',
-            newItem.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.fail,
-          );
-        }
+        await txn.insert(
+          'order_items',
+          item.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.fail,
+        );
       }
 
       // 6. Update the table status to Terisi (1) if tableId is present
@@ -248,12 +193,59 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Future<void> completeOrder(String orderId) async {
+  Future<void> completeOrder(String orderId, {String? tableId}) async {
     final db = await _db.database;
-    await db.update(
+    await db.transaction((txn) async {
+      await txn.update(
+        'orders',
+        {
+          'status': 'completed',
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+
+      if (tableId != null && tableId.isNotEmpty) {
+        await txn.update(
+          'tables',
+          {
+            'status': 0,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [tableId],
+        );
+      }
+    });
+  }
+
+  Future<void> _recalculateOrderTotals(DatabaseExecutor txn, String orderId) async {
+    final orderMap = await txn.query('orders', where: 'id = ?', whereArgs: [orderId], limit: 1);
+    if (orderMap.isEmpty) return;
+
+    final taxPercentage = (orderMap.first['tax_percentage'] as num?)?.toDouble() ?? 0.0;
+
+    final activeItems = await txn.query(
+      'order_items',
+      where: 'order_id = ? AND (is_cancelled IS NULL OR is_cancelled = 0)',
+      whereArgs: [orderId],
+    );
+
+    double subtotal = 0.0;
+    for (var item in activeItems) {
+      subtotal += (item['subtotal'] as num).toDouble();
+    }
+
+    final taxAmount = subtotal * (taxPercentage / 100);
+    final grandTotal = subtotal + taxAmount;
+
+    await txn.update(
       'orders',
       {
-        'status': 'completed',
+        'subtotal': subtotal,
+        'tax_amount': taxAmount,
+        'grand_total': grandTotal,
         'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
@@ -308,31 +300,47 @@ class OrderRepositoryImpl implements OrderRepository {
   @override
   Future<void> cancelOrderItem(String itemId, String reason) async {
     final db = await _db.database;
-    await db.update(
-      'order_items',
-      {
-        'is_cancelled': 1,
-        'cancelled_at': DateTime.now().toIso8601String(),
-        'cancelled_reason': reason,
-      },
-      where: 'id = ?',
-      whereArgs: [itemId],
-    );
+    await db.transaction((txn) async {
+      final items = await txn.query('order_items', where: 'id = ?', whereArgs: [itemId], limit: 1);
+      if (items.isEmpty) return;
+      final orderId = items.first['order_id'] as String;
+
+      await txn.update(
+        'order_items',
+        {
+          'is_cancelled': 1,
+          'cancelled_at': DateTime.now().toIso8601String(),
+          'cancelled_reason': reason,
+        },
+        where: 'id = ?',
+        whereArgs: [itemId],
+      );
+
+      await _recalculateOrderTotals(txn, orderId);
+    });
   }
 
   @override
   Future<void> cancelOrderBatch(String batchId, String reason) async {
     final db = await _db.database;
-    await db.update(
-      'order_items',
-      {
-        'is_cancelled': 1,
-        'cancelled_at': DateTime.now().toIso8601String(),
-        'cancelled_reason': reason,
-      },
-      where: 'print_batch_id = ?',
-      whereArgs: [batchId],
-    );
+    await db.transaction((txn) async {
+      final items = await txn.query('order_items', where: 'print_batch_id = ?', whereArgs: [batchId]);
+      if (items.isEmpty) return;
+      final orderId = items.first['order_id'] as String;
+
+      await txn.update(
+        'order_items',
+        {
+          'is_cancelled': 1,
+          'cancelled_at': DateTime.now().toIso8601String(),
+          'cancelled_reason': reason,
+        },
+        where: 'print_batch_id = ?',
+        whereArgs: [batchId],
+      );
+
+      await _recalculateOrderTotals(txn, orderId);
+    });
   }
 
   @override

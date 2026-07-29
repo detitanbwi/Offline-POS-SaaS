@@ -40,6 +40,7 @@ class ReceiptGenerator {
     int charsPerLine = 32,
     bool autoCut = false,
   }) async {
+    final activeItems = items.where((i) => !i.isCancelled).toList();
     final profile = await _getProfile();
     final generator = Generator(paperSize, profile);
     List<int> bytes = [];
@@ -55,7 +56,7 @@ class ReceiptGenerator {
     final dashLine = _dashDivider(charsPerLine);
 
     // Title & Store Info Header
-    bytes += generator.text('Tagihan Sementara', styles: const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text('TAGIHAN', styles: const PosStyles(align: PosAlign.center, bold: true));
     bytes += generator.text(storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
     for (var line in storeAddress.split('\n')) {
       bytes += generator.text(line, styles: const PosStyles(align: PosAlign.center));
@@ -80,7 +81,7 @@ class ReceiptGenerator {
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
     // Items Listing
-    for (var item in items) {
+    for (var item in activeItems) {
       bytes += generator.text('${item.qty}x ${item.produkNama}', styles: const PosStyles(align: PosAlign.left));
       final unitPrice = CurrencyFormatter.formatNumber(item.produkHarga);
       final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
@@ -458,6 +459,7 @@ class ReceiptGenerator {
     String? cashierNama,
     int charsPerLine = 32,
   }) async {
+    final activeItems = items.where((i) => !i.isCancelled).toList();
     final storage = SecureStorageService();
     final storeName = await storage.getStoreName() ?? 'KOS QAEZAR KAFE';
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
@@ -469,7 +471,7 @@ class ReceiptGenerator {
     final dashLine = _dashDivider(charsPerLine);
 
     final buffer = StringBuffer();
-    buffer.writeln(centerText('Tagihan Sementara', width: charsPerLine));
+    buffer.writeln(centerText('TAGIHAN', width: charsPerLine));
     buffer.writeln(centerText(storeName, width: charsPerLine));
     for (var line in storeAddress.split('\n')) {
       buffer.writeln(centerText(line, width: charsPerLine));
@@ -485,7 +487,7 @@ class ReceiptGenerator {
     }
     buffer.writeln('Status: BELUM DIBAYAR');
     buffer.writeln(dashLine);
-    for (var item in items) {
+    for (var item in activeItems) {
       buffer.writeln('${item.qty}x ${item.produkNama}');
       buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {

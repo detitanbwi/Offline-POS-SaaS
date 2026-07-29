@@ -22,11 +22,21 @@ class OnlinePlatformRepositoryImpl implements OnlinePlatformRepository {
   @override
   Future<void> addPlatform(String nama) async {
     final db = await _db.database;
+    final trimmed = nama.trim();
+    final existing = await db.query(
+      'online_platforms',
+      where: 'LOWER(nama) = ? AND is_deleted = 0',
+      whereArgs: [trimmed.toLowerCase()],
+    );
+    if (existing.isNotEmpty) {
+      throw Exception('Platform online dengan nama "$trimmed" sudah terdaftar.');
+    }
+
     final id = const Uuid().v4();
     final now = DateTime.now().toIso8601String();
     await db.insert('online_platforms', {
       'id': id,
-      'nama': nama,
+      'nama': trimmed,
       'aktif': 1,
       'is_deleted': 0,
       'created_at': now,
@@ -37,11 +47,21 @@ class OnlinePlatformRepositoryImpl implements OnlinePlatformRepository {
   @override
   Future<void> updatePlatform(String id, String nama, int aktif) async {
     final db = await _db.database;
+    final trimmed = nama.trim();
+    final existing = await db.query(
+      'online_platforms',
+      where: 'LOWER(nama) = ? AND id != ? AND is_deleted = 0',
+      whereArgs: [trimmed.toLowerCase(), id],
+    );
+    if (existing.isNotEmpty) {
+      throw Exception('Platform online dengan nama "$trimmed" sudah terdaftar.');
+    }
+
     final now = DateTime.now().toIso8601String();
     await db.update(
       'online_platforms',
       {
-        'nama': nama,
+        'nama': trimmed,
         'aktif': aktif,
         'updated_at': now,
       },
