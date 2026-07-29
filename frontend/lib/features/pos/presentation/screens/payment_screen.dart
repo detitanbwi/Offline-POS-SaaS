@@ -234,6 +234,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         );
       }).toList();
 
+      // Save transaction to database
+      await ref.read(transactionRepositoryProvider).saveTransaction(header, items);
+
       // 1. If this transaction is linked to a table order draft, mark it completed and release table status to Empty
       if (orderState.selectedTable != null && orderState.activeOrder != null) {
         await ref.read(orderRepositoryProvider).completeOrder(
