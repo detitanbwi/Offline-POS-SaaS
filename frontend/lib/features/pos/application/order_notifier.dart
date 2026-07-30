@@ -18,9 +18,12 @@ class OrderState {
   final List<OrderItemModel> activeOrderItems;
   final Map<String, OrderModel> activeOrdersMap;
   final String orderType; // 'dine_in' or 'take_away'
+  final String? takeAwaySubType;
+  final String? onlinePlatform;
   final String? customerName;
   final bool isLoading;
   final String? errorMessage;
+  final int nextBatchNumber;
 
   OrderState({
     this.selectedTable,
@@ -28,9 +31,12 @@ class OrderState {
     this.activeOrderItems = const [],
     this.activeOrdersMap = const {},
     this.orderType = 'dine_in',
+    this.takeAwaySubType,
+    this.onlinePlatform,
     this.customerName,
     this.isLoading = false,
     this.errorMessage,
+    this.nextBatchNumber = 1,
   });
 
   bool get isTakeAway => orderType == 'take_away';
@@ -41,9 +47,12 @@ class OrderState {
     List<OrderItemModel>? activeOrderItems,
     Map<String, OrderModel>? activeOrdersMap,
     String? orderType,
+    String? takeAwaySubType,
+    String? onlinePlatform,
     String? customerName,
     bool? isLoading,
     String? errorMessage,
+    int? nextBatchNumber,
     bool clearActiveOrder = false,
     bool clearSelectedTable = false,
   }) {
@@ -53,9 +62,12 @@ class OrderState {
       activeOrderItems: clearActiveOrder ? const [] : (activeOrderItems ?? this.activeOrderItems),
       activeOrdersMap: activeOrdersMap ?? this.activeOrdersMap,
       orderType: orderType ?? this.orderType,
+      takeAwaySubType: takeAwaySubType ?? this.takeAwaySubType,
+      onlinePlatform: onlinePlatform ?? this.onlinePlatform,
       customerName: customerName ?? this.customerName,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
+      nextBatchNumber: clearActiveOrder ? 1 : (nextBatchNumber ?? this.nextBatchNumber),
     );
   }
 }
@@ -67,11 +79,11 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   OrderNotifier(this._repository, this._ref) : super(OrderState());
 
-  void setOrderType(String type) {
+  void setOrderType(String type, {String? subType, String? platform}) {
     if (type == 'take_away') {
-      state = state.copyWith(orderType: 'take_away', clearSelectedTable: true);
+      state = state.copyWith(orderType: 'take_away', takeAwaySubType: subType, onlinePlatform: platform, clearSelectedTable: true);
     } else {
-      state = state.copyWith(orderType: 'dine_in');
+      state = state.copyWith(orderType: 'dine_in', takeAwaySubType: null, onlinePlatform: null);
     }
   }
 
@@ -108,12 +120,16 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final activeOrder = await _repository.getActiveOrderForTable(tableId);
       if (activeOrder != null) {
         final items = await _repository.getOrderItems(activeOrder.id);
+        final batchCount = await _repository.getBatchCount(activeOrder.id);
         state = state.copyWith(
           activeOrder: activeOrder,
           activeOrderItems: items,
           customerName: activeOrder.customerName ?? state.customerName,
           orderType: activeOrder.orderType,
+          takeAwaySubType: activeOrder.takeAwaySubType,
+          onlinePlatform: activeOrder.onlinePlatform,
           isLoading: false,
+          nextBatchNumber: batchCount + 1,
         );
       } else {
         state = state.copyWith(
@@ -137,6 +153,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
     double grandTotal, {
     String? notes,
     String? customerName,
+    String? cashierId,
+    String? cashierNama,
   }) async {
     final table = state.selectedTable;
     final isTakeAway = state.orderType == 'take_away';
@@ -160,45 +178,68 @@ class OrderNotifier extends StateNotifier<OrderState> {
         tableNomor: isTakeAway ? '-' : table?.nomor,
         customerName: finalCustomerName,
         orderType: state.orderType,
+        takeAwaySubType: state.takeAwaySubType,
+        onlinePlatform: state.onlinePlatform,
         subtotal: subtotal,
         taxPercentage: taxRate,
         taxAmount: taxAmount,
         grandTotal: grandTotal,
         status: 'draft',
         catatan: notes,
+        cashierId: cashierId ?? state.activeOrder?.cashierId,
+        cashierNama: cashierNama ?? state.activeOrder?.cashierNama,
         createdAt: state.activeOrder?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
       // Fetch existing items for this draft to calculate difference
       final dbItems = await _repository.getOrderItems(orderId);
-      final Map<String, int> dbQtyMap = {for (var x in dbItems) x.produkId: x.qty};
+      
+      final List<OrderItemModel> printedDbItems = [];
+      final Map<String, int> printedQtyMap = {};
 
-      // Determine which items are new or have quantity increases
+      for (var item in dbItems) {
+        if (item.statusCetak == 1 || item.printBatchId != null) {
+          printedDbItems.add(item);
+          if (!item.isCancelled) {
+            printedQtyMap[item.produkId] = (printedQtyMap[item.produkId] ?? 0) + item.qty;
+          }
+        }
+      }
+
       final List<OrderItemModel> itemsToPrint = [];
-      final List<OrderItemModel> allOrderItems = [];
+      final List<OrderItemModel> allOrderItems = List.from(printedDbItems);
 
+      final Map<String, CartItem> cartItemMap = {};
+      final Map<String, int> cartQtyMap = {};
       for (var cartItem in cartItems) {
         final prodId = cartItem.product.id;
-        final currentQty = cartItem.qty;
-        final dbQty = dbQtyMap[prodId] ?? 0;
+        cartQtyMap[prodId] = (cartQtyMap[prodId] ?? 0) + cartItem.qty;
+        cartItemMap[prodId] = cartItem;
+      }
 
-        final orderItem = OrderItemModel(
-          id: _uuid.v4(),
-          orderId: orderId,
-          produkId: prodId,
-          produkNama: cartItem.product.nama,
-          produkHarga: cartItem.product.harga,
-          qty: currentQty,
-          subtotal: cartItem.subtotal,
-          catatan: cartItem.catatan,
-          statusCetak: 0,
-        );
-        allOrderItems.add(orderItem);
+      for (var prodId in cartQtyMap.keys) {
+        final cartItem = cartItemMap[prodId]!;
+        final currentQty = cartQtyMap[prodId]!;
+        final printedQty = printedQtyMap[prodId] ?? 0;
 
-        if (currentQty > dbQty) {
-          final printQty = currentQty - dbQty;
-          itemsToPrint.add(orderItem.copyWith(qty: printQty, subtotal: cartItem.product.harga * printQty));
+        if (currentQty > printedQty) {
+          final unprintedQty = currentQty - printedQty;
+          
+          final orderItem = OrderItemModel(
+            id: _uuid.v4(),
+            orderId: orderId,
+            produkId: prodId,
+            produkNama: cartItem.product.nama,
+            produkHarga: cartItem.product.harga,
+            qty: unprintedQty,
+            subtotal: cartItem.product.harga * unprintedQty,
+            catatan: cartItem.catatan,
+            statusCetak: 0,
+            printBatchId: null,
+          );
+          allOrderItems.add(orderItem);
+          itemsToPrint.add(orderItem);
         }
       }
 
@@ -283,6 +324,55 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   void clearActiveOrder() {
     state = OrderState();
+  }
+
+  Future<bool> cancelOrderItem(String itemId, String reason) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.cancelOrderItem(itemId, reason);
+      if (state.selectedTable != null) {
+        await loadActiveOrderForTable(state.selectedTable!.id);
+      }
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal membatalkan item: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelOrderBatch(String batchId, String reason) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.cancelOrderBatch(batchId, reason);
+      if (state.selectedTable != null) {
+        await loadActiveOrderForTable(state.selectedTable!.id);
+      }
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal membatalkan batch: $e');
+      return false;
+    }
+  }
+
+  Future<bool> clearTableOnly(String reason) async {
+    final table = state.selectedTable;
+    final order = state.activeOrder;
+    if (order == null || table == null) {
+      state = state.copyWith(errorMessage: 'Tidak ada order atau meja aktif.');
+      return false;
+    }
+
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.clearTableOnly(order.id, table.id, reason);
+      _ref.read(tableNotifierProvider.notifier).loadTables();
+      await loadActiveOrdersMap();
+      state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');
+      return false;
+    }
   }
 }
 

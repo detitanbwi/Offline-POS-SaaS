@@ -146,6 +146,7 @@ class CartNotifier extends StateNotifier<CartState> {
   void loadDraftItems(List<OrderItemModel> draftItems, List<Product> allProducts) {
     final List<CartItem> loaded = [];
     for (var draft in draftItems) {
+      if (draft.isCancelled) continue;
       final productIndex = allProducts.indexWhere((p) => p.id == draft.produkId);
       if (productIndex != -1) {
         final product = allProducts[productIndex];

@@ -16,6 +16,7 @@ class ProductRepositoryImpl implements ProductRepository {
       SELECT p.*, c.nama as kategori_nama 
       FROM products p 
       LEFT JOIN categories c ON p.kategori_id = c.id
+      WHERE p.is_deleted = 0
       ORDER BY p.nama ASC
     ''');
     return List.generate(maps.length, (i) => Product.fromMap(maps[i]));
@@ -28,7 +29,7 @@ class ProductRepositoryImpl implements ProductRepository {
       SELECT p.*, c.nama as kategori_nama 
       FROM products p 
       LEFT JOIN categories c ON p.kategori_id = c.id
-      WHERE p.id = ?
+      WHERE p.id = ? AND p.is_deleted = 0
       LIMIT 1
     ''', [id]);
     if (maps.isEmpty) return null;
@@ -60,8 +61,12 @@ class ProductRepositoryImpl implements ProductRepository {
   Future<void> deleteProduct(String id) async {
     final db = await _db.database;
     try {
-      await db.delete(
+      await db.update(
         'products',
+        {
+          'is_deleted': 1,
+          'deleted_at': DateTime.now().toIso8601String(),
+        },
         where: 'id = ?',
         whereArgs: [id],
       );
@@ -78,7 +83,7 @@ class ProductRepositoryImpl implements ProductRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> result = await db.query(
       'products',
-      where: excludeId == null ? 'LOWER(nama) = LOWER(?)' : 'LOWER(nama) = LOWER(?) AND id != ?',
+      where: excludeId == null ? 'LOWER(nama) = LOWER(?) AND is_deleted = 0' : 'LOWER(nama) = LOWER(?) AND id != ? AND is_deleted = 0',
       whereArgs: excludeId == null ? [name] : [name, excludeId],
     );
     return result.isNotEmpty;

@@ -48,6 +48,12 @@ class InvoiceService
                 $package = Package::findOrFail($itemData['package_id']);
                 $quantity = $itemData['quantity'] ?? 1;
                 $durationDays = $itemData['duration_days'] ?? $package->default_duration_days;
+
+                if ($durationDays === null) {
+                    $dates = $package->calculateSubscriptionDates();
+                    $durationDays = \Carbon\Carbon::parse($dates['start_date'])->diffInDays(\Carbon\Carbon::parse($dates['expiry_date']));
+                }
+
                 $unitPrice = $package->price;
                 $totalPrice = $unitPrice * $quantity;
 

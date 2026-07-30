@@ -22,6 +22,8 @@ import '../../../payment_method/domain/models/payment_method.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
 import '../../../../core/utils/receipt_generator.dart';
+import '../../../../core/utils/pdf_receipt_generator.dart';
+import '../../../../core/widgets/app_receipt_preview_modal.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 import '../../application/order_notifier.dart';
@@ -232,11 +234,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         );
       }).toList();
 
-      // Save transaction to local SQLite DB and deduct stock
-      // 1. If this transaction is linked to a table order draft, mark it completed (but do not release table status to Empty)
+      // Save transaction to database
+      await ref.read(transactionRepositoryProvider).saveTransaction(header, items);
+
+      // 1. If this transaction is linked to a table order draft, mark it completed and release table status to Empty
       if (orderState.selectedTable != null && orderState.activeOrder != null) {
         await ref.read(orderRepositoryProvider).completeOrder(
           orderState.activeOrder!.id,
+          tableId: orderState.selectedTable!.id,
         );
         ref.read(orderNotifierProvider.notifier).clearActiveOrder();
         ref.read(tableNotifierProvider.notifier).loadTables();
@@ -337,6 +342,56 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             _buildDialogRow('Kembalian', CurrencyFormatter.format(header.kembalian), isHighlighted: true),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _handlePrintBill() async {
+    final orderState = ref.read(orderNotifierProvider);
+    final order = orderState.activeOrder;
+    final items = orderState.activeOrderItems;
+    if (order == null) {
+      AppSnackbar.showWarning(context, 'Tidak ada pesanan aktif (belum dikirim ke dapur).');
+      return;
+    }
+
+    final printerState = ref.read(printerNotifierProvider);
+    final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+    final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
+    final activeUser = ref.read(authSessionProvider);
+    final textPreview = await ReceiptGenerator.formatBillTextPreview(
+      order: order,
+      items: items,
+      cashierNama: order.cashierNama ?? activeUser?.nama,
+      charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+    );
+
+    if (!mounted) return;
+    
+    // Set table status to "Bill Printed" (4) if there's a table
+    if (orderState.selectedTable != null) {
+      await ref.read(tableNotifierProvider.notifier).updateStatus(orderState.selectedTable!.id, 4);
+      ref.read(tableNotifierProvider.notifier).loadTables();
+    }
+
+    if (!mounted) return;
+    AppReceiptPreviewModal.show(
+      context,
+      title: 'TAGIHAN',
+      receiptTextPreview: textPreview,
+      onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
+        order: order,
+        items: items,
+        cashierNama: order.cashierNama ?? activeUser?.nama,
+      ),
+      onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
+        order: order,
+        items: items,
+        cashierNama: order.cashierNama ?? activeUser?.nama,
+        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: cashierPrinter?.autoCut ?? false,
       ),
     );
   }
@@ -720,6 +775,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
           ],
           const SizedBox(height: 24),
+          if (ref.read(orderNotifierProvider).activeOrder != null) ...[
+            AppButton(
+              text: 'Cetak Tagihan',
+              type: AppButtonType.secondary,
+              onPressed: _handlePrintBill,
+              icon: Icons.receipt_long_rounded,
+              width: double.infinity,
+            ),
+            const SizedBox(height: 12),
+          ],
           AppButton(
             text: 'Selesaikan Transaksi',
             onPressed: isPayDisabled

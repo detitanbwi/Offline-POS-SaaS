@@ -1,5 +1,6 @@
 /// Application-wide constants, enums, and configuration values.
 /// Centralizes magic strings and configuration to avoid duplication.
+library;
 
 /// API base URL for the SaaS backend server.
 /// In production, this should be configured via environment or build config.

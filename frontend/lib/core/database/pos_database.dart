@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 7,
+            version: 9,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 7,
+          version: 9,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -61,7 +61,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 6,
+        version: 9,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -71,7 +71,7 @@ class PosDatabase {
       try {
         db = await openDatabase(
           path,
-          version: 7,
+          version: 8,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -97,6 +97,8 @@ class PosDatabase {
         nama TEXT NOT NULL UNIQUE,
         status INTEGER NOT NULL DEFAULT 1,
         image TEXT,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        deleted_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -112,6 +114,8 @@ class PosDatabase {
         stok INTEGER NOT NULL DEFAULT 0,
         status INTEGER NOT NULL DEFAULT 1,
         image TEXT,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        deleted_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (kategori_id) REFERENCES categories(id) ON DELETE RESTRICT
@@ -201,6 +205,8 @@ class PosDatabase {
         nama TEXT NOT NULL UNIQUE,
         nomor TEXT NOT NULL UNIQUE,
         status INTEGER NOT NULL DEFAULT 0,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        deleted_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -216,6 +222,9 @@ class PosDatabase {
         table_nomor TEXT,
         customer_name TEXT,
         order_type TEXT NOT NULL DEFAULT 'dine_in',
+        take_away_sub_type TEXT,
+        online_platform TEXT,
+        clear_table_reason TEXT,
         subtotal REAL NOT NULL DEFAULT 0,
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
@@ -241,6 +250,9 @@ class PosDatabase {
         subtotal REAL NOT NULL,
         catatan TEXT,
         status_cetak INTEGER NOT NULL DEFAULT 0,
+        is_cancelled INTEGER NOT NULL DEFAULT 0,
+        cancelled_at TEXT,
+        cancelled_reason TEXT,
         print_batch_id TEXT,
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
         FOREIGN KEY (produk_id) REFERENCES products(id) ON DELETE RESTRICT
@@ -282,6 +294,19 @@ class PosDatabase {
         pin TEXT NOT NULL,
         status INTEGER NOT NULL DEFAULT 1,
         is_deleted INTEGER NOT NULL DEFAULT 0,
+        is_owner INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // 14. Online Platforms
+    await db.execute('''
+      CREATE TABLE online_platforms (
+        id TEXT PRIMARY KEY,
+        nama TEXT NOT NULL UNIQUE,
+        aktif INTEGER NOT NULL DEFAULT 1,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -296,7 +321,6 @@ class PosDatabase {
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Create tables introduced in Version 2
       await db.execute('''
         CREATE TABLE IF NOT EXISTS tables (
           id TEXT PRIMARY KEY,
@@ -364,12 +388,10 @@ class PosDatabase {
         )
       ''');
 
-      // Seed tables since they are newly added
       await _seedDefaultTables(db);
     }
 
     if (oldVersion < 3) {
-      // Add performance indexes
       await _createIndexes(db);
     }
 
@@ -392,23 +414,23 @@ class PosDatabase {
       ''');
       try {
         await db.execute('ALTER TABLE transactions ADD COLUMN cashier_id TEXT');
-      } catch (e) {
-        // ignore
+      } catch (_) {
+        // Column may already exist
       }
       try {
         await db.execute('ALTER TABLE transactions ADD COLUMN cashier_nama TEXT');
-      } catch (e) {
-        // ignore
+      } catch (_) {
+        // Column may already exist
       }
       try {
         await db.execute('ALTER TABLE orders ADD COLUMN cashier_id TEXT');
-      } catch (e) {
-        // ignore
+      } catch (_) {
+        // Column may already exist
       }
       try {
         await db.execute('ALTER TABLE orders ADD COLUMN cashier_nama TEXT');
-      } catch (e) {
-        // ignore
+      } catch (_) {
+        // Column may already exist
       }
     }
 
@@ -444,6 +466,61 @@ class PosDatabase {
           debugPrint('Migration error (version 7): $e');
         }
       }
+    }
+
+    if (oldVersion < 8) {
+      final v8AlterColumns = [
+        "ALTER TABLE tables ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE tables ADD COLUMN deleted_at TEXT",
+        "ALTER TABLE orders ADD COLUMN take_away_sub_type TEXT",
+        "ALTER TABLE orders ADD COLUMN online_platform TEXT",
+        "ALTER TABLE orders ADD COLUMN clear_table_reason TEXT",
+        "ALTER TABLE order_items ADD COLUMN is_cancelled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN cancelled_at TEXT",
+        "ALTER TABLE order_items ADD COLUMN cancelled_reason TEXT",
+        "ALTER TABLE products ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE products ADD COLUMN deleted_at TEXT",
+        "ALTER TABLE categories ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE categories ADD COLUMN deleted_at TEXT",
+        "ALTER TABLE cashiers ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0",
+      ];
+      for (final sql in v8AlterColumns) {
+        try {
+          await db.execute(sql);
+        } catch (e) {
+          debugPrint('Migration error (version 8): $e');
+        }
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS online_platforms (
+          id TEXT PRIMARY KEY,
+          nama TEXT NOT NULL UNIQUE,
+          aktif INTEGER NOT NULL DEFAULT 1,
+          is_deleted INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+    }
+
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS tax_settings (
+          id INTEGER PRIMARY KEY DEFAULT 1,
+          enable INTEGER NOT NULL DEFAULT 0,
+          percentage REAL NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+      
+      final now = DateTime.now().toIso8601String();
+      await db.insert('tax_settings', {
+        'id': 1,
+        'enable': 0,
+        'percentage': 11.0,
+        'updated_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 

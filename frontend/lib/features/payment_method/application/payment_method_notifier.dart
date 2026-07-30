@@ -101,9 +101,10 @@ class PaymentMethodNotifier extends StateNotifier<PaymentMethodState> {
       await loadPaymentMethods();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal menambah metode pembayaran: $e',
+        errorMessage: 'Gagal menambah metode pembayaran: $cleanErr',
       );
       return false;
     }
@@ -137,9 +138,10 @@ class PaymentMethodNotifier extends StateNotifier<PaymentMethodState> {
       await loadPaymentMethods();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal memperbarui metode pembayaran: $e',
+        errorMessage: 'Gagal memperbarui metode pembayaran: $cleanErr',
       );
       return false;
     }
@@ -164,7 +166,8 @@ class PaymentMethodNotifier extends StateNotifier<PaymentMethodState> {
       await loadPaymentMethods();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Gagal memperbarui status: $e');
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(errorMessage: 'Gagal memperbarui status: $cleanErr');
       return false;
     }
   }
@@ -176,9 +179,10 @@ class PaymentMethodNotifier extends StateNotifier<PaymentMethodState> {
       await loadPaymentMethods();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: cleanErr,
       );
       return false;
     }

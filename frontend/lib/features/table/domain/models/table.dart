@@ -2,7 +2,9 @@ class TableModel {
   final String id;
   final String nama;
   final String nomor;
-  final int status; // 0: Kosong, 1: Terisi, 2: Reserved, 3: Maintenance
+  final int status; // 0: Kosong, 1: Terisi, 2: Reserved, 3: Maintenance, 4: Bill Dicetak
+  final bool isDeleted;
+  final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -11,6 +13,8 @@ class TableModel {
     required this.nama,
     required this.nomor,
     this.status = 0,
+    this.isDeleted = false,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -19,6 +23,7 @@ class TableModel {
   bool get isOccupied => status == 1;
   bool get isReserved => status == 2;
   bool get isMaintenance => status == 3;
+  bool get isBillPrinted => status == 4;
 
   String get statusLabel {
     switch (status) {
@@ -30,6 +35,8 @@ class TableModel {
         return 'Reserved';
       case 3:
         return 'Maintenance';
+      case 4:
+        return 'Bill Dicetak';
       default:
         return 'Unknown';
     }
@@ -40,6 +47,8 @@ class TableModel {
     String? nama,
     String? nomor,
     int? status,
+    bool? isDeleted,
+    DateTime? deletedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -48,6 +57,8 @@ class TableModel {
       nama: nama ?? this.nama,
       nomor: nomor ?? this.nomor,
       status: status ?? this.status,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -59,6 +70,8 @@ class TableModel {
       'nama': nama,
       'nomor': nomor,
       'status': status,
+      'is_deleted': isDeleted ? 1 : 0,
+      'deleted_at': deletedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -70,6 +83,8 @@ class TableModel {
       nama: map['nama'] as String,
       nomor: map['nomor'] as String,
       status: map['status'] as int,
+      isDeleted: (map['is_deleted'] as int?) == 1,
+      deletedAt: map['deleted_at'] != null ? DateTime.parse(map['deleted_at'] as String) : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

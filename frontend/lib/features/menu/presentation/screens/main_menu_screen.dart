@@ -22,6 +22,7 @@ import '../../../table/presentation/screens/table_screen.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../pos/application/order_notifier.dart';
 import '../../../pos/application/cart_notifier.dart';
+import '../../../pos/presentation/screens/online_platform_master_screen.dart';
 import '../../../../core/di/providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
@@ -209,6 +210,17 @@ class MainMenuScreen extends ConsumerWidget {
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const TaxSettingScreen()));
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildSubmenuItem(
+                  context,
+                  title: 'Platform Online (Take Away)',
+                  description: 'Kelola platform pesanan online',
+                  icon: Icons.delivery_dining_outlined,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const OnlinePlatformMasterScreen()));
                   },
                 ),
               ],

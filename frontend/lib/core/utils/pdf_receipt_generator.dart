@@ -31,6 +31,7 @@ class PdfReceiptGenerator {
     required List<OrderItemModel> items,
     String? cashierNama,
   }) async {
+    final activeItems = items.where((i) => !i.isCancelled).toList();
     final storage = SecureStorageService();
     final storeName = await storage.getStoreName() ?? 'KOS QAEZAR KAFE';
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
@@ -50,7 +51,7 @@ class PdfReceiptGenerator {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               // Header
-              pw.Center(child: pw.Text('Tagihan Sementara', style: pw.TextStyle(font: fontBold, fontSize: 10))),
+              pw.Center(child: pw.Text('TAGIHAN', style: pw.TextStyle(font: fontBold, fontSize: 10))),
               pw.Center(child: pw.Text(storeName, style: pw.TextStyle(font: fontBold, fontSize: 10))),
               for (var line in storeAddress.split('\n'))
                 pw.Center(child: pw.Text(line, style: pw.TextStyle(font: font, fontSize: 8))),
@@ -71,7 +72,7 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
               // Items
-              for (var item in items) ...[
+              for (var item in activeItems) ...[
                 pw.Text('${item.qty}x ${item.produkNama}', style: pw.TextStyle(font: font, fontSize: 8)),
                 _buildRowPdf(
                   font,

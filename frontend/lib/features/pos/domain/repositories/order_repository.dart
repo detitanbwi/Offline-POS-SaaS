@@ -6,7 +6,7 @@ abstract class OrderRepository {
   Future<List<OrderItemModel>> getOrderItems(String orderId);
   Future<void> saveOrder(OrderModel order, List<OrderItemModel> items, {bool markAsPrinted = false});
   Future<void> cancelOrder(String orderId, String tableId);
-  Future<void> completeOrder(String orderId);
+  Future<void> completeOrder(String orderId, {String? tableId});
   Future<void> transferOrderTable(
     String orderId,
     String oldTableId,
@@ -20,4 +20,10 @@ abstract class OrderRepository {
   Future<List<Map<String, dynamic>>> getPrintBatches(String orderId);
   Future<String> recordPrintBatch(String orderId);
   Future<void> markItemsAsPrinted(String orderId, String batchId);
+
+  // New features
+  Future<void> cancelOrderItem(String itemId, String reason);
+  Future<void> cancelOrderBatch(String batchId, String reason);
+  Future<void> clearTableOnly(String orderId, String tableId, String reason);
+  Future<void> markTableBillPrinted(String tableId);
 }

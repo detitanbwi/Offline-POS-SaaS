@@ -14,6 +14,7 @@ class TableRepositoryImpl implements TableRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'tables',
+      where: 'is_deleted = 0',
       orderBy: 'nomor ASC',
     );
     return List.generate(maps.length, (i) => TableModel.fromMap(maps[i]));
@@ -24,7 +25,7 @@ class TableRepositoryImpl implements TableRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'tables',
-      where: 'id = ?',
+      where: 'id = ? AND is_deleted = 0',
       whereArgs: [id],
       limit: 1,
     );
@@ -45,9 +46,25 @@ class TableRepositoryImpl implements TableRepository {
   @override
   Future<void> deleteTable(String id) async {
     final db = await _db.database;
+    final tableMap = await db.query('tables', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (tableMap.isNotEmpty) {
+      final status = tableMap.first['status'] as int;
+      if (status == 1 || status == 4) {
+        throw const TableException('Meja tidak bisa dihapus karena sedang terisi pesanan atau tagihan aktif.');
+      }
+    }
+    final activeOrders = await db.query('orders', where: 'table_id = ? AND status = ?', whereArgs: [id, 'draft']);
+    if (activeOrders.isNotEmpty) {
+      throw const TableException('Meja tidak bisa dihapus karena memiliki pesanan draft yang belum selesai.');
+    }
+
     try {
-      await db.delete(
+      await db.update(
         'tables',
+        {
+          'is_deleted': 1,
+          'deleted_at': DateTime.now().toIso8601String(),
+        },
         where: 'id = ?',
         whereArgs: [id],
       );
@@ -64,7 +81,7 @@ class TableRepositoryImpl implements TableRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> result = await db.query(
       'tables',
-      where: excludeId == null ? 'LOWER(nama) = LOWER(?)' : 'LOWER(nama) = LOWER(?) AND id != ?',
+      where: excludeId == null ? 'LOWER(nama) = LOWER(?) AND is_deleted = 0' : 'LOWER(nama) = LOWER(?) AND id != ? AND is_deleted = 0',
       whereArgs: excludeId == null ? [name] : [name, excludeId],
     );
     return result.isNotEmpty;
@@ -75,7 +92,7 @@ class TableRepositoryImpl implements TableRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> result = await db.query(
       'tables',
-      where: excludeId == null ? 'nomor = ?' : 'nomor = ? AND id != ?',
+      where: excludeId == null ? 'nomor = ? AND is_deleted = 0' : 'nomor = ? AND id != ? AND is_deleted = 0',
       whereArgs: excludeId == null ? [number] : [number, excludeId],
     );
     return result.isNotEmpty;

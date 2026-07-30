@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
-import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -38,7 +39,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
   }
 
   Future<void> _handleTableSelected(TableModel table, dynamic activeOrder) async {
-    if (table.isOccupied) {
+    if (table.isOccupied || table.isBillPrinted) {
       _showOccupiedTableBottomSheet(table, activeOrder);
     } else {
       _navigateToPos(table);
@@ -52,7 +53,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
 
     orderNotifier.selectTable(table);
 
-    if (table.isOccupied) {
+    if (table.isOccupied || table.isBillPrinted) {
       await orderNotifier.loadActiveOrderForTable(table.id);
       final orderState = ref.read(orderNotifierProvider);
       
@@ -82,7 +83,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
     final productState = ref.read(productNotifierProvider);
 
     orderNotifier.selectTable(table);
-    if (table.isOccupied) {
+    if (table.isOccupied || table.isBillPrinted) {
       await orderNotifier.loadActiveOrderForTable(table.id);
       final orderState = ref.read(orderNotifierProvider);
       
@@ -153,11 +154,12 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.9,
           ),
-          padding: const EdgeInsets.all(AppSpacing.m),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.m),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -228,11 +230,13 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
               if (groupedItems.isNotEmpty) ...[
                 Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
-                Expanded(
-                  child: ListView(
-                    children: groupedItems.entries.map((entry) {
+                ListView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: groupedItems.entries.map((entry) {
                       final batchTitle = entry.key;
                       final batchItemList = entry.value;
+                      final hasActiveItemsInBatch = batchItemList.any((i) => !i.isCancelled);
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
@@ -245,48 +249,116 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
                                 color: AppColors.primaryContainer.withValues(alpha: 0.6),
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                  const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
                                   const SizedBox(width: 6),
                                   Text(
                                     batchTitle,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
                                   ),
                                   const Spacer(),
                                   Text(
                                     '${batchItemList.length} Menu',
                                     style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                   ),
+                                  const SizedBox(width: 8),
+                                  if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
+                                    InkWell(
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _showCancelDialog(context, table, activeOrder, batchId: batchItemList.first.printBatchId);
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(6),
+                                        child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
                             ...batchItemList.map((item) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('${item.qty}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Text(
+                                    '${item.qty}x',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                      color: item.isCancelled ? Colors.grey : Colors.black87,
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(item.produkNama, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                item.produkNama,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                                  color: item.isCancelled ? Colors.grey : Colors.black87,
+                                                ),
+                                              ),
+                                            ),
+                                            if (item.isCancelled)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red.shade100,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  'DIBATALKAN',
+                                                  style: TextStyle(fontSize: 9, color: Colors.red.shade800, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                         if (item.catatan != null && item.catatan!.isNotEmpty)
-                                          Text('Note: ${item.catatan}', style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic)),
+                                          Text(
+                                            'Note: ${item.catatan}',
+                                            style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic),
+                                          ),
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     CurrencyFormatter.format(item.subtotal),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                      color: item.isCancelled ? Colors.grey : Colors.black87,
+                                    ),
                                   ),
+                                  if (!item.isCancelled) ...[
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _showCancelDialog(context, table, activeOrder, itemId: item.id, itemName: item.produkNama);
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(6),
+                                        child: Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             )),
@@ -294,11 +366,11 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                         ),
                       );
                     }).toList(),
-                  ),
                 ),
               ] else
-                const Expanded(
-                  child: Center(
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
                     child: Text('Belum ada rincian pesanan'),
                   ),
                 ),
@@ -389,40 +461,142 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
               ),
             ],
           ),
+          ),
         );
       },
     );
   }
 
   void _confirmClearTable(TableModel table, dynamic activeOrder) {
-    final hasDraft = activeOrder != null;
-    AppDialog.show(
+    final reasonController = TextEditingController();
+    showDialog(
       context: context,
-      title: 'Kosongkan Meja',
-      message: hasDraft
-          ? 'Meja ini memiliki pesanan yang belum dibayar. Apakah Anda yakin ingin membatalkan pesanan dan mengosongkan meja?'
-          : 'Apakah Anda yakin ingin menyelesaikan pesanan dan mengosongkan meja "${table.nama}"?',
-      confirmText: 'Ya, Kosongkan',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () async {
-        if (hasDraft) {
-          // If draft exists, cancel order which automatically frees the table
-          ref.read(orderNotifierProvider.notifier).selectTable(table);
-          await ref.read(orderNotifierProvider.notifier).loadActiveOrderForTable(table.id);
-          await ref.read(orderNotifierProvider.notifier).cancelCurrentOrder();
-        } else {
-          // If no draft (already paid or completed), just update table status to empty (0)
-          await ref.read(tableNotifierProvider.notifier).updateStatus(table.id, 0);
-        }
-        
-        // Reload states
-        ref.read(tableNotifierProvider.notifier).loadTables();
-        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        
-        if (mounted) {
-          AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
-        }
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Kosongkan Meja'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Alasan (Wajib)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+              onPressed: () async {
+                final reason = reasonController.text.trim();
+                if (reason.isEmpty) {
+                  AppSnackbar.showWarning(context, 'Alasan harus diisi.');
+                  return;
+                }
+                Navigator.pop(context);
+                
+                await ref.read(orderNotifierProvider.notifier).clearTableOnly(reason);
+                
+                if (context.mounted) {
+                  AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
+                }
+              },
+              child: const Text('Ya, Kosongkan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCancelDialog(BuildContext context, TableModel table, dynamic activeOrder, {String? batchId, String? itemId, String? itemName}) {
+    final reasonController = TextEditingController();
+    final pinController = TextEditingController();
+    final isBatch = batchId != null;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isBatch ? 'Batalkan Batch' : 'Batalkan $itemName'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Alasan Pembatalan:'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              const Text('Otorisasi Owner (PIN):'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: pinController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+              onPressed: () async {
+                final reason = reasonController.text.trim();
+                final pin = pinController.text.trim();
+
+                if (reason.isEmpty || pin.length != 6) {
+                  AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
+                  return;
+                }
+
+                const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+                var bytes = utf8.encode(pin + salt);
+                var digest = sha256.convert(bytes);
+                final hashedPin = digest.toString();
+
+                final cashierRepo = ref.read(cashierRepositoryProvider);
+                final cashier = await cashierRepo.getCashierByPin(hashedPin);
+                
+                if (!context.mounted) return;
+
+                if (cashier == null || cashier.isOwner != 1) {
+                  AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
+                  return;
+                }
+
+                Navigator.pop(context); // Close dialog
+                
+                if (isBatch) {
+                  await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
+                } else if (itemId != null) {
+                  await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
+                }
+                
+                if (context.mounted) {
+                  AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
+                }
+              },
+              child: const Text('Batalkan'),
+            ),
+          ],
+        );
       },
     );
   }
@@ -581,58 +755,66 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
         final activeOrder = activeOrdersMap[table.id];
         
         Color getStatusColor() {
-          if (table.isOccupied) return AppColors.secondary;
-          if (table.isReserved) return AppColors.warning;
+          if (table.isOccupied) return AppColors.success; // Hijau
+          if (table.isBillPrinted) return AppColors.warning; // Kuning
+          if (table.isReserved) return AppColors.secondary;
           if (table.isMaintenance) return AppColors.error;
-          return AppColors.success;
+          return Colors.white; // Kosong
         }
+
+        final isFilled = table.isOccupied || table.isBillPrinted;
 
         return InkWell(
           onTap: table.isMaintenance ? null : () => _handleTableSelected(table, activeOrder),
           borderRadius: BorderRadius.circular(12),
           child: AppCard(
             borderSide: BorderSide(
-              color: table.isOccupied 
-                  ? AppColors.secondary.withValues(alpha: 0.5) 
+              color: isFilled 
+                  ? getStatusColor()
                   : AppColors.divider,
-              width: table.isOccupied ? 1.5 : 1,
+              width: isFilled ? 1.5 : 1,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: getStatusColor().withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        table.statusLabel,
-                        style: TextStyle(
-                          color: getStatusColor(),
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: getStatusColor().withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          table.statusLabel,
+                          style: TextStyle(
+                            color: table.isEmpty ? AppColors.textPrimary : getStatusColor(),
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      'No: ${table.nomor}',
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 10,
+                      const SizedBox(width: 4),
+                      Text(
+                        'No: ${table.nomor}',
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const Spacer(),
                 Icon(
                   Icons.table_restaurant_rounded,
                   size: 26,
-                  color: table.isOccupied ? AppColors.secondary : AppColors.primary,
+                  color: isFilled ? getStatusColor() : AppColors.textSecondary,
                 ),
                 const Spacer(),
                 Text(
@@ -645,13 +827,13 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (table.isOccupied && activeOrder != null) ...[
+                if (isFilled && activeOrder != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     CurrencyFormatter.format(activeOrder.grandTotal),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.secondary,
+                    style: TextStyle(
+                      color: getStatusColor(),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

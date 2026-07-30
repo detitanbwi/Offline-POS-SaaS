@@ -37,7 +37,7 @@ class CategoryState {
       filteredCategories: filteredCategories ?? this.filteredCategories,
       searchQuery: searchQuery ?? this.searchQuery,
       sortBy: sortBy ?? this.sortBy,
-      statusFilter: statusFilter != null ? statusFilter : this.statusFilter,
+      statusFilter: statusFilter ?? this.statusFilter,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );
@@ -144,9 +144,10 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
       await loadCategories();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal menambah kategori: $e',
+        errorMessage: 'Gagal menambah kategori: $cleanErr',
       );
       return false;
     }
@@ -200,9 +201,10 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
 
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal menambah kategori: $e',
+        errorMessage: 'Gagal menambah kategori: $cleanErr',
       );
       return false;
     }
@@ -237,9 +239,10 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
       await loadCategories();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal memperbarui kategori: $e',
+        errorMessage: 'Gagal memperbarui kategori: $cleanErr',
       );
       return false;
     }
@@ -252,9 +255,10 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
       await loadCategories();
       return true;
     } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: cleanErr,
       );
       return false;
     }
