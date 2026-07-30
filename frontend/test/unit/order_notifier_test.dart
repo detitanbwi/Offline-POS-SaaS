@@ -141,6 +141,11 @@ class OrderRepositoryMock implements OrderRepository {
 
   @override
   Future<void> markTableBillPrinted(String tableId) async {}
+
+  @override
+  Future<OrderModel?> getOrderById(String orderId) async {
+    return mockActiveOrder;
+  }
 }
 
 void main() {

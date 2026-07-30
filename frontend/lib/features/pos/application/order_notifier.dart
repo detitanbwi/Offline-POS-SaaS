@@ -326,6 +326,22 @@ class OrderNotifier extends StateNotifier<OrderState> {
     state = OrderState();
   }
 
+  void resetForNewTransaction() {
+    state = OrderState(
+      activeOrdersMap: state.activeOrdersMap,
+      orderType: 'dine_in',
+      selectedTable: null,
+      activeOrder: null,
+      activeOrderItems: const [],
+      customerName: null,
+      takeAwaySubType: null,
+      onlinePlatform: null,
+      nextBatchNumber: 1,
+      isLoading: false,
+      errorMessage: null,
+    );
+  }
+
   Future<bool> cancelOrderItem(String itemId, String reason) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -368,6 +384,62 @@ class OrderNotifier extends StateNotifier<OrderState> {
       _ref.read(tableNotifierProvider.notifier).loadTables();
       await loadActiveOrdersMap();
       state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');
+      return false;
+    }
+  }
+
+  Future<bool> reprintKitchenTicket(String orderId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final order = await _repository.getOrderById(orderId);
+      final items = await _repository.getOrderItems(orderId);
+      if (order == null || items.isEmpty) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Order tidak ditemukan.');
+        return false;
+      }
+
+      final printerState = _ref.read(printerNotifierProvider);
+      final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+      final targetPrinter = kitchenPrinterList.isNotEmpty
+          ? kitchenPrinterList.first
+          : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
+
+      final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+        order: order,
+        itemsToPrint: items,
+        waveInfo: '(REPRINT - JANGAN DIMASAK ULANG)',
+        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: targetPrinter?.autoCut ?? false,
+      );
+
+      if (targetPrinter != null) {
+        await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+      }
+
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal reprint kitchen ticket: $e');
+      return false;
+    }
+  }
+
+  Future<bool> clearOccupiedTable(TableModel table, [String reason = 'Dikosongkan manual']) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final order = state.activeOrder ?? state.activeOrdersMap[table.id];
+      if (order != null) {
+        await _repository.clearTableOnly(order.id, table.id, reason);
+      } else {
+        await _repository.cancelOrder('', table.id);
+      }
+      _ref.read(tableNotifierProvider.notifier).loadTables();
+      await loadActiveOrdersMap();
+      state = OrderState(selectedTable: null, activeOrdersMap: state.activeOrdersMap);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');

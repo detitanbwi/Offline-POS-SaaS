@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 9,
+            version: 10,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 9,
+          version: 10,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -61,7 +61,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 9,
+        version: 10,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -163,6 +163,7 @@ class PosDatabase {
       CREATE TABLE transactions (
         id TEXT PRIMARY KEY,
         nomor_transaksi TEXT NOT NULL UNIQUE,
+        master_order_id TEXT,
         subtotal REAL NOT NULL,
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
@@ -187,6 +188,7 @@ class PosDatabase {
       CREATE TABLE transaction_items (
         id TEXT PRIMARY KEY,
         transaction_id TEXT NOT NULL,
+        order_item_id TEXT,
         produk_id TEXT NOT NULL,
         produk_nama TEXT NOT NULL,
         produk_harga REAL NOT NULL,
@@ -243,16 +245,24 @@ class PosDatabase {
       CREATE TABLE order_items (
         id TEXT PRIMARY KEY,
         order_id TEXT NOT NULL,
+        master_order_id TEXT,
+        batch_id TEXT,
         produk_id TEXT NOT NULL,
         produk_nama TEXT NOT NULL,
         produk_harga REAL NOT NULL,
+        base_price REAL NOT NULL DEFAULT 0,
+        effective_price REAL NOT NULL DEFAULT 0,
         qty INTEGER NOT NULL DEFAULT 1,
+        qty_ordered INTEGER NOT NULL DEFAULT 1,
+        qty_paid INTEGER NOT NULL DEFAULT 0,
         subtotal REAL NOT NULL,
         catatan TEXT,
         status_cetak INTEGER NOT NULL DEFAULT 0,
         is_cancelled INTEGER NOT NULL DEFAULT 0,
+        cancelled_qty INTEGER NOT NULL DEFAULT 0,
         cancelled_at TEXT,
         cancelled_reason TEXT,
+        cancelled_by_manager_id TEXT,
         print_batch_id TEXT,
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
         FOREIGN KEY (produk_id) REFERENCES products(id) ON DELETE RESTRICT
@@ -305,10 +315,99 @@ class PosDatabase {
       CREATE TABLE online_platforms (
         id TEXT PRIMARY KEY,
         nama TEXT NOT NULL UNIQUE,
+        markup_type TEXT NOT NULL DEFAULT 'percentage',
+        markup_value REAL NOT NULL DEFAULT 0,
+        driver_receipt_format INTEGER NOT NULL DEFAULT 1,
         aktif INTEGER NOT NULL DEFAULT 1,
         is_deleted INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // 15. Master Orders (Table Session / Open Tab Header)
+    await db.execute('''
+      CREATE TABLE master_orders (
+        id TEXT PRIMARY KEY,
+        nomor_order TEXT NOT NULL UNIQUE,
+        table_id TEXT,
+        customer_name TEXT,
+        order_type TEXT NOT NULL,
+        platform_id TEXT,
+        platform_reference_id TEXT,
+        subtotal REAL NOT NULL DEFAULT 0,
+        tax_percentage REAL NOT NULL DEFAULT 0,
+        tax_amount REAL NOT NULL DEFAULT 0,
+        grand_total REAL NOT NULL DEFAULT 0,
+        total_paid REAL NOT NULL DEFAULT 0,
+        session_status TEXT NOT NULL DEFAULT 'open',
+        payment_status TEXT NOT NULL DEFAULT 'unpaid',
+        last_activity_at TEXT NOT NULL,
+        all_items_served_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE SET NULL,
+        FOREIGN KEY (platform_id) REFERENCES online_platforms(id) ON DELETE SET NULL
+      )
+    ''');
+
+    // 16. Order Batches (Child Orders / Rounds of Ordering)
+    await db.execute('''
+      CREATE TABLE order_batches (
+        id TEXT PRIMARY KEY,
+        master_order_id TEXT NOT NULL,
+        batch_number INTEGER NOT NULL,
+        created_by_cashier_id TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE,
+        UNIQUE(master_order_id, batch_number)
+      )
+    ''');
+
+    // 17. Platform SKU Prices (Price Overrides per SKU per Platform)
+    await db.execute('''
+      CREATE TABLE platform_sku_prices (
+        id TEXT PRIMARY KEY,
+        platform_id TEXT NOT NULL,
+        produk_id TEXT NOT NULL,
+        override_price REAL NOT NULL,
+        FOREIGN KEY (platform_id) REFERENCES online_platforms(id) ON DELETE CASCADE,
+        FOREIGN KEY (produk_id) REFERENCES products(id) ON DELETE CASCADE,
+        UNIQUE(platform_id, produk_id)
+      )
+    ''');
+
+    // 18. ESC/POS Thermal Print Queue Jobs
+    await db.execute('''
+      CREATE TABLE print_queue_jobs (
+        id TEXT PRIMARY KEY,
+        target_printer_type TEXT NOT NULL,
+        target_address TEXT NOT NULL,
+        payload_bytes BLOB NOT NULL,
+        job_type TEXT NOT NULL,
+        reference_id TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        max_retries INTEGER NOT NULL DEFAULT 5,
+        error_message TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // 19. Void Authorization Logs
+    await db.execute('''
+      CREATE TABLE void_authorization_logs (
+        id TEXT PRIMARY KEY,
+        master_order_id TEXT NOT NULL,
+        order_item_id TEXT NOT NULL,
+        manager_id TEXT NOT NULL,
+        manager_nama TEXT NOT NULL,
+        qty_voided INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        was_kitchen_notified INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE
       )
     ''');
 
@@ -522,6 +621,110 @@ class PosDatabase {
         'updated_at': now,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
+
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS master_orders (
+          id TEXT PRIMARY KEY,
+          nomor_order TEXT NOT NULL UNIQUE,
+          table_id TEXT,
+          customer_name TEXT,
+          order_type TEXT NOT NULL,
+          platform_id TEXT,
+          platform_reference_id TEXT,
+          subtotal REAL NOT NULL DEFAULT 0,
+          tax_percentage REAL NOT NULL DEFAULT 0,
+          tax_amount REAL NOT NULL DEFAULT 0,
+          grand_total REAL NOT NULL DEFAULT 0,
+          total_paid REAL NOT NULL DEFAULT 0,
+          session_status TEXT NOT NULL DEFAULT 'open',
+          payment_status TEXT NOT NULL DEFAULT 'unpaid',
+          last_activity_at TEXT NOT NULL,
+          all_items_served_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE SET NULL,
+          FOREIGN KEY (platform_id) REFERENCES online_platforms(id) ON DELETE SET NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS order_batches (
+          id TEXT PRIMARY KEY,
+          master_order_id TEXT NOT NULL,
+          batch_number INTEGER NOT NULL,
+          created_by_cashier_id TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE,
+          UNIQUE(master_order_id, batch_number)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS platform_sku_prices (
+          id TEXT PRIMARY KEY,
+          platform_id TEXT NOT NULL,
+          produk_id TEXT NOT NULL,
+          override_price REAL NOT NULL,
+          FOREIGN KEY (platform_id) REFERENCES online_platforms(id) ON DELETE CASCADE,
+          FOREIGN KEY (produk_id) REFERENCES products(id) ON DELETE CASCADE,
+          UNIQUE(platform_id, produk_id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS print_queue_jobs (
+          id TEXT PRIMARY KEY,
+          target_printer_type TEXT NOT NULL,
+          target_address TEXT NOT NULL,
+          payload_bytes BLOB NOT NULL,
+          job_type TEXT NOT NULL,
+          reference_id TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          max_retries INTEGER NOT NULL DEFAULT 5,
+          error_message TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS void_authorization_logs (
+          id TEXT PRIMARY KEY,
+          master_order_id TEXT NOT NULL,
+          order_item_id TEXT NOT NULL,
+          manager_id TEXT NOT NULL,
+          manager_nama TEXT NOT NULL,
+          qty_voided INTEGER NOT NULL,
+          reason TEXT NOT NULL,
+          was_kitchen_notified INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE
+        )
+      ''');
+
+      // Safely add new columns to existing tables if they don't exist
+      for (final stmt in [
+        "ALTER TABLE online_platforms ADD COLUMN markup_type TEXT NOT NULL DEFAULT 'percentage'",
+        "ALTER TABLE online_platforms ADD COLUMN markup_value REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE online_platforms ADD COLUMN driver_receipt_format INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE order_items ADD COLUMN master_order_id TEXT",
+        "ALTER TABLE order_items ADD COLUMN batch_id TEXT",
+        "ALTER TABLE order_items ADD COLUMN base_price REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN effective_price REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN qty_ordered INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE order_items ADD COLUMN qty_paid INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN cancelled_qty INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN cancelled_by_manager_id TEXT",
+        "ALTER TABLE transactions ADD COLUMN master_order_id TEXT",
+        "ALTER TABLE transaction_items ADD COLUMN order_item_id TEXT",
+      ]) {
+        try {
+          await db.execute(stmt);
+        } catch (_) {}
+      }
+    }
   }
 
   Future<void> _createIndexes(Database db) async {
@@ -553,6 +756,16 @@ class PosDatabase {
 
     // Print Batches
     await db.execute('CREATE INDEX IF NOT EXISTS idx_print_batches_order_id ON print_batches(order_id)');
+
+    // Master Orders
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_master_orders_table_status ON master_orders(table_id, session_status)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_master_orders_status ON master_orders(session_status, payment_status)');
+
+    // Order Items (Master-Child)
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_order_items_master_batch ON order_items(master_order_id, batch_id)');
+
+    // Print Queue Jobs
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_print_queue_status ON print_queue_jobs(status, retry_count)');
   }
 
   Future<void> _seedDatabase(Database db) async {

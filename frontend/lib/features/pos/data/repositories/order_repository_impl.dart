@@ -71,6 +71,19 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<OrderModel?> getOrderById(String orderId) async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'orders',
+      where: 'id = ?',
+      whereArgs: [orderId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return OrderModel.fromMap(maps.first);
+  }
+
+  @override
   Future<List<OrderItemModel>> getOrderItems(String orderId) async {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(

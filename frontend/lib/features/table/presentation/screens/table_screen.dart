@@ -1051,11 +1051,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         final activeOrder = activeOrdersMap[table.id];
 
         Color getStatusColor() {
-          if (table.isOccupied) return AppColors.success; // Hijau
-          if (table.isBillPrinted) return AppColors.warning; // Kuning
-          if (table.isReserved) return AppColors.secondary;
-          if (table.isMaintenance) return AppColors.error;
-          return AppColors.textPrimary; // Kosong
+          if (table.status == 3) return AppColors.error; // Red - Alert / Timeout (#EF9A9A)
+          if (table.status == 2) return AppColors.success; // Green - Occupied Prepaid / Done (#A5D6A7)
+          if (table.status == 1 || table.status == 4 || table.isOccupied) return AppColors.warning; // Yellow - Occupied Unpaid (#FFF59D)
+          return AppColors.textPrimary; // White - Available (#FFFFFF)
         }
 
         final isFilled = table.isOccupied || table.isBillPrinted || activeOrder != null;

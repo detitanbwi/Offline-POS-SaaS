@@ -27,6 +27,13 @@ import '../../features/cashier/domain/repositories/cashier_repository.dart';
 import '../../features/cashier/data/repositories/cashier_repository_impl.dart';
 import '../../features/pos/domain/repositories/online_platform_repository.dart';
 import '../../features/pos/data/repositories/online_platform_repository_impl.dart';
+import '../services/print_queue_service.dart';
+import '../../features/table/domain/models/table_ui_state.dart';
+import '../../features/table/data/repositories/reactive_table_repository.dart';
+import '../../features/pos/domain/services/table_transfer_service.dart';
+import '../../features/pos/domain/services/split_payment_service.dart';
+import '../../features/pos/domain/services/void_order_service.dart';
+import '../../features/pos/domain/services/online_food_order_service.dart';
 
 
 // Database Provider
@@ -112,4 +119,47 @@ final cashierRepositoryProvider = Provider<CashierRepository>((ref) {
 final onlinePlatformRepositoryProvider = Provider<OnlinePlatformRepository>((ref) {
   final db = ref.watch(posDatabaseProvider);
   return OnlinePlatformRepositoryImpl(db);
+});
+
+// New POS Domain & Reactive Table Providers
+final printQueueServiceProvider = Provider<PrintQueueService>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  final service = PrintQueueService(db);
+  service.startBackgroundWorker();
+  ref.onDispose(() => service.stopBackgroundWorker());
+  return service;
+});
+
+final reactiveTableRepositoryProvider = Provider<ReactiveTableRepository>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  final repo = ReactiveTableRepository(db);
+  ref.onDispose(() => repo.dispose());
+  return repo;
+});
+
+final tableUiStateStreamProvider = StreamProvider<List<TableUiModel>>((ref) {
+  final repo = ref.watch(reactiveTableRepositoryProvider);
+  repo.loadAndEmitTables();
+  return repo.tableUiStateStream;
+});
+
+final tableTransferServiceProvider = Provider<TableTransferService>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return TableTransferService(db);
+});
+
+final splitPaymentServiceProvider = Provider<SplitPaymentService>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return SplitPaymentService(db);
+});
+
+final voidOrderServiceProvider = Provider<VoidOrderService>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  final printQueue = ref.watch(printQueueServiceProvider);
+  return VoidOrderService(db, printQueue);
+});
+
+final onlineFoodOrderServiceProvider = Provider<OnlineFoodOrderService>((ref) {
+  final db = ref.watch(posDatabaseProvider);
+  return OnlineFoodOrderService(db);
 });

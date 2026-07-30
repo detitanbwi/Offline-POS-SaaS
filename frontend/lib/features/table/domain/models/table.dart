@@ -20,7 +20,9 @@ class TableModel {
   });
 
   bool get isEmpty => status == 0;
-  bool get isOccupied => status == 1;
+  bool get isOccupied => status == 1 || status == 4;
+  bool get isPrepaid => status == 2;
+  bool get isAlert => status == 3;
   bool get isReserved => status == 2;
   bool get isMaintenance => status == 3;
   bool get isBillPrinted => status == 4;
@@ -28,15 +30,15 @@ class TableModel {
   String get statusLabel {
     switch (status) {
       case 0:
-        return 'Kosong';
+        return 'Kosong'; // White - Available
       case 1:
-        return 'Terisi';
+        return 'Terisi / Billed'; // Occupied / Billed
       case 2:
-        return 'Reserved';
+        return 'Prepaid / Lunas'; // Green - Occupied Prepaid / Done
       case 3:
-        return 'Maintenance';
+        return 'Perhatian (Timeout)'; // Red - Alert / Idle Timeout
       case 4:
-        return 'Bill Dicetak';
+        return 'Bill Dicetak'; // Yellow - Legacy
       default:
         return 'Unknown';
     }
