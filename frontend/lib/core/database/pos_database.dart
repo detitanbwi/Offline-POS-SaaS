@@ -501,7 +501,6 @@ class PosDatabase {
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
-        )
       ''');
     }
 
