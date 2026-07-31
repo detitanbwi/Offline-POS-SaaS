@@ -64,8 +64,12 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       final lowerUser = username.trim().toLowerCase();
       final lowerOwner = savedOwnerUsername.trim().toLowerCase();
 
-      final isOwnerMatch = lowerUser == lowerOwner ||
-          (lowerOwner == 'owner' && (lowerUser == 'pemilik' || lowerUser == 'pemilik toko'));
+      final isGenericOwnerKeyword = lowerUser == 'owner' ||
+          lowerUser == 'pemilik' ||
+          lowerUser == 'pemilik toko' ||
+          lowerUser == 'admin';
+
+      final isOwnerMatch = isGenericOwnerKeyword || lowerUser == lowerOwner;
 
       if (isOwnerMatch) {
         final savedHashedPin = await storage.getLocalPIN();
