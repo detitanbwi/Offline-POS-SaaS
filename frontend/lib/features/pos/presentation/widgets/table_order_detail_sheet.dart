@@ -214,7 +214,7 @@ class TableOrderDetailSheet {
                             ...batchItemList.map((item) => Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text('${item.qty}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                   const SizedBox(width: 8),
@@ -231,6 +231,17 @@ class TableOrderDetailSheet {
                                   Text(
                                     CurrencyFormatter.format(item.subtotal),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    tooltip: 'Batalkan Menu (Void Item)',
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _showVoidItemDialog(context, ref, activeOrder.id, item, table);
+                                    },
                                   ),
                                 ],
                               ),
@@ -451,6 +462,8 @@ class TableOrderDetailSheet {
       isDestructive: true,
       onConfirm: () async {
         await ref.read(orderNotifierProvider.notifier).clearOccupiedTable(table);
+        await ref.read(tableNotifierProvider.notifier).loadTables();
+        await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
         if (context.mounted) {
           AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
         }
@@ -536,6 +549,96 @@ class TableOrderDetailSheet {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  static void _showVoidItemDialog(BuildContext context, WidgetRef ref, String orderId, OrderItemModel item, TableModel table) {
+    final pinController = TextEditingController();
+    final reasonController = TextEditingController(text: 'Dibatalkan pelanggan');
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Void Menu: ${item.produkNama}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Batalkan item "${item.produkNama}" (${item.qty}x)? Masukkan PIN Kasir/Manager dan Alasan.',
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  controller: reasonController,
+                  labelText: 'Alasan Pembatalan',
+                  hintText: 'Misal: Salah pesan / Habis',
+                  prefixIcon: Icons.edit_note_rounded,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Alasan harus diisi' : null,
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: pinController,
+                  labelText: 'PIN Manager / Kasir',
+                  hintText: 'Masukkan PIN 6 digit',
+                  prefixIcon: Icons.lock_outline_rounded,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  validator: (val) => val == null || val.length != 6 ? 'PIN harus 6 digit' : null,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                if (formKey.currentState?.validate() ?? false) {
+                  final voidService = ref.read(voidOrderServiceProvider);
+                  try {
+                    final success = await voidService.voidOrderItem(
+                      masterOrderId: orderId,
+                      orderItemId: item.id,
+                      qtyToVoid: item.qty,
+                      reason: reasonController.text.trim(),
+                      managerPin: pinController.text.trim(),
+                    );
+
+                    if (context.mounted) {
+                      Navigator.pop(dialogContext);
+                      if (success) {
+                        AppSnackbar.showSuccess(context, 'Berhasil membatalkan menu "${item.produkNama}"');
+                        ref.read(tableNotifierProvider.notifier).loadTables();
+                        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                        await ref.read(orderNotifierProvider.notifier).loadActiveOrderForTable(table.id);
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      AppSnackbar.showError(context, e.toString().replaceAll('Exception: ', ''));
+                    }
+                  }
+                }
+              },
+              child: const Text('Batalkan Menu'),
+            ),
+          ],
         );
       },
     );

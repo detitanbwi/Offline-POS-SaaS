@@ -733,7 +733,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 }
                 Navigator.pop(context);
 
-                await ref.read(orderNotifierProvider.notifier).clearTableOnly(reason);
+                await ref.read(orderNotifierProvider.notifier).clearOccupiedTable(table, reason);
 
                 if (context.mounted) {
                   AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
@@ -968,64 +968,57 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 });
               },
             ),
-            IconButton(
-              icon: const Icon(Icons.add_rounded),
-              tooltip: 'Tambah Meja',
-              onPressed: () => _showFormDialog(context),
-            ),
           ],
         ],
       ),
       body: SafeArea(
-        child: state.isLoading && state.allTables.isEmpty
-            ? const AppLoading(message: 'Memuat data meja...')
-            : state.allTables.isEmpty
-                ? AppEmptyState(
-                    title: 'Belum Ada Data Meja',
-                    description: 'Silakan tambah meja baru secara manual atau gunakan tombol "Generate Meja" di bawah.',
-                    icon: Icons.table_restaurant_rounded,
-                    actionText: 'Tambah Meja Baru',
-                    onActionPressed: () => _showFormDialog(context),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      await ref.read(tableNotifierProvider.notifier).loadTables();
-                      await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.m),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: state.allTables.isEmpty
+            ? AppEmptyState(
+                title: 'Belum Ada Data Meja',
+                description: 'Silakan klik tombol "Tambah Meja" di bawah untuk menambahkan meja baru.',
+                icon: Icons.table_restaurant_rounded,
+                actionText: 'Tambah Meja Baru',
+                onActionPressed: () => _showFormDialog(context),
+              )
+            : RefreshIndicator(
+                onRefresh: () async {
+                  await ref.read(tableNotifierProvider.notifier).loadTables();
+                  await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.m),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Daftar Meja (${state.allTables.length})',
-                                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                'Ketuk meja terisi untuk kelola pesanan',
-                                style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                              ),
-                            ],
+                          Text(
+                            'Daftar Meja (${state.allTables.length})',
+                            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: AppSpacing.s),
-                          Expanded(
-                            child: _buildTableGrid(context, state.allTables, orderState.activeOrdersMap),
+                          Text(
+                            'Ketuk meja terisi untuk kelola pesanan',
+                            style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.s),
+                      Expanded(
+                        child: _buildTableGrid(context, state.allTables, orderState.activeOrdersMap),
+                      ),
+                    ],
                   ),
+                ),
+              ),
       ),
       floatingActionButton: state.allTables.isNotEmpty && !_isSelectionMode
           ? FloatingActionButton.extended(
-              onPressed: () => _showGenerateDialog(context),
+              onPressed: () => _showFormDialog(context),
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.playlist_add_rounded),
-              label: const Text('Generate Meja'),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Tambah Meja'),
             )
           : null,
     );
@@ -1043,7 +1036,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         crossAxisCount: crossAxisCount,
         mainAxisSpacing: AppSpacing.s,
         crossAxisSpacing: AppSpacing.s,
-        childAspectRatio: 0.82,
+        childAspectRatio: 1.15,
       ),
       itemCount: tables.length,
       itemBuilder: (context, index) {
@@ -1151,15 +1144,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       ],
                     ),
                   ),
-                const Spacer(),
-                Center(
-                  child: Icon(
-                    Icons.table_restaurant_rounded,
-                    size: 26,
-                    color: isFilled ? getStatusColor() : AppColors.primary,
-                  ),
-                ),
-                const Spacer(),
+                const SizedBox(height: 8),
                 Text(
                   table.nama,
                   textAlign: TextAlign.center,
