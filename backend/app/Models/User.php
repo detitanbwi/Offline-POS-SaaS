@@ -16,12 +16,14 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'pin',
         'tenant_id',
         'is_admin',
     ];
 
     protected $hidden = [
         'password',
+        'pin',
         'remember_token',
     ];
 

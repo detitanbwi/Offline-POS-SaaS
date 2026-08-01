@@ -14,6 +14,7 @@ import '../providers/auth_providers.dart';
 import '../../../security/presentation/widgets/master_pin_setup_modal.dart';
 import '../../../security/presentation/widgets/forgot_pin_recovery_modal.dart';
 import '../../../security/presentation/providers/security_providers.dart';
+import '../widgets/forgot_pin_email_modal.dart';
 
 class AccountItem {
   final String id;
@@ -581,6 +582,17 @@ class _PinScreenState extends ConsumerState<PinScreen> {
         ),
         if (_selectedAccount!.isOwner) ...[
           SizedBox(height: 14.h),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.email_outlined, size: 18),
+            label: const Text('Lupa PIN? (OTP via Email)'),
+            onPressed: () {
+              ForgotPinEmailModal.show(context);
+            },
+          ),
+          SizedBox(height: 4.h),
           TextButton.icon(
             style: TextButton.styleFrom(
               foregroundColor: Colors.white70,
