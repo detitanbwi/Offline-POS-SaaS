@@ -12,7 +12,6 @@ import '../../../menu/presentation/screens/main_menu_screen.dart';
 import '../../domain/models/auth_user.dart';
 import '../providers/auth_providers.dart';
 import '../../../security/presentation/widgets/master_pin_setup_modal.dart';
-import '../../../security/presentation/widgets/forgot_pin_recovery_modal.dart';
 import '../../../security/presentation/providers/security_providers.dart';
 import '../widgets/forgot_pin_email_modal.dart';
 
@@ -42,7 +41,6 @@ class PinScreen extends ConsumerStatefulWidget {
 
 class _PinScreenState extends ConsumerState<PinScreen> {
   final _pinController = TextEditingController();
-  final _usernameController = TextEditingController();
   String _errorMessage = '';
 
   List<AccountItem> _accounts = [];
@@ -133,35 +131,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     }
 
     if (_selectedAccount != null) {
-      final enteredUsername = _usernameController.text.trim();
-      if (enteredUsername.isEmpty) {
-        setState(() => _errorMessage = 'Username harus diisi!');
-        return;
-      }
-
       if (pin.length < 4) {
         setState(() => _errorMessage = 'PIN minimal 4 digit!');
-        return;
-      }
-
-      final lowerEntered = enteredUsername.toLowerCase();
-      final lowerTarget = _selectedAccount!.username.trim().toLowerCase();
-
-      bool isUsernameValid = false;
-      if (_selectedAccount!.isOwner) {
-        isUsernameValid = lowerEntered == lowerTarget ||
-            lowerEntered == 'owner' ||
-            lowerEntered == 'pemilik' ||
-            lowerEntered == 'admin';
-      } else {
-        isUsernameValid = lowerEntered == lowerTarget;
-      }
-
-      if (!isUsernameValid) {
-        setState(() {
-          _errorMessage = 'Username tidak sesuai untuk akun terpilih!';
-          _pinController.clear();
-        });
         return;
       }
 
@@ -215,7 +186,6 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   @override
   void dispose() {
     _pinController.dispose();
-    _usernameController.dispose();
     super.dispose();
   }
 
@@ -349,7 +319,6 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                             setState(() {
                               _selectedAccount = account;
                               _errorMessage = '';
-                              _usernameController.clear();
                               _pinController.clear();
                             });
                           },
@@ -498,7 +467,6 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                   setState(() {
                     _selectedAccount = null;
                     _errorMessage = '';
-                    _usernameController.clear();
                     _pinController.clear();
                   });
                 },
@@ -508,41 +476,20 @@ class _PinScreenState extends ConsumerState<PinScreen> {
         ),
         SizedBox(height: 28.h),
         Text(
-          "Masukkan Username & PIN",
+          "Masukkan PIN Akses",
           textAlign: TextAlign.center,
           style: AppTypography.titleLarge.copyWith(color: Colors.white),
         ),
         SizedBox(height: 4.h),
         Text(
-          "Verifikasi username dan 6 digit PIN akun Anda",
+          "Verifikasi 6 digit PIN akun Anda",
           textAlign: TextAlign.center,
           style: AppTypography.bodyMedium.copyWith(color: Colors.white70),
         ),
         SizedBox(height: 24.h),
         TextField(
-          controller: _usernameController,
-          autofocus: true,
-          textInputAction: TextInputAction.next,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Username Akun',
-            labelStyle: TextStyle(color: Colors.white70),
-            hintText: 'Masukkan username login',
-            hintStyle: TextStyle(color: Colors.white38),
-            prefixIcon:
-                Icon(Icons.person_outline_rounded, color: Colors.white70),
-            filled: false,
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white54),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white, width: 2),
-            ),
-          ),
-        ),
-        SizedBox(height: 16.h),
-        TextField(
           controller: _pinController,
+          autofocus: true,
           obscureText: true,
           keyboardType: TextInputType.number,
           maxLength: 6,
@@ -590,25 +537,6 @@ class _PinScreenState extends ConsumerState<PinScreen> {
             label: const Text('Lupa PIN? (OTP via Email)'),
             onPressed: () {
               ForgotPinEmailModal.show(context);
-            },
-          ),
-          SizedBox(height: 4.h),
-          TextButton.icon(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white70,
-            ),
-            icon: const Icon(Icons.help_outline_rounded, size: 18),
-            label: const Text('Lupa PIN Master? (Pemulihan Mandiri)'),
-            onPressed: () {
-              ForgotPinRecoveryModal.show(
-                context,
-                onRecoverySuccess: () {
-                  setState(() {
-                    _errorMessage = '';
-                    _pinController.clear();
-                  });
-                },
-              );
             },
           ),
         ],
