@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../security/presentation/providers/security_providers.dart';
 import '../providers/pin_recovery_provider.dart';
 
 class NewPinSetupScreen extends ConsumerStatefulWidget {
@@ -68,6 +69,19 @@ class _NewPinSetupScreenState extends ConsumerState<NewPinSetupScreen> {
     if (!mounted) return;
 
     if (success) {
+      // 5. Sinkronisasi dengan Database Keamanan Lokal (Offline-first POS)
+      // Karena login Owner di pin_screen.dart memeriksa database SQLite lokal dan Secure Storage,
+      // kita harus memperbarui masterPinHash lokal dengan hash dari PIN yang baru.
+      try {
+        final securityService = ref.read(securityServiceProvider);
+        final newMasterPinHash = securityService.hashSecret(pin);
+        await ref.read(securityRepositoryProvider).updateMasterPinHash(newMasterPinHash);
+      } catch (e) {
+        debugPrint('Gagal memperbarui PIN lokal SQLite: $e');
+      }
+
+      if (!mounted) return;
+
       AppSnackbar.showSuccess(
         context,
         'PIN berhasil diatur ulang. Silakan login kembali dengan PIN baru Anda.',
