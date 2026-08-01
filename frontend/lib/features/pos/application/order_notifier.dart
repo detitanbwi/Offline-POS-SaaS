@@ -17,6 +17,7 @@ class OrderState {
   final OrderModel? activeOrder;
   final List<OrderItemModel> activeOrderItems;
   final Map<String, OrderModel> activeOrdersMap;
+  final List<OrderModel> allDraftOrders;
   final String orderType; // 'dine_in' or 'take_away'
   final String? takeAwaySubType;
   final String? onlinePlatform;
@@ -30,6 +31,7 @@ class OrderState {
     this.activeOrder,
     this.activeOrderItems = const [],
     this.activeOrdersMap = const {},
+    this.allDraftOrders = const [],
     this.orderType = 'dine_in',
     this.takeAwaySubType,
     this.onlinePlatform,
@@ -46,6 +48,7 @@ class OrderState {
     OrderModel? activeOrder,
     List<OrderItemModel>? activeOrderItems,
     Map<String, OrderModel>? activeOrdersMap,
+    List<OrderModel>? allDraftOrders,
     String? orderType,
     String? takeAwaySubType,
     String? onlinePlatform,
@@ -61,6 +64,7 @@ class OrderState {
       activeOrder: clearActiveOrder ? null : (activeOrder ?? this.activeOrder),
       activeOrderItems: clearActiveOrder ? const [] : (activeOrderItems ?? this.activeOrderItems),
       activeOrdersMap: activeOrdersMap ?? this.activeOrdersMap,
+      allDraftOrders: allDraftOrders ?? this.allDraftOrders,
       orderType: orderType ?? this.orderType,
       takeAwaySubType: takeAwaySubType ?? this.takeAwaySubType,
       onlinePlatform: onlinePlatform ?? this.onlinePlatform,
@@ -96,6 +100,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       state = OrderState(
         selectedTable: table,
         activeOrdersMap: state.activeOrdersMap,
+        allDraftOrders: state.allDraftOrders,
         orderType: 'dine_in',
         customerName: state.customerName,
       );
@@ -108,9 +113,36 @@ class OrderNotifier extends StateNotifier<OrderState> {
   Future<void> loadActiveOrdersMap() async {
     try {
       final map = await _repository.getActiveOrdersMap();
-      state = state.copyWith(activeOrdersMap: map);
+      final drafts = await _repository.getAllDraftOrders();
+      state = state.copyWith(activeOrdersMap: map, allDraftOrders: drafts);
     } catch (e) {
       state = state.copyWith(errorMessage: 'Gagal memuat peta order aktif: $e');
+    }
+  }
+
+  /// Load an existing draft order by ID into active state (used when resuming Take Away / Open Bill).
+  Future<void> loadOrderById(String orderId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final order = await _repository.getOrderById(orderId);
+      if (order == null) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Order tidak ditemukan.');
+        return;
+      }
+      final items = await _repository.getOrderItems(orderId);
+      final batchCount = await _repository.getBatchCount(orderId);
+      state = state.copyWith(
+        activeOrder: order,
+        activeOrderItems: items,
+        orderType: order.orderType,
+        takeAwaySubType: order.takeAwaySubType,
+        onlinePlatform: order.onlinePlatform,
+        customerName: order.customerName ?? state.customerName,
+        isLoading: false,
+        nextBatchNumber: batchCount + 1,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal memuat order: $e');
     }
   }
 
@@ -329,6 +361,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
   void resetForNewTransaction() {
     state = OrderState(
       activeOrdersMap: state.activeOrdersMap,
+      allDraftOrders: state.allDraftOrders, // Pertahankan list Open Bill
       orderType: 'dine_in',
       selectedTable: null,
       activeOrder: null,
@@ -340,6 +373,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
       isLoading: false,
       errorMessage: null,
     );
+    // Refresh list Open Bill dari database setelah reset
+    loadActiveOrdersMap();
   }
 
   Future<bool> cancelOrderItem(String itemId, String reason) async {
@@ -432,16 +467,16 @@ class OrderNotifier extends StateNotifier<OrderState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final order = state.activeOrder ?? state.activeOrdersMap[table.id];
-      if (order != null) {
-        await _repository.clearTableOnly(order.id, table.id, reason);
-      } else {
-        await _repository.cancelOrder('', table.id);
-      }
-      _ref.read(tableNotifierProvider.notifier).loadTables();
+      debugPrint('[CLEAR_TABLE_DEBUG] Clearing table ID: ${table.id}, Name: ${table.nama}, Order ID: ${order?.id}');
+      await _repository.clearTableOnly(order?.id ?? '', table.id, reason);
+      
+      await _ref.read(tableNotifierProvider.notifier).loadTables();
       await loadActiveOrdersMap();
       state = OrderState(selectedTable: null, activeOrdersMap: state.activeOrdersMap);
+      debugPrint('[CLEAR_TABLE_DEBUG] Table successfully cleared and state refreshed.');
       return true;
     } catch (e) {
+      debugPrint('[CLEAR_TABLE_DEBUG] Error clearing table: $e');
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');
       return false;
     }

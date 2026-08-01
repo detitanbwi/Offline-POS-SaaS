@@ -10,7 +10,6 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -265,6 +264,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
         await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
+        // Jika transaksi dari order aktif (dine-in/meja), tandai order 'completed' & bebaskan meja (status 0)
+        final activeOrder = orderState.activeOrder;
+        if (activeOrder != null) {
+          await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
+        }
+
+        // Refresh list meja & active orders map
+        ref.read(tableNotifierProvider.notifier).loadTables();
+        await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+
         // Opsi otomatis cetak ke thermal kasir jika terhubung
         try {
           final printerState = ref.read(printerNotifierProvider);
@@ -353,7 +362,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   const SizedBox(height: 6),
                   Text(
                     isPaid
-                        ? 'Transaksi Lunas. Meja $tableName berstatus Terisi / Billed.'
+                        ? (tableName == 'Take Away' ? 'Transaksi Lunas.' : 'Transaksi Lunas. Meja $tableName kini kembali Kosong.')
                         : 'Open Bill tersimpan. Meja $tableName berstatus Terisi / Billed.',
                     textAlign: TextAlign.center,
                     style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
@@ -385,6 +394,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           context,
                           title: 'STRUK PESANAN DAPUR',
                           receiptTextPreview: textPreview,
+                          printerType: 'kitchen',
                           onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
                             order: order,
                             itemsToPrint: orderItems,
@@ -401,7 +411,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         );
                       },
                       icon: const Icon(Icons.soup_kitchen_rounded, color: AppColors.primary),
-                      label: const Text('Cetak Struk Dapur', style: TextStyle(color: AppColors.primary)),
+                      label: const Text('Cetak Pesanan (Dapur)', style: TextStyle(color: AppColors.primary)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: AppColors.primary),
@@ -429,6 +439,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           context,
                           title: 'STRUK LUNAS',
                           receiptTextPreview: textPreview,
+                          printerType: 'cashier',
                           onGeneratePdf: () => PdfReceiptGenerator.generateCashierReceiptPdf(
                             transaction: header,
                             items: txItems,
@@ -445,7 +456,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         );
                       },
                       icon: const Icon(Icons.receipt_long_rounded, color: AppColors.success),
-                      label: const Text('Cetak Struk Lunas', style: TextStyle(color: AppColors.success)),
+                      label: const Text('Cetak Nota (Lunas)', style: TextStyle(color: AppColors.success)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: AppColors.success),
@@ -472,6 +483,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           context,
                           title: 'BILL SEMENTARA',
                           receiptTextPreview: textPreview,
+                          printerType: 'cashier',
                           onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
                             order: order,
                             items: orderItems,
@@ -528,6 +540,27 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
+  Future<bool> _showExitConfirmation(BuildContext ctx) async {
+    return await showDialog<bool>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Batalkan Pembayaran?'),
+        content: const Text('Pesanan akan tetap tersimpan sebagai Open Bill dan bisa dibayar nanti.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Lanjut Bayar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartState = ref.watch(cartNotifierProvider);
@@ -560,6 +593,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         appBar: AppBar(
           toolbarHeight: ResponsiveLayout.isMobileLandscape(context) ? 42 : null,
           title: Text('Pembayaran Transaksi', style: TextStyle(fontSize: ResponsiveLayout.isMobileLandscape(context) ? 14 : 16)),
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            tooltip: 'Batal',
+            onPressed: () async {
+              final shouldPop = await _showExitConfirmation(context);
+              if (shouldPop && context.mounted) Navigator.of(context).pop();
+            },
+          ),
         ),
         body: SafeArea(
           child: _isProcessing
@@ -925,22 +966,5 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         ],
       ),
     );
-  }
-
-  Future<bool> _showExitConfirmation(BuildContext context) async {
-    bool result = false;
-    await AppDialog.show(
-      context: context,
-      title: 'Batal Pembayaran',
-      message: 'Apakah Anda yakin ingin membatalkan pembayaran transaksi ini?',
-      confirmText: 'Ya, Batal',
-      cancelText: 'Tidak',
-      isDestructive: true,
-      onConfirm: () {
-        result = true;
-        Navigator.pop(context);
-      },
-    );
-    return result;
   }
 }

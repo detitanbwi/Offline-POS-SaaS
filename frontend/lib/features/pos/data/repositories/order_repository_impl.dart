@@ -206,6 +206,18 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<List<OrderModel>> getAllDraftOrders() async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'orders',
+      where: 'status = ?',
+      whereArgs: ['draft'],
+      orderBy: 'updated_at DESC',
+    );
+    return maps.map((m) => OrderModel.fromMap(m)).toList();
+  }
+
+  @override
   Future<void> completeOrder(String orderId, {String? tableId}) async {
     final db = await _db.database;
     await db.transaction((txn) async {
@@ -360,6 +372,7 @@ class OrderRepositoryImpl implements OrderRepository {
   Future<void> clearTableOnly(String orderId, String tableId, String reason) async {
     final db = await _db.database;
     await db.transaction((txn) async {
+      // 1. Reset status meja ke 0 (Kosong)
       await txn.update(
         'tables',
         {
@@ -370,15 +383,33 @@ class OrderRepositoryImpl implements OrderRepository {
         whereArgs: [tableId],
       );
 
-      await txn.update(
-        'orders',
-        {
-          'clear_table_reason': reason,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [orderId],
-      );
+      // 2. Tandai specific order sebagai cleared
+      if (orderId.isNotEmpty) {
+        await txn.update(
+          'orders',
+          {
+            'status': 'cleared',
+            'clear_table_reason': reason,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [orderId],
+        );
+      }
+
+      // 3. Tandai semua order draft lain pada meja ini sebagai cleared
+      if (tableId.isNotEmpty) {
+        await txn.update(
+          'orders',
+          {
+            'status': 'cleared',
+            'clear_table_reason': reason,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'table_id = ? AND status = ?',
+          whereArgs: [tableId, 'draft'],
+        );
+      }
     });
   }
 

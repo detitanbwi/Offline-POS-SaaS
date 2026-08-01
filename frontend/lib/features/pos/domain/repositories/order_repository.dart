@@ -16,6 +16,7 @@ abstract class OrderRepository {
   );
   Future<String> generateNextOrderNumber();
   Future<Map<String, OrderModel>> getActiveOrdersMap();
+  Future<List<OrderModel>> getAllDraftOrders();
   Future<int> getBatchCount(String orderId);
   Future<List<Map<String, dynamic>>> getPrintBatches(String orderId);
   Future<String> recordPrintBatch(String orderId);
