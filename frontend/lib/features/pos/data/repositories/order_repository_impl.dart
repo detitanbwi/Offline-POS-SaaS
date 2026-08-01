@@ -97,14 +97,61 @@ class OrderRepositoryImpl implements OrderRepository {
   @override
   Future<void> saveOrder(OrderModel order, List<OrderItemModel> items, {bool markAsPrinted = false}) async {
     final db = await _db.database;
-
     await db.transaction((txn) async {
+      final orderMap = order.toMap();
+      // Ensure table_id is NEVER null to satisfy SQLite NOT NULL constraints on legacy/current schemas,
+      // and ensure 'TABLE_TAKE_AWAY' sentinel exists in tables table to satisfy FOREIGN KEY constraints.
+      if (orderMap['table_id'] == null || (orderMap['table_id'] as String).isEmpty) {
+        orderMap['table_id'] = 'TABLE_TAKE_AWAY';
+        final checkTable = await txn.query('tables', where: 'id = ?', whereArgs: ['TABLE_TAKE_AWAY']);
+        if (checkTable.isEmpty) {
+          await txn.insert('tables', {
+            'id': 'TABLE_TAKE_AWAY',
+            'nama': 'Take Away',
+            'nomor': 'TA-00',
+            'status': 0,
+            'is_deleted': 1,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+        }
+      } else {
+        final tCheck = await txn.query('tables', where: 'id = ?', whereArgs: [orderMap['table_id']]);
+        if (tCheck.isEmpty) {
+          orderMap['table_id'] = 'TABLE_TAKE_AWAY';
+          final checkTable = await txn.query('tables', where: 'id = ?', whereArgs: ['TABLE_TAKE_AWAY']);
+          if (checkTable.isEmpty) {
+            await txn.insert('tables', {
+              'id': 'TABLE_TAKE_AWAY',
+              'nama': 'Take Away',
+              'nomor': 'TA-00',
+              'status': 0,
+              'is_deleted': 1,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+          }
+        }
+      }
+
+      // Verify cashier_id foreign key reference if provided
+      if (orderMap['cashier_id'] != null) {
+        try {
+          final uCheck = await txn.query('users', where: 'id = ?', whereArgs: [orderMap['cashier_id']]);
+          if (uCheck.isEmpty) {
+            orderMap['cashier_id'] = null;
+          }
+        } catch (_) {
+          orderMap['cashier_id'] = null;
+        }
+      }
+
       // 1. Upsert the order header without using replace to avoid CASCADE delete
       final existing = await txn.query('orders', where: 'id = ?', whereArgs: [order.id]);
       if (existing.isEmpty) {
-        await txn.insert('orders', order.toMap());
+        await txn.insert('orders', orderMap);
       } else {
-        await txn.update('orders', order.toMap(), where: 'id = ?', whereArgs: [order.id]);
+        await txn.update('orders', orderMap, where: 'id = ?', whereArgs: [order.id]);
       }
 
 

@@ -9,6 +9,7 @@ class AppLogger {
   static const int _maxLogSize = 1 * 1024 * 1024; // 1 MB
 
   static Future<void> init() async {
+    if (kIsWeb) return;
     try {
       final directory = await getApplicationDocumentsDirectory();
       _logFile = File('${directory.path}/app_logs.txt');

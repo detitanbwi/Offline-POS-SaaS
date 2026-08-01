@@ -110,6 +110,10 @@ class OrderNotifier extends StateNotifier<OrderState> {
     }
   }
 
+  void setSelectedTableWithoutReset(TableModel? table) {
+    state = state.copyWith(selectedTable: table);
+  }
+
   Future<void> loadActiveOrdersMap() async {
     try {
       final map = await _repository.getActiveOrdersMap();
@@ -227,12 +231,12 @@ class OrderNotifier extends StateNotifier<OrderState> {
       // Fetch existing items for this draft to calculate difference
       final dbItems = await _repository.getOrderItems(orderId);
       
-      final List<OrderItemModel> printedDbItems = [];
+      final List<OrderItemModel> allOrderItems = [];
       final Map<String, int> printedQtyMap = {};
 
       for (var item in dbItems) {
-        if (item.statusCetak == 1 || item.printBatchId != null) {
-          printedDbItems.add(item);
+        if (item.printBatchId != null || item.statusCetak == 1) {
+          allOrderItems.add(item);
           if (!item.isCancelled) {
             printedQtyMap[item.produkId] = (printedQtyMap[item.produkId] ?? 0) + item.qty;
           }
@@ -240,7 +244,6 @@ class OrderNotifier extends StateNotifier<OrderState> {
       }
 
       final List<OrderItemModel> itemsToPrint = [];
-      final List<OrderItemModel> allOrderItems = List.from(printedDbItems);
 
       final Map<String, CartItem> cartItemMap = {};
       final Map<String, int> cartQtyMap = {};
@@ -290,6 +293,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         await _repository.markItemsAsPrinted(orderId, batchId);
 
         try {
+          await _ref.read(printerNotifierProvider.notifier).loadPrinters();
           final printerState = _ref.read(printerNotifierProvider);
           final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
           final targetPrinter = kitchenPrinterList.isNotEmpty
@@ -319,9 +323,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
         }
       }
 
+      await loadActiveOrdersMap();
       if (table != null) {
         _ref.read(tableNotifierProvider.notifier).loadTables();
-        await loadActiveOrdersMap();
         await loadActiveOrderForTable(table.id);
       } else {
         state = state.copyWith(activeOrder: orderHeader, activeOrderItems: allOrderItems, isLoading: false);

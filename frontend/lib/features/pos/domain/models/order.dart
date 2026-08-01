@@ -120,10 +120,12 @@ class OrderModel {
   }
 
   factory OrderModel.fromMap(Map<String, dynamic> map) {
+    final rawTableId = map['table_id'] as String?;
+    final isSentinel = rawTableId == null || rawTableId == 'TABLE_TAKE_AWAY' || rawTableId == 'TAKE_AWAY' || rawTableId.isEmpty;
     return OrderModel(
       id: map['id'] as String,
       nomorOrder: map['nomor_order'] as String,
-      tableId: map['table_id'] as String?,
+      tableId: isSentinel ? null : rawTableId,
       tableNama: map['table_nama'] as String?,
       tableNomor: map['table_nomor'] as String?,
       customerName: map['customer_name'] as String?,

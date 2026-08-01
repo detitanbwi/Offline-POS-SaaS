@@ -59,9 +59,6 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
         cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
       } else {
         cartNotifier.clear();
-      }
-    } else {
-      cartNotifier.clear();
     }
 
     if (!mounted) return;

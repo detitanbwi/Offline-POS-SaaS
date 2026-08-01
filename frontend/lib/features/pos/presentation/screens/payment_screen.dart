@@ -540,26 +540,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
-  Future<bool> _showExitConfirmation(BuildContext ctx) async {
-    return await showDialog<bool>(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Batalkan Pembayaran?'),
-        content: const Text('Pesanan akan tetap tersimpan sebagai Open Bill dan bisa dibayar nanti.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: const Text('Lanjut Bayar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('Keluar'),
-          ),
-        ],
-      ),
-    ) ?? false;
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -580,14 +561,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final isPayDisabled = isCash && amountPaid < grandTotal;
 
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _showExitConfirmation(context);
-        if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
+      canPop: true,
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
@@ -596,9 +570,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           leading: IconButton(
             icon: const Icon(Icons.close_rounded),
             tooltip: 'Batal',
-            onPressed: () async {
-              final shouldPop = await _showExitConfirmation(context);
-              if (shouldPop && context.mounted) Navigator.of(context).pop();
+            onPressed: () {
+              Navigator.of(context).pop();
             },
           ),
         ),

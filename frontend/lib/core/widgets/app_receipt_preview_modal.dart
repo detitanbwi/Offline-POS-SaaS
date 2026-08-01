@@ -8,10 +8,12 @@ import '../constants/app_typography.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_snackbar.dart';
 import '../../features/printer/application/printer_notifier.dart';
+import '../../features/printer/domain/models/printer_config.dart';
 
 class AppReceiptPreviewModal extends ConsumerWidget {
   final String title;
   final String receiptTextPreview;
+  final String? printerType; // 'kitchen' or 'cashier'
   final Future<Uint8List> Function() onGeneratePdf;
   final Future<List<int>> Function() onGenerateEscPosBytes;
 
@@ -19,6 +21,7 @@ class AppReceiptPreviewModal extends ConsumerWidget {
     super.key,
     required this.title,
     required this.receiptTextPreview,
+    this.printerType,
     required this.onGeneratePdf,
     required this.onGenerateEscPosBytes,
   });
@@ -27,6 +30,7 @@ class AppReceiptPreviewModal extends ConsumerWidget {
     BuildContext context, {
     required String title,
     required String receiptTextPreview,
+    String? printerType,
     required Future<Uint8List> Function() onGeneratePdf,
     required Future<List<int>> Function() onGenerateEscPosBytes,
   }) {
@@ -37,6 +41,7 @@ class AppReceiptPreviewModal extends ConsumerWidget {
       builder: (context) => AppReceiptPreviewModal(
         title: title,
         receiptTextPreview: receiptTextPreview,
+        printerType: printerType,
         onGeneratePdf: onGeneratePdf,
         onGenerateEscPosBytes: onGenerateEscPosBytes,
       ),
@@ -57,11 +62,20 @@ class AppReceiptPreviewModal extends ConsumerWidget {
     final bytes = await onGenerateEscPosBytes();
 
     if (hasPrinter) {
-      final targetPrinter = printerState.configuredPrinters.first;
+      final List<PrinterConfigModel> targetList;
+      if (printerType == 'kitchen') {
+        targetList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+      } else if (printerType == 'cashier') {
+        targetList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+      } else {
+        targetList = printerState.configuredPrinters;
+      }
+
+      final targetPrinter = targetList.isNotEmpty ? targetList.first : printerState.configuredPrinters.first;
       final success = await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, bytes);
       if (!context.mounted) return;
       if (success) {
-        AppSnackbar.showSuccess(context, 'Berhasil mencetak ke printer thermal.');
+        AppSnackbar.showSuccess(context, 'Berhasil mencetak ke printer thermal (${targetPrinter.name}).');
         Navigator.pop(context);
       } else {
         AppSnackbar.showError(context, 'Gagal mencetak ke printer Bluetooth.');
