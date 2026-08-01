@@ -18,6 +18,7 @@ class PrinterService {
 
   String? _connectedCashierAddress;
   String? _connectedKitchenAddress;
+  String? _currentlyActiveMacAddress;
 
   Future<String?> _ensureBluetoothPermissions() async {
     if (!Platform.isAndroid) return null;
@@ -150,6 +151,7 @@ class PrinterService {
       } else {
         _connectedKitchenAddress = address;
       }
+      _currentlyActiveMacAddress = address;
       return true;
     }
 
@@ -180,19 +182,29 @@ class PrinterService {
         } else {
           _connectedKitchenAddress = address;
         }
+        _currentlyActiveMacAddress = address;
+      } else {
+        _currentlyActiveMacAddress = null;
       }
       return success;
     } catch (e) {
       debugPrint('Error connecting printer: $e');
+      _currentlyActiveMacAddress = null;
       return false;
     }
   }
 
   Future<bool> disconnectPrinter(String type) async {
+    final targetAddr = type == 'cashier' ? _connectedCashierAddress : _connectedKitchenAddress;
+    
     if (type == 'cashier') {
       _connectedCashierAddress = null;
     } else {
       _connectedKitchenAddress = null;
+    }
+
+    if (_currentlyActiveMacAddress == targetAddr) {
+      _currentlyActiveMacAddress = null;
     }
 
     if (!Platform.isAndroid) return true;
@@ -218,6 +230,11 @@ class PrinterService {
   }
 
   Future<bool> printBytes(List<int> bytes, String targetAddress) async {
+    if (targetAddress.isEmpty) {
+      debugPrint('Cannot print: targetAddress is empty');
+      return false;
+    }
+
     if (!Platform.isAndroid) {
       debugPrint('--- SIMULASI PRINTING KE $targetAddress ---');
       debugPrint('Jumlah byte cetak: ${bytes.length}');
@@ -234,29 +251,31 @@ class PrinterService {
 
     try {
       final isCurrentlyConnected = await PrintBluetoothThermal.connectionStatus;
-      final currentConnectedAddress = _connectedCashierAddress == targetAddress
-          ? _connectedCashierAddress
-          : _connectedKitchenAddress == targetAddress
-              ? _connectedKitchenAddress
-              : null;
 
-      if (!isCurrentlyConnected || currentConnectedAddress != targetAddress) {
-        // Disconnect existing if any
+      // Always reconnect if bluetooth connection was lost OR current active MAC is different from target
+      if (!isCurrentlyConnected || _currentlyActiveMacAddress != targetAddress) {
+        debugPrint('Switching bluetooth connection from $_currentlyActiveMacAddress to $targetAddress');
+        
         if (isCurrentlyConnected) {
           await PrintBluetoothThermal.disconnect;
           await Future.delayed(const Duration(milliseconds: 300));
         }
-        final connected = await PrintBluetoothThermal.connect(macPrinterAddress: targetAddress);
+
+        final connected = await PrintBluetoothThermal.connect(macPrinterAddress: targetAddress)
+            .timeout(const Duration(seconds: 10), onTimeout: () {
+          debugPrint('Timeout switching connection to $targetAddress');
+          return false;
+        });
+
         if (!connected) {
-          debugPrint('Failed to reconnect to printer $targetAddress');
+          debugPrint('Failed to connect to target printer $targetAddress');
+          _currentlyActiveMacAddress = null;
           return false;
         }
-        // Update local tracking
-        if (_connectedCashierAddress == targetAddress || _connectedKitchenAddress == null) {
-          _connectedCashierAddress = targetAddress;
-        } else {
-          _connectedKitchenAddress = targetAddress;
-        }
+
+        _currentlyActiveMacAddress = targetAddress;
+        // Brief delay after connecting before sending print bytes
+        await Future.delayed(const Duration(milliseconds: 200));
       }
 
       final bool result = await PrintBluetoothThermal.writeBytes(bytes);
