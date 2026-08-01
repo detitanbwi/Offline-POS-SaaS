@@ -18,6 +18,7 @@ class SecureStorageService {
   static const String _keyStoreAddress = 'store_address';
   static const String _keyStorePhone = 'store_phone';
   static const String _keyOwnerUsername = 'owner_username';
+  static const String _keyOwnerName = 'owner_name';
 
   Future<void> saveLocalPIN(String pin) async {
     await _storage.write(key: _keyLocalPin, value: pin);
@@ -60,6 +61,19 @@ class SecureStorageService {
     }
     return username.trim();
   }
+
+  Future<void> saveOwnerName(String name) async {
+    await _storage.write(key: _keyOwnerName, value: name.trim());
+  }
+
+  Future<String?> getOwnerName() async {
+    final name = await _storage.read(key: _keyOwnerName);
+    if (name == null || name.trim().isEmpty) {
+      return 'Pemilik Toko';
+    }
+    return name.trim();
+  }
+
 
 
   Future<void> saveTokens({required String onlineToken, required String offlineToken}) async {

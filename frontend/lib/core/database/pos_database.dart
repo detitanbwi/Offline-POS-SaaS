@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 10,
+            version: 11,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 10,
+          version: 11,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -61,7 +61,7 @@ class PosDatabase {
     try {
       db = await openDatabase(
         path,
-        version: 10,
+        version: 11,
         password: encryptionKey,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -301,6 +301,7 @@ class PosDatabase {
       CREATE TABLE cashiers (
         id TEXT PRIMARY KEY,
         nama TEXT NOT NULL,
+        username TEXT NOT NULL,
         pin TEXT NOT NULL,
         status INTEGER NOT NULL DEFAULT 1,
         is_deleted INTEGER NOT NULL DEFAULT 0,
@@ -725,6 +726,13 @@ class PosDatabase {
         } catch (_) {}
       }
     }
+
+    if (oldVersion < 11) {
+      try {
+        await db.execute("ALTER TABLE cashiers ADD COLUMN username TEXT;");
+        await db.execute("UPDATE cashiers SET username = LOWER(REPLACE(nama, ' ', '_')) WHERE username IS NULL OR username = '';");
+      } catch (_) {}
+    }
   }
 
   Future<void> _createIndexes(Database db) async {
@@ -766,6 +774,9 @@ class PosDatabase {
 
     // Print Queue Jobs
     await db.execute('CREATE INDEX IF NOT EXISTS idx_print_queue_status ON print_queue_jobs(status, retry_count)');
+
+    // Cashiers
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_cashiers_username ON cashiers(username)');
   }
 
   Future<void> _seedDatabase(Database db) async {

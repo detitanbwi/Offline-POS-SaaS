@@ -33,6 +33,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
   void _showAddEditCashierDialog(BuildContext context, [CashierModel? cashier]) {
     final isEdit = cashier != null;
     final nameController = TextEditingController(text: cashier?.nama ?? '');
+    final usernameController = TextEditingController(text: cashier?.username ?? '');
     final pinController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
@@ -54,13 +55,30 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                 children: [
                   AppTextField(
                     controller: nameController,
-                    labelText: 'Nama Lengkap Kasir',
-                    hintText: 'Masukkan nama kasir',
+                    labelText: 'Nama Lengkap Kasir (Nama Pengguna)',
+                    hintText: 'Contoh: Budi Santoso',
                     prefixIcon: Icons.person_outline_rounded,
                     maxLength: 50,
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
                         return 'Nama tidak boleh kosong';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.m),
+                  AppTextField(
+                    controller: usernameController,
+                    labelText: 'Username (Akun Login)',
+                    hintText: 'Contoh: budi_s (tanpa spasi)',
+                    prefixIcon: Icons.account_circle_outlined,
+                    maxLength: 30,
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Username tidak boleh kosong';
+                      }
+                      if (val.trim().contains(' ')) {
+                        return 'Username tidak boleh mengandung spasi';
                       }
                       return null;
                     },
@@ -108,11 +126,13 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                     success = await notifier.updateCashier(
                       cashier.id,
                       nameController.text.trim(),
+                      usernameController.text.trim(),
                       pinController.text.isNotEmpty ? pinController.text : null,
                     );
                   } else {
                     success = await notifier.addCashier(
                       nameController.text.trim(),
+                      usernameController.text.trim(),
                       pinController.text,
                     );
                   }
@@ -163,7 +183,8 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
   Widget build(BuildContext context) {
     final state = ref.watch(cashierNotifierProvider);
     final filteredList = state.allCashiers.where((cashier) {
-      return cashier.nama.toLowerCase().contains(_searchQuery.toLowerCase());
+      final q = _searchQuery.toLowerCase();
+      return cashier.nama.toLowerCase().contains(q) || cashier.username.toLowerCase().contains(q);
     }).toList();
 
     return Scaffold(
@@ -251,14 +272,33 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                             color: cashier.isActive ? AppColors.textPrimary : AppColors.textSecondary,
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          cashier.isActive ? 'Akses Aktif' : 'Akses Nonaktif',
-                                          style: AppTypography.bodyMedium.copyWith(
-                                            fontSize: 12,
-                                            color: cashier.isActive ? AppColors.success : AppColors.error,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '@${cashier.username}',
+                                              style: AppTypography.bodySmall.copyWith(
+                                                color: AppColors.textSecondary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '•',
+                                              style: AppTypography.bodySmall.copyWith(
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              cashier.isActive ? 'Akses Aktif' : 'Akses Nonaktif',
+                                              style: AppTypography.bodyMedium.copyWith(
+                                                fontSize: 12,
+                                                color: cashier.isActive ? AppColors.success : AppColors.error,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),

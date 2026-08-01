@@ -59,10 +59,15 @@ class CashierNotifier extends StateNotifier<CashierState> {
     }
   }
 
-  Future<bool> addCashier(String name, String pin) async {
+  Future<bool> addCashier(String name, String username, String pin) async {
     final trimmedName = name.trim();
+    final trimmedUsername = username.trim().toLowerCase().replaceAll(' ', '_');
     if (trimmedName.isEmpty) {
       state = state.copyWith(errorMessage: 'Nama kasir tidak boleh kosong.');
+      return false;
+    }
+    if (trimmedUsername.isEmpty) {
+      state = state.copyWith(errorMessage: 'Username kasir tidak boleh kosong.');
       return false;
     }
     if (pin.length != 6) {
@@ -76,6 +81,10 @@ class CashierNotifier extends StateNotifier<CashierState> {
         state = state.copyWith(isLoading: false, errorMessage: 'Nama kasir "$trimmedName" sudah terdaftar.');
         return false;
       }
+      if (await _repository.isUsernameExists(trimmedUsername)) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Username "$trimmedUsername" sudah terdaftar.');
+        return false;
+      }
 
       final hashedPin = _hashPIN(pin);
       if (await _repository.isPinExists(hashedPin)) {
@@ -87,6 +96,7 @@ class CashierNotifier extends StateNotifier<CashierState> {
       final newCashier = CashierModel(
         id: _uuid.v4(),
         nama: trimmedName,
+        username: trimmedUsername,
         pin: hashedPin,
         status: 1,
         isDeleted: 0,
@@ -106,10 +116,15 @@ class CashierNotifier extends StateNotifier<CashierState> {
     }
   }
 
-  Future<bool> updateCashier(String id, String name, String? newPin) async {
+  Future<bool> updateCashier(String id, String name, String username, String? newPin) async {
     final trimmedName = name.trim();
+    final trimmedUsername = username.trim().toLowerCase().replaceAll(' ', '_');
     if (trimmedName.isEmpty) {
       state = state.copyWith(errorMessage: 'Nama kasir tidak boleh kosong.');
+      return false;
+    }
+    if (trimmedUsername.isEmpty) {
+      state = state.copyWith(errorMessage: 'Username kasir tidak boleh kosong.');
       return false;
     }
     if (newPin != null && newPin.isNotEmpty && newPin.length != 6) {
@@ -129,6 +144,10 @@ class CashierNotifier extends StateNotifier<CashierState> {
         state = state.copyWith(isLoading: false, errorMessage: 'Nama kasir "$trimmedName" sudah terdaftar.');
         return false;
       }
+      if (await _repository.isUsernameExists(trimmedUsername, excludeId: id)) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Username "$trimmedUsername" sudah terdaftar.');
+        return false;
+      }
 
       String finalPin = existing.pin;
       if (newPin != null && newPin.isNotEmpty) {
@@ -141,6 +160,7 @@ class CashierNotifier extends StateNotifier<CashierState> {
 
       final updated = existing.copyWith(
         nama: trimmedName,
+        username: trimmedUsername,
         pin: finalPin,
         updatedAt: DateTime.now(),
       );
