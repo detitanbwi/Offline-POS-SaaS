@@ -11,6 +11,9 @@ import '../../../../core/di/providers.dart';
 import '../../../menu/presentation/screens/main_menu_screen.dart';
 import '../../domain/models/auth_user.dart';
 import '../providers/auth_providers.dart';
+import '../../../security/presentation/widgets/master_pin_setup_modal.dart';
+import '../../../security/presentation/widgets/forgot_pin_recovery_modal.dart';
+import '../../../security/presentation/providers/security_providers.dart';
 
 class AccountItem {
   final String id;
@@ -104,7 +107,6 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   Future<void> _submitPin() async {
     final pin = _pinController.text;
-    final storage = ref.read(secureStorageServiceProvider);
     final hashedPin = _hashPIN(pin);
 
     if (widget.isSetup) {
@@ -112,15 +114,20 @@ class _PinScreenState extends ConsumerState<PinScreen> {
         setState(() => _errorMessage = 'PIN minimal 4 digit!');
         return;
       }
-      await storage.saveLocalPIN(hashedPin);
-      ref.read(authSessionProvider.notifier).state = const AuthUser(
-        id: 'owner',
-        nama: 'Pemilik Toko',
-        role: 'pemilik',
-      );
       if (!mounted) return;
-      AppSnackbar.showSuccess(context, 'PIN Keamanan berhasil dibuat!');
-      _goToMainMenu();
+      await MasterPinSetupModal.show(
+        context,
+        masterPin: pin,
+        onCompleted: () {
+          ref.read(authSessionProvider.notifier).state = const AuthUser(
+            id: 'owner',
+            nama: 'Pemilik Toko',
+            role: 'pemilik',
+          );
+          AppSnackbar.showSuccess(context, 'PIN Keamanan & Kode Pemulihan berhasil dibuat!');
+          _goToMainMenu();
+        },
+      );
       return;
     }
 
@@ -158,8 +165,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       }
 
       if (_selectedAccount!.isOwner) {
-        final savedHashedPin = await storage.getLocalPIN();
-        if (hashedPin == savedHashedPin) {
+        final securityRepo = ref.read(securityRepositoryProvider);
+        final isPinValid = await securityRepo.validateMasterPin(pin);
+        if (isPinValid) {
           ref.read(authSessionProvider.notifier).state = AuthUser(
             id: 'owner',
             nama: _selectedAccount!.nama,
@@ -571,6 +579,27 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           type: AppButtonType.secondary,
           onPressed: _submitPin,
         ),
+        if (_selectedAccount!.isOwner) ...[
+          SizedBox(height: 14.h),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+            ),
+            icon: const Icon(Icons.help_outline_rounded, size: 18),
+            label: const Text('Lupa PIN Master? (Pemulihan Mandiri)'),
+            onPressed: () {
+              ForgotPinRecoveryModal.show(
+                context,
+                onRecoverySuccess: () {
+                  setState(() {
+                    _errorMessage = '';
+                    _pinController.clear();
+                  });
+                },
+              );
+            },
+          ),
+        ],
       ],
     );
   }

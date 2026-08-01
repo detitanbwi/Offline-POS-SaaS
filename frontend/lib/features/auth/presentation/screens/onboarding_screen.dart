@@ -1,15 +1,14 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:crypto/crypto.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
+import '../../../security/presentation/providers/security_providers.dart';
 import 'pin_screen.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -73,12 +72,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  String _hashPIN(String pin) {
-    const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
-    var bytes = utf8.encode(pin + salt);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
-  }
 
   Future<void> _startDatabaseInitialization() async {
     // Stage 1: Save Store Identity and Owner Master PIN to Secure Storage
@@ -94,8 +87,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       phone: _phoneController.text.trim(),
     );
     
-    final hashedPin = _hashPIN(_pinController.text);
-    await storage.saveLocalPIN(hashedPin);
+    final service = ref.read(securityServiceProvider);
+    final licenseKey = await storage.getLicenseKey() ?? 'XXXX-XXXX-XXXX';
+    await service.initializeMasterSecurity(
+      masterPin: _pinController.text,
+      licenseKey: licenseKey,
+    );
     
     await Future.delayed(const Duration(milliseconds: 600));
 

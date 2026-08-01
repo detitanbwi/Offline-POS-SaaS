@@ -26,6 +26,7 @@ class TableModel {
   bool get isReserved => status == 2;
   bool get isMaintenance => status == 3;
   bool get isBillPrinted => status == 4;
+  bool get needsCleaning => status == 3;
 
   String get statusLabel {
     switch (status) {
