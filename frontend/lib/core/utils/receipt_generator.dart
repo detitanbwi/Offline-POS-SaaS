@@ -125,7 +125,7 @@ class ReceiptGenerator {
     bytes += generator.text(centerText('sah. Silakan bawa tagihan ini', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
     bytes += generator.text(centerText('ke meja kasir.', width: charsPerLine), styles: const PosStyles(align: PosAlign.center));
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.feed(3);
+    bytes += generator.feed(4);
     if (autoCut) {
       bytes += generator.cut();
     }
@@ -186,7 +186,7 @@ class ReceiptGenerator {
     }
 
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.feed(3);
+    bytes += generator.feed(4);
     if (autoCut) {
       bytes += generator.cut();
     }
@@ -301,7 +301,7 @@ class ReceiptGenerator {
     // Footer
     bytes += generator.text('Terima Kasih Atas', styles: const PosStyles(align: PosAlign.center));
     bytes += generator.text('Kunjungan Anda!', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.feed(3);
+    bytes += generator.feed(4);
     if (autoCut) {
       bytes += generator.cut();
     }
@@ -406,7 +406,7 @@ class ReceiptGenerator {
 
     // Footer
     bytes += generator.text('Validasi Sistem POS', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.feed(3);
+    bytes += generator.feed(4);
     if (autoCut) {
       bytes += generator.cut();
     }

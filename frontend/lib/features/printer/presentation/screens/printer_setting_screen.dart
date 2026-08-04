@@ -81,7 +81,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
         styles: const PosStyles(align: PosAlign.left),
       );
       bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
-      bytes += generator.feed(3);
+      bytes += generator.feed(4);
       if (printer.autoCut) {
         bytes += generator.cut();
       }
@@ -646,6 +646,20 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                         },
                       ),
                     ],
+                  ),
+                  const Divider(height: 16),
+                  SwitchListTile(
+                    title: Text('Auto Cut (Potong Kertas Otomatis)', style: AppTypography.titleMedium.copyWith(fontSize: 12)),
+                    subtitle: Text('Kirim perintah pemotong pisau otomatis setelah mencetak', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10)),
+                    value: printer.autoCut,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (val) {
+                      ref.read(printerNotifierProvider.notifier).updatePrinterSettings(
+                        id: printer.id,
+                        autoCut: val,
+                      );
+                    },
                   ),
                 ],
               ),

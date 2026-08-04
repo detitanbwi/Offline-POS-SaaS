@@ -71,6 +71,19 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<OrderModel?> getOrderById(String orderId) async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'orders',
+      where: 'id = ?',
+      whereArgs: [orderId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return OrderModel.fromMap(maps.first);
+  }
+
+  @override
   Future<List<OrderItemModel>> getOrderItems(String orderId) async {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -84,14 +97,61 @@ class OrderRepositoryImpl implements OrderRepository {
   @override
   Future<void> saveOrder(OrderModel order, List<OrderItemModel> items, {bool markAsPrinted = false}) async {
     final db = await _db.database;
-
     await db.transaction((txn) async {
+      final orderMap = order.toMap();
+      // Ensure table_id is NEVER null to satisfy SQLite NOT NULL constraints on legacy/current schemas,
+      // and ensure 'TABLE_TAKE_AWAY' sentinel exists in tables table to satisfy FOREIGN KEY constraints.
+      if (orderMap['table_id'] == null || (orderMap['table_id'] as String).isEmpty) {
+        orderMap['table_id'] = 'TABLE_TAKE_AWAY';
+        final checkTable = await txn.query('tables', where: 'id = ?', whereArgs: ['TABLE_TAKE_AWAY']);
+        if (checkTable.isEmpty) {
+          await txn.insert('tables', {
+            'id': 'TABLE_TAKE_AWAY',
+            'nama': 'Take Away',
+            'nomor': 'TA-00',
+            'status': 0,
+            'is_deleted': 1,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+        }
+      } else {
+        final tCheck = await txn.query('tables', where: 'id = ?', whereArgs: [orderMap['table_id']]);
+        if (tCheck.isEmpty) {
+          orderMap['table_id'] = 'TABLE_TAKE_AWAY';
+          final checkTable = await txn.query('tables', where: 'id = ?', whereArgs: ['TABLE_TAKE_AWAY']);
+          if (checkTable.isEmpty) {
+            await txn.insert('tables', {
+              'id': 'TABLE_TAKE_AWAY',
+              'nama': 'Take Away',
+              'nomor': 'TA-00',
+              'status': 0,
+              'is_deleted': 1,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+          }
+        }
+      }
+
+      // Verify cashier_id foreign key reference if provided
+      if (orderMap['cashier_id'] != null) {
+        try {
+          final uCheck = await txn.query('users', where: 'id = ?', whereArgs: [orderMap['cashier_id']]);
+          if (uCheck.isEmpty) {
+            orderMap['cashier_id'] = null;
+          }
+        } catch (_) {
+          orderMap['cashier_id'] = null;
+        }
+      }
+
       // 1. Upsert the order header without using replace to avoid CASCADE delete
       final existing = await txn.query('orders', where: 'id = ?', whereArgs: [order.id]);
       if (existing.isEmpty) {
-        await txn.insert('orders', order.toMap());
+        await txn.insert('orders', orderMap);
       } else {
-        await txn.update('orders', order.toMap(), where: 'id = ?', whereArgs: [order.id]);
+        await txn.update('orders', orderMap, where: 'id = ?', whereArgs: [order.id]);
       }
 
 
@@ -190,6 +250,18 @@ class OrderRepositoryImpl implements OrderRepository {
       }
     }
     return result;
+  }
+
+  @override
+  Future<List<OrderModel>> getAllDraftOrders() async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'orders',
+      where: 'status = ?',
+      whereArgs: ['draft'],
+      orderBy: 'updated_at DESC',
+    );
+    return maps.map((m) => OrderModel.fromMap(m)).toList();
   }
 
   @override
@@ -347,6 +419,7 @@ class OrderRepositoryImpl implements OrderRepository {
   Future<void> clearTableOnly(String orderId, String tableId, String reason) async {
     final db = await _db.database;
     await db.transaction((txn) async {
+      // 1. Reset status meja ke 0 (Kosong)
       await txn.update(
         'tables',
         {
@@ -357,15 +430,33 @@ class OrderRepositoryImpl implements OrderRepository {
         whereArgs: [tableId],
       );
 
-      await txn.update(
-        'orders',
-        {
-          'clear_table_reason': reason,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [orderId],
-      );
+      // 2. Tandai specific order sebagai cleared
+      if (orderId.isNotEmpty) {
+        await txn.update(
+          'orders',
+          {
+            'status': 'cleared',
+            'clear_table_reason': reason,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [orderId],
+        );
+      }
+
+      // 3. Tandai semua order draft lain pada meja ini sebagai cleared
+      if (tableId.isNotEmpty) {
+        await txn.update(
+          'orders',
+          {
+            'status': 'cleared',
+            'clear_table_reason': reason,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'table_id = ? AND status = ?',
+          whereArgs: [tableId, 'draft'],
+        );
+      }
     });
   }
 

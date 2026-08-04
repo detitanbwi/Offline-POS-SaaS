@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -24,17 +25,15 @@ import '../../domain/models/cart_item.dart';
 import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../application/online_platform_notifier.dart';
-import '../../../printer/application/printer_notifier.dart';
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import '../../../table/application/table_notifier.dart';
-import '../../../table/domain/models/table.dart';
-import '../../domain/models/order_item.dart';
 import 'payment_screen.dart';
-import '../../../../core/utils/receipt_generator.dart';
-import '../../../../core/utils/pdf_receipt_generator.dart';
-import '../../../../core/widgets/app_receipt_preview_modal.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../table/application/table_notifier.dart';
 import '../../../../core/di/providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import '../../../../core/utils/receipt_generator.dart';
+import '../../../printer/application/printer_notifier.dart';
+import '../../domain/models/order.dart';
+import '../../domain/models/order_item.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -43,16 +42,25 @@ class PosScreen extends ConsumerStatefulWidget {
   ConsumerState<PosScreen> createState() => _PosScreenState();
 }
 
-class _PosScreenState extends ConsumerState<PosScreen> {
+class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   final _customerNameController = TextEditingController();
+  late TabController _posTabController;
   String? _selectedCategoryId;
   Timer? _debounceTimer;
   String _searchQuery = '';
+  bool _isOrderAscending = false;
 
   @override
   void initState() {
     super.initState();
+    _posTabController = TabController(length: 2, vsync: this);
+    // Refresh daftar Open Bill setiap kali user tap ke tab "Pesanan"
+    _posTabController.addListener(() {
+      if (_posTabController.index == 1 && !_posTabController.indexIsChanging) {
+        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+      }
+    });
     // Pre-load products, categories, tables, and active orders map
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(productNotifierProvider.notifier).loadProducts();
@@ -70,6 +78,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   @override
   void dispose() {
+    _posTabController.dispose();
     _searchController.dispose();
     _customerNameController.dispose();
     _debounceTimer?.cancel();
@@ -120,23 +129,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       }
     });
 
-    final orderState = ref.watch(orderNotifierProvider);
-    final tableName = orderState.selectedTable?.nama ?? '';
-    final orderNumber = orderState.activeOrder?.nomorOrder ?? 'Order Baru';
-    final isTakeAway = orderState.isTakeAway;
-    final customerName = orderState.customerName;
-
-    String subtitleText = '';
-    if (isTakeAway) {
-      subtitleText = customerName != null && customerName.isNotEmpty
-          ? '🥡 Take Away ($customerName)'
-          : '🥡 Take Away (Tanpa Meja)';
-    } else if (tableName.isNotEmpty) {
-      subtitleText = customerName != null && customerName.isNotEmpty
-          ? '🍽️ $tableName ($customerName)'
-          : '🍽️ $tableName ($orderNumber)';
-    }
-
     final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
 
     return PopScope(
@@ -152,17 +144,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         backgroundColor: AppColors.surface,
         appBar: AppBar(
           toolbarHeight: isMobileLandscape ? 42 : null,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Transaksi POS', style: TextStyle(fontSize: isMobileLandscape ? 14 : 16, fontWeight: FontWeight.bold)),
-              if (subtitleText.isNotEmpty)
-                Text(
-                  subtitleText,
-                  style: TextStyle(fontSize: isMobileLandscape ? 10 : 12, color: Colors.white70),
-                ),
-            ],
-          ),
+          title: Text('Transaksi POS', style: TextStyle(fontSize: isMobileLandscape ? 14 : 16, fontWeight: FontWeight.bold)),
         ),
         body: SafeArea(
           child: ResponsiveLayout(
@@ -173,12 +155,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   children: [
                     _buildCatalogHeader(activeCategories),
                     Expanded(
-                      child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
+                      child: _posTabController.index == 0
+                          ? _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier)
+                          : _buildOpenOrdersList(),
                     ),
-                    const SizedBox(height: 72), // Spacing for bottom cart floating bar
+                    if (_posTabController.index == 0) const SizedBox(height: 72),
                   ],
                 ),
-                if (cartState.items.isNotEmpty)
+                if (_posTabController.index == 0 && cartState.items.isNotEmpty)
                   Positioned(
                     bottom: 0,
                     left: 0,
@@ -187,19 +171,21 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   ),
               ],
             ),
-            // Mobile Landscape Layout (Full Width Catalog + Floating Cart Bar for maximum interaction space)
+            // Mobile Landscape Layout
             mobileLandscape: Stack(
               children: [
                 Column(
                   children: [
                     _buildCatalogHeader(activeCategories),
                     Expanded(
-                      child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
+                      child: _posTabController.index == 0
+                          ? _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier)
+                          : _buildOpenOrdersList(),
                     ),
-                    const SizedBox(height: 64), // Spacing for floating cart bar
+                    if (_posTabController.index == 0) const SizedBox(height: 64),
                   ],
                 ),
-                if (cartState.items.isNotEmpty)
+                if (_posTabController.index == 0 && cartState.items.isNotEmpty)
                   Positioned(
                     bottom: 0,
                     left: 0,
@@ -208,17 +194,19 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   ),
               ],
             ),
-            // Tablet Split Layout (flex 3:2 untouched)
+            // Tablet Split Layout
             tablet: Row(
               children: [
-                // Left side: Catalog
+                // Left side: Catalog / Orders List
                 Expanded(
                   flex: 3,
                   child: Column(
                     children: [
                       _buildCatalogHeader(activeCategories),
                       Expanded(
-                        child: _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier),
+                        child: _posTabController.index == 0
+                            ? _buildCatalogGrid(activeProducts, productState.isLoading, cartNotifier)
+                            : _buildOpenOrdersList(),
                       ),
                     ],
                   ),
@@ -256,16 +244,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   Future<bool> _ensureTableSelected() async {
     final orderState = ref.read(orderNotifierProvider);
-    if (orderState.isTakeAway) {
-      return true; // Take Away does not require a table
+    if (orderState.isTakeAway || orderState.selectedTable != null || orderState.activeOrder?.tableId != null) {
+      return true; // Take Away or table already selected/assigned
     }
 
     final tableState = ref.read(tableNotifierProvider);
     if (tableState.allTables.isEmpty) {
-      return true;
-    }
-
-    if (orderState.selectedTable != null) {
       return true;
     }
 
@@ -286,9 +270,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             child: Consumer(
               builder: (consumerContext, ref, child) {
                 final tableState = ref.watch(tableNotifierProvider);
-                final orderState = ref.watch(orderNotifierProvider);
                 final allTables = tableState.allTables;
-                final activeOrdersMap = orderState.activeOrdersMap;
                 final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
 
                 return Column(
@@ -317,7 +299,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           itemBuilder: (context, index) {
                             final table = allTables[index];
                             final isOccupied = table.status == 1;
-                            final activeOrder = activeOrdersMap[table.id];
 
                             return ListTile(
                               dense: isMobileLandscape,
@@ -328,7 +309,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               title: Text(table.nama, style: TextStyle(fontSize: isMobileLandscape ? 13 : 14)),
                               subtitle: Text(
                                 isOccupied
-                                    ? 'Terisi (${activeOrder?.nomorOrder ?? 'Pesanan Aktif'})'
+                                    ? 'Terisi / Billed - Kelola via Manajemen Meja'
                                     : 'Kosong - Nomor: ${table.nomor}',
                                 style: TextStyle(
                                   color: isOccupied ? AppColors.secondary : AppColors.success,
@@ -339,12 +320,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               onTap: () async {
                                 Navigator.pop(dialogContext);
-                                if (isOccupied && activeOrder != null) {
-                                  _showOccupiedTableBottomSheet(table, activeOrder);
-                                } else {
-                                  ref.read(orderNotifierProvider.notifier).selectTable(table);
-                                  ref.read(cartNotifierProvider.notifier).clear();
+                                if (isOccupied) {
+                                  AppSnackbar.showWarning(
+                                    context,
+                                    'Meja ini berstatus Terisi/Billed. Gunakan Manajemen Meja untuk mengelola meja.',
+                                  );
+                                  return;
                                 }
+                                 ref.read(orderNotifierProvider.notifier).selectTable(table);
                               },
                             );
                           },
@@ -503,9 +486,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  // Header catalog with search field & category selection horizontal chips
   Widget _buildCatalogHeader(List<dynamic> activeCategories) {
     final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
+    final orderState = ref.watch(orderNotifierProvider);
+    final openBillCount = orderState.allDraftOrders.length;
 
     return Container(
       color: Colors.white,
@@ -513,19 +497,82 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppTextField(
-            controller: _searchController,
-            labelText: 'Cari Produk POS',
-            prefixIcon: Icons.search_rounded,
-            onChanged: (val) {
-              if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-              _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-                setState(() {
-                  _searchQuery = val;
-                });
-              });
-            },
+          // Section Tab Bar: Kasir vs Pesanan (Open Bill)
+          Container(
+            height: isMobileLandscape ? 36 : 42,
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TabBar(
+              controller: _posTabController,
+              indicator: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: AppColors.primary,
+              ),
+              labelColor: Colors.white,
+              unselectedLabelColor: AppColors.textSecondary,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              onTap: (_) => setState(() {}),
+              tabs: [
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.point_of_sale_rounded, size: 18),
+                      SizedBox(width: 6),
+                      Text('Kasir'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.receipt_long_rounded, size: 18),
+                      const SizedBox(width: 6),
+                      const Text('Pesanan'),
+                      if (openBillCount > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _posTabController.index == 1 ? Colors.white : AppColors.error,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$openBillCount',
+                            style: TextStyle(
+                              color: _posTabController.index == 1 ? AppColors.primary : Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
+          if (_posTabController.index == 0) ...[
+            AppTextField(
+              controller: _searchController,
+              labelText: 'Cari Produk POS',
+              prefixIcon: Icons.search_rounded,
+              onChanged: (val) {
+                if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+                _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                });
+              },
+            ),
           Builder(
             builder: (context) {
               final tableState = ref.watch(tableNotifierProvider);
@@ -596,9 +643,501 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               ],
             ),
           ),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _buildOpenOrdersList() {
+    final orderState = ref.watch(orderNotifierProvider);
+    final allDrafts = orderState.allDraftOrders;
+
+    if (allDrafts.isEmpty) {
+      return const AppEmptyState(
+        title: 'Belum Ada Pesanan Aktif (Open Bill)',
+        description: 'Pesanan yang belum dibayar (Dine-In maupun Take Away) akan muncul di sini.',
+        icon: Icons.receipt_long_rounded,
+      );
+    }
+
+    final sortedDrafts = List<OrderModel>.from(allDrafts);
+    sortedDrafts.sort((a, b) => _isOrderAscending
+        ? a.createdAt.compareTo(b.createdAt)
+        : b.createdAt.compareTo(a.createdAt));
+
+    return Column(
+      children: [
+        // Sort & Filter Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${sortedDrafts.length} Pesanan Aktif',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textSecondary),
+              ),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _isOrderAscending = !_isOrderAscending;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _isOrderAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _isOrderAscending ? 'Terlama (Asc)' : 'Terbaru (Desc)',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 4),
+            itemCount: sortedDrafts.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final order = sortedDrafts[index];
+              final isTakeAway = order.isTakeAway;
+              final tableName = order.tableNama ?? (isTakeAway ? 'Take Away' : 'Meja -');
+              final timeFormatted = DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt);
+
+              return AppCard(
+                padding: const EdgeInsets.all(16),
+                borderSide: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
+                color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isTakeAway ? Colors.orange.shade50 : AppColors.primaryContainer,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isTakeAway ? Icons.shopping_bag_rounded : Icons.table_restaurant_rounded,
+                            color: isTakeAway ? Colors.orange.shade800 : AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    tableName,
+                                    style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                  if (order.customerName != null && order.customerName!.isNotEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        order.customerName!,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'No. Order: ${order.nomorOrder}',
+                                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  const Icon(Icons.access_time_rounded, size: 12, color: AppColors.textSecondary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    timeFormatted,
+                                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          CurrencyFormatter.format(order.grandTotal),
+                          style: AppTypography.titleMedium.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    // 1. Load order & active items ke order state
+                    await ref.read(orderNotifierProvider.notifier).loadOrderById(order.id);
+                    if (!isTakeAway && order.tableId != null) {
+                      final table = await ref.read(tableRepositoryProvider).getTableById(order.tableId!);
+                      if (table != null) {
+                        ref.read(orderNotifierProvider.notifier).setSelectedTableWithoutReset(table);
+                      }
+                    }
+
+                    // 2. Load item ke cart
+                    final items = await ref.read(orderRepositoryProvider).getOrderItems(order.id);
+                    final products = ref.read(productNotifierProvider).allProducts;
+                    ref.read(cartNotifierProvider.notifier).loadDraftItems(items, products);
+
+                    // 3. Pindah ke segmen Kasir
+                    _posTabController.animateTo(0);
+
+                    // 4. Buka Bottom Sheet Keranjang menggunakan root context PosScreen
+                    _openCartBottomSheet(this.context);
+                  },
+                  icon: const Icon(Icons.payments_outlined, size: 18),
+                  label: const Text('Bayar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  ),
+],
+);
+  }
+
+  void _openCartBottomSheet(BuildContext parentContext) {
+    debugPrint('[DEBUG_BAYAR] Inside _openCartBottomSheet function');
+    showModalBottomSheet(
+      context: parentContext,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (sheetContext2, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Consumer(
+            builder: (consumerContext, ref, child) {
+              final cState = ref.watch(cartNotifierProvider);
+              final cNotifier = ref.read(cartNotifierProvider.notifier);
+              final orderState = ref.watch(orderNotifierProvider);
+              final orderNotifier = ref.read(orderNotifierProvider.notifier);
+
+              return SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.m),
+                  child: ListView(
+                    controller: scrollController,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Detail Keranjang', style: AppTypography.titleLarge),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                          ),
+                        ],
+                      ),
+                      const Divider(),
+                      _buildOrderTypeAndCustomerSection(parentContext, orderState, orderNotifier),
+                      const Divider(),
+                      if (cState.items.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('Keranjang Kosong')),
+                        )
+                      else
+                        ...cState.items.map(
+                          (item) => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _CartItemRow(
+                                item: item,
+                                cartNotifier: cNotifier,
+                                onNoteTap: () => _showNoteDialog(parentContext, item),
+                              ),
+                              const Divider(),
+                            ],
+                          ),
+                        ),
+                      _buildBillSummary(cState),
+                      const SizedBox(height: 12),
+                      // Top Row: Kirim ke Dapur & Bayar Now
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: cState.items.isEmpty
+                                  ? null
+                                  : () async {
+                                      Navigator.of(sheetContext).pop(); // Pop sheet dulu
+                                      if (await _ensureTableSelected()) {
+                                        final authUser = ref.read(authSessionProvider);
+                                        final savedItems = await orderNotifier.saveCurrentOrderDraft(
+                                          cState.items,
+                                          cState.subtotal,
+                                          cState.taxRate,
+                                          cState.taxAmount,
+                                          cState.grandTotal,
+                                          cashierId: authUser?.id,
+                                          cashierNama: authUser?.nama,
+                                        );
+                                        if (savedItems != null) {
+                                          cNotifier.clear();
+                                          orderNotifier.resetForNewTransaction();
+                                          if (!mounted) return;
+                                          AppSnackbar.showSuccess(parentContext, 'Pesanan terkirim ke Dapur & disimpan (Bayar Nanti).');
+                                        } else {
+                                          final err = ref.read(orderNotifierProvider).errorMessage;
+                                          if (!mounted) return;
+                                          AppSnackbar.showError(parentContext, err ?? 'Gagal menyimpan pesanan.');
+                                        }
+                                      }
+                                    },
+                              icon: const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
+                              label: const Text('Kirim ke Dapur', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: cState.items.isEmpty
+                                  ? null
+                                  : () async {
+                                      if (await _ensureTableSelected()) {
+                                        Navigator.of(sheetContext).pop();
+                                        if (!mounted) return;
+                                        await Navigator.of(context, rootNavigator: true).push(
+                                          MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                        );
+                                        if (!mounted) return;
+                                        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                      }
+                                    },
+                              icon: const Icon(Icons.payments_rounded, size: 18),
+                              label: const Text('Bayar Now', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () {
+                              final activeOrd = orderState.activeOrder;
+                              Navigator.of(sheetContext).pop(); // Pop sheet dulu agar dialog tidak terhalang
+                              if (activeOrd != null) {
+                                _showRePrintKitchenDialog(parentContext, activeOrd);
+                              } else {
+                                AppSnackbar.showWarning(parentContext, 'Silakan simpan pesanan terlebih dahulu sebelum cetak ulang dapur.');
+                              }
+                            },
+                            icon: const Icon(Icons.print_rounded, size: 16, color: AppColors.primary),
+                            label: const Text('Cetak Ulang Dapur', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                          ),
+                          TextButton.icon(
+                            onPressed: () {
+                              cNotifier.clear();
+                              orderNotifier.resetForNewTransaction();
+                              Navigator.of(sheetContext).pop();
+                              AppSnackbar.showSuccess(parentContext, 'Siap untuk transaksi baru.');
+                            },
+                            icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
+                            label: const Text('Transaksi Baru', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRePrintKitchenDialog(BuildContext ctx, OrderModel order) async {
+    final repository = ref.read(orderRepositoryProvider);
+    final countFromDb = await repository.getBatchCount(order.id);
+    if (!ctx.mounted) return;
+
+    final effectiveBatchCount = countFromDb == 0 ? 1 : countFromDb;
+
+    showDialog(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.soup_kitchen_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Cetak Ulang Struk Dapur', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Pilih batch pesanan yang ingin dicetak ulang ke printer dapur:',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(effectiveBatchCount, (index) {
+              final bNum = index + 1;
+              final bLabel = bNum == 1 ? 'Batch #1 (Pesanan Awal)' : 'Batch #$bNum (Pesanan Tambahan)';
+              return ListTile(
+                dense: true,
+                leading: const Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
+                title: Text(bLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                onTap: () async {
+                  Navigator.pop(dialogCtx);
+                  await _reprintKitchenBatch(ctx, order, bNum);
+                },
+              );
+            }),
+            const Divider(),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.receipt_long_rounded, size: 20, color: AppColors.success),
+              title: const Text('Cetak Rekap Dapur (Semua Menu)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success)),
+              onTap: () async {
+                Navigator.pop(dialogCtx);
+                await _reprintKitchenBatch(ctx, order, 0);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _reprintKitchenBatch(BuildContext ctx, OrderModel order, int batchNumber) async {
+    try {
+      final items = await ref.read(orderRepositoryProvider).getOrderItems(order.id);
+      List<OrderItemModel> itemsToPrint = [];
+
+      if (batchNumber == 0) {
+        itemsToPrint = items.where((i) => !i.isCancelled).toList();
+      } else {
+        final batches = await ref.read(orderRepositoryProvider).getPrintBatches(order.id);
+        if (batches.length >= batchNumber) {
+          final targetBatchId = batches[batchNumber - 1]['id'] as String;
+          itemsToPrint = items.where((i) => i.printBatchId == targetBatchId && !i.isCancelled).toList();
+        }
+      }
+
+      if (itemsToPrint.isEmpty) {
+        AppSnackbar.showWarning(ctx, 'Tidak ada item menu pada batch ini.');
+        return;
+      }
+
+      final waveInfo = batchNumber == 0
+          ? '[REKAP DAPUR]'
+          : (batchNumber == 1 ? '#1 (Pesanan Awal - CETAK ULANG)' : '#$batchNumber (Tambahan - CETAK ULANG)');
+
+      await ref.read(printerNotifierProvider.notifier).loadPrinters();
+      final printerState = ref.read(printerNotifierProvider);
+      final kitchenPrinters = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+      final targetPrinter = kitchenPrinters.isNotEmpty
+          ? kitchenPrinters.first
+          : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
+
+      final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+        order: order,
+        itemsToPrint: itemsToPrint,
+        waveInfo: waveInfo,
+        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: targetPrinter?.autoCut ?? false,
+      );
+
+      if (targetPrinter != null) {
+        await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+        AppSnackbar.showSuccess(ctx, 'Struk Dapur $waveInfo berhasil dicetak.');
+      } else {
+        AppSnackbar.showSuccess(ctx, 'Simulasi Struk Dapur $waveInfo (Printer tidak terhubung).');
+      }
+    } catch (e) {
+      AppSnackbar.showError(ctx, 'Gagal mencetak ulang dapur: $e');
+    }
   }
 
   Widget _buildCatalogGrid(List<Product> products, bool isLoading, CartNotifier cartNotifier) {
@@ -736,410 +1275,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
               ),
             ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showOccupiedTableBottomSheet(TableModel table, dynamic activeOrder) async {
-    final hasDraft = activeOrder != null;
-    final repo = ref.read(orderRepositoryProvider);
-
-    List<OrderItemModel> items = [];
-    List<Map<String, dynamic>> batches = [];
-
-    if (hasDraft) {
-      items = await repo.getOrderItems(activeOrder.id);
-      batches = await repo.getPrintBatches(activeOrder.id);
-    }
-
-    // Build batch mapping
-    final Map<String, int> batchIndexMap = {};
-    for (int i = 0; i < batches.length; i++) {
-      final bId = batches[i]['id'] as String;
-      batchIndexMap[bId] = i + 1;
-    }
-
-    // Group items by batch title
-    final Map<String, List<OrderItemModel>> groupedItems = {};
-
-    for (var item in items) {
-      String batchTitle = 'Batch #1';
-      if (item.printBatchId != null && batchIndexMap.containsKey(item.printBatchId)) {
-        batchTitle = 'Batch #${batchIndexMap[item.printBatchId]}';
-      } else if (item.statusCetak == 0 && batches.isNotEmpty) {
-        batchTitle = 'Batch Baru (Belum Kirim Dapur)';
-      }
-
-      groupedItems.putIfAbsent(batchTitle, () => []).add(item);
-    }
-
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
-          padding: const EdgeInsets.all(AppSpacing.m),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Rincian ${table.nama}',
-                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
-                        Text(
-                          'Atas Nama: ${activeOrder.customerName}',
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
-                        ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(sheetContext),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Status Card
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: (hasDraft ? AppColors.warning : AppColors.success).withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      hasDraft ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
-                      color: hasDraft ? AppColors.warning : AppColors.success,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            hasDraft ? 'Status: Belum Dibayar (Draft Active)' : 'Status: Kosong / Lunas',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: hasDraft ? const Color(0xFF78350F) : const Color(0xFF14532D),
-                            ),
-                          ),
-                          if (activeOrder != null) ...[
-                            Text('No. Order: ${activeOrder.nomorOrder}', style: const TextStyle(fontSize: 12)),
-                            Text(
-                              'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Items List Grouped by Batch
-              if (groupedItems.isNotEmpty) ...[
-                Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Expanded(
-                  child: ListView(
-                    children: groupedItems.entries.map((entry) {
-                      final batchTitle = entry.key;
-                      final batchItemList = entry.value;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    batchTitle,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '${batchItemList.length} Menu',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ...batchItemList.map((item) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${item.qty}x',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      decoration: item.isCancelled ? TextDecoration.lineThrough : null,
-                                      color: item.isCancelled ? Colors.grey : Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                item.produkNama,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
-                                                  decoration: item.isCancelled ? TextDecoration.lineThrough : null,
-                                                  color: item.isCancelled ? Colors.grey : Colors.black87,
-                                                ),
-                                              ),
-                                            ),
-                                            if (item.isCancelled)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red.shade100,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  'DIBATALKAN',
-                                                  style: TextStyle(fontSize: 9, color: Colors.red.shade800, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        if (item.catatan != null && item.catatan!.isNotEmpty)
-                                          Text(
-                                            'Note: ${item.catatan}',
-                                            style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    CurrencyFormatter.format(item.subtotal),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      decoration: item.isCancelled ? TextDecoration.lineThrough : null,
-                                      color: item.isCancelled ? Colors.grey : Colors.black87,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ] else
-                const Expanded(
-                  child: Center(
-                    child: Text('Belum ada rincian pesanan'),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              // Action Buttons
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            Navigator.pop(sheetContext);
-                            ref.read(orderNotifierProvider.notifier).selectTable(table);
-                            final products = ref.read(productNotifierProvider).allProducts;
-                            final draftItems = await ref.read(orderRepositoryProvider).getOrderItems(activeOrder.id);
-                            ref.read(cartNotifierProvider.notifier).loadDraftItems(draftItems, products);
-                          },
-                          icon: const Icon(Icons.shopping_cart_outlined, size: 18),
-                          label: Text(hasDraft ? 'Tambah Menu' : 'Pesan Baru'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ),
-                      if (hasDraft) ...[
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              Navigator.pop(sheetContext);
-                              ref.read(orderNotifierProvider.notifier).selectTable(table);
-                              final products = ref.read(productNotifierProvider).allProducts;
-                              final draftItems = await ref.read(orderRepositoryProvider).getOrderItems(activeOrder.id);
-                              ref.read(cartNotifierProvider.notifier).loadDraftItems(draftItems, products);
-
-                              if (!mounted) return;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                              );
-                            },
-                            icon: const Icon(Icons.payments_outlined, size: 18),
-                            label: const Text('Bayar'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.success,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (hasDraft) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(sheetContext);
-                              _handleMoveTableInPos(table, activeOrder);
-                            },
-                            icon: const Icon(Icons.move_up_rounded, size: 18),
-                            label: const Text('Pindah'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.secondary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(sheetContext);
-                              _handleCancelOrder(context);
-                            },
-                            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.error),
-                            label: const Text('Kosongkan Meja', style: TextStyle(color: AppColors.error, fontSize: 12)),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.error),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _handleMoveTableInPos(TableModel sourceTable, dynamic activeOrder) {
-    final tableState = ref.read(tableNotifierProvider);
-    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
-
-    if (emptyTables.isEmpty) {
-      AppSnackbar.showWarning(context, 'Tidak ada meja kosong yang tersedia untuk dipindahkan.');
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Pindahkan ${sourceTable.nama} ke:', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: emptyTables.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final targetTable = emptyTables[index];
-                      return ListTile(
-                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.success),
-                        title: Text(targetTable.nama),
-                        subtitle: Text('Nomor: ${targetTable.nomor} (Kosong)'),
-                        onTap: () async {
-                          Navigator.pop(dialogContext);
-                          await ref.read(orderRepositoryProvider).transferOrderTable(
-                                activeOrder.id,
-                                sourceTable.id,
-                                targetTable.id,
-                                targetTable.nama,
-                                targetTable.nomor,
-                              );
-                          ref.read(tableNotifierProvider.notifier).loadTables();
-                          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                          if (mounted) {
-                            AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan dari ${sourceTable.nama} ke ${targetTable.nama}');
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
           ),
         );
       },
@@ -1399,42 +1534,21 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   const SizedBox(height: 8),
                   if (isMobileLandscape) ...[
                     // Side-by-side action buttons for mobile landscape to save vertical height
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppButton(
-                            text: 'Bayar',
-                            onPressed: state.items.isEmpty
-                                ? null
-                                : () async {
-                                    if (await _ensureTableSelected()) {
-                                      if (!context.mounted) return;
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                      );
-                                    }
-                                  },
-                            icon: Icons.arrow_forward_rounded,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: AppButton(
-                            text: 'Simpan Batch ${orderState.nextBatchNumber}',
-                            type: AppButtonType.secondary,
-                            onPressed: state.items.isEmpty
-                                ? null
-                                : () async {
-                                    if (await _ensureTableSelected()) {
-                                      if (!context.mounted) return;
-                                      _handleSaveOrderDraft(context, state);
-                                    }
-                                  },
-                            icon: Icons.kitchen_rounded,
-                          ),
-                        ),
-                      ],
+                    AppButton(
+                      text: 'Bayar',
+                      onPressed: state.items.isEmpty
+                          ? null
+                          : () async {
+                              if (await _ensureTableSelected()) {
+                                if (!context.mounted) return;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                );
+                              }
+                            },
+                      icon: Icons.arrow_forward_rounded,
+                      width: double.infinity,
                     ),
                     if (orderState.activeOrder != null) ...[
                       const SizedBox(height: 6),
@@ -1464,21 +1578,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     ),
                     const SizedBox(height: 8),
                     AppButton(
-                      text: 'Simpan Batch ${orderState.nextBatchNumber}',
-                      type: AppButtonType.secondary,
-                      onPressed: state.items.isEmpty
-                          ? null
-                          : () async {
-                              if (await _ensureTableSelected()) {
-                                if (!context.mounted) return;
-                                _handleSaveOrderDraft(context, state);
-                              }
-                            },
-                      icon: Icons.kitchen_rounded,
-                      width: double.infinity,
-                    ),
-                      const SizedBox(height: 8),
-                      AppButton(
                         text: 'Batalkan Pesanan',
                         type: AppButtonType.destructive,
                         onPressed: () => _handleCancelOrder(context),
@@ -1586,262 +1685,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
               ],
             ),
-            Row(
-              children: [
-                // Expand view cart button
-                IconButton(
-                  icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary, size: 28),
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: rootContext,
-                      isScrollControlled: true,
-                      useSafeArea: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (sheetContext) => DraggableScrollableSheet(
-                        initialChildSize: 0.85,
-                        maxChildSize: 0.95,
-                        minChildSize: 0.5,
-                        builder: (sheetContext2, scrollController) => Container(
-                          decoration: const BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                          ),
-                          child: Consumer(
-                            builder: (consumerContext, ref, child) {
-                              final cState = ref.watch(cartNotifierProvider);
-                              final cNotifier = ref.read(cartNotifierProvider.notifier);
-                              final orderState = ref.watch(orderNotifierProvider);
-                              final orderNotifier = ref.read(orderNotifierProvider.notifier);
-
-                              return SafeArea(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(AppSpacing.m),
-                                  child: ListView(
-                                    controller: scrollController,
-                                    children: [
-                                      Center(
-                                        child: Container(
-                                          width: 40,
-                                          height: 5,
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade300,
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text('Detail Keranjang', style: AppTypography.titleLarge),
-                                          IconButton(
-                                            icon: const Icon(Icons.close),
-                                            onPressed: () => Navigator.of(sheetContext).pop(),
-                                          ),
-                                        ],
-                                      ),
-                                      const Divider(),
-                                      _buildOrderTypeAndCustomerSection(context, orderState, orderNotifier),
-                                      const Divider(),
-                                      if (cState.items.isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.all(24),
-                                          child: Center(child: Text('Keranjang Kosong')),
-                                        )
-                                      else
-                                        ...cState.items.map(
-                                          (item) => Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              _CartItemRow(
-                                                item: item,
-                                                cartNotifier: cNotifier,
-                                                onNoteTap: () => _showNoteDialog(rootContext, item),
-                                              ),
-                                              const Divider(),
-                                            ],
-                                          ),
-                                        ),
-                                      _buildBillSummary(cState),
-                                      const SizedBox(height: 16),
-                                      if (ResponsiveLayout.isMobileLandscape(context)) ...[
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: AppButton(
-                                                text: 'Bayar Sekarang',
-                                                onPressed: cState.items.isEmpty
-                                                    ? null
-                                                    : () async {
-                                                        Navigator.of(sheetContext).pop();
-                                                        if (await _ensureTableSelected()) {
-                                                          if (!mounted) return;
-                                                          Navigator.of(rootContext).push(
-                                                            MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                                          );
-                                                        }
-                                                      },
-                                                icon: Icons.payment_rounded,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: AppButton(
-                                                text: 'Simpan Order',
-                                                type: AppButtonType.secondary,
-                                                onPressed: cState.items.isEmpty
-                                                    ? null
-                                                    : () async {
-                                                        Navigator.of(sheetContext).pop();
-                                                        if (await _ensureTableSelected()) {
-                                                          if (!mounted) return;
-                                                          _handleSaveOrderDraft(rootContext, cState);
-                                                        }
-                                                      },
-                                                icon: Icons.kitchen_rounded,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ] else ...[
-                                        AppButton(
-                                          text: 'Bayar Sekarang',
-                                          onPressed: cState.items.isEmpty
-                                              ? null
-                                              : () async {
-                                                  Navigator.of(sheetContext).pop();
-                                                  if (await _ensureTableSelected()) {
-                                                    if (!mounted) return;
-                                                    Navigator.of(rootContext).push(
-                                                      MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                                    );
-                                                  }
-                                                },
-                                          icon: Icons.payment_rounded,
-                                          width: double.infinity,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        AppButton(
-                                          text: 'Simpan Batch ${orderState.nextBatchNumber}',
-                                          type: AppButtonType.secondary,
-                                          onPressed: cState.items.isEmpty
-                                              ? null
-                                              : () async {
-                                                  Navigator.of(sheetContext).pop();
-                                                  if (await _ensureTableSelected()) {
-                                                    if (!mounted) return;
-                                                    _handleSaveOrderDraft(rootContext, cState);
-                                                  }
-                                                },
-                                          icon: Icons.kitchen_rounded,
-                                          width: double.infinity,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 12),
-                AppButton(
-                  text: 'Bayar',
-                  onPressed: () async {
-                    if (await _ensureTableSelected()) {
-                      if (!mounted) return;
-                      Navigator.of(rootContext).push(
-                        MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                      );
-                    }
-                  },
-                  icon: Icons.payments_outlined,
-                ),
-              ],
+            AppButton(
+              text: 'Lanjutkan',
+              onPressed: () => _openCartBottomSheet(rootContext),
+              icon: Icons.arrow_forward_rounded,
             ),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _handleSaveOrderDraft(BuildContext context, CartState cartState) async {
-    final orderNotifier = ref.read(orderNotifierProvider.notifier);
-    final cartNotifier = ref.read(cartNotifierProvider.notifier);
-    final orderState = ref.read(orderNotifierProvider);
-
-    final selectedTable = orderState.selectedTable;
-    final isTakeAway = orderState.isTakeAway;
-    final labelName = isTakeAway ? 'Take Away' : (selectedTable?.nama ?? 'Meja');
-
-    final activeUser = ref.read(authSessionProvider);
-
-    final printedItems = await orderNotifier.saveCurrentOrderDraft(
-      cartState.items,
-      cartState.subtotal,
-      cartState.taxRate,
-      cartState.taxAmount,
-      cartState.grandTotal,
-      customerName: orderState.customerName,
-      cashierId: activeUser?.id,
-      cashierNama: activeUser?.nama,
-    );
-
-    if (!context.mounted) return;
-    if (printedItems != null) {
-      cartNotifier.clear();
-      final savedOrderHeader = ref.read(orderNotifierProvider).activeOrder;
-
-      AppSnackbar.showSuccess(context, 'Pesanan $labelName berhasil disimpan & dikirim ke dapur.');
-
-      if (printedItems.isNotEmpty && savedOrderHeader != null) {
-        // Show Kitchen Ticket Preview & Printing Modal
-        final printerState = ref.read(printerNotifierProvider);
-        final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-        final kitchenPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
-
-        final activeUser = ref.read(authSessionProvider);
-        final batchCount = await ref.read(orderRepositoryProvider).getBatchCount(savedOrderHeader.id);
-        final waveInfo = batchCount <= 1 ? '#1 (Baru)' : '#$batchCount (Tambahan)';
-
-        final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
-          order: savedOrderHeader,
-          itemsToPrint: printedItems,
-          cashierNama: savedOrderHeader.cashierNama ?? activeUser?.nama,
-          waveInfo: waveInfo,
-          charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
-        );
-
-        if (!context.mounted) return;
-        AppReceiptPreviewModal.show(
-          context,
-          title: 'Struk Pesanan Dapur',
-          receiptTextPreview: textPreview,
-          onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
-            order: savedOrderHeader,
-            itemsToPrint: printedItems,
-            cashierNama: savedOrderHeader.cashierNama ?? activeUser?.nama,
-            waveInfo: waveInfo,
-          ),
-          onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
-            order: savedOrderHeader,
-            itemsToPrint: printedItems,
-            cashierNama: savedOrderHeader.cashierNama ?? activeUser?.nama,
-            waveInfo: waveInfo,
-            paperSize: kitchenPrinter?.escPosPaperSize ?? PaperSize.mm58,
-            charsPerLine: kitchenPrinter?.effectiveCharsPerLine ?? 32,
-            autoCut: kitchenPrinter?.autoCut ?? false,
-          ),
-        );
-      }
-    } else {
-      final err = ref.read(orderNotifierProvider).errorMessage;
-      AppSnackbar.showError(context, err ?? 'Gagal menyimpan pesanan.');
-    }
   }
 
   Future<void> _handleCancelOrder(BuildContext context) async {

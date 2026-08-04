@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:android_id/android_id.dart';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -23,7 +24,7 @@ class DeviceFingerprintService {
   }
 
   Future<String> getAndroidId() async {
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       try {
         final androidId = await _androidIdPlugin.getId();
         return androidId ?? 'unknown_android_id';
@@ -35,7 +36,7 @@ class DeviceFingerprintService {
   }
 
   Future<Map<String, String>> getDeviceInfo() async {
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       try {
         final info = await _deviceInfo.androidInfo;
         return {
@@ -54,10 +55,10 @@ class DeviceFingerprintService {
       }
     }
     return {
-      'device_name': 'Linux Simulator',
-      'device_model': 'Simulator',
-      'device_brand': 'Google',
-      'manufacturer': 'Google',
+      'device_name': kIsWeb ? 'Web Browser' : 'Linux Simulator',
+      'device_model': kIsWeb ? 'Chrome Web' : 'Simulator',
+      'device_brand': kIsWeb ? 'Google Chrome' : 'Google',
+      'manufacturer': kIsWeb ? 'Browser' : 'Google',
     };
   }
 

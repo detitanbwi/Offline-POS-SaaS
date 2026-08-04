@@ -9,11 +9,14 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/services/app_logger.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
+import '../../../security/presentation/widgets/change_master_pin_modal.dart';
 import 'about_screen.dart';
 import 'store_profile_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
+
   const SettingsScreen({super.key});
 
   @override
@@ -123,6 +126,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeUser = ref.watch(authSessionProvider);
+    final isOwner = activeUser?.isOwner ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -162,7 +168,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 12),
 
+            if (isOwner) ...[
+              // Change Master PIN Option (Sisi Master)
+              _buildSettingsTile(
+                context,
+                title: 'Ubah PIN Master',
+                subtitle: 'Ganti PIN Master keamanan dengan memasukkan PIN lama',
+                icon: Icons.lock_reset_rounded,
+                onTap: () {
+                  ChangeMasterPinModal.show(context);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+
             // Backup & Restore Card
+
             Card(
               elevation: 0,
               color: Colors.white,

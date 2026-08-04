@@ -17,6 +17,7 @@ class OrderState {
   final OrderModel? activeOrder;
   final List<OrderItemModel> activeOrderItems;
   final Map<String, OrderModel> activeOrdersMap;
+  final List<OrderModel> allDraftOrders;
   final String orderType; // 'dine_in' or 'take_away'
   final String? takeAwaySubType;
   final String? onlinePlatform;
@@ -30,6 +31,7 @@ class OrderState {
     this.activeOrder,
     this.activeOrderItems = const [],
     this.activeOrdersMap = const {},
+    this.allDraftOrders = const [],
     this.orderType = 'dine_in',
     this.takeAwaySubType,
     this.onlinePlatform,
@@ -46,6 +48,7 @@ class OrderState {
     OrderModel? activeOrder,
     List<OrderItemModel>? activeOrderItems,
     Map<String, OrderModel>? activeOrdersMap,
+    List<OrderModel>? allDraftOrders,
     String? orderType,
     String? takeAwaySubType,
     String? onlinePlatform,
@@ -61,6 +64,7 @@ class OrderState {
       activeOrder: clearActiveOrder ? null : (activeOrder ?? this.activeOrder),
       activeOrderItems: clearActiveOrder ? const [] : (activeOrderItems ?? this.activeOrderItems),
       activeOrdersMap: activeOrdersMap ?? this.activeOrdersMap,
+      allDraftOrders: allDraftOrders ?? this.allDraftOrders,
       orderType: orderType ?? this.orderType,
       takeAwaySubType: takeAwaySubType ?? this.takeAwaySubType,
       onlinePlatform: onlinePlatform ?? this.onlinePlatform,
@@ -96,6 +100,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       state = OrderState(
         selectedTable: table,
         activeOrdersMap: state.activeOrdersMap,
+        allDraftOrders: state.allDraftOrders,
         orderType: 'dine_in',
         customerName: state.customerName,
       );
@@ -105,12 +110,43 @@ class OrderNotifier extends StateNotifier<OrderState> {
     }
   }
 
+  void setSelectedTableWithoutReset(TableModel? table) {
+    state = state.copyWith(selectedTable: table);
+  }
+
   Future<void> loadActiveOrdersMap() async {
     try {
       final map = await _repository.getActiveOrdersMap();
-      state = state.copyWith(activeOrdersMap: map);
+      final drafts = await _repository.getAllDraftOrders();
+      state = state.copyWith(activeOrdersMap: map, allDraftOrders: drafts);
     } catch (e) {
       state = state.copyWith(errorMessage: 'Gagal memuat peta order aktif: $e');
+    }
+  }
+
+  /// Load an existing draft order by ID into active state (used when resuming Take Away / Open Bill).
+  Future<void> loadOrderById(String orderId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final order = await _repository.getOrderById(orderId);
+      if (order == null) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Order tidak ditemukan.');
+        return;
+      }
+      final items = await _repository.getOrderItems(orderId);
+      final batchCount = await _repository.getBatchCount(orderId);
+      state = state.copyWith(
+        activeOrder: order,
+        activeOrderItems: items,
+        orderType: order.orderType,
+        takeAwaySubType: order.takeAwaySubType,
+        onlinePlatform: order.onlinePlatform,
+        customerName: order.customerName ?? state.customerName,
+        isLoading: false,
+        nextBatchNumber: batchCount + 1,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal memuat order: $e');
     }
   }
 
@@ -195,12 +231,12 @@ class OrderNotifier extends StateNotifier<OrderState> {
       // Fetch existing items for this draft to calculate difference
       final dbItems = await _repository.getOrderItems(orderId);
       
-      final List<OrderItemModel> printedDbItems = [];
+      final List<OrderItemModel> allOrderItems = [];
       final Map<String, int> printedQtyMap = {};
 
       for (var item in dbItems) {
-        if (item.statusCetak == 1 || item.printBatchId != null) {
-          printedDbItems.add(item);
+        if (item.printBatchId != null || item.statusCetak == 1) {
+          allOrderItems.add(item);
           if (!item.isCancelled) {
             printedQtyMap[item.produkId] = (printedQtyMap[item.produkId] ?? 0) + item.qty;
           }
@@ -208,7 +244,6 @@ class OrderNotifier extends StateNotifier<OrderState> {
       }
 
       final List<OrderItemModel> itemsToPrint = [];
-      final List<OrderItemModel> allOrderItems = List.from(printedDbItems);
 
       final Map<String, CartItem> cartItemMap = {};
       final Map<String, int> cartQtyMap = {};
@@ -258,6 +293,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         await _repository.markItemsAsPrinted(orderId, batchId);
 
         try {
+          await _ref.read(printerNotifierProvider.notifier).loadPrinters();
           final printerState = _ref.read(printerNotifierProvider);
           final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
           final targetPrinter = kitchenPrinterList.isNotEmpty
@@ -287,9 +323,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
         }
       }
 
+      await loadActiveOrdersMap();
       if (table != null) {
         _ref.read(tableNotifierProvider.notifier).loadTables();
-        await loadActiveOrdersMap();
         await loadActiveOrderForTable(table.id);
       } else {
         state = state.copyWith(activeOrder: orderHeader, activeOrderItems: allOrderItems, isLoading: false);
@@ -324,6 +360,25 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   void clearActiveOrder() {
     state = OrderState();
+  }
+
+  void resetForNewTransaction() {
+    state = OrderState(
+      activeOrdersMap: state.activeOrdersMap,
+      allDraftOrders: state.allDraftOrders, // Pertahankan list Open Bill
+      orderType: 'dine_in',
+      selectedTable: null,
+      activeOrder: null,
+      activeOrderItems: const [],
+      customerName: null,
+      takeAwaySubType: null,
+      onlinePlatform: null,
+      nextBatchNumber: 1,
+      isLoading: false,
+      errorMessage: null,
+    );
+    // Refresh list Open Bill dari database setelah reset
+    loadActiveOrdersMap();
   }
 
   Future<bool> cancelOrderItem(String itemId, String reason) async {
@@ -370,6 +425,62 @@ class OrderNotifier extends StateNotifier<OrderState> {
       state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);
       return true;
     } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');
+      return false;
+    }
+  }
+
+  Future<bool> reprintKitchenTicket(String orderId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final order = await _repository.getOrderById(orderId);
+      final items = await _repository.getOrderItems(orderId);
+      if (order == null || items.isEmpty) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Order tidak ditemukan.');
+        return false;
+      }
+
+      final printerState = _ref.read(printerNotifierProvider);
+      final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+      final targetPrinter = kitchenPrinterList.isNotEmpty
+          ? kitchenPrinterList.first
+          : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
+
+      final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+        order: order,
+        itemsToPrint: items,
+        waveInfo: '(REPRINT - JANGAN DIMASAK ULANG)',
+        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
+        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+        autoCut: targetPrinter?.autoCut ?? false,
+      );
+
+      if (targetPrinter != null) {
+        await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+      }
+
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal reprint kitchen ticket: $e');
+      return false;
+    }
+  }
+
+  Future<bool> clearOccupiedTable(TableModel table, [String reason = 'Dikosongkan manual']) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final order = state.activeOrder ?? state.activeOrdersMap[table.id];
+      debugPrint('[CLEAR_TABLE_DEBUG] Clearing table ID: ${table.id}, Name: ${table.nama}, Order ID: ${order?.id}');
+      await _repository.clearTableOnly(order?.id ?? '', table.id, reason);
+      
+      await _ref.read(tableNotifierProvider.notifier).loadTables();
+      await loadActiveOrdersMap();
+      state = OrderState(selectedTable: null, activeOrdersMap: state.activeOrdersMap);
+      debugPrint('[CLEAR_TABLE_DEBUG] Table successfully cleared and state refreshed.');
+      return true;
+    } catch (e) {
+      debugPrint('[CLEAR_TABLE_DEBUG] Error clearing table: $e');
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');
       return false;
     }

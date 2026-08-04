@@ -21,6 +21,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _ownerNameController = TextEditingController();
   final _ownerUsernameController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
@@ -37,12 +38,14 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final address = await storage.getStoreAddress() ?? '';
     final phone = await storage.getStorePhone() ?? '';
     final ownerUsername = await storage.getOwnerUsername() ?? 'owner';
+    final ownerName = await storage.getOwnerName() ?? 'Pemilik Toko';
 
     if (mounted) {
       setState(() {
         _nameController.text = name;
         _addressController.text = address;
         _phoneController.text = phone;
+        _ownerNameController.text = ownerName;
         _ownerUsernameController.text = ownerUsername;
         _isLoading = false;
       });
@@ -62,6 +65,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
       address: _addressController.text.trim(),
       phone: _phoneController.text.trim(),
     );
+    await storage.saveOwnerName(_ownerNameController.text.trim());
     await storage.saveOwnerUsername(_ownerUsernameController.text.trim());
 
     setState(() => _isSaving = false);
@@ -180,6 +184,20 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
                                   return 'Nomor Telepon wajib diisi!';
+                                }
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 18.h),
+                            AppTextField(
+                              controller: _ownerNameController,
+                              labelText: 'Nama Lengkap Owner / Pemilik (untuk Tampilan)',
+                              hintText: 'Contoh: Pemilik Toko / Nama Anda',
+                              prefixIcon: Icons.badge_outlined,
+                              maxLength: 50,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Nama Owner wajib diisi!';
                                 }
                                 return null;
                               },

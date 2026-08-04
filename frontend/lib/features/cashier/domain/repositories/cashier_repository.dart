@@ -9,5 +9,7 @@ abstract class CashierRepository {
   Future<void> updateStatus(String id, int status);
   Future<void> softDelete(String id);
   Future<bool> isNameExists(String name, {String? excludeId});
+  Future<bool> isUsernameExists(String username, {String? excludeId});
   Future<bool> isPinExists(String hashedPin, {String? excludeId});
 }
+

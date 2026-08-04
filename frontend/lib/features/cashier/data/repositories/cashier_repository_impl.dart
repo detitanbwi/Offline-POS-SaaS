@@ -50,8 +50,8 @@ class CashierRepositoryImpl implements CashierRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'cashiers',
-      where: 'LOWER(nama) = ? AND pin = ? AND status = 1 AND is_deleted = 0',
-      whereArgs: [name.toLowerCase().trim(), hashedPin],
+      where: '(LOWER(username) = ? OR LOWER(nama) = ?) AND pin = ? AND status = 1 AND is_deleted = 0',
+      whereArgs: [name.toLowerCase().trim(), name.toLowerCase().trim(), hashedPin],
       limit: 1,
     );
     if (maps.isEmpty) return null;
@@ -103,6 +103,17 @@ class CashierRepositoryImpl implements CashierRepository {
       'cashiers',
       where: excludeId == null ? 'LOWER(nama) = ? AND is_deleted = 0' : 'LOWER(nama) = ? AND id != ? AND is_deleted = 0',
       whereArgs: excludeId == null ? [name.toLowerCase().trim()] : [name.toLowerCase().trim(), excludeId],
+    );
+    return maps.isNotEmpty;
+  }
+
+  @override
+  Future<bool> isUsernameExists(String username, {String? excludeId}) async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'cashiers',
+      where: excludeId == null ? 'LOWER(username) = ? AND is_deleted = 0' : 'LOWER(username) = ? AND id != ? AND is_deleted = 0',
+      whereArgs: excludeId == null ? [username.toLowerCase().trim()] : [username.toLowerCase().trim(), excludeId],
     );
     return maps.isNotEmpty;
   }

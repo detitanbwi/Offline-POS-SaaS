@@ -1,0 +1,646 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/constants/app_typography.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/di/providers.dart';
+import '../../../table/application/table_notifier.dart';
+import '../../../table/domain/models/table.dart';
+import '../../../product/application/product_notifier.dart';
+import '../../application/cart_notifier.dart';
+import '../../application/order_notifier.dart';
+import '../../domain/models/order.dart';
+import '../../domain/models/order_item.dart';
+import '../screens/pos_screen.dart';
+import '../screens/payment_screen.dart';
+
+class TableOrderDetailSheet {
+  static Future<void> show(
+    BuildContext context,
+    WidgetRef ref,
+    TableModel table,
+    dynamic activeOrder,
+  ) async {
+    final hasOrder = activeOrder != null;
+    final isDraft = hasOrder && (activeOrder as OrderModel).isDraft;
+    final repo = ref.read(orderRepositoryProvider);
+
+    List<OrderItemModel> items = [];
+    List<Map<String, dynamic>> batches = [];
+
+    if (hasOrder) {
+      items = await repo.getOrderItems(activeOrder.id);
+      batches = await repo.getPrintBatches(activeOrder.id);
+    }
+
+    // Build batch mapping
+    final Map<String, int> batchIndexMap = {};
+    for (int i = 0; i < batches.length; i++) {
+      final bId = batches[i]['id'] as String;
+      batchIndexMap[bId] = i + 1;
+    }
+
+    // Group items by batch title
+    final Map<String, List<OrderItemModel>> groupedItems = {};
+
+    for (var item in items) {
+      String batchTitle = 'Batch #1';
+      if (item.printBatchId != null && batchIndexMap.containsKey(item.printBatchId)) {
+        batchTitle = 'Batch #${batchIndexMap[item.printBatchId]}';
+      } else if (item.statusCetak == 0 && batches.isNotEmpty) {
+        batchTitle = 'Batch Baru (Belum Kirim Dapur)';
+      }
+
+      groupedItems.putIfAbsent(batchTitle, () => []).add(item);
+    }
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.m),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rincian ${table.nama}',
+                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                        Text(
+                          'Atas Nama: ${activeOrder.customerName}',
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Status Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (!hasOrder
+                          ? AppColors.success
+                          : isDraft
+                              ? AppColors.warning
+                              : Colors.blue)
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: (!hasOrder
+                              ? AppColors.success
+                              : isDraft
+                                  ? AppColors.warning
+                                  : Colors.blue)
+                          .withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      !hasOrder
+                          ? Icons.check_circle_outline_rounded
+                          : isDraft
+                              ? Icons.hourglass_empty_rounded
+                              : Icons.restaurant_rounded,
+                      color: !hasOrder
+                          ? AppColors.success
+                          : isDraft
+                              ? AppColors.warning
+                              : Colors.blue,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            !hasOrder
+                                ? 'Status: Kosong / Tersedia'
+                                : isDraft
+                                    ? 'Status: Open Bill (Belum Dibayar)'
+                                    : 'Status: Terisi (Lunas di Awal / Sedang Makan)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: !hasOrder
+                                  ? const Color(0xFF14532D)
+                                  : isDraft
+                                      ? const Color(0xFF78350F)
+                                      : const Color(0xFF1E3A8A),
+                            ),
+                          ),
+                          if (activeOrder != null) ...[
+                            Text('No. Order: ${activeOrder.nomorOrder}', style: const TextStyle(fontSize: 12)),
+                            Text(
+                              'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Items List Grouped by Batch
+              if (groupedItems.isNotEmpty) ...[
+                Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: ListView(
+                    children: groupedItems.entries.map((entry) {
+                      final batchTitle = entry.key;
+                      final batchItemList = entry.value;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    batchTitle,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '${batchItemList.length} Menu',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ...batchItemList.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text('${item.qty}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.produkNama, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                        if (item.catatan != null && item.catatan!.isNotEmpty)
+                                          Text('Note: ${item.catatan}', style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic)),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    CurrencyFormatter.format(item.subtotal),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    tooltip: 'Batalkan Menu (Void Item)',
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _showVoidItemDialog(context, ref, activeOrder.id, item, table);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            )),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ] else
+                const Expanded(
+                  child: Center(
+                    child: Text('Belum ada rincian pesanan'),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              // Action Buttons
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            navigateToPos(context, ref, table);
+                          },
+                          icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                          label: Text(hasOrder ? 'Tambah Menu' : 'Pesan Baru'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasOrder) ...[
+                    if (isDraft) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                navigateToPayment(context, ref, table, activeOrder);
+                              },
+                              icon: const Icon(Icons.payments_outlined, size: 18),
+                              label: const Text('Bayar Tagihan (Open Bill)'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              handleMoveTable(context, ref, table, activeOrder);
+                            },
+                            icon: const Icon(Icons.move_up_rounded, size: 18),
+                            label: const Text('Pindah Meja'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.secondary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              handleReprintKitchenTicket(context, ref, activeOrder, table);
+                            },
+                            icon: const Icon(Icons.print_rounded, size: 18),
+                            label: const Text('Cetak Ulang (Reprint)'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryContainer,
+                              foregroundColor: AppColors.primary,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              confirmClearTable(context, ref, table, activeOrder);
+                            },
+                            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.error),
+                            label: const Text('Kosongkan Meja', style: TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.error),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static Future<void> navigateToPos(BuildContext context, WidgetRef ref, TableModel table) async {
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+    final productState = ref.read(productNotifierProvider);
+
+    orderNotifier.selectTable(table);
+
+    if (table.isOccupied) {
+      await orderNotifier.loadActiveOrderForTable(table.id);
+      final orderState = ref.read(orderNotifierProvider);
+      
+      if (orderState.activeOrder != null) {
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+      } else {
+        cartNotifier.clear();
+      }
+    } else {
+      cartNotifier.clear();
+    }
+
+    if (!context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PosScreen()),
+    ).then((_) {
+      ref.read(tableNotifierProvider.notifier).loadTables();
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    });
+  }
+
+  static Future<void> navigateToPayment(BuildContext context, WidgetRef ref, TableModel table, dynamic activeOrder) async {
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+    final productState = ref.read(productNotifierProvider);
+
+    orderNotifier.selectTable(table);
+    if (table.isOccupied) {
+      await orderNotifier.loadActiveOrderForTable(table.id);
+      final orderState = ref.read(orderNotifierProvider);
+      
+      if (orderState.activeOrder != null) {
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+      } else {
+        cartNotifier.clear();
+      }
+    } else {
+      cartNotifier.clear();
+    }
+
+    if (!context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaymentScreen()),
+    ).then((_) {
+      ref.read(tableNotifierProvider.notifier).loadTables();
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    });
+  }
+
+  static Future<void> handleReprintKitchenTicket(BuildContext context, WidgetRef ref, dynamic activeOrder, TableModel table) async {
+    if (activeOrder == null) return;
+    ref.read(orderNotifierProvider.notifier).selectTable(table);
+    await ref.read(orderNotifierProvider.notifier).loadActiveOrderForTable(table.id);
+    final success = await ref.read(orderNotifierProvider.notifier).reprintKitchenTicket(activeOrder.id);
+    if (!context.mounted) return;
+    if (success) {
+      AppSnackbar.showSuccess(context, 'Tiket dapur (Reprint) berhasil dicetak dengan watermark JANGAN DIMASAK ULANG.');
+    } else {
+      AppSnackbar.showError(context, 'Gagal mencetak ulang tiket dapur.');
+    }
+  }
+
+  static void confirmClearTable(BuildContext context, WidgetRef ref, TableModel table, dynamic activeOrder) {
+    final hasOrder = activeOrder != null;
+    AppDialog.show(
+      context: context,
+      title: 'Kosongkan Meja',
+      message: hasOrder
+          ? 'Meja ini memiliki pesanan aktif. Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?'
+          : 'Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?',
+      confirmText: 'Ya, Kosongkan',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
+        await ref.read(orderNotifierProvider.notifier).clearOccupiedTable(table);
+        await ref.read(tableNotifierProvider.notifier).loadTables();
+        await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+        if (context.mounted) {
+          AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
+        }
+      },
+    );
+  }
+
+  static void handleMoveTable(BuildContext context, WidgetRef ref, TableModel sourceTable, dynamic activeOrder) {
+    final tableState = ref.read(tableNotifierProvider);
+    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
+
+    if (emptyTables.isEmpty) {
+      AppSnackbar.showWarning(context, 'Tidak ada meja kosong yang tersedia untuk dipindahkan.');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            width: MediaQuery.of(context).size.width > 500 ? 400 : MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Pindah Meja - ${sourceTable.nama}',
+                  style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: emptyTables.length,
+                    separatorBuilder: (_, _) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final targetTable = emptyTables[index];
+                      return ListTile(
+                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        title: Text(targetTable.nama),
+                        subtitle: Text('Nomor: ${targetTable.nomor}'),
+                        onTap: () async {
+                          Navigator.pop(context);
+
+                          final orderRepo = ref.read(orderRepositoryProvider);
+                          try {
+                            await orderRepo.transferOrderTable(
+                              activeOrder.id,
+                              sourceTable.id,
+                              targetTable.id,
+                              targetTable.nama,
+                              targetTable.nomor,
+                            );
+
+                            ref.read(tableNotifierProvider.notifier).loadTables();
+                            ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+
+                            if (context.mounted) {
+                              AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan ke ${targetTable.nama}');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              AppSnackbar.showError(context, 'Gagal memindahkan meja: $e');
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Batal'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  static void _showVoidItemDialog(BuildContext context, WidgetRef ref, String orderId, OrderItemModel item, TableModel table) {
+    final pinController = TextEditingController();
+    final reasonController = TextEditingController(text: 'Dibatalkan pelanggan');
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Void Menu: ${item.produkNama}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Batalkan item "${item.produkNama}" (${item.qty}x)? Masukkan PIN Kasir/Manager dan Alasan.',
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  controller: reasonController,
+                  labelText: 'Alasan Pembatalan',
+                  hintText: 'Misal: Salah pesan / Habis',
+                  prefixIcon: Icons.edit_note_rounded,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Alasan harus diisi' : null,
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: pinController,
+                  labelText: 'PIN Manager / Kasir',
+                  hintText: 'Masukkan PIN 6 digit',
+                  prefixIcon: Icons.lock_outline_rounded,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 6,
+                  validator: (val) => val == null || val.length != 6 ? 'PIN harus 6 digit' : null,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                if (formKey.currentState?.validate() ?? false) {
+                  final voidService = ref.read(voidOrderServiceProvider);
+                  try {
+                    final success = await voidService.voidOrderItem(
+                      masterOrderId: orderId,
+                      orderItemId: item.id,
+                      qtyToVoid: item.qty,
+                      reason: reasonController.text.trim(),
+                      managerPin: pinController.text.trim(),
+                    );
+
+                    if (context.mounted) {
+                      Navigator.pop(dialogContext);
+                      if (success) {
+                        AppSnackbar.showSuccess(context, 'Berhasil membatalkan menu "${item.produkNama}"');
+                        ref.read(tableNotifierProvider.notifier).loadTables();
+                        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                        await ref.read(orderNotifierProvider.notifier).loadActiveOrderForTable(table.id);
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      AppSnackbar.showError(context, e.toString().replaceAll('Exception: ', ''));
+                    }
+                  }
+                }
+              },
+              child: const Text('Batalkan Menu'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

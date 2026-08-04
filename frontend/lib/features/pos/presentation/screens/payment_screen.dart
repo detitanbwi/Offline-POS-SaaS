@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -11,7 +10,6 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -19,7 +17,6 @@ import '../../../../core/widgets/responsive_layout.dart';
 import '../../../../core/di/providers.dart';
 import '../../../payment_method/application/payment_method_notifier.dart';
 import '../../../payment_method/domain/models/payment_method.dart';
-import '../../../product/application/product_notifier.dart';
 import '../../application/cart_notifier.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
@@ -30,7 +27,6 @@ import '../../application/order_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../domain/models/transaction.dart';
-import '../../../menu/presentation/screens/main_menu_screen.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({super.key});
@@ -171,116 +167,143 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
   }
 
-  Future<void> _handlePayment(double grandTotal, double subtotal, double taxRate, double taxAmount) async {
-    if (_selectedMethod == null) {
-      AppSnackbar.showWarning(context, 'Pilih metode pembayaran terlebih dahulu.');
+  Future<void> _handlePayment(
+    double grandTotal,
+    double subtotal,
+    double taxRate,
+    double taxAmount, {
+    required bool isPayLater,
+  }) async {
+    final cartState = ref.read(cartNotifierProvider);
+    if (cartState.items.isEmpty) {
+      AppSnackbar.showWarning(context, 'Keranjang pesanan kosong.');
       return;
     }
 
-    final isCash = _selectedMethod!.id == 'pm-tunai';
-    double amountPaid = grandTotal;
-    
-    if (isCash) {
-      if (_amountPaidController.text.isEmpty) {
-        AppSnackbar.showWarning(context, 'Masukkan nominal pembayaran tunai.');
-        return;
-      }
-      amountPaid = double.tryParse(_amountPaidController.text.replaceAll('.', '')) ?? 0;
-      if (amountPaid < grandTotal) {
-        AppSnackbar.showWarning(context, 'Jumlah bayar kurang dari total transaksi.');
-        return;
-      }
-    }
+    double amountPaid = 0;
+    double change = 0;
 
-    final change = amountPaid - grandTotal;
+    if (!isPayLater) {
+      if (_selectedMethod == null) {
+        AppSnackbar.showWarning(context, 'Pilih metode pembayaran terlebih dahulu.');
+        return;
+      }
+      final isCash = _selectedMethod!.id == 'pm-tunai';
+      amountPaid = grandTotal;
+      if (isCash) {
+        if (_amountPaidController.text.isEmpty) {
+          AppSnackbar.showWarning(context, 'Masukkan nominal pembayaran tunai.');
+          return;
+        }
+        amountPaid = double.tryParse(_amountPaidController.text.replaceAll('.', '')) ?? 0;
+        if (amountPaid < grandTotal) {
+          AppSnackbar.showWarning(context, 'Jumlah bayar kurang dari total transaksi.');
+          return;
+        }
+      }
+      change = amountPaid - grandTotal;
+    }
 
     setState(() => _isProcessing = true);
 
     try {
-      final txId = _uuid.v4();
       final activeUser = ref.read(authSessionProvider);
       final orderState = ref.read(orderNotifierProvider);
-      final header = TransactionHeader(
-        id: txId,
-        nomorTransaksi: _orderNumber,
-        subtotal: subtotal,
-        taxPercentage: taxRate,
-        taxAmount: taxAmount,
-        grandTotal: grandTotal,
-        paymentMethodId: _selectedMethod!.id,
-        paymentMethodNama: _selectedMethod!.nama,
-        nominalBayar: amountPaid,
-        kembalian: change,
-        catatan: _notesController.text.trim(),
-        customerName: orderState.customerName,
-        orderType: orderState.orderType,
-        createdAt: DateTime.now(),
-        cashierId: activeUser?.id,
-        cashierNama: activeUser?.nama,
-      );
+      final notes = _notesController.text.trim();
 
+      // 1. Simpan draft pesanan (upsert pesanan & order_items, print struk dapur, dan set status meja = 1 Terisi/Billed)
+      await ref.read(orderNotifierProvider.notifier).saveCurrentOrderDraft(
+            cartState.items,
+            subtotal,
+            taxRate,
+            taxAmount,
+            grandTotal,
+            notes: notes.isNotEmpty ? notes : null,
+          );
 
-      final cartState = ref.read(cartNotifierProvider);
-      final List<TransactionItem> items = cartState.items.map((item) {
-        return TransactionItem(
-          id: _uuid.v4(),
-          transactionId: txId,
-          produkId: item.product.id,
-          produkNama: item.product.nama,
-          produkHarga: item.product.harga,
-          qty: item.qty,
-          subtotal: item.subtotal,
-          catatan: item.catatan,
+      // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
+      ref.read(tableNotifierProvider.notifier).loadTables();
+
+      TransactionHeader? savedHeader;
+      List<TransactionItem>? savedItems;
+
+      // 2. Jika Bayar Sekarang (lunas di awal), catat transaksi ke database transactions
+      if (!isPayLater && _selectedMethod != null) {
+        final txId = _uuid.v4();
+        savedHeader = TransactionHeader(
+          id: txId,
+          nomorTransaksi: _orderNumber,
+          subtotal: subtotal,
+          taxPercentage: taxRate,
+          taxAmount: taxAmount,
+          grandTotal: grandTotal,
+          paymentMethodId: _selectedMethod!.id,
+          paymentMethodNama: _selectedMethod!.nama,
+          nominalBayar: amountPaid,
+          kembalian: change,
+          catatan: notes,
+          customerName: orderState.customerName,
+          orderType: orderState.orderType,
+          createdAt: DateTime.now(),
+          cashierId: activeUser?.id,
+          cashierNama: activeUser?.nama,
         );
-      }).toList();
 
-      // Save transaction to database
-      await ref.read(transactionRepositoryProvider).saveTransaction(header, items);
+        savedItems = cartState.items.map((item) {
+          return TransactionItem(
+            id: _uuid.v4(),
+            transactionId: txId,
+            produkId: item.product.id,
+            produkNama: item.product.nama,
+            produkHarga: item.product.harga,
+            qty: item.qty,
+            subtotal: item.subtotal,
+            catatan: item.catatan,
+          );
+        }).toList();
 
-      // 1. If this transaction is linked to a table order draft, mark it completed and release table status to Empty
-      if (orderState.selectedTable != null && orderState.activeOrder != null) {
-        await ref.read(orderRepositoryProvider).completeOrder(
-          orderState.activeOrder!.id,
-          tableId: orderState.selectedTable!.id,
-        );
-        ref.read(orderNotifierProvider.notifier).clearActiveOrder();
-        ref.read(tableNotifierProvider.notifier).loadTables();
-      }
+        await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
-      // 2. Format and print Cashier Receipt
-      final printerState = ref.read(printerNotifierProvider);
-      final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
-      final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
-
-      final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
-        transaction: header,
-        items: items,
-        tableName: orderState.selectedTable?.nama,
-        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
-        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
-        autoCut: cashierPrinter?.autoCut ?? false,
-      );
-
-      if (cashierPrinter != null) {
-        await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
-      } else {
-        if (kDebugMode) {
-          debugPrint('--- PRINT TO CASHIER SIMULATOR ---');
-          debugPrint(String.fromCharCodes(receiptBytes));
-          debugPrint('----------------------------------');
+        // Jika transaksi dari order aktif (dine-in/meja), tandai order 'completed' & bebaskan meja (status 0)
+        final activeOrder = orderState.activeOrder;
+        if (activeOrder != null) {
+          await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
         }
+
+        // Refresh list meja & active orders map
+        ref.read(tableNotifierProvider.notifier).loadTables();
+        await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+
+        // Opsi otomatis cetak ke thermal kasir jika terhubung
+        try {
+          final printerState = ref.read(printerNotifierProvider);
+          final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+          final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
+          final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
+            transaction: savedHeader,
+            items: savedItems,
+            tableName: orderState.selectedTable?.nama,
+            paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+            charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+            autoCut: cashierPrinter?.autoCut ?? false,
+          );
+
+          if (cashierPrinter != null) {
+            await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
+          }
+        } catch (_) {}
       }
-
-      // Refresh product notifier state to reflect stock changes
-      ref.read(productNotifierProvider.notifier).loadProducts();
-
-      // Clear Shopping Cart on success
-      ref.read(cartNotifierProvider.notifier).clear();
 
       setState(() => _isProcessing = false);
-
       if (!mounted) return;
-      _showSuccessDialog(header, items);
+
+      // 3. Tampilkan pop-up "Cetak Pesanan"
+      _showPrintOrderPopup(
+        isPaid: !isPayLater,
+        header: savedHeader,
+        txItems: savedItems,
+      );
     } catch (e) {
       setState(() => _isProcessing = false);
       if (!mounted) return;
@@ -288,133 +311,236 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
-  void _showSuccessDialog(TransactionHeader header, List<TransactionItem> items) {
+  void _showPrintOrderPopup({
+    required bool isPaid,
+    TransactionHeader? header,
+    List<TransactionItem>? txItems,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AppDialog(
-        title: 'Transaksi Sukses',
-        confirmText: 'Kembali',
-        cancelText: 'Menu Utama',
-        onCancel: () {
-          // Navigate to main menu and clear stack
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const MainMenuScreen()),
-            (route) => false,
-          );
-        },
-        onConfirm: () {
-          // Go back to POS screen
-          Navigator.pop(context); // Close dialog
-          Navigator.pop(context); // Go back to POS screen
-        },
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.1),
+      builder: (dialogContext) {
+        final orderState = ref.read(orderNotifierProvider);
+        final order = orderState.activeOrder;
+        final orderItems = orderState.activeOrderItems;
+        final tableName = orderState.selectedTable?.nama ?? 'Take Away';
 
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.success,
-                  size: 48,
-                ),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_circle_rounded,
+                        color: AppColors.success,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isPaid ? 'Pembayaran Berhasil!' : 'Pesanan Berhasil Disimpan!',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.titleMedium.copyWith(
+                      fontSize: 18,
+                      color: AppColors.success,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isPaid
+                        ? (tableName == 'Take Away' ? 'Transaksi Lunas.' : 'Transaksi Lunas. Meja $tableName kini kembali Kosong.')
+                        : 'Open Bill tersimpan. Meja $tableName berstatus Terisi / Billed.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Pilihan Cetak Pesanan',
+                    style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  if (order != null) ...[
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final printerState = ref.read(printerNotifierProvider);
+                        final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+                        final targetPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
+
+                        final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
+                          order: order,
+                          itemsToPrint: orderItems,
+                          waveInfo: '#1',
+                          charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+                        );
+
+                        if (!mounted) return;
+                        AppReceiptPreviewModal.show(
+                          context,
+                          title: 'STRUK PESANAN DAPUR',
+                          receiptTextPreview: textPreview,
+                          printerType: 'kitchen',
+                          onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
+                            order: order,
+                            itemsToPrint: orderItems,
+                            waveInfo: '#1',
+                          ),
+                          onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
+                            order: order,
+                            itemsToPrint: orderItems,
+                            waveInfo: '#1',
+                            paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
+                            charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+                            autoCut: targetPrinter?.autoCut ?? false,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.soup_kitchen_rounded, color: AppColors.primary),
+                      label: const Text('Cetak Pesanan (Dapur)', style: TextStyle(color: AppColors.primary)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (isPaid && header != null && txItems != null) ...[
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final printerState = ref.read(printerNotifierProvider);
+                        final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+                        final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
+                        final textPreview = await ReceiptGenerator.formatCashierTextPreview(
+                          transaction: header,
+                          items: txItems,
+                          tableName: orderState.selectedTable?.nama,
+                          charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+                        );
+
+                        if (!mounted) return;
+                        AppReceiptPreviewModal.show(
+                          context,
+                          title: 'STRUK LUNAS',
+                          receiptTextPreview: textPreview,
+                          printerType: 'cashier',
+                          onGeneratePdf: () => PdfReceiptGenerator.generateCashierReceiptPdf(
+                            transaction: header,
+                            items: txItems,
+                            tableName: orderState.selectedTable?.nama,
+                          ),
+                          onGenerateEscPosBytes: () => ReceiptGenerator.generateCashierReceipt(
+                            transaction: header,
+                            items: txItems,
+                            tableName: orderState.selectedTable?.nama,
+                            paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+                            charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+                            autoCut: cashierPrinter?.autoCut ?? false,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.receipt_long_rounded, color: AppColors.success),
+                      label: const Text('Cetak Nota (Lunas)', style: TextStyle(color: AppColors.success)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: AppColors.success),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ] else if (order != null) ...[
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final activeUser = ref.read(authSessionProvider);
+                        final printerState = ref.read(printerNotifierProvider);
+                        final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+                        final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
+                        final textPreview = await ReceiptGenerator.formatBillTextPreview(
+                          order: order,
+                          items: orderItems,
+                          cashierNama: order.cashierNama ?? activeUser?.nama,
+                          charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+                        );
+
+                        if (!mounted) return;
+                        AppReceiptPreviewModal.show(
+                          context,
+                          title: 'BILL SEMENTARA',
+                          receiptTextPreview: textPreview,
+                          printerType: 'cashier',
+                          onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
+                            order: order,
+                            items: orderItems,
+                            cashierNama: order.cashierNama ?? activeUser?.nama,
+                          ),
+                          onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
+                            order: order,
+                            items: orderItems,
+                            cashierNama: order.cashierNama ?? activeUser?.nama,
+                            paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+                            charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+                            autoCut: cashierPrinter?.autoCut ?? false,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.receipt_long_rounded, color: AppColors.secondary),
+                      label: const Text('Cetak Bill Sementara', style: TextStyle(color: AppColors.secondary)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: AppColors.secondary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext); // close dialog
+                      _finishAndResetTransaction();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Selesai & Kembali ke POS', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Pembayaran Berhasil!',
-              textAlign: TextAlign.center,
-              style: AppTypography.titleMedium.copyWith(fontSize: 18, color: AppColors.success),
-            ),
-            const SizedBox(height: 16),
-            _buildDialogRow('No. Struk', header.nomorTransaksi),
-            _buildDialogRow('Metode Bayar', header.paymentMethodNama),
-            _buildDialogRow('Total Belanja', CurrencyFormatter.format(header.grandTotal)),
-            _buildDialogRow('Jumlah Bayar', CurrencyFormatter.format(header.nominalBayar)),
-            _buildDialogRow('Kembalian', CurrencyFormatter.format(header.kembalian), isHighlighted: true),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handlePrintBill() async {
-    final orderState = ref.read(orderNotifierProvider);
-    final order = orderState.activeOrder;
-    final items = orderState.activeOrderItems;
-    if (order == null) {
-      AppSnackbar.showWarning(context, 'Tidak ada pesanan aktif (belum dikirim ke dapur).');
-      return;
-    }
-
-    final printerState = ref.read(printerNotifierProvider);
-    final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
-    final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
-
-    final activeUser = ref.read(authSessionProvider);
-    final textPreview = await ReceiptGenerator.formatBillTextPreview(
-      order: order,
-      items: items,
-      cashierNama: order.cashierNama ?? activeUser?.nama,
-      charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
-    );
-
-    if (!mounted) return;
-    
-    // Set table status to "Bill Printed" (4) if there's a table
-    if (orderState.selectedTable != null) {
-      await ref.read(tableNotifierProvider.notifier).updateStatus(orderState.selectedTable!.id, 4);
-      ref.read(tableNotifierProvider.notifier).loadTables();
-    }
-
-    if (!mounted) return;
-    AppReceiptPreviewModal.show(
-      context,
-      title: 'TAGIHAN',
-      receiptTextPreview: textPreview,
-      onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
-        order: order,
-        items: items,
-        cashierNama: order.cashierNama ?? activeUser?.nama,
-      ),
-      onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
-        order: order,
-        items: items,
-        cashierNama: order.cashierNama ?? activeUser?.nama,
-        paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
-        charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
-        autoCut: cashierPrinter?.autoCut ?? false,
-      ),
-    );
-  }
-
-  Widget _buildDialogRow(String label, String value, {bool isHighlighted = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-          Text(
-            value,
-            style: AppTypography.titleMedium.copyWith(
-              fontSize: 14,
-              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-              color: isHighlighted ? AppColors.success : AppColors.textPrimary,
-            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
+
+  void _finishAndResetTransaction() {
+    ref.read(cartNotifierProvider.notifier).clear();
+    ref.read(orderNotifierProvider.notifier).resetForNewTransaction();
+    ref.read(tableNotifierProvider.notifier).loadTables();
+    if (mounted) {
+      Navigator.pop(context); // close PaymentScreen and return to POS screen
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -435,19 +561,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final isPayDisabled = isCash && amountPaid < grandTotal;
 
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _showExitConfirmation(context);
-        if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
+      canPop: true,
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
           toolbarHeight: ResponsiveLayout.isMobileLandscape(context) ? 42 : null,
           title: Text('Pembayaran Transaksi', style: TextStyle(fontSize: ResponsiveLayout.isMobileLandscape(context) ? 14 : 16)),
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            tooltip: 'Batal',
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
         ),
         body: SafeArea(
           child: _isProcessing
@@ -775,48 +901,43 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
           ],
           const SizedBox(height: 24),
-          if (ref.read(orderNotifierProvider).activeOrder != null) ...[
-            AppButton(
-              text: 'Cetak Tagihan',
-              type: AppButtonType.secondary,
-              onPressed: _handlePrintBill,
-              icon: Icons.receipt_long_rounded,
-              width: double.infinity,
-            ),
-            const SizedBox(height: 12),
-          ],
-          AppButton(
-            text: 'Selesaikan Transaksi',
-            onPressed: isPayDisabled
-                ? null
-                : () => _handlePayment(
-                      grandTotal,
-                      cartState.subtotal,
-                      cartState.taxRate,
-                      cartState.taxAmount,
-                    ),
-            icon: Icons.check_circle_outline_rounded,
-            width: double.infinity,
+          Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  text: 'Bayar Nanti',
+                  type: AppButtonType.secondary,
+                  onPressed: () => _handlePayment(
+                    grandTotal,
+                    cartState.subtotal,
+                    cartState.taxRate,
+                    cartState.taxAmount,
+                    isPayLater: true,
+                  ),
+                  icon: Icons.schedule_rounded,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AppButton(
+                  text: 'Bayar Sekarang',
+                  type: AppButtonType.primary,
+                  onPressed: isPayDisabled
+                      ? null
+                      : () => _handlePayment(
+                            grandTotal,
+                            cartState.subtotal,
+                            cartState.taxRate,
+                            cartState.taxAmount,
+                            isPayLater: false,
+                          ),
+                  icon: Icons.payments_rounded,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
-  }
-
-  Future<bool> _showExitConfirmation(BuildContext context) async {
-    bool result = false;
-    await AppDialog.show(
-      context: context,
-      title: 'Batal Pembayaran',
-      message: 'Apakah Anda yakin ingin membatalkan pembayaran transaksi ini?',
-      confirmText: 'Ya, Batal',
-      cancelText: 'Tidak',
-      isDestructive: true,
-      onConfirm: () {
-        result = true;
-        Navigator.pop(context);
-      },
-    );
-    return result;
   }
 }

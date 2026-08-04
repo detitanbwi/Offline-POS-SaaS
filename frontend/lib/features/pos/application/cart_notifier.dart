@@ -144,20 +144,28 @@ class CartNotifier extends StateNotifier<CartState> {
   }
 
   void loadDraftItems(List<OrderItemModel> draftItems, List<Product> allProducts) {
-    final List<CartItem> loaded = [];
+    final Map<String, CartItem> consolidatedMap = {};
     for (var draft in draftItems) {
       if (draft.isCancelled) continue;
       final productIndex = allProducts.indexWhere((p) => p.id == draft.produkId);
       if (productIndex != -1) {
         final product = allProducts[productIndex];
-        loaded.add(CartItem(
-          product: product,
-          qty: draft.qty,
-          catatan: draft.catatan ?? '',
-        ));
+        final catatan = draft.catatan ?? '';
+        final key = '${product.id}_$catatan';
+
+        if (consolidatedMap.containsKey(key)) {
+          final existing = consolidatedMap[key]!;
+          consolidatedMap[key] = existing.copyWith(qty: existing.qty + draft.qty);
+        } else {
+          consolidatedMap[key] = CartItem(
+            product: product,
+            qty: draft.qty,
+            catatan: catatan,
+          );
+        }
       }
     }
-    _recalculate(currentItems: loaded);
+    _recalculate(currentItems: consolidatedMap.values.toList());
   }
 
   void clear() {
