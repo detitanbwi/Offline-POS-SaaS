@@ -35,54 +35,71 @@ class PosDatabase {
 
     final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
 
+    Database db;
     if (!shouldEncrypt) {
       if (isDesktop) {
-        return await databaseFactoryFfi.openDatabase(
+        db = await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 11,
+            version: 12,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
           ),
         );
       } else {
-        return await openDatabase(
+        db = await openDatabase(
           path,
-          version: 11,
+          version: 12,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
         );
       }
-    }
-
-    Database? db;
-    try {
-      db = await openDatabase(
-        path,
-        version: 11,
-        password: encryptionKey,
-        onCreate: _createDB,
-        onUpgrade: _upgradeDB,
-        onConfigure: _onConfigure,
-      );
-    } catch (e) {
+    } else {
       try {
         db = await openDatabase(
           path,
-          version: 8,
+          version: 12,
+          password: encryptionKey,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
         );
-        await db.execute("PRAGMA rekey = '$encryptionKey'");
-      } catch (innerErr) {
-        rethrow;
+      } catch (e) {
+        try {
+          db = await openDatabase(
+            path,
+            version: 12,
+            onCreate: _createDB,
+            onUpgrade: _upgradeDB,
+            onConfigure: _onConfigure,
+          );
+          await db.execute("PRAGMA rekey = '$encryptionKey'");
+        } catch (innerErr) {
+          rethrow;
+        }
       }
     }
 
+    await _ensureNewColumnsExist(db);
     return db;
+  }
+
+  Future<void> _ensureNewColumnsExist(Database db) async {
+    final alterColumns = [
+      "ALTER TABLE orders ADD COLUMN online_platform_total REAL",
+      "ALTER TABLE orders ADD COLUMN platform_difference REAL",
+      "ALTER TABLE transactions ADD COLUMN online_platform_total REAL",
+      "ALTER TABLE transactions ADD COLUMN platform_difference REAL",
+    ];
+    for (final sql in alterColumns) {
+      try {
+        await db.execute(sql);
+      } catch (_) {
+        // Column already exists
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -231,6 +248,8 @@ class PosDatabase {
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
         grand_total REAL NOT NULL DEFAULT 0,
+        online_platform_total REAL,
+        platform_difference REAL,
         status TEXT NOT NULL DEFAULT 'draft',
         catatan TEXT,
         cashier_id TEXT,

@@ -1,0 +1,108 @@
+================================================================================
+       PANDUAN LENGKAP SETUP & DEPLOYMENT SAAS-SECURITY (BACKEND ONLY)
+================================================================================
+
+Dokumen ini berisi panduan langkah demi langkah untuk melakukan deploy backend 
+Laravel pada server hosting/cPanel dari awal (Git Clone) sampai siap digunakan.
+
+--------------------------------------------------------------------------------
+LANGKAH 1: PERSIAPAN DIREKTORI DOMAIN & GIT CLONE
+--------------------------------------------------------------------------------
+1. Buka Terminal SSH pada hosting Anda.
+2. Masuk ke direktori domain/subdomain tujuan (pastikan folder kosong):
+   cd ~/nama_domain_anda.com
+   
+3. Clone repository menggunakan Git (tambahkan tanda titik '.' di ujung agar 
+   file langsung diletakkan di dalam folder domain tersebut):
+   git clone https://github.com/detitanbwi/SaaS-Security-Test.git .
+
+4. Pindahkan branch aktif ke branch 'development' (di mana backend terbaru berada):
+   git checkout development
+
+--------------------------------------------------------------------------------
+LANGKAH 2: AKTIFKAN SPARSE CHECKOUT (PENTING: HANYA AMBIL FOLDER BACKEND)
+--------------------------------------------------------------------------------
+Karena server hosting hanya butuh menjalankan backend (tanpa folder frontend),
+aktifkan fitur Sparse Checkout agar storage hosting hemat dan efisien:
+
+1. Aktifkan fitur sparse-checkout:
+   git config core.sparseCheckout true
+
+2. Daftarkan folder backend saja yang ingin diunduh:
+   echo "backend/*" > .git/info/sparse-checkout
+
+3. Terapkan konfigurasi tersebut ke workspace:
+   git read-tree -mu HEAD
+
+* Catatan: Folder 'frontend' akan otomatis disembunyikan/dihapus dari hosting.
+
+--------------------------------------------------------------------------------
+LANGKAH 3: STRUKTUR DIREKTORI (PILIH SALAH SATU OPSI)
+--------------------------------------------------------------------------------
+Secara default, Laravel berada di dalam folder "backend/". Ada 2 opsi setup:
+
+>>> OPSI A (SANGAT DIREKOMENDASIKAN): UBAH DOCUMENT ROOT DI CPANEL
+Buka menu cPanel -> Domains -> Manage pada subdomain Anda, lalu ubah 
+Document Root-nya agar langsung mengarah ke:
+   /home/username/nama_domain_anda.com/backend/public
+
+* Jika memilih Opsi A, Anda TIDAK PERLU memindahkan file/folder apa pun. 
+  Cukup jalankan semua perintah artisan/composer di dalam folder 'backend'.
+
+>>> OPSI B: MENJALANKAN DARI ROOT DIREKTORI (Bila Opsi A tidak didukung)
+Pindahkan seluruh isi dari folder 'backend' ke root domain Anda:
+   mv backend/* backend/.* . 2>/dev/null
+   rmdir backend
+
+--------------------------------------------------------------------------------
+LANGKAH 4: KONFIGURASI FILE .env & INTEGRASI JWT
+--------------------------------------------------------------------------------
+1. Duplikat file template .env.example menjadi .env:
+   cp .env.example .env
+   
+2. Buka file .env menggunakan editor (vi/nano atau via File Manager cPanel).
+3. Buat dan pasang kunci rahasia untuk Laravel & JWT:
+   - Generate APP_KEY:
+     php artisan key:generate
+     
+   - Tambahkan JWT_SECRET di baris paling bawah .env (untuk tanda tangan 
+     lisensi offline aplikasi mobile). Anda bisa generate key acak sepanjang 
+     32 karakter, contoh:
+     JWT_SECRET=R3QxOGZkaTkzOGRzYWZhc2Y4OWFzZGZhc2RmYWQzMg==
+
+4. Sesuaikan konfigurasi database Anda di .env:
+   DB_CONNECTION=sqlite
+   DB_DATABASE=/home/username/nama_domain_anda.com/database/database.sqlite
+   (Ganti path DB_DATABASE sesuai direktori absolut hosting Anda).
+
+--------------------------------------------------------------------------------
+LANGKAH 5: INSTALL COMPOSER DEPENDENCIES
+--------------------------------------------------------------------------------
+Jalankan instalasi library PHP menggunakan Composer:
+   composer install
+
+* Catatan: Jangan gunakan flag `--no-dev` pada demo/development server karena 
+  Seeder membutuhkan Faker (dev-dependency) agar sukses men-seed database.
+
+--------------------------------------------------------------------------------
+LANGKAH 6: MIGRASI & SEEDING DATABASE
+--------------------------------------------------------------------------------
+Buat seluruh tabel database baru dan masukkan data dummy awal (termasuk Akun Admin):
+   php artisan migrate:fresh --seed
+
+Akun Administrator default setelah berhasil di-seed:
+- Email: admin@possaas.com
+- Password: password
+
+--------------------------------------------------------------------------------
+LANGKAH 7: OPTIMALISASI & CLEARING CACHE (JALANKAN SETIAP KALI UPDATE)
+--------------------------------------------------------------------------------
+Jika Anda melakukan update kode ('git pull') di kemudian hari, selalu jalankan 
+perintah pembersihan cache agar perubahan langsung terbaca di browser:
+
+   php artisan view:clear
+   php artisan route:clear
+   php artisan config:clear
+   php artisan cache:clear
+
+================================================================================

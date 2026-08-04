@@ -112,22 +112,30 @@ class CartNotifier extends StateNotifier<CartState> {
   }
 
   bool updateQuantity(String productId, int newQty) {
+    final index = state.items.indexWhere((item) => item.product.id == productId);
+    if (index == -1) return false;
+
+    final cartItem = state.items[index];
+
+    // Prevent reducing quantity below previously saved/printed draft quantity
+    if (newQty < cartItem.initialSavedQty) {
+      state = state.copyWith(errorMessage: 'Pesanan yang sudah tersimpan / dikirim ke dapur tidak dapat dikurangi!');
+      return false;
+    }
+
     if (newQty <= 0) {
       removeItem(productId);
       return true;
     }
 
-    final index = state.items.indexWhere((item) => item.product.id == productId);
-    if (index == -1) return false;
-
-    final product = state.items[index].product;
+    final product = cartItem.product;
     if (product.stok != -1 && newQty > product.stok) {
       state = state.copyWith(errorMessage: 'Stok "${product.nama}" tidak mencukupi (Maks: ${product.stok})');
       return false;
     }
 
     List<CartItem> updatedItems = List.from(state.items);
-    updatedItems[index] = state.items[index].copyWith(qty: newQty);
+    updatedItems[index] = cartItem.copyWith(qty: newQty);
 
     _recalculate(currentItems: updatedItems);
     return true;
@@ -155,12 +163,17 @@ class CartNotifier extends StateNotifier<CartState> {
 
         if (consolidatedMap.containsKey(key)) {
           final existing = consolidatedMap[key]!;
-          consolidatedMap[key] = existing.copyWith(qty: existing.qty + draft.qty);
+          final newQty = existing.qty + draft.qty;
+          consolidatedMap[key] = existing.copyWith(
+            qty: newQty,
+            initialSavedQty: newQty,
+          );
         } else {
           consolidatedMap[key] = CartItem(
             product: product,
             qty: draft.qty,
             catatan: catatan,
+            initialSavedQty: draft.qty,
           );
         }
       }

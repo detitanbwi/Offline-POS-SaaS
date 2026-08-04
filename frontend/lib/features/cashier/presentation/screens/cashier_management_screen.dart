@@ -265,6 +265,8 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                       children: [
                                         Text(
                                           cashier.nama,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                           style: AppTypography.titleMedium.copyWith(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -272,34 +274,35 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                             color: cashier.isActive ? AppColors.textPrimary : AppColors.textSecondary,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '@${cashier.username}',
-                                              style: AppTypography.bodySmall.copyWith(
-                                                color: AppColors.textSecondary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '•',
-                                              style: AppTypography.bodySmall.copyWith(
-                                                color: AppColors.textSecondary,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              cashier.isActive ? 'Akses Aktif' : 'Akses Nonaktif',
-                                              style: AppTypography.bodyMedium.copyWith(
-                                                fontSize: 12,
-                                                color: cashier.isActive ? AppColors.success : AppColors.error,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                         const SizedBox(height: 4),
+                                         Wrap(
+                                           crossAxisAlignment: WrapCrossAlignment.center,
+                                           spacing: 6,
+                                           runSpacing: 2,
+                                           children: [
+                                             Text(
+                                               '@${cashier.username}',
+                                               style: AppTypography.bodySmall.copyWith(
+                                                 color: AppColors.textSecondary,
+                                                 fontWeight: FontWeight.w600,
+                                               ),
+                                             ),
+                                             Text(
+                                               '•',
+                                               style: AppTypography.bodySmall.copyWith(
+                                                 color: AppColors.textSecondary,
+                                               ),
+                                             ),
+                                             Text(
+                                               cashier.isActive ? 'Akses Aktif' : 'Akses Nonaktif',
+                                               style: AppTypography.bodyMedium.copyWith(
+                                                 fontSize: 12,
+                                                 color: cashier.isActive ? AppColors.success : AppColors.error,
+                                                 fontWeight: FontWeight.bold,
+                                               ),
+                                             ),
+                                           ],
+                                         ),
                                       ],
                                     ),
                                   ),
