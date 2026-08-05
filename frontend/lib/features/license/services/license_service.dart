@@ -66,7 +66,7 @@ class LicenseService {
     }
   }
 
-  Future<Map<String, dynamic>> validateLicenseOnline() async {
+  Future<Map<String, dynamic>> validateLicenseOnline({int? customTimeout}) async {
     try {
       final onlineToken = await _storage.getOnlineToken();
       final licenseKey = await _storage.getLicenseKey();
@@ -88,7 +88,7 @@ class LicenseService {
           'license_key': licenseKey,
           'fingerprint_hash': fingerprint,
         }),
-      ).timeout(const Duration(seconds: apiTimeoutSeconds));
+      ).timeout(Duration(seconds: customTimeout ?? apiTimeoutSeconds));
 
       final data = jsonDecode(response.body);
 

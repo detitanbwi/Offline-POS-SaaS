@@ -34,31 +34,73 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 class _MyAppState extends ConsumerState<MyApp> {
   late final Future<Widget> _initialRouteFuture;
+  Timer? _inactivityTimer;
 
   @override
   void initState() {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
+    _resetInactivityTimer();
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(const Duration(minutes: 3), _handleInactivity);
+  }
+
+  void _handleInactivity() {
+    // 1. Clear session
+    ref.read(authSessionProvider.notifier).state = null;
+    
+    // 2. Trigger background validation
+    _triggerBackgroundValidation();
+
+    // 3. Lock app by returning to PinScreen
+    appNavigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
+      (route) => false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _inactivityTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _triggerBackgroundValidation() async {
     final storage = ref.read(secureStorageServiceProvider);
     final lastValidationStr = await storage.getLastValidation();
-    if (lastValidationStr != null && lastValidationStr.isNotEmpty) {
+    
+    bool shouldValidate = false;
+    
+    if (lastValidationStr == null || lastValidationStr.isEmpty) {
+      shouldValidate = true;
+    } else {
       try {
         final lastVal = DateTime.parse(lastValidationStr);
-        final diff = DateTime.now().difference(lastVal).inMinutes;
-        if (diff >= 2) {
-          final licenseService = ref.read(licenseServiceProvider);
-          final result = await licenseService.validateLicenseOnline();
-          if (result['success'] == false) {
-            ref.read(licenseExpiredProvider.notifier).state = true;
-          }
+        final diffSeconds = DateTime.now().difference(lastVal).inSeconds;
+        // Gunakan interval detik (minimal 170 detik / ~3 menit dikurangi margin)
+        // Hal ini untuk mencegah isu "inMinutes" yang seringkali membulatkan 2m59s menjadi 2 menit.
+        if (diffSeconds >= 170) {
+          shouldValidate = true;
         }
       } catch (e) {
-        // Silent catch
+        shouldValidate = true;
+      }
+    }
+
+    if (shouldValidate) {
+      final licenseService = ref.read(licenseServiceProvider);
+      // Gunakan timeout yang lebih singkat (3 detik) khusus untuk validasi di background
+      // agar saat offline tidak menunggu lama (mempercepat proses penguncian)
+      final result = await licenseService.validateLicenseOnline(customTimeout: 3);
+      if (result['success'] == false) {
+        ref.read(licenseExpiredProvider.notifier).state = true;
       }
     }
   }
@@ -134,14 +176,18 @@ class _MyAppState extends ConsumerState<MyApp> {
       splitScreenMode: true,
       builder: (context, child) {
         return MaterialApp(
+          navigatorKey: appNavigatorKey,
           title: 'Offline POS Kasir SaaS',
           builder: (context, widget) {
             if (isExpired) {
               return const LicenseLockScreen();
             }
             return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanDown: (_) => _resetInactivityTimer(),
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
+                _resetInactivityTimer();
               },
               child: widget ?? const SizedBox.shrink(),
             );
