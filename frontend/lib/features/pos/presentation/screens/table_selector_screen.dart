@@ -13,7 +13,7 @@ import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../table/domain/models/table.dart';
-import 'pos_screen.dart';
+import 'cashier_screen.dart';
 
 class TableSelectorScreen extends ConsumerStatefulWidget {
   const TableSelectorScreen({super.key});
@@ -23,6 +23,9 @@ class TableSelectorScreen extends ConsumerStatefulWidget {
 }
 
 class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
+  String? _selectedTableId;
+  TableModel? _selectedTable;
+
   @override
   void initState() {
     super.initState();
@@ -34,17 +37,20 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
   }
 
   Future<void> _handleTableSelected(TableModel table, dynamic activeOrder) async {
+    setState(() {
+      _selectedTableId = table.id;
+      _selectedTable = table;
+    });
+
     if (table.isOccupied || table.isBillPrinted || table.status != 0) {
       AppSnackbar.showWarning(
         context,
-        'Meja "${table.nama}" sudah Terisi / Billed. Untuk menambah pesanan atau ubah meja, silakan masuk melalui menu "Manajemen Meja".',
+        'Meja "${table.nama}" sudah Terisi / Billed. Klik "Lanjutkan" untuk membuka detail pesanan.',
       );
-    } else {
-      _navigateToPos(table);
     }
   }
 
-  Future<void> _navigateToPos(TableModel table) async {
+  Future<void> _navigateToCashier(TableModel table) async {
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
     final productState = ref.read(productNotifierProvider);
@@ -54,18 +60,21 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
     if (table.isOccupied || table.isBillPrinted) {
       await orderNotifier.loadActiveOrderForTable(table.id);
       final orderState = ref.read(orderNotifierProvider);
-      
+
       if (orderState.activeOrder != null) {
         cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
       } else {
         cartNotifier.clear();
+      }
+    } else {
+      cartNotifier.clear();
     }
 
     if (!mounted) return;
-    
+
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const PosScreen()),
+      MaterialPageRoute(builder: (_) => const CashierScreen()),
     ).then((_) {
       ref.read(tableNotifierProvider.notifier).loadTables();
       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
@@ -82,6 +91,63 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
       appBar: AppBar(
         title: const Text('Pilih Meja Restoran'),
       ),
+      bottomNavigationBar: _selectedTable != null
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Meja Terpilih:',
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                          ),
+                          Text(
+                            _selectedTable!.nama,
+                            style: AppTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      icon: const Text(
+                        'Lanjutkan',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      label: const Icon(Icons.arrow_forward_rounded),
+                      onPressed: () => _navigateToCashier(_selectedTable!),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: tableState.isLoading && tableState.allTables.isEmpty
             ? const AppLoading(message: 'Memuat data meja...')
@@ -97,13 +163,8 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Pilih Meja untuk Layanan',
+                          'Pilih Meja',
                           style: AppTypography.headlineLarge.copyWith(fontSize: 24),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          'Pilih meja kosong untuk pesanan baru, atau meja terisi untuk mengedit/checkout pesanan draft.',
-                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: AppSpacing.l),
                         Expanded(
@@ -138,27 +199,42 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
       itemBuilder: (context, index) {
         final table = tables[index];
         final activeOrder = activeOrdersMap[table.id];
-        
-        Color getStatusColor() {
-          if (table.isOccupied) return AppColors.success; // Hijau
-          if (table.isBillPrinted) return AppColors.warning; // Kuning
-          if (table.isReserved) return AppColors.secondary;
-          if (table.isMaintenance) return AppColors.error;
-          return Colors.white; // Kosong
-        }
 
-        final isFilled = table.isOccupied || table.isBillPrinted;
+        final isOccupied = table.isOccupied || table.isBillPrinted;
+        final isSelected = _selectedTableId == table.id;
+
+        // Styling specs:
+        // Occupied: Solid Green Block
+        // Selected: Orange Outlined
+        // Available: Grey Outlined (unfilled)
+        Color cardBgColor;
+        BorderSide borderSide;
+        Color textColor;
+        Color iconColor;
+
+        if (isOccupied) {
+          cardBgColor = AppColors.success;
+          borderSide = BorderSide.none;
+          textColor = Colors.white;
+          iconColor = Colors.white;
+        } else if (isSelected) {
+          cardBgColor = AppColors.secondaryContainer.withValues(alpha: 0.2);
+          borderSide = const BorderSide(color: AppColors.secondary, width: 2.5);
+          textColor = AppColors.secondary;
+          iconColor = AppColors.secondary;
+        } else {
+          cardBgColor = AppColors.surface;
+          borderSide = const BorderSide(color: AppColors.divider, width: 1.5);
+          textColor = AppColors.textPrimary;
+          iconColor = AppColors.textSecondary;
+        }
 
         return InkWell(
           onTap: table.isMaintenance ? null : () => _handleTableSelected(table, activeOrder),
           borderRadius: BorderRadius.circular(12),
           child: AppCard(
-            borderSide: BorderSide(
-              color: isFilled 
-                  ? getStatusColor()
-                  : AppColors.divider,
-              width: isFilled ? 1.5 : 1,
-            ),
+            color: cardBgColor,
+            borderSide: borderSide,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -172,13 +248,13 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: getStatusColor().withValues(alpha: 0.1),
+                          color: isOccupied ? Colors.white.withValues(alpha: 0.25) : iconColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           table.statusLabel,
                           style: TextStyle(
-                            color: table.isEmpty ? AppColors.textPrimary : getStatusColor(),
+                            color: isOccupied ? Colors.white : textColor,
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                           ),
@@ -187,8 +263,8 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                       const SizedBox(width: 4),
                       Text(
                         'No: ${table.nomor}',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: isOccupied ? Colors.white70 : AppColors.textSecondary,
                           fontSize: 10,
                         ),
                       ),
@@ -198,27 +274,28 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                 const Spacer(),
                 Icon(
                   Icons.table_restaurant_rounded,
-                  size: 26,
-                  color: isFilled ? getStatusColor() : AppColors.textSecondary,
+                  size: 28,
+                  color: iconColor,
                 ),
                 const Spacer(),
                 Text(
                   table.nama,
                   textAlign: TextAlign.center,
-                  style: AppTypography.titleMedium.copyWith(
-                    fontSize: 12,
+                  style: TextStyle(
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
+                    color: isOccupied ? Colors.white : AppColors.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (isFilled && activeOrder != null) ...[
+                if (isOccupied && activeOrder != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     CurrencyFormatter.format(activeOrder.grandTotal),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: getStatusColor(),
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

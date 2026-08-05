@@ -375,51 +375,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  if (order != null) ...[
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final printerState = ref.read(printerNotifierProvider);
-                        final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-                        final targetPrinter = kitchenPrinterList.isNotEmpty ? kitchenPrinterList.first : null;
-
-                        final textPreview = await ReceiptGenerator.formatKitchenTextPreview(
-                          order: order,
-                          itemsToPrint: orderItems,
-                          waveInfo: '#1',
-                          charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-                        );
-
-                        if (!mounted) return;
-                        AppReceiptPreviewModal.show(
-                          context,
-                          title: 'STRUK PESANAN DAPUR',
-                          receiptTextPreview: textPreview,
-                          printerType: 'kitchen',
-                          onGeneratePdf: () => PdfReceiptGenerator.generateKitchenTicketPdf(
-                            order: order,
-                            itemsToPrint: orderItems,
-                            waveInfo: '#1',
-                          ),
-                          onGenerateEscPosBytes: () => ReceiptGenerator.generateKitchenTicket(
-                            order: order,
-                            itemsToPrint: orderItems,
-                            waveInfo: '#1',
-                            paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-                            charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-                            autoCut: targetPrinter?.autoCut ?? false,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.soup_kitchen_rounded, color: AppColors.primary),
-                      label: const Text('Cetak Pesanan (Dapur)', style: TextStyle(color: AppColors.primary)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: AppColors.primary),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
                   if (isPaid && header != null && txItems != null) ...[
                     OutlinedButton.icon(
                       onPressed: () async {
@@ -533,10 +488,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   void _finishAndResetTransaction() {
     ref.read(cartNotifierProvider.notifier).clear();
-    ref.read(orderNotifierProvider.notifier).resetForNewTransaction();
+    ref.read(orderNotifierProvider.notifier).resetOrder();
     ref.read(tableNotifierProvider.notifier).loadTables();
+    ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
     if (mounted) {
-      Navigator.pop(context); // close PaymentScreen and return to POS screen
+      Navigator.popUntil(context, (route) => route.isFirst);
     }
   }
 
@@ -901,40 +857,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
           ],
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: AppButton(
-                  text: 'Bayar Nanti',
-                  type: AppButtonType.secondary,
-                  onPressed: () => _handlePayment(
-                    grandTotal,
-                    cartState.subtotal,
-                    cartState.taxRate,
-                    cartState.taxAmount,
-                    isPayLater: true,
-                  ),
-                  icon: Icons.schedule_rounded,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppButton(
-                  text: 'Bayar Sekarang',
-                  type: AppButtonType.primary,
-                  onPressed: isPayDisabled
-                      ? null
-                      : () => _handlePayment(
-                            grandTotal,
-                            cartState.subtotal,
-                            cartState.taxRate,
-                            cartState.taxAmount,
-                            isPayLater: false,
-                          ),
-                  icon: Icons.payments_rounded,
-                ),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              text: 'Bayar Sekarang',
+              type: AppButtonType.primary,
+              onPressed: isPayDisabled
+                  ? null
+                  : () => _handlePayment(
+                        grandTotal,
+                        cartState.subtotal,
+                        cartState.taxRate,
+                        cartState.taxAmount,
+                        isPayLater: false,
+                      ),
+              icon: Icons.payments_rounded,
+            ),
           ),
         ],
       ),

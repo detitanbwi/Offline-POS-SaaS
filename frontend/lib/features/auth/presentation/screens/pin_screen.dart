@@ -11,7 +11,6 @@ import '../../../../core/di/providers.dart';
 import '../../../menu/presentation/screens/main_menu_screen.dart';
 import '../../domain/models/auth_user.dart';
 import '../providers/auth_providers.dart';
-
 import '../../../security/presentation/providers/security_providers.dart';
 import '../widgets/forgot_pin_email_modal.dart';
 
@@ -109,8 +108,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     final hashedPin = _hashPIN(pin);
 
     if (widget.isSetup) {
-      if (pin.length < 4) {
-        setState(() => _errorMessage = 'PIN minimal 4 digit!');
+      if (pin.length != 6) {
+        setState(() => _errorMessage = 'PIN Keamanan harus 6 digit!');
         return;
       }
       if (!mounted) return;
@@ -124,13 +123,13 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           masterPin: pin,
           licenseKey: licenseKey,
         );
-        
+
+        if (!mounted) return;
         ref.read(authSessionProvider.notifier).state = const AuthUser(
           id: 'owner',
           nama: 'Pemilik Toko',
           role: 'pemilik',
         );
-        if (!mounted) return;
         AppSnackbar.showSuccess(context, 'PIN Keamanan berhasil dibuat!');
         _goToMainMenu();
       } catch (e) {
@@ -141,8 +140,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     }
 
     if (_selectedAccount != null) {
-      if (pin.length < 4) {
-        setState(() => _errorMessage = 'PIN minimal 4 digit!');
+      if (pin.length != 6) {
+        setState(() => _errorMessage = 'PIN harus 6 digit!');
         return;
       }
 
@@ -207,13 +206,13 @@ class _PinScreenState extends ConsumerState<PinScreen> {
         const Icon(Icons.lock_person_rounded, size: 64, color: Colors.white),
         const SizedBox(height: 16),
         Text(
-          "Buat PIN Keamanan Baru",
+          "Buat PIN Keamanan (6 Digit)",
           textAlign: TextAlign.center,
           style: AppTypography.titleLarge.copyWith(color: Colors.white),
         ),
         SizedBox(height: 4.h),
         Text(
-          "Digunakan untuk akses masuk harian secara luring (Offline)",
+          "Masukkan 6 digit angka untuk akses masuk harian secara luring (Offline)",
           textAlign: TextAlign.center,
           style: AppTypography.bodyMedium.copyWith(color: Colors.white70),
         ),
@@ -230,7 +229,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
             letterSpacing: 16.w,
           ),
           decoration: const InputDecoration(
-            labelText: 'Buat PIN Keamanan',
+            labelText: 'Buat 6 Digit PIN Keamanan',
             labelStyle: TextStyle(color: Colors.white70),
             counterText: "",
             filled: false,

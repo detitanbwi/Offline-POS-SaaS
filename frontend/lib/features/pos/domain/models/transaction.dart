@@ -5,6 +5,8 @@ class TransactionHeader {
   final double taxPercentage;
   final double taxAmount;
   final double grandTotal;
+  final double? onlinePlatformTotal;
+  final double? platformDifference;
   final String paymentMethodId;
   final String paymentMethodNama;
   final double nominalBayar;
@@ -24,6 +26,8 @@ class TransactionHeader {
     required this.taxPercentage,
     required this.taxAmount,
     required this.grandTotal,
+    this.onlinePlatformTotal,
+    this.platformDifference,
     required this.paymentMethodId,
     required this.paymentMethodNama,
     required this.nominalBayar,
@@ -45,6 +49,8 @@ class TransactionHeader {
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
       'grand_total': grandTotal,
+      'online_platform_total': onlinePlatformTotal,
+      'platform_difference': platformDifference,
       'payment_method_id': paymentMethodId,
       'payment_method_nama': paymentMethodNama,
       'nominal_bayar': nominalBayar,
@@ -67,6 +73,8 @@ class TransactionHeader {
       taxPercentage: (map['tax_percentage'] as num).toDouble(),
       taxAmount: (map['tax_amount'] as num).toDouble(),
       grandTotal: (map['grand_total'] as num).toDouble(),
+      onlinePlatformTotal: (map['online_platform_total'] as num?)?.toDouble(),
+      platformDifference: (map['platform_difference'] as num?)?.toDouble(),
       paymentMethodId: map['payment_method_id'] as String,
       paymentMethodNama: map['payment_method_nama'] as String,
       nominalBayar: (map['nominal_bayar'] as num).toDouble(),

@@ -6,11 +6,10 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/responsive_layout.dart';
 import '../../../../core/widgets/app_dialog.dart';
-import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
 import '../../../auth/presentation/screens/pin_screen.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../pos/presentation/screens/pos_screen.dart';
+import '../../../pos/presentation/screens/order_hub_screen.dart';
 import '../../../pos/presentation/screens/sales_report_screen.dart';
 import '../../../category/presentation/screens/category_screen.dart';
 import '../../../product/presentation/screens/product_screen.dart';
@@ -19,9 +18,6 @@ import '../../../payment_method/presentation/screens/payment_method_screen.dart'
 import '../../../tax/presentation/screens/tax_setting_screen.dart';
 import '../../../transaction_history/presentation/screens/transaction_history_screen.dart';
 import '../../../table/presentation/screens/table_screen.dart';
-import '../../../table/application/table_notifier.dart';
-import '../../../pos/application/order_notifier.dart';
-import '../../../pos/application/cart_notifier.dart';
 import '../../../pos/presentation/screens/online_platform_master_screen.dart';
 import '../../../../core/di/providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
@@ -406,36 +402,11 @@ class MainMenuScreen extends ConsumerWidget {
             icon: Icons.point_of_sale_rounded,
             color: AppColors.primaryContainer,
             iconColor: AppColors.primary,
-            onTap: () async {
-              final tableNotifier = ref.read(tableNotifierProvider.notifier);
-              await tableNotifier.loadTables();
-              final tableState = ref.read(tableNotifierProvider);
-
-              if (!context.mounted) return;
-
-              if (tableState.allTables.isEmpty) {
-                ref.read(orderNotifierProvider.notifier).selectTable(null);
-                ref.read(cartNotifierProvider.notifier).clear();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PosScreen()),
-                );
-              } else {
-                final hasEmptyTable = tableState.allTables.any((t) => t.isEmpty);
-                if (!hasEmptyTable) {
-                  AppSnackbar.showWarning(
-                    context,
-                    'Semua meja terisi! Kosongkan meja di menu "Kelola Meja Makan" atau selesaikan transaksi meja yang ada.',
-                  );
-                } else {
-                  ref.read(orderNotifierProvider.notifier).selectTable(null);
-                  ref.read(cartNotifierProvider.notifier).clear();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PosScreen()),
-                  );
-                }
-              }
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OrderHubScreen()),
+              );
             },
           ),
           _buildMenuCard(

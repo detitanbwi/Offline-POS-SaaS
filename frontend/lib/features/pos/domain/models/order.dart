@@ -13,6 +13,8 @@ class OrderModel {
   final double taxPercentage;
   final double taxAmount;
   final double grandTotal;
+  final double? onlinePlatformTotal;
+  final double? platformDifference;
   final String status; // 'draft', 'completed', 'cancelled'
   final String? catatan;
   final String? cashierId;
@@ -35,6 +37,8 @@ class OrderModel {
     this.taxPercentage = 0.0,
     this.taxAmount = 0.0,
     this.grandTotal = 0.0,
+    this.onlinePlatformTotal,
+    this.platformDifference,
     this.status = 'draft',
     this.catatan,
     this.cashierId,
@@ -63,6 +67,8 @@ class OrderModel {
     double? taxPercentage,
     double? taxAmount,
     double? grandTotal,
+    double? onlinePlatformTotal,
+    double? platformDifference,
     String? status,
     String? catatan,
     String? cashierId,
@@ -85,6 +91,8 @@ class OrderModel {
       taxPercentage: taxPercentage ?? this.taxPercentage,
       taxAmount: taxAmount ?? this.taxAmount,
       grandTotal: grandTotal ?? this.grandTotal,
+      onlinePlatformTotal: onlinePlatformTotal ?? this.onlinePlatformTotal,
+      platformDifference: platformDifference ?? this.platformDifference,
       status: status ?? this.status,
       catatan: catatan ?? this.catatan,
       cashierId: cashierId ?? this.cashierId,
@@ -110,6 +118,8 @@ class OrderModel {
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
       'grand_total': grandTotal,
+      'online_platform_total': onlinePlatformTotal,
+      'platform_difference': platformDifference,
       'status': status,
       'catatan': catatan,
       'cashier_id': cashierId,
@@ -137,6 +147,8 @@ class OrderModel {
       taxPercentage: (map['tax_percentage'] as num).toDouble(),
       taxAmount: (map['tax_amount'] as num).toDouble(),
       grandTotal: (map['grand_total'] as num).toDouble(),
+      onlinePlatformTotal: (map['online_platform_total'] as num?)?.toDouble(),
+      platformDifference: (map['platform_difference'] as num?)?.toDouble(),
       status: map['status'] as String,
       catatan: map['catatan'] as String?,
       cashierId: map['cashier_id'] as String?,
