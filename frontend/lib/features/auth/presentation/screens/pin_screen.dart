@@ -11,7 +11,7 @@ import '../../../../core/di/providers.dart';
 import '../../../menu/presentation/screens/main_menu_screen.dart';
 import '../../domain/models/auth_user.dart';
 import '../providers/auth_providers.dart';
-import '../../../security/presentation/widgets/master_pin_setup_modal.dart';
+
 import '../../../security/presentation/providers/security_providers.dart';
 import '../widgets/forgot_pin_email_modal.dart';
 
@@ -114,19 +114,29 @@ class _PinScreenState extends ConsumerState<PinScreen> {
         return;
       }
       if (!mounted) return;
-      await MasterPinSetupModal.show(
-        context,
-        masterPin: pin,
-        onCompleted: () {
-          ref.read(authSessionProvider.notifier).state = const AuthUser(
-            id: 'owner',
-            nama: 'Pemilik Toko',
-            role: 'pemilik',
-          );
-          AppSnackbar.showSuccess(context, 'PIN Keamanan & Kode Pemulihan berhasil dibuat!');
-          _goToMainMenu();
-        },
-      );
+
+      try {
+        final storage = ref.read(secureStorageServiceProvider);
+        final licenseKey = await storage.getLicenseKey() ?? 'XXXX-XXXX-XXXX';
+        final service = ref.read(securityServiceProvider);
+        
+        await service.initializeMasterSecurity(
+          masterPin: pin,
+          licenseKey: licenseKey,
+        );
+        
+        ref.read(authSessionProvider.notifier).state = const AuthUser(
+          id: 'owner',
+          nama: 'Pemilik Toko',
+          role: 'pemilik',
+        );
+        if (!mounted) return;
+        AppSnackbar.showSuccess(context, 'PIN Keamanan berhasil dibuat!');
+        _goToMainMenu();
+      } catch (e) {
+        if (!mounted) return;
+        AppSnackbar.showError(context, 'Gagal membuat PIN: $e');
+      }
       return;
     }
 

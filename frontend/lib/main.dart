@@ -49,8 +49,8 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (lastValidationStr != null && lastValidationStr.isNotEmpty) {
       try {
         final lastVal = DateTime.parse(lastValidationStr);
-        final diff = DateTime.now().difference(lastVal).inDays;
-        if (diff >= 7) {
+        final diff = DateTime.now().difference(lastVal).inMinutes;
+        if (diff >= 2) {
           final licenseService = ref.read(licenseServiceProvider);
           final result = await licenseService.validateLicenseOnline();
           if (result['success'] == false) {
