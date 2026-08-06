@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
+    // Password Recovery Routes
+    Route::post('/password/forgot', [\App\Http\Controllers\PasswordRecoveryController::class, 'requestOtp']);
+    Route::post('/password/verify-otp', [\App\Http\Controllers\PasswordRecoveryController::class, 'verifyOtp']);
+    Route::post('/password/reset', [\App\Http\Controllers\PasswordRecoveryController::class, 'resetPassword']);
+
     // Fitur Lupa PIN (OTP via Email)
     Route::prefix('auth')->group(function () {
         Route::post('/request-otp', [PinRecoveryController::class, 'requestOtp']);
