@@ -142,15 +142,85 @@ class LicenseService {
     }
   }
 
-  Future<bool> checkLicenseOffline() async {
-    final expiryStr = await _storage.getLicenseExpiry();
-    if (expiryStr == null || expiryStr.isEmpty) return false;
+    Future<bool> checkLicenseOffline() async {
+      final expiryStr = await _storage.getLicenseExpiry();
+      if (expiryStr == null || expiryStr.isEmpty) return false;
 
-    try {
-      final expiryDate = DateTime.parse(expiryStr);
-      return DateTime.now().isBefore(expiryDate);
-    } catch (e) {
-      return false;
+      try {
+        final expiryDate = DateTime.parse(expiryStr);
+        return DateTime.now().isBefore(expiryDate);
+      } catch (e) {
+        return false;
+      }
     }
-  }
+
+    Future<Map<String, dynamic>> requestDeviceResetOtp({
+      required String email,
+      required String password,
+      required String tokenKey,
+    }) async {
+      try {
+        final onlineToken = await _storage.getOnlineToken();
+        if (onlineToken == null || onlineToken.isEmpty) {
+          return {'success': false, 'message': 'Token login tidak ditemukan'};
+        }
+
+        final response = await http.post(
+          Uri.parse('$apiBaseUrl/api/auth/request-device-reset-otp'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $onlineToken',
+          },
+          body: jsonEncode({
+            'email': email,
+            'password': password,
+            'token_key': tokenKey,
+          }),
+        ).timeout(const Duration(seconds: apiTimeoutSeconds));
+
+        final data = jsonDecode(response.body);
+        return {
+          'success': response.statusCode == 200 && data['success'] == true,
+          'message': data['message'] ?? 'Permintaan OTP gagal',
+        };
+      } catch (e) {
+        return {'success': false, 'message': 'Gagal terhubung ke server'};
+      }
+    }
+
+    Future<Map<String, dynamic>> verifyDeviceResetOtp({
+      required String email,
+      required String tokenKey,
+      required String otp,
+    }) async {
+      try {
+        final onlineToken = await _storage.getOnlineToken();
+        if (onlineToken == null || onlineToken.isEmpty) {
+          return {'success': false, 'message': 'Token login tidak ditemukan'};
+        }
+
+        final response = await http.post(
+          Uri.parse('$apiBaseUrl/api/auth/verify-device-reset-otp'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $onlineToken',
+          },
+          body: jsonEncode({
+            'email': email,
+            'token_key': tokenKey,
+            'otp': otp,
+          }),
+        ).timeout(const Duration(seconds: apiTimeoutSeconds));
+
+        final data = jsonDecode(response.body);
+        return {
+          'success': response.statusCode == 200 && data['success'] == true,
+          'message': data['message'] ?? 'Verifikasi OTP gagal',
+        };
+      } catch (e) {
+        return {'success': false, 'message': 'Gagal terhubung ke server'};
+      }
+    }
 }

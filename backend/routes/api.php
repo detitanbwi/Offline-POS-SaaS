@@ -13,6 +13,10 @@ Route::middleware('throttle:10,1')->group(function () {
         Route::post('/request-otp', [PinRecoveryController::class, 'requestOtp']);
         Route::post('/verify-otp', [PinRecoveryController::class, 'verifyOtp']);
         Route::post('/reset-pin', [PinRecoveryController::class, 'resetPin']);
+        
+        // Fitur Reset Perangkat (OTP via Email)
+        Route::post('/request-device-reset-otp', [ActivationController::class, 'requestResetOtp']);
+        Route::post('/verify-device-reset-otp', [ActivationController::class, 'verifyResetOtp']);
     });
 });
 
