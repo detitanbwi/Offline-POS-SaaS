@@ -40,12 +40,18 @@ final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 class _MyAppState extends ConsumerState<MyApp> {
   late final Future<Widget> _initialRouteFuture;
   Timer? _inactivityTimer;
+  Timer? _periodicValidationTimer;
 
   @override
   void initState() {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
     _resetInactivityTimer();
+    
+    // Start a strict periodic background validation every 3 minutes
+    _periodicValidationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
+      _triggerBackgroundValidation();
+    });
   }
 
   void _resetInactivityTimer() {
@@ -57,10 +63,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     // 1. Clear session
     ref.read(authSessionProvider.notifier).state = null;
     
-    // 2. Trigger background validation
-    _triggerBackgroundValidation();
-
-    // 3. Lock app by returning to PinScreen
+    // 2. Lock app by returning to PinScreen
     appNavigatorKey.currentState?.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
       (route) => false,
@@ -70,39 +73,18 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void dispose() {
     _inactivityTimer?.cancel();
+    _periodicValidationTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _triggerBackgroundValidation() async {
-    final storage = ref.read(secureStorageServiceProvider);
-    final lastValidationStr = await storage.getLastValidation();
+    final licenseService = ref.read(licenseServiceProvider);
     
-    bool shouldValidate = false;
-    
-    if (lastValidationStr == null || lastValidationStr.isEmpty) {
-      shouldValidate = true;
-    } else {
-      try {
-        final lastVal = DateTime.parse(lastValidationStr);
-        final diffSeconds = DateTime.now().difference(lastVal).inSeconds;
-        // Gunakan interval detik (minimal 170 detik / ~3 menit dikurangi margin)
-        // Hal ini untuk mencegah isu "inMinutes" yang seringkali membulatkan 2m59s menjadi 2 menit.
-        if (diffSeconds >= 170) {
-          shouldValidate = true;
-        }
-      } catch (e) {
-        shouldValidate = true;
-      }
-    }
-
-    if (shouldValidate) {
-      final licenseService = ref.read(licenseServiceProvider);
-      // Gunakan timeout yang lebih singkat (3 detik) khusus untuk validasi di background
-      // agar saat offline tidak menunggu lama (mempercepat proses penguncian)
-      final result = await licenseService.validateLicenseOnline(customTimeout: 3);
-      if (result['success'] == false) {
-        ref.read(licenseExpiredProvider.notifier).state = true;
-      }
+    // Gunakan timeout yang lebih singkat (3 detik) khusus untuk validasi di background
+    // agar saat offline tidak menunggu lama (mempercepat proses penguncian)
+    final result = await licenseService.validateLicenseOnline(customTimeout: 3);
+    if (result['success'] == false) {
+      ref.read(licenseExpiredProvider.notifier).state = true;
     }
   }
 
