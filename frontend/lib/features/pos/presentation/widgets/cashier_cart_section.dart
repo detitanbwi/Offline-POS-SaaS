@@ -15,6 +15,7 @@ import '../../application/order_notifier.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
 import '../screens/payment_screen.dart';
+import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../printer/domain/models/printer_config.dart';
 import '../../../../core/utils/receipt_generator.dart';
@@ -65,38 +66,68 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
 
     final printChoice = await showDialog<bool>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.soup_kitchen_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Simpan Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
+      builder: (dialogCtx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text('Simpan Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Apakah Anda ingin mengirim / mencetak nota pesanan ini ke dapur?',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.print_rounded, size: 18),
+                label: const Text('Ya, Kirim Dapur', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                onPressed: () => Navigator.pop(dialogCtx, true),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                ),
+                onPressed: () => Navigator.pop(dialogCtx, false),
+                child: const Text('Tidak, Hanya Simpan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                onPressed: () => Navigator.pop(dialogCtx, null),
+                child: const Text('Batal', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
         ),
-        content: const Text(
-          'Apakah Anda ingin mengirim / mencetak nota pesanan ini ke dapur?',
-          style: TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, null),
-            child: const Text('Batal'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: const Text('Tidak, Hanya Simpan'),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.print_rounded, size: 16),
-            label: const Text('Ya, Kirim Dapur'),
-            onPressed: () => Navigator.pop(dialogCtx, true),
-          ),
-        ],
       ),
     );
 
@@ -208,8 +239,15 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
       );
 
       await printerNotifier.printBytes(activePrinter, bytes);
+
+      // Update table status to 4 (Bill Dicetak) if Dine-In table
+      final tableId = orderState.selectedTable?.id ?? orderState.activeOrder?.tableId;
+      if (tableId != null && tableId.isNotEmpty && tableId != 'TABLE_TAKE_AWAY') {
+        await ref.read(tableNotifierProvider.notifier).updateStatus(tableId, 4);
+      }
+
       if (mounted) {
-        AppSnackbar.showSuccess(context, 'Struk Bill Sementara berhasil dicetak!');
+        AppSnackbar.showSuccess(context, 'Struk Bill Sementara berhasil dicetak! Status meja diperbarui (Bill Dicetak).');
       }
     } catch (e) {
       if (mounted) {
@@ -346,7 +384,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                         dense: true,
                         leading: const Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
                         title: Text(bLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        trailing: const Text('Cetak Ulang', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                        trailing: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
+                        ),
                         onTap: () async {
                           Navigator.pop(dialogCtx);
                           if (mounted && order != null) {
@@ -500,7 +545,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               Expanded(
                 child: Text(
                   orderState.isTakeAway
-                      ? 'Take Away (${orderState.takeAwaySubType == 'online_food' ? 'Online Food' : 'Reguler'})'
+                      ? (orderState.takeAwaySubType == 'online_food'
+                          ? 'Take Away (${orderState.onlinePlatform ?? 'Online Food'})'
+                          : 'Take Away (Reguler)')
                       : (orderState.selectedTable?.nama ?? orderState.activeOrder?.tableNama ?? 'Pesanan Meja'),
                   style: AppTypography.titleMedium.copyWith(
                     fontWeight: FontWeight.bold,
@@ -528,73 +575,292 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     ],
                   ),
                 )
-              : ListView.separated(
-                  itemCount: cartState.items.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1, color: AppColors.divider),
-                  itemBuilder: (context, index) {
-                    final item = cartState.items[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.product.nama,
-                                  style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+              : FutureBuilder<List<Map<String, dynamic>>>(
+                  future: orderState.activeOrder != null
+                      ? ref.read(orderRepositoryProvider).getPrintBatches(orderState.activeOrder!.id)
+                      : Future.value([]),
+                  builder: (context, snapshot) {
+                    final batches = snapshot.data ?? [];
+                    final activeOrderItems = orderState.activeOrderItems.where((i) => !i.isCancelled).toList();
+
+                    final Map<String, List<OrderItemModel>> batchItemsMap = {};
+                    for (var b in batches) {
+                      final bId = b['id'] as String;
+                      batchItemsMap[bId] = [];
+                    }
+
+                    final List<OrderItemModel> unmappedSavedItems = [];
+                    for (var item in activeOrderItems) {
+                      if (item.printBatchId != null && batchItemsMap.containsKey(item.printBatchId)) {
+                        batchItemsMap[item.printBatchId]!.add(item);
+                      } else if (item.statusCetak == 1 || item.printBatchId != null) {
+                        unmappedSavedItems.add(item);
+                      }
+                    }
+
+                    final newItems = cartState.items.where((i) => i.qty > i.initialSavedQty || i.initialSavedQty == 0).toList();
+
+                    return ListView(
+                      children: [
+                        // 1. Batch Baru (Belum Kirim Dapur)
+                        if (newItems.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                            ),
+                            child: Theme(
+                              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                              child: ExpansionTile(
+                                initiallyExpanded: true,
+                                tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                title: Row(
+                                  children: [
+                                    const Icon(Icons.add_shopping_cart_rounded, size: 16, color: AppColors.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Batch Baru (Belum Kirim)',
+                                      style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  CurrencyFormatter.format(item.product.harga),
-                                  style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                                subtitle: Text(
+                                  '${newItems.length} menu baru',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                 ),
-                              ],
+                                children: newItems.map((item) {
+                                  final newQty = item.initialSavedQty > 0 ? item.qty - item.initialSavedQty : item.qty;
+                                  final newSubtotal = item.product.harga * newQty;
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                item.product.nama,
+                                                style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                CurrencyFormatter.format(item.product.harga),
+                                                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Row(
+                                          children: [
+                                            if (item.canDecrement)
+                                              IconButton(
+                                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 22),
+                                                color: AppColors.error,
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                onPressed: () {
+                                                  cartNotifier.updateQuantity(item.product.id, item.qty - 1);
+                                                },
+                                              )
+                                            else
+                                              const SizedBox(width: 32),
+                                            Text(
+                                              '$newQty',
+                                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
+                                              color: AppColors.primary,
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                              onPressed: () {
+                                                cartNotifier.updateQuantity(item.product.id, item.qty + 1);
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          width: 70,
+                                          child: Text(
+                                            CurrencyFormatter.format(newSubtotal),
+                                            textAlign: TextAlign.right,
+                                            style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ),
-                          Row(
-                            children: [
-                              if (item.canDecrement)
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline_rounded, size: 22),
-                                  color: AppColors.error,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  onPressed: () {
-                                    cartNotifier.updateQuantity(item.product.id, item.qty - 1);
-                                  },
-                                )
-                              else
-                                const SizedBox(width: 32),
-                              Text(
-                                '${item.qty}',
-                                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
-                                color: AppColors.primary,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                onPressed: () {
-                                  cartNotifier.updateQuantity(item.product.id, item.qty + 1);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 70,
-                            child: Text(
-                              CurrencyFormatter.format(item.subtotal),
-                              textAlign: TextAlign.right,
-                              style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold),
+
+                        // 2. Individual Printed Batches
+                        if (batches.isNotEmpty) ...[
+                          for (int i = 0; i < batches.length; i++) ...[
+                            Builder(
+                              builder: (context) {
+                                final bId = batches[i]['id'] as String;
+                                var bItems = batchItemsMap[bId] ?? [];
+                                if (i == 0 && unmappedSavedItems.isNotEmpty) {
+                                  bItems = [...bItems, ...unmappedSavedItems];
+                                }
+                                if (bItems.isEmpty) return const SizedBox.shrink();
+
+                                final bNum = i + 1;
+                                final bTitle = bNum == 1 ? 'Batch #1 (Pesanan Awal)' : 'Batch #$bNum (Pesanan Tambahan)';
+                                final bSubtotal = bItems.fold<double>(0, (sum, item) => sum + item.subtotal);
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Theme(
+                                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                    child: ExpansionTile(
+                                      initiallyExpanded: newItems.isEmpty && i == batches.length - 1,
+                                      tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                      childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      title: Row(
+                                        children: [
+                                          const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            bTitle,
+                                            style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success),
+                                          ),
+                                        ],
+                                      ),
+                                      subtitle: Text(
+                                        '${bItems.length} menu • ${CurrencyFormatter.format(bSubtotal)}',
+                                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      ),
+                                      children: bItems.map((item) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      item.produkNama,
+                                                      style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      '${item.qty}x @ ${CurrencyFormatter.format(item.produkHarga)} (Tersimpan)',
+                                                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                width: 70,
+                                                child: Text(
+                                                  CurrencyFormatter.format(item.subtotal),
+                                                  textAlign: TextAlign.right,
+                                                  style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
+                          ],
+                        ] else if (cartState.items.any((i) => i.initialSavedQty > 0)) ...[
+                          // Fallback if no batch record exists in database table
+                          Builder(
+                            builder: (context) {
+                              final savedCartItems = cartState.items.where((i) => i.initialSavedQty > 0).toList();
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Theme(
+                                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                  child: ExpansionTile(
+                                    initiallyExpanded: newItems.isEmpty,
+                                    tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                    childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    title: Row(
+                                      children: [
+                                        const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Batch #1 (Pesanan Awal)',
+                                          style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success),
+                                        ),
+                                      ],
+                                    ),
+                                    subtitle: Text(
+                                      '${savedCartItems.length} menu sudah dikirim ke dapur',
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                    ),
+                                    children: savedCartItems.map((item) {
+                                      final savedSubtotal = item.product.harga * item.initialSavedQty;
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    item.product.nama,
+                                                    style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    '${item.initialSavedQty}x @ ${CurrencyFormatter.format(item.product.harga)} (Tersimpan)',
+                                                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: 70,
+                                              child: Text(
+                                                CurrencyFormatter.format(savedSubtotal),
+                                                textAlign: TextAlign.right,
+                                                style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
-                      ),
+                      ],
                     );
                   },
                 ),
@@ -617,7 +883,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     Icon(Icons.monetization_on_rounded, size: 16, color: Colors.orange.shade900),
                     const SizedBox(width: 6),
                     Text(
-                      'Input Total di Aplikasi Online',
+                      'Input Total di Aplikasi ${orderState.onlinePlatform ?? 'Online'}',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
                     ),
                   ],
@@ -656,13 +922,13 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   const SizedBox(height: 6),
                   Builder(
                     builder: (context) {
-                      final diff = cartState.grandTotal - orderState.onlinePlatformTotal!;
+                      final diff = (orderState.onlinePlatformTotal! - cartState.grandTotal).abs();
                       return Text(
-                        'Selisih (Kasir - Aplikasi): ${CurrencyFormatter.format(diff)}',
+                        'Selisih Komisi: ${CurrencyFormatter.format(diff)}',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: diff > 0 ? AppColors.error : AppColors.success,
+                          color: Colors.orange.shade900,
                         ),
                       );
                     },
@@ -686,15 +952,27 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                 ],
               ),
               const Divider(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Grand Total', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(
-                    CurrencyFormatter.format(cartState.grandTotal),
-                    style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
-                  ),
-                ],
+              Builder(
+                builder: (context) {
+                  final double? onlineTotal = (orderState.isOnlineFood && orderState.onlinePlatformTotal != null && orderState.onlinePlatformTotal! > 0)
+                      ? orderState.onlinePlatformTotal
+                      : null;
+                  final double effectiveGrandTotal = onlineTotal ?? cartState.grandTotal;
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        onlineTotal != null ? 'Grand Total (${orderState.onlinePlatform ?? "Online"})' : 'Grand Total',
+                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        CurrencyFormatter.format(effectiveGrandTotal),
+                        style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),

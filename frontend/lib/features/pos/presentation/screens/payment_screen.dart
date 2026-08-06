@@ -230,6 +230,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // 2. Jika Bayar Sekarang (lunas di awal), catat transaksi ke database transactions
       if (!isPayLater && _selectedMethod != null) {
         final txId = _uuid.v4();
+        final double storeTotal = subtotal + taxAmount;
+        final double? platformTotal = orderState.onlinePlatformTotal ?? orderState.activeOrder?.onlinePlatformTotal;
+        final double? platformDiff = platformTotal != null ? (platformTotal - storeTotal) : null;
+
         savedHeader = TransactionHeader(
           id: txId,
           nomorTransaksi: _orderNumber,
@@ -237,6 +241,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           taxPercentage: taxRate,
           taxAmount: taxAmount,
           grandTotal: grandTotal,
+          onlinePlatformTotal: platformTotal,
+          platformDifference: platformDiff,
+          onlinePlatform: orderState.onlinePlatform ?? orderState.activeOrder?.onlinePlatform,
           paymentMethodId: _selectedMethod!.id,
           paymentMethodNama: _selectedMethod!.nama,
           nominalBayar: amountPaid,
@@ -501,11 +508,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final cartState = ref.watch(cartNotifierProvider);
+    final orderState = ref.watch(orderNotifierProvider);
     final pmState = ref.watch(paymentMethodNotifierProvider);
     final activeMethods = pmState.allMethods.where((p) => p.isActive).toList();
 
     final isCash = _selectedMethod?.id == 'pm-tunai';
-    final grandTotal = cartState.grandTotal;
+    final double storeGrandTotal = cartState.grandTotal;
+    final double? onlineTotal = (orderState.isOnlineFood && orderState.onlinePlatformTotal != null && orderState.onlinePlatformTotal! > 0)
+        ? orderState.onlinePlatformTotal
+        : null;
+
+    final grandTotal = onlineTotal ?? storeGrandTotal;
 
     double amountPaid = 0;
     if (isCash) {
@@ -542,6 +555,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   
                   final billingPanel = _buildBillingPanel(
                     cartState, pmState, activeMethods, isCash, grandTotal,
+                    onlineTotal: onlineTotal,
+                    onlinePlatform: orderState.onlinePlatform,
                   );
                   final paymentPanel = _buildPaymentPanel(
                     isCash, grandTotal, change, isPayDisabled, cartState,
@@ -593,8 +608,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     dynamic pmState,
     List<PaymentMethod> activeMethods,
     bool isCash,
-    double grandTotal,
-  ) {
+    double grandTotal, {
+    double? onlineTotal,
+    String? onlinePlatform,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -631,11 +648,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ],
                   ),
                 ],
+                if (onlineTotal != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Tagihan Aplikasi (${onlinePlatform ?? "Online"})',
+                          style: AppTypography.bodyMedium.copyWith(color: Colors.orange.shade900, fontWeight: FontWeight.bold)),
+                      Text(CurrencyFormatter.format(onlineTotal),
+                          style: AppTypography.bodyMedium.copyWith(color: Colors.orange.shade900, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
                 const Divider(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Total Bayar', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+                    Text(onlineTotal != null ? 'Total Bayar Aplikasi' : 'Total Bayar', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
                     Text(
                       CurrencyFormatter.format(grandTotal),
                       style: AppTypography.titleLarge.copyWith(

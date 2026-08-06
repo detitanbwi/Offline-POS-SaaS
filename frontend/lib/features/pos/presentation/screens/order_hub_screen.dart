@@ -12,6 +12,7 @@ import '../../../product/application/product_notifier.dart';
 
 import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
+import '../../application/online_platform_notifier.dart';
 import '../../domain/models/order.dart';
 import 'table_selector_screen.dart';
 import 'cashier_screen.dart';
@@ -90,7 +91,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
               subtitle: const Text('Pesanan via aplikasi GoFood/GrabFood/ShopeeFood'),
               onTap: () {
                 Navigator.pop(context);
-                _navigateToCashierForTakeAway('online_food');
+                _showOnlinePlatformSelectionDialog();
               },
             ),
           ],
@@ -99,12 +100,111 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     );
   }
 
-  void _navigateToCashierForTakeAway(String subType) {
+  void _showOnlinePlatformSelectionDialog() {
+    ref.read(onlinePlatformNotifierProvider.notifier).loadPlatforms();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return Consumer(
+          builder: (context, ref, child) {
+            final platformState = ref.watch(onlinePlatformNotifierProvider);
+            final activePlatforms = platformState.platforms.where((p) => p.isActive).toList();
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Icon(Icons.delivery_dining_rounded, color: Colors.orange.shade800),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pilih Platform',
+                      style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Pilih aplikasi penyedia layanan online food:'),
+                    const SizedBox(height: 12),
+                    if (platformState.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (activePlatforms.isEmpty) ...[
+                      const Text(
+                        'Belum ada platform online tersimpan.',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                    ] else
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: activePlatforms.length + 1,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            if (index == activePlatforms.length) {
+                              return ListTile(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: const BorderSide(color: AppColors.divider),
+                                ),
+                                leading: const Icon(Icons.other_houses_rounded, color: AppColors.textSecondary),
+                                title: const Text('Lainnya / Umum', style: TextStyle(fontWeight: FontWeight.w600)),
+                                onTap: () {
+                                  Navigator.pop(dialogCtx);
+                                  _navigateToCashierForTakeAway('online_food', platform: 'Online Food');
+                                },
+                              );
+                            }
+                            final platform = activePlatforms[index];
+                            return ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(color: Colors.orange.shade300),
+                              ),
+                              tileColor: Colors.orange.shade50,
+                              leading: Icon(Icons.delivery_dining_rounded, color: Colors.orange.shade800),
+                              title: Text(platform.nama, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              trailing: const Icon(Icons.chevron_right_rounded, color: Colors.orange),
+                              onTap: () {
+                                Navigator.pop(dialogCtx);
+                                _navigateToCashierForTakeAway('online_food', platform: platform.nama);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Batal'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _navigateToCashierForTakeAway(String subType, {String? platform}) {
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
 
     orderNotifier.resetOrder();
-    orderNotifier.setOrderType('take_away', subType: subType);
+    orderNotifier.setOrderType('take_away', subType: subType, platform: platform);
     cartNotifier.clear();
 
     Navigator.push(

@@ -53,6 +53,9 @@ class OrderRepositoryMock implements OrderRepository {
   bool markItemsAsPrintedCalled = false;
 
   @override
+  Future<List<OrderModel>> getAllDraftOrders() async => mockActiveOrdersMap.values.toList();
+
+  @override
   Future<OrderModel?> getActiveOrderForTable(String tableId) async {
     return mockActiveOrder;
   }

@@ -92,6 +92,7 @@ class PosDatabase {
       "ALTER TABLE orders ADD COLUMN platform_difference REAL",
       "ALTER TABLE transactions ADD COLUMN online_platform_total REAL",
       "ALTER TABLE transactions ADD COLUMN platform_difference REAL",
+      "ALTER TABLE transactions ADD COLUMN online_platform TEXT",
     ];
     for (final sql in alterColumns) {
       try {
@@ -185,6 +186,9 @@ class PosDatabase {
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
         grand_total REAL NOT NULL,
+        online_platform_total REAL,
+        platform_difference REAL,
+        online_platform TEXT,
         payment_method_id TEXT NOT NULL,
         payment_method_nama TEXT NOT NULL,
         nominal_bayar REAL NOT NULL DEFAULT 0,

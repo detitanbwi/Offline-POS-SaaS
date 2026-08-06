@@ -87,7 +87,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final isEdit = table != null;
     final nameController = TextEditingController(text: table?.nama);
     final numberController = TextEditingController(text: table?.nomor);
-    int selectedStatus = table?.status ?? 0;
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -109,7 +108,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           id: table.id,
                           nama: name,
                           nomor: number,
-                          status: selectedStatus,
+                          status: table.status,
                         );
                   } else {
                     success = await ref.read(tableNotifierProvider.notifier).createTable(
@@ -155,28 +154,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       keyboardType: TextInputType.number,
                       validator: (v) => Validators.required(v, 'Nomor Urut Meja'),
                     ),
-                    if (isEdit) ...[
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<int>(
-                        initialValue: selectedStatus,
-                        decoration: const InputDecoration(
-                          labelText: 'Status Meja',
-                          prefixIcon: Icon(Icons.info_outline_rounded),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 0, child: Text('Kosong')),
-                          DropdownMenuItem(value: 1, child: Text('Terisi')),
-                          DropdownMenuItem(value: 2, child: Text('Reserved')),
-                          DropdownMenuItem(value: 3, child: Text('Maintenance')),
-                          DropdownMenuItem(value: 4, child: Text('Bill Dicetak')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedStatus = val);
-                          }
-                        },
-                      ),
-                    ],
                   ],
                 ),
               ),

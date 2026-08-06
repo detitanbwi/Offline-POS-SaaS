@@ -70,7 +70,8 @@ class ReceiptGenerator {
     bytes += generator.text('Tgl   : $nowStr', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Kasir : $cashier', styles: const PosStyles(align: PosAlign.left));
     if (order.isTakeAway) {
-      bytes += generator.text('Order : TAKE AWAY', styles: const PosStyles(align: PosAlign.left, bold: true));
+      final pName = order.onlinePlatform != null && order.onlinePlatform!.isNotEmpty ? ' (${order.onlinePlatform})' : '';
+      bytes += generator.text('Order : TAKE AWAY$pName', styles: const PosStyles(align: PosAlign.left, bold: true));
     } else if (order.tableNama != null && order.tableNama!.isNotEmpty) {
       bytes += generator.text('Meja  : ${order.tableNama}', styles: const PosStyles(align: PosAlign.left));
     }
@@ -234,7 +235,8 @@ class ReceiptGenerator {
     bytes += generator.text('Kasir : $cashier', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('No.   : ${transaction.nomorTransaksi}', styles: const PosStyles(align: PosAlign.left));
     if (transaction.orderType == 'take_away') {
-      bytes += generator.text('Order : TAKE AWAY', styles: const PosStyles(align: PosAlign.left, bold: true));
+      final pName = transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty ? ' (${transaction.onlinePlatform})' : '';
+      bytes += generator.text('Order : TAKE AWAY$pName', styles: const PosStyles(align: PosAlign.left, bold: true));
     } else if (tableName != null && tableName.isNotEmpty) {
       bytes += generator.text('Meja  : $tableName', styles: const PosStyles(align: PosAlign.left));
     }
@@ -273,15 +275,39 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
-    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+    final storeTotal = transaction.subtotal + transaction.taxAmount;
     bytes += _renderRow(
       generator,
       'TOTAL',
-      CurrencyFormatter.formatNumber(transaction.grandTotal),
+      CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal != null ? storeTotal : transaction.grandTotal),
       bold: true,
       totalWidth: charsPerLine,
     );
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+
+    if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) {
+      final storeTotal = transaction.subtotal + transaction.taxAmount;
+      final diff = (transaction.platformDifference != null && transaction.platformDifference != 0)
+          ? transaction.platformDifference!
+          : (transaction.onlinePlatformTotal! - storeTotal);
+      final platformLabel = transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty
+          ? 'Total App (${transaction.onlinePlatform})'
+          : 'Total App Online';
+      bytes += _renderRow(
+        generator,
+        platformLabel,
+        CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal!),
+        totalWidth: charsPerLine,
+      );
+      bytes += _renderRow(
+        generator,
+        'Selisih Komisi',
+        CurrencyFormatter.formatNumber(diff.abs()),
+        bold: true,
+        totalWidth: charsPerLine,
+      );
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+    }
 
     // Payment & Change
     bytes += _renderRow(
@@ -572,7 +598,10 @@ class ReceiptGenerator {
     buffer.writeln('Tgl   : $dateStr');
     buffer.writeln('Kasir : $cashier');
     buffer.writeln('No.   : ${transaction.nomorTransaksi}');
-    if (tableName != null && tableName.isNotEmpty) {
+    if (transaction.orderType == 'take_away') {
+      final pName = transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty ? ' (${transaction.onlinePlatform})' : '';
+      buffer.writeln('Order : TAKE AWAY$pName');
+    } else if (tableName != null && tableName.isNotEmpty) {
       buffer.writeln('Meja  : $tableName');
     }
     buffer.writeln(dashLine);
@@ -589,8 +618,20 @@ class ReceiptGenerator {
       buffer.writeln(formatTextRow('Pajak (${transaction.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(transaction.taxAmount), width: charsPerLine));
     }
     buffer.writeln(dashLine);
-    buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(transaction.grandTotal), width: charsPerLine));
+    final storeTotal = transaction.subtotal + transaction.taxAmount;
+    buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal != null ? storeTotal : transaction.grandTotal), width: charsPerLine));
     buffer.writeln(eqLine);
+    if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) {
+      final diff = (transaction.platformDifference != null && transaction.platformDifference != 0)
+          ? transaction.platformDifference!
+          : (transaction.onlinePlatformTotal! - storeTotal);
+      final platformLabel = transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty
+          ? 'Total App (${transaction.onlinePlatform})'
+          : 'Total App Online';
+      buffer.writeln(formatTextRow(platformLabel, CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal!), width: charsPerLine));
+      buffer.writeln(formatTextRow('Selisih Komisi', CurrencyFormatter.formatNumber(diff.abs()), width: charsPerLine));
+      buffer.writeln(dashLine);
+    }
     buffer.writeln(formatTextRow(transaction.paymentMethodNama.isEmpty ? 'Tunai' : transaction.paymentMethodNama, CurrencyFormatter.formatNumber(transaction.nominalBayar), width: charsPerLine));
     buffer.writeln(formatTextRow('Kembalian', CurrencyFormatter.formatNumber(transaction.kembalian), width: charsPerLine));
     buffer.writeln(eqLine);
