@@ -32,10 +32,10 @@ class MainMenuScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
           ),
           decoration: const BoxDecoration(
             color: AppColors.background,
@@ -70,7 +70,7 @@ class MainMenuScreen extends ConsumerWidget {
                   label: const Text('Kunci Layar / Ganti User'),
                   onPressed: () {
                     ref.read(authSessionProvider.notifier).state = null;
-                    Navigator.pop(context);
+                    Navigator.pop(sheetContext);
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
@@ -88,7 +88,7 @@ class MainMenuScreen extends ConsumerWidget {
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Keluar Akun SaaS (Logout)'),
                   onPressed: () {
-                    Navigator.pop(context);
+                    Navigator.pop(sheetContext);
                     _confirmSaaSLogout(context, ref);
                   },
                 ),
@@ -108,13 +108,17 @@ class MainMenuScreen extends ConsumerWidget {
       confirmText: 'Logout',
       isDestructive: true,
       onConfirm: () async {
+        // Tutup dialog terlebih dahulu
+        Navigator.of(context, rootNavigator: true).pop();
+
         final storage = ref.read(secureStorageServiceProvider);
         await storage.clearAll();
         ref.read(authSessionProvider.notifier).state = null;
+
         if (!context.mounted) return;
-        Navigator.pushReplacement(
-          context,
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
         );
       },
     );
