@@ -206,7 +206,7 @@ class PdfReceiptGenerator {
               pw.Text('Kasir : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('No.   : ${transaction.nomorTransaksi}', style: pw.TextStyle(font: font, fontSize: 8)),
               if (transaction.orderType == 'take_away')
-                pw.Text('Order : TAKE AWAY', style: pw.TextStyle(font: fontBold, fontSize: 8))
+                pw.Text('Order : TAKE AWAY${transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty ? " (${transaction.onlinePlatform})" : ""}', style: pw.TextStyle(font: fontBold, fontSize: 8))
               else if (tableName != null && tableName.isNotEmpty)
                 pw.Text('Meja  : $tableName', style: pw.TextStyle(font: font, fontSize: 8)),
               if (transaction.customerName != null && transaction.customerName!.isNotEmpty)
@@ -237,10 +237,32 @@ class PdfReceiptGenerator {
               _buildRowPdf(
                 fontBold,
                 'TOTAL',
-                CurrencyFormatter.formatNumber(transaction.grandTotal),
+                CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal != null ? (transaction.subtotal + transaction.taxAmount) : transaction.grandTotal),
                 isBold: true,
               ),
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
+
+              if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) ...[
+                _buildRowPdf(
+                  font,
+                  transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty
+                      ? 'Total App (${transaction.onlinePlatform})'
+                      : 'Total App Online',
+                  CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal!),
+                ),
+                _buildRowPdf(
+                  fontBold,
+                  'Selisih Komisi',
+                  CurrencyFormatter.formatNumber(
+                    ((transaction.platformDifference != null && transaction.platformDifference != 0)
+                            ? transaction.platformDifference!
+                            : (transaction.onlinePlatformTotal! - (transaction.subtotal + transaction.taxAmount)))
+                        .abs(),
+                  ),
+                  isBold: true,
+                ),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
 
               _buildRowPdf(
                 font,

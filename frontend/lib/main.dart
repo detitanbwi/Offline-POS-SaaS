@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -34,31 +35,68 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 class _MyAppState extends ConsumerState<MyApp> {
   late final Future<Widget> _initialRouteFuture;
+  Timer? _inactivityTimer;
+  Timer? _periodicValidationTimer;
 
   @override
   void initState() {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
+    _resetInactivityTimer();
+    
+    // Start a strict periodic background validation every 7 days (Production)
+    _periodicValidationTimer = Timer.periodic(const Duration(days: 7), (_) {
+      _triggerBackgroundValidation();
+    });
+
+    // // Start a strict periodic background validation every 3 minutes (Testing)
+    // _periodicValidationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
+    //   _triggerBackgroundValidation();
+    // });
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(const Duration(minutes: 3), _handleInactivity);
+  }
+
+  void _handleInactivity() {
+    // 1. Clear session
+    ref.read(authSessionProvider.notifier).state = null;
+    
+    // 2. Lock app by returning to PinScreen
+    appNavigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
+      (route) => false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _inactivityTimer?.cancel();
+    _periodicValidationTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _triggerBackgroundValidation() async {
-    final storage = ref.read(secureStorageServiceProvider);
-    final lastValidationStr = await storage.getLastValidation();
-    if (lastValidationStr != null && lastValidationStr.isNotEmpty) {
-      try {
-        final lastVal = DateTime.parse(lastValidationStr);
-        final diff = DateTime.now().difference(lastVal).inDays;
-        if (diff >= 7) {
-          final licenseService = ref.read(licenseServiceProvider);
-          final result = await licenseService.validateLicenseOnline();
-          if (result['success'] == false) {
-            ref.read(licenseExpiredProvider.notifier).state = true;
-          }
+    final licenseService = ref.read(licenseServiceProvider);
+    
+    // Gunakan timeout 10 detik agar tidak terlalu sensitif terhadap koneksi lemot
+    final result = await licenseService.validateLicenseOnline(customTimeout: 10);
+    if (result['success'] == false) {
+      if (result['is_offline'] == true) {
+        // Jika offline, fallback ke cek lisensi lokal (offline)
+        final isLicenseValid = await licenseService.checkLicenseOffline();
+        if (!isLicenseValid) {
+          ref.read(licenseExpiredProvider.notifier).state = true;
         }
-      } catch (e) {
-        // Silent catch
+      } else {
+        // Jika gagal karena ditolak oleh server
+        ref.read(licenseExpiredProvider.notifier).state = true;
       }
     }
   }
@@ -134,14 +172,18 @@ class _MyAppState extends ConsumerState<MyApp> {
       splitScreenMode: true,
       builder: (context, child) {
         return MaterialApp(
+          navigatorKey: appNavigatorKey,
           title: 'Offline POS Kasir SaaS',
           builder: (context, widget) {
             if (isExpired) {
               return const LicenseLockScreen();
             }
             return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanDown: (_) => _resetInactivityTimer(),
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
+                _resetInactivityTimer();
               },
               child: widget ?? const SizedBox.shrink(),
             );

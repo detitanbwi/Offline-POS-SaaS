@@ -22,6 +22,7 @@ class OrderState {
   final String? takeAwaySubType;
   final String? onlinePlatform;
   final String? customerName;
+  final double? onlinePlatformTotal;
   final bool isLoading;
   final String? errorMessage;
   final int nextBatchNumber;
@@ -36,12 +37,14 @@ class OrderState {
     this.takeAwaySubType,
     this.onlinePlatform,
     this.customerName,
+    this.onlinePlatformTotal,
     this.isLoading = false,
     this.errorMessage,
     this.nextBatchNumber = 1,
   });
 
   bool get isTakeAway => orderType == 'take_away';
+  bool get isOnlineFood => orderType == 'take_away' && takeAwaySubType == 'online_food';
 
   OrderState copyWith({
     TableModel? selectedTable,
@@ -53,11 +56,13 @@ class OrderState {
     String? takeAwaySubType,
     String? onlinePlatform,
     String? customerName,
+    double? onlinePlatformTotal,
     bool? isLoading,
     String? errorMessage,
     int? nextBatchNumber,
     bool clearActiveOrder = false,
     bool clearSelectedTable = false,
+    bool clearOnlinePlatformTotal = false,
   }) {
     return OrderState(
       selectedTable: clearSelectedTable ? null : (selectedTable ?? this.selectedTable),
@@ -69,6 +74,7 @@ class OrderState {
       takeAwaySubType: takeAwaySubType ?? this.takeAwaySubType,
       onlinePlatform: onlinePlatform ?? this.onlinePlatform,
       customerName: customerName ?? this.customerName,
+      onlinePlatformTotal: clearOnlinePlatformTotal ? null : (onlinePlatformTotal ?? this.onlinePlatformTotal),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
       nextBatchNumber: clearActiveOrder ? 1 : (nextBatchNumber ?? this.nextBatchNumber),
@@ -83,16 +89,39 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   OrderNotifier(this._repository, this._ref) : super(OrderState());
 
-  void setOrderType(String type, {String? subType, String? platform}) {
+  void resetOrder() {
+    state = OrderState(
+      activeOrdersMap: state.activeOrdersMap,
+      allDraftOrders: state.allDraftOrders,
+    );
+  }
+
+  void setOrderType(String type, {String? subType, String? platform, bool clearActiveOrder = true}) {
     if (type == 'take_away') {
-      state = state.copyWith(orderType: 'take_away', takeAwaySubType: subType, onlinePlatform: platform, clearSelectedTable: true);
+      state = state.copyWith(
+        orderType: 'take_away',
+        takeAwaySubType: subType,
+        onlinePlatform: platform,
+        clearSelectedTable: true,
+        clearActiveOrder: clearActiveOrder,
+      );
     } else {
-      state = state.copyWith(orderType: 'dine_in', takeAwaySubType: null, onlinePlatform: null);
+      state = state.copyWith(
+        orderType: 'dine_in',
+        takeAwaySubType: null,
+        onlinePlatform: null,
+        clearOnlinePlatformTotal: true,
+        clearActiveOrder: clearActiveOrder,
+      );
     }
   }
 
   void setCustomerName(String? name) {
     state = state.copyWith(customerName: name?.trim().isEmpty == true ? null : name?.trim());
+  }
+
+  void setOnlinePlatformTotal(double? total) {
+    state = state.copyWith(onlinePlatformTotal: total);
   }
 
   Future<void> selectTable(TableModel? table) async {
@@ -141,6 +170,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         orderType: order.orderType,
         takeAwaySubType: order.takeAwaySubType,
         onlinePlatform: order.onlinePlatform,
+        onlinePlatformTotal: order.onlinePlatformTotal,
         customerName: order.customerName ?? state.customerName,
         isLoading: false,
         nextBatchNumber: batchCount + 1,
@@ -164,6 +194,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
           orderType: activeOrder.orderType,
           takeAwaySubType: activeOrder.takeAwaySubType,
           onlinePlatform: activeOrder.onlinePlatform,
+          onlinePlatformTotal: activeOrder.onlinePlatformTotal,
           isLoading: false,
           nextBatchNumber: batchCount + 1,
         );
@@ -191,11 +222,16 @@ class OrderNotifier extends StateNotifier<OrderState> {
     String? customerName,
     String? cashierId,
     String? cashierNama,
+    bool printToKitchen = true,
   }) async {
     final table = state.selectedTable;
-    final isTakeAway = state.orderType == 'take_away';
+    final activeTableId = table?.id ?? state.activeOrder?.tableId;
+    final activeTableNama = table?.nama ?? state.activeOrder?.tableNama;
+    final activeTableNomor = table?.nomor ?? state.activeOrder?.tableNomor;
 
-    if (!isTakeAway && table == null) {
+    final isTakeAway = state.orderType == 'take_away' || (state.activeOrder != null && state.activeOrder!.orderType == 'take_away');
+
+    if (!isTakeAway && activeTableId == null) {
       state = state.copyWith(errorMessage: 'Meja belum dipilih untuk pesanan Dine-In.');
       return null;
     }
@@ -209,9 +245,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final orderHeader = OrderModel(
         id: orderId,
         nomorOrder: orderNo,
-        tableId: isTakeAway ? null : table?.id,
-        tableNama: isTakeAway ? 'Take Away' : table?.nama,
-        tableNomor: isTakeAway ? '-' : table?.nomor,
+        tableId: isTakeAway ? null : activeTableId,
+        tableNama: isTakeAway ? 'Take Away' : (activeTableNama ?? 'Meja'),
+        tableNomor: isTakeAway ? '-' : (activeTableNomor ?? '-'),
         customerName: finalCustomerName,
         orderType: state.orderType,
         takeAwaySubType: state.takeAwaySubType,
@@ -281,7 +317,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       // 1. Save order to SQLite (upsert strategy — preserves existing item batch IDs)
       await _repository.saveOrder(orderHeader, allOrderItems);
 
-      // 2. If there are items to print, record batch, mark items, generate receipt & send to kitchen
+      // 2. Record print batch and optionally print to kitchen
       if (itemsToPrint.isNotEmpty) {
         final batchCount = await _repository.getBatchCount(orderId);
         final currentBatchNo = batchCount + 1;
@@ -292,34 +328,36 @@ class OrderNotifier extends StateNotifier<OrderState> {
         // Mark all unprinted items (print_batch_id IS NULL) with this new batch
         await _repository.markItemsAsPrinted(orderId, batchId);
 
-        try {
-          await _ref.read(printerNotifierProvider.notifier).loadPrinters();
-          final printerState = _ref.read(printerNotifierProvider);
-          final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-          final targetPrinter = kitchenPrinterList.isNotEmpty
-              ? kitchenPrinterList.first
-              : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
+        if (printToKitchen) {
+          try {
+            await _ref.read(printerNotifierProvider.notifier).loadPrinters();
+            final printerState = _ref.read(printerNotifierProvider);
+            final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+            final targetPrinter = kitchenPrinterList.isNotEmpty
+                ? kitchenPrinterList.first
+                : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
 
-          final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
-            order: orderHeader,
-            itemsToPrint: itemsToPrint,
-            waveInfo: waveInfo,
-            paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-            charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-            autoCut: targetPrinter?.autoCut ?? false,
-          );
+            final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+              order: orderHeader,
+              itemsToPrint: itemsToPrint,
+              waveInfo: waveInfo,
+              paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
+              charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
+              autoCut: targetPrinter?.autoCut ?? false,
+            );
 
-          if (targetPrinter != null) {
-            await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
-          } else {
-            if (kDebugMode) {
-              debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
-              debugPrint(String.fromCharCodes(receiptBytes));
-              debugPrint('----------------------------------');
+            if (targetPrinter != null) {
+              await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+            } else {
+              if (kDebugMode) {
+                debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
+                debugPrint(String.fromCharCodes(receiptBytes));
+                debugPrint('----------------------------------');
+              }
             }
+          } catch (printErr) {
+            debugPrint('Printer not available or unit test environment: $printErr');
           }
-        } catch (printErr) {
-          debugPrint('Printer not available or unit test environment: $printErr');
         }
       }
 

@@ -11,7 +11,6 @@ import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
-import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/di/providers.dart';
@@ -21,7 +20,7 @@ import '../../domain/models/table.dart';
 import '../../../pos/application/cart_notifier.dart';
 import '../../../pos/application/order_notifier.dart';
 import '../../../pos/domain/models/order_item.dart';
-import '../../../pos/presentation/screens/pos_screen.dart';
+import '../../../pos/presentation/screens/cashier_screen.dart';
 import '../../../pos/presentation/screens/payment_screen.dart';
 
 class TableScreen extends ConsumerStatefulWidget {
@@ -88,7 +87,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final isEdit = table != null;
     final nameController = TextEditingController(text: table?.nama);
     final numberController = TextEditingController(text: table?.nomor);
-    int selectedStatus = table?.status ?? 0;
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -110,7 +108,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           id: table.id,
                           nama: name,
                           nomor: number,
-                          status: selectedStatus,
+                          status: table.status,
                         );
                   } else {
                     success = await ref.read(tableNotifierProvider.notifier).createTable(
@@ -156,28 +154,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       keyboardType: TextInputType.number,
                       validator: (v) => Validators.required(v, 'Nomor Urut Meja'),
                     ),
-                    if (isEdit) ...[
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<int>(
-                        initialValue: selectedStatus,
-                        decoration: const InputDecoration(
-                          labelText: 'Status Meja',
-                          prefixIcon: Icon(Icons.info_outline_rounded),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 0, child: Text('Kosong')),
-                          DropdownMenuItem(value: 1, child: Text('Terisi')),
-                          DropdownMenuItem(value: 2, child: Text('Reserved')),
-                          DropdownMenuItem(value: 3, child: Text('Maintenance')),
-                          DropdownMenuItem(value: 4, child: Text('Bill Dicetak')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedStatus = val);
-                          }
-                        },
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -302,7 +278,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const PosScreen()),
+      MaterialPageRoute(builder: (_) => const CashierScreen()),
     ).then((_) {
       ref.read(tableNotifierProvider.notifier).loadTables();
       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
@@ -959,6 +935,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             ),
           ] else ...[
             IconButton(
+              icon: const Icon(Icons.auto_awesome_rounded),
+              tooltip: 'Generate Meja Otomatis',
+              onPressed: () => _showGenerateDialog(context),
+            ),
+            IconButton(
               icon: const Icon(Icons.checklist_rounded),
               tooltip: 'Mode Pilih Banyak',
               onPressed: () {
@@ -1053,6 +1034,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         final isFilled = table.isOccupied || table.isBillPrinted || activeOrder != null;
         final isSelected = _selectedIds.contains(table.id);
 
+        Color cardBgColor = Colors.white;
+        BorderSide borderSide = const BorderSide(color: AppColors.divider, width: 1.0);
+        Color textColor = AppColors.textPrimary;
+        Color statusTextColor = getStatusColor();
+
+        if (isFilled) {
+          cardBgColor = table.isBillPrinted ? AppColors.warning : AppColors.success;
+          borderSide = BorderSide.none;
+          textColor = Colors.white;
+          statusTextColor = Colors.white;
+        }
+
         return InkWell(
           onTap: _isSelectionMode
               ? () {
@@ -1067,13 +1060,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               : () => _handleTableClick(table),
           borderRadius: BorderRadius.circular(12),
           child: AppCard(
-            color: isFilled
-                ? (table.isBillPrinted ? AppColors.warning : AppColors.success).withValues(alpha: 0.05)
-                : Colors.white,
-            borderSide: BorderSide(
-              color: isFilled ? getStatusColor() : AppColors.divider,
-              width: isFilled ? 2.0 : 1.0,
-            ),
+            color: cardBgColor,
+            borderSide: borderSide,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1103,8 +1091,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         ),
                         Text(
                           'No: ${table.nomor}',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: isFilled ? Colors.white70 : AppColors.textSecondary,
                             fontSize: 11.sp,
                           ),
                         ),
@@ -1121,13 +1109,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: getStatusColor().withValues(alpha: 0.15),
+                            color: isFilled ? Colors.white.withValues(alpha: 0.25) : getStatusColor().withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             table.statusLabel,
                             style: TextStyle(
-                              color: table.isEmpty ? AppColors.textPrimary : getStatusColor(),
+                              color: isFilled ? Colors.white : (table.isEmpty ? AppColors.textPrimary : getStatusColor()),
                               fontSize: 9.sp,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1136,8 +1124,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         const SizedBox(width: 4),
                         Text(
                           'No: ${table.nomor}',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: isFilled ? Colors.white70 : AppColors.textSecondary,
                             fontSize: 11.sp,
                           ),
                         ),
@@ -1148,7 +1136,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 Text(
                   table.nama,
                   textAlign: TextAlign.center,
-                  style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1158,7 +1150,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     CurrencyFormatter.format(activeOrder.grandTotal),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: getStatusColor(),
+                      color: Colors.white,
                       fontSize: 11.sp,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1167,7 +1159,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ],
                 const SizedBox(height: 4),
-                const Divider(height: 4),
+                Divider(height: 4, color: isFilled ? Colors.white30 : AppColors.divider),
                 if (_isSelectionMode)
                   Padding(
                     padding: const EdgeInsets.only(top: 4.0),
@@ -1175,7 +1167,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       child: Text(
                         table.statusLabel,
                         style: TextStyle(
-                          color: getStatusColor(),
+                          color: statusTextColor,
                           fontSize: 9.sp,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1187,17 +1179,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                        icon: Icon(Icons.edit_outlined, size: 20.sp, color: isFilled ? Colors.white : AppColors.primary),
                         onPressed: () => _showFormDialog(context, table: table),
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
+                        padding: const EdgeInsets.all(6),
                         tooltip: 'Edit',
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.error),
+                        icon: Icon(Icons.delete_outline_rounded, size: 20.sp, color: isFilled ? Colors.white : AppColors.error),
                         onPressed: () => _showDeleteDialog(context, table),
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
+                        padding: const EdgeInsets.all(6),
                         tooltip: 'Hapus',
                       ),
                     ],

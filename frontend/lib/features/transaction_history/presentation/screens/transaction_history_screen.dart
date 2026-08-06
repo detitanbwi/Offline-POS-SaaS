@@ -220,21 +220,26 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                             final tx = state.filteredTransactions[index];
                             final timeStr = DateFormat('yyyy-MM-dd HH:mm').format(tx.createdAt);
                             
+                            final isVoided = tx.status == 'voided';
+                            
                             return AppCard(
                               onTap: () => _showReceiptDetail(context, tx),
                               padding: const EdgeInsets.all(16),
-                              borderSide: const BorderSide(color: AppColors.divider),
+                              borderSide: BorderSide(
+                                color: isVoided ? AppColors.error.withValues(alpha: 0.3) : AppColors.divider,
+                              ),
+                              color: isVoided ? Colors.red.shade50.withValues(alpha: 0.3) : Colors.white,
                               child: Row(
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryContainer,
+                                      color: isVoided ? Colors.grey.shade200 : AppColors.primaryContainer,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.receipt_long_rounded,
-                                      color: AppColors.primary,
+                                      color: isVoided ? Colors.grey : AppColors.primary,
                                       size: 24,
                                     ),
                                   ),
@@ -243,10 +248,37 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          tx.nomorTransaksi,
-                                          style: AppTypography.titleMedium.copyWith(fontSize: 16),
-                                        ),
+                                         Wrap(
+                                           crossAxisAlignment: WrapCrossAlignment.center,
+                                           spacing: 6,
+                                           runSpacing: 4,
+                                           children: [
+                                             Text(
+                                               tx.nomorTransaksi,
+                                               style: AppTypography.titleMedium.copyWith(
+                                                 fontSize: 14,
+                                                 decoration: isVoided ? TextDecoration.lineThrough : null,
+                                                 color: isVoided ? AppColors.textSecondary : AppColors.textPrimary,
+                                               ),
+                                             ),
+                                             if (isVoided)
+                                               Container(
+                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                 decoration: BoxDecoration(
+                                                   color: AppColors.error.withValues(alpha: 0.1),
+                                                   borderRadius: BorderRadius.circular(6),
+                                                 ),
+                                                 child: const Text(
+                                                   'VOID',
+                                                   style: TextStyle(
+                                                     color: AppColors.error,
+                                                     fontSize: 10,
+                                                     fontWeight: FontWeight.bold,
+                                                   ),
+                                                 ),
+                                               ),
+                                           ],
+                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           'Pembayaran: ${tx.paymentMethodNama} • $timeStr',
@@ -261,14 +293,20 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                   Text(
                                     CurrencyFormatter.format(tx.grandTotal),
                                     style: AppTypography.titleMedium.copyWith(
-                                      color: AppColors.primary,
+                                      color: isVoided ? AppColors.textSecondary : AppColors.primary,
                                       fontSize: 15,
+                                      decoration: isVoided ? TextDecoration.lineThrough : null,
                                     ),
                                   ),
+                                  const SizedBox(width: 4),
                                   IconButton(
-                                    icon: const Icon(Icons.block_rounded, color: AppColors.error, size: 20),
-                                    tooltip: 'Batal Transaksi (Void)',
-                                    onPressed: () => _handleVoidTransaction(context, tx),
+                                    icon: Icon(
+                                      Icons.block_rounded,
+                                      color: isVoided ? Colors.grey.shade400 : AppColors.error,
+                                      size: 20,
+                                    ),
+                                    tooltip: isVoided ? 'Transaksi Sudah Dibatalkan' : 'Batal Transaksi (Void)',
+                                    onPressed: isVoided ? null : () => _handleVoidTransaction(context, tx),
                                   ),
                                 ],
                               ),

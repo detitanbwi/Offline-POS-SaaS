@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/screens/pin_screen.dart';
+import '../../../auth/presentation/screens/login_screen.dart';
 
 class ActivationScreen extends ConsumerStatefulWidget {
   const ActivationScreen({super.key});
@@ -82,8 +83,156 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       );
     } else {
       if (!mounted) return;
-      AppSnackbar.showError(context, result['message'] ?? 'Aktivasi Gagal');
+      if (result['message'] == 'Token sudah digunakan pada perangkat lain. Hubungi admin untuk reset.') {
+        _showResetDeviceDialog();
+      } else {
+        AppSnackbar.showError(context, result['message'] ?? 'Aktivasi Gagal');
+      }
     }
+  }
+
+  void _showResetDeviceDialog() {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    bool isRequesting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              title: Text('Reset Perangkat', style: AppTypography.titleLarge.copyWith(color: AppColors.primary)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Token ini sudah terikat ke perangkat lain. Masukkan email dan password pemilik lisensi untuk mereset perangkat.', style: AppTypography.bodyMedium),
+                  SizedBox(height: 16.h),
+                  AppTextField(
+                    controller: emailController,
+                    labelText: 'Email',
+                    hintText: 'admin@toko.com',
+                    prefixIcon: Icons.email_rounded,
+                  ),
+                  SizedBox(height: 16.h),
+                  AppTextField(
+                    controller: passwordController,
+                    labelText: 'Password',
+                    hintText: 'Masukkan password Anda',
+                    prefixIcon: Icons.lock_rounded,
+                    obscureText: true,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isRequesting ? null : () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
+                AppButton(
+                  text: 'Kirim OTP',
+                  isLoading: isRequesting,
+                  onPressed: () async {
+                    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+                      AppSnackbar.showWarning(context, 'Email dan password harus diisi');
+                      return;
+                    }
+                    setStateDialog(() => isRequesting = true);
+                    final licenseService = ref.read(licenseServiceProvider);
+                    final result = await licenseService.requestDeviceResetOtp(
+                      email: emailController.text.trim(),
+                      password: passwordController.text,
+                      tokenKey: _licenseController.text.trim(),
+                    );
+                    setStateDialog(() => isRequesting = false);
+
+                    if (result['success'] == true) {
+                      if (!context.mounted) return;
+                      Navigator.pop(context); // Tutup dialog auth
+                      _showVerifyOtpDialog(emailController.text.trim());
+                    } else {
+                      if (!context.mounted) return;
+                      AppSnackbar.showError(context, result['message']);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showVerifyOtpDialog(String email) {
+    final otpController = TextEditingController();
+    bool isVerifying = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              title: Text('Verifikasi OTP', style: AppTypography.titleLarge.copyWith(color: AppColors.primary)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Masukkan 6 digit kode OTP yang dikirim ke email $email', style: AppTypography.bodyMedium),
+                  SizedBox(height: 16.h),
+                  AppTextField(
+                    controller: otpController,
+                    labelText: 'Kode OTP',
+                    hintText: '123456',
+                    prefixIcon: Icons.security_rounded,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isVerifying ? null : () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
+                AppButton(
+                  text: 'Verifikasi & Reset',
+                  isLoading: isVerifying,
+                  onPressed: () async {
+                    if (otpController.text.length != 6) {
+                      AppSnackbar.showWarning(context, 'Kode OTP harus 6 digit');
+                      return;
+                    }
+                    setStateDialog(() => isVerifying = true);
+                    final licenseService = ref.read(licenseServiceProvider);
+                    final result = await licenseService.verifyDeviceResetOtp(
+                      email: email,
+                      tokenKey: _licenseController.text.trim(),
+                      otp: otpController.text.trim(),
+                    );
+                    setStateDialog(() => isVerifying = false);
+
+                    if (result['success'] == true) {
+                      if (!context.mounted) return;
+                      Navigator.pop(context); // Tutup dialog OTP
+                      AppSnackbar.showSuccess(context, 'Perangkat berhasil di-reset. Mengaktifkan...');
+                      _handleActivation(); // Coba aktivasi lagi otomatis
+                    } else {
+                      if (!context.mounted) return;
+                      AppSnackbar.showError(context, result['message']);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -97,6 +246,22 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       resizeToAvoidBottomInset: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.primary),
+          onPressed: () async {
+            final storage = ref.read(secureStorageServiceProvider);
+            await storage.clearAll();
+            if (!context.mounted) return;
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            );
+          },
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

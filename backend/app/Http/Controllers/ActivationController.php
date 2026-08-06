@@ -6,6 +6,7 @@ use App\Enums\SubscriptionStatus;
 use App\Http\Requests\ActivateTokenRequest;
 use App\Http\Requests\ValidateTokenRequest;
 use App\Services\LicenseService;
+use App\Services\DeviceResetService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,7 @@ class ActivationController extends Controller
 {
     public function __construct(
         protected LicenseService $licenseService,
+        protected DeviceResetService $deviceResetService,
     ) {}
 
     public function activate(ActivateTokenRequest $request): JsonResponse
@@ -107,5 +109,47 @@ class ActivationController extends Controller
                 'activated_at' => $t->activated_at?->toIso8601String(),
             ]),
         ]);
+    }
+
+    public function requestResetOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+            'token_key' => 'required|string',
+        ]);
+
+        try {
+            $result = $this->deviceResetService->requestOtp(
+                $request->email,
+                $request->password,
+                $request->token_key
+            );
+            return response()->json($result, 200);
+        } catch (\Exception $e) {
+            $status = $e->getCode() >= 400 && $e->getCode() <= 500 ? $e->getCode() : 400;
+            return response()->json(['success' => false, 'message' => $e->getMessage()], $status);
+        }
+    }
+
+    public function verifyResetOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token_key' => 'required|string',
+            'otp' => 'required|digits:6',
+        ]);
+
+        try {
+            $result = $this->deviceResetService->verifyOtp(
+                $request->email,
+                $request->token_key,
+                $request->otp
+            );
+            return response()->json($result, 200);
+        } catch (\Exception $e) {
+            $status = $e->getCode() >= 400 && $e->getCode() <= 500 ? $e->getCode() : 400;
+            return response()->json(['success' => false, 'message' => $e->getMessage()], $status);
+        }
     }
 }
