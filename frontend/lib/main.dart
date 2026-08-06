@@ -48,10 +48,15 @@ class _MyAppState extends ConsumerState<MyApp> {
     _initialRouteFuture = _getInitialRoute();
     _resetInactivityTimer();
     
-    // Start a strict periodic background validation every 3 minutes
-    _periodicValidationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
+    // Start a strict periodic background validation every 7 days (Production)
+    _periodicValidationTimer = Timer.periodic(const Duration(days: 7), (_) {
       _triggerBackgroundValidation();
     });
+
+    // // Start a strict periodic background validation every 3 minutes (Testing)
+    // _periodicValidationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
+    //   _triggerBackgroundValidation();
+    // });
   }
 
   void _resetInactivityTimer() {
