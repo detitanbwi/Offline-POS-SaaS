@@ -8,7 +8,7 @@ import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-
+import '../../../auth/presentation/screens/login_screen.dart';
 class LicenseLockScreen extends ConsumerStatefulWidget {
   const LicenseLockScreen({super.key});
 
@@ -34,10 +34,27 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
       }
     } else {
       if (mounted) {
-        AppSnackbar.showError(
-          context, 
-          result['message'] ?? 'Gagal melakukan sinkronisasi lisensi. Periksa koneksi internet.'
-        );
+        if (result['message'] == 'Data aktivasi tidak lengkap') {
+          final storage = ref.read(secureStorageServiceProvider);
+          await storage.clearAll();
+          
+          if (mounted) {
+            // Buka blokir UI
+            ref.read(licenseExpiredProvider.notifier).state = false;
+
+            AppSnackbar.showError(context, 'Sesi tidak valid. Silakan login kembali.');
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+            );
+          }
+        } else {
+          AppSnackbar.showError(
+            context, 
+            result['message'] ?? 'Gagal melakukan sinkronisasi lisensi. Periksa koneksi internet.'
+          );
+        }
       }
     }
   }

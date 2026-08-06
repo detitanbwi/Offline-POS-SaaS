@@ -103,7 +103,7 @@ class LicenseService {
         return {'success': false, 'message': data['message'] ?? 'Validasi gagal'};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Koneksi internet tidak tersedia'};
+      return {'success': false, 'message': 'Koneksi internet tidak tersedia', 'is_offline': true};
     }
   }
 

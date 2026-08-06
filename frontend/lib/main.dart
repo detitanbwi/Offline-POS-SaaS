@@ -80,11 +80,19 @@ class _MyAppState extends ConsumerState<MyApp> {
   Future<void> _triggerBackgroundValidation() async {
     final licenseService = ref.read(licenseServiceProvider);
     
-    // Gunakan timeout yang lebih singkat (3 detik) khusus untuk validasi di background
-    // agar saat offline tidak menunggu lama (mempercepat proses penguncian)
-    final result = await licenseService.validateLicenseOnline(customTimeout: 3);
+    // Gunakan timeout 10 detik agar tidak terlalu sensitif terhadap koneksi lemot
+    final result = await licenseService.validateLicenseOnline(customTimeout: 10);
     if (result['success'] == false) {
-      ref.read(licenseExpiredProvider.notifier).state = true;
+      if (result['is_offline'] == true) {
+        // Jika offline, fallback ke cek lisensi lokal (offline)
+        final isLicenseValid = await licenseService.checkLicenseOffline();
+        if (!isLicenseValid) {
+          ref.read(licenseExpiredProvider.notifier).state = true;
+        }
+      } else {
+        // Jika gagal karena ditolak oleh server
+        ref.read(licenseExpiredProvider.notifier).state = true;
+      }
     }
   }
 
