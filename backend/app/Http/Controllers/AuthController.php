@@ -22,9 +22,17 @@ class AuthController extends Controller
             return response()->json(['success' => false, 'message' => 'Kredensial tidak valid'], 401);
         }
 
+        // Cek status Tenant agar user tidak bisa login jika tenant tidak aktif/dihapus
+        $tenant = $user->tenant;
+        if (!$tenant || $tenant->status !== \App\Enums\TenantStatus::ACTIVE) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Akun perusahaan Anda tidak aktif atau telah dihapus'
+            ], 403);
+        }
+
         // Buat token Sanctum
         $token = $user->createToken('mobile-app')->plainTextToken;
-        $tenant = $user->tenant;
 
         return response()->json([
             'success' => true,
