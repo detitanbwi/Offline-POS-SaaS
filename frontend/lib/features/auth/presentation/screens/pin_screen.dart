@@ -103,17 +103,22 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     return digest.toString();
   }
 
+  bool _isSubmitting = false;
+
   Future<void> _submitPin() async {
-    final pin = _pinController.text;
+    final pin = _pinController.text.trim();
     final hashedPin = _hashPIN(pin);
 
     if (widget.isSetup) {
       if (pin.length != 6) {
-        setState(() => _errorMessage = 'PIN Keamanan harus 6 digit!');
+        final msg = 'PIN Keamanan harus 6 digit!';
+        setState(() => _errorMessage = msg);
+        AppSnackbar.showError(context, msg);
         return;
       }
       if (!mounted) return;
 
+      setState(() => _isSubmitting = true);
       try {
         final storage = ref.read(secureStorageServiceProvider);
         final licenseKey = await storage.getLicenseKey() ?? 'XXXX-XXXX-XXXX';
@@ -135,16 +140,24 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       } catch (e) {
         if (!mounted) return;
         AppSnackbar.showError(context, 'Gagal membuat PIN: $e');
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
       }
       return;
     }
 
-    if (_selectedAccount != null) {
-      if (pin.length != 6) {
-        setState(() => _errorMessage = 'PIN harus 6 digit!');
-        return;
-      }
+    if (_selectedAccount == null) {
+      setState(() => _errorMessage = 'Silakan pilih akun pengguna terlebih dahulu!');
+      return;
+    }
 
+    if (pin.length != 6) {
+      setState(() => _errorMessage = 'PIN harus 6 digit angka!');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
       if (_selectedAccount!.isOwner) {
         final securityRepo = ref.read(securityRepositoryProvider);
         final isPinValid = await securityRepo.validateMasterPin(pin);
@@ -182,6 +195,13 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           });
         }
       }
+    } catch (e) {
+      debugPrint('Error submit PIN: $e');
+      if (mounted) {
+        setState(() => _errorMessage = 'Gagal verifikasi: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -521,19 +541,38 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           ),
         ),
         SizedBox(height: 12.h),
-        if (_errorMessage.isNotEmpty)
-          Text(
-            _errorMessage,
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.secondary,
-              fontWeight: FontWeight.bold,
+        if (_errorMessage.isNotEmpty) ...[
+          SizedBox(height: 12.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: Colors.red.shade800,
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    _errorMessage,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+        ],
         SizedBox(height: 24.h),
         AppButton(
           text: 'Masuk ke Sistem',
           type: AppButtonType.secondary,
+          isLoading: _isSubmitting,
           onPressed: _submitPin,
         ),
         if (_selectedAccount!.isOwner) ...[

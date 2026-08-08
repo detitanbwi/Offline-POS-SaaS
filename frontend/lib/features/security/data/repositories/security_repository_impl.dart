@@ -44,45 +44,62 @@ class SecurityRepositoryImpl implements SecurityRepository {
 
   @override
   Future<SecurityCredential?> getSecurityCredential() async {
-    final db = await _database.database;
-    final results = await db.query(
-      'security_credentials',
-      where: 'id = ?',
-      whereArgs: ['master_security_core'],
-      limit: 1,
-    );
+    try {
+      final db = await _database.database;
+      final results = await db.query(
+        'security_credentials',
+        where: 'id = ?',
+        whereArgs: ['master_security_core'],
+        limit: 1,
+      );
 
-    if (results.isNotEmpty) {
-      return SecurityCredential.fromMap(results.first);
+      if (results.isNotEmpty) {
+        return SecurityCredential.fromMap(results.first);
+      }
+    } catch (e) {
+      // Table might not exist or database init issue
     }
     return null;
   }
 
   @override
   Future<bool> validateRecoveryCode(String candidateRecoveryCode) async {
-    final credential = await getSecurityCredential();
-    if (credential == null) return false;
-    final normalized = candidateRecoveryCode.replaceAll('-', '').replaceAll(' ', '').trim().toUpperCase();
-    final candidateHash = _hashSecret(normalized);
-    return credential.recoveryCodeHash == candidateHash;
+    try {
+      final credential = await getSecurityCredential();
+      if (credential == null) return false;
+      final normalized = candidateRecoveryCode.replaceAll('-', '').replaceAll(' ', '').trim().toUpperCase();
+      final candidateHash = _hashSecret(normalized);
+      return credential.recoveryCodeHash == candidateHash;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
   Future<bool> validateMasterPin(String candidatePin) async {
-    final candidateHash = _hashSecret(candidatePin);
-    final candidateOldHash = _oldHash(candidatePin);
+    try {
+      final candidateHash = _hashSecret(candidatePin);
+      final candidateOldHash = _oldHash(candidatePin);
 
-    final credential = await getSecurityCredential();
-    if (credential != null) {
-      return credential.masterPinHash == candidateHash ||
-             credential.masterPinHash == candidateOldHash ||
-             credential.masterPinHash == candidatePin; // in case raw hash was passed
+      final credential = await getSecurityCredential();
+      if (credential != null) {
+        if (credential.masterPinHash == candidateHash ||
+            credential.masterPinHash == candidateOldHash ||
+            credential.masterPinHash == candidatePin) {
+          return true;
+        }
+      }
+
+      final savedPin = await _secureStorage.getLocalPIN();
+      if (savedPin != null && savedPin.isNotEmpty) {
+        return savedPin == candidateHash ||
+               savedPin == candidateOldHash ||
+               savedPin == candidatePin;
+      }
+    } catch (e) {
+      // Safe fallback
     }
-
-    final savedPin = await _secureStorage.getLocalPIN();
-    return savedPin == candidateHash ||
-           savedPin == candidateOldHash ||
-           savedPin == candidatePin;
+    return false;
   }
 
   @override
@@ -119,37 +136,43 @@ class SecurityRepositoryImpl implements SecurityRepository {
 
   @override
   Future<void> updateMasterPinHash(String newMasterPinHash) async {
-    final db = await _database.database;
-    final existing = await getSecurityCredential();
-    final now = DateTime.now();
-
-    if (existing != null) {
-      final updated = existing.copyWith(
-        masterPinHash: newMasterPinHash,
-        updatedAt: now,
-      );
-      await db.insert(
-        'security_credentials',
-        updated.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    } else {
-      final newCred = SecurityCredential(
-        id: 'master_security_core',
-        masterPinHash: newMasterPinHash,
-        recoveryCodeHash: '',
-        licenseKeyLastSix: '',
-        createdAt: now,
-        updatedAt: now,
-      );
-      await db.insert(
-        'security_credentials',
-        newCred.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
-
+    // 1. Selalu perbarui Secure Storage terlebih dahulu agar validasi PIN lokal langsung berubah
     await _secureStorage.saveLocalPIN(newMasterPinHash);
+
+    // 2. Perbarui kredensial di database SQLite
+    try {
+      final db = await _database.database;
+      final existing = await getSecurityCredential();
+      final now = DateTime.now();
+
+      if (existing != null) {
+        final updated = existing.copyWith(
+          masterPinHash: newMasterPinHash,
+          updatedAt: now,
+        );
+        await db.insert(
+          'security_credentials',
+          updated.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else {
+        final newCred = SecurityCredential(
+          id: 'master_security_core',
+          masterPinHash: newMasterPinHash,
+          recoveryCodeHash: '',
+          licenseKeyLastSix: '',
+          createdAt: now,
+          updatedAt: now,
+        );
+        await db.insert(
+          'security_credentials',
+          newCred.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (e) {
+      // Safe fallback if SQLite fails
+    }
   }
 
   @override
