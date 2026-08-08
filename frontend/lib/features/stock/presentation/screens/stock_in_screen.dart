@@ -127,7 +127,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                           onActionPressed: () => _showAddDialog(context),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(AppSpacing.m),
+                          padding: const EdgeInsets.all(AppSpacing.m).copyWith(bottom: 100),
                           itemCount: state.filteredStockIn.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
