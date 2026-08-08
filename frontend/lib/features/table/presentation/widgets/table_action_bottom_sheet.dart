@@ -12,7 +12,6 @@ class TableActionBottomSheet extends ConsumerWidget {
   final VoidCallback onAddBatch;
   final VoidCallback onPrintBill;
   final VoidCallback onFinishCleaning;
-  final VoidCallback onForceClear;
   final VoidCallback onMoveTable;
 
   const TableActionBottomSheet({
@@ -23,7 +22,6 @@ class TableActionBottomSheet extends ConsumerWidget {
     required this.onAddBatch,
     required this.onPrintBill,
     required this.onFinishCleaning,
-    required this.onForceClear,
     required this.onMoveTable,
   });
 
@@ -76,14 +74,7 @@ class TableActionBottomSheet extends ConsumerWidget {
                 icon: const Icon(Icons.more_vert, color: Colors.grey),
                 tooltip: 'Aksi Lainnya & Manajemen',
                 onSelected: (value) {
-                  if (value == 'force_clear') {
-                    _showDangerConfirmation(
-                      context,
-                      'Force Clear Meja',
-                      'Kosongkan meja secara paksa tanpa transaksi? Tindakan ini tidak dapat dibatalkan.',
-                      onForceClear,
-                    );
-                  } else if (value == 'move_table') {
+                  if (value == 'move_table') {
                     onMoveTable();
                   }
                 },
@@ -95,23 +86,6 @@ class TableActionBottomSheet extends ConsumerWidget {
                         Icon(Icons.move_up_rounded, color: AppColors.secondary, size: 20),
                         SizedBox(width: 8),
                         Text('Pindah Meja'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'force_clear',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.cleaning_services_outlined,
-                          color: AppColors.error,
-                          size: 20,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Force Clear Meja',
-                          style: TextStyle(color: AppColors.error),
-                        ),
                       ],
                     ),
                   ),
@@ -321,35 +295,4 @@ class TableActionBottomSheet extends ConsumerWidget {
     );
   }
 
-  void _showDangerConfirmation(
-    BuildContext context,
-    String title,
-    String message,
-    VoidCallback onConfirm,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(color: AppColors.error)),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              onConfirm();
-            },
-            child: const Text('Ya, Kosongkan'),
-          ),
-        ],
-      ),
-    );
-  }
 }

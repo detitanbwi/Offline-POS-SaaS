@@ -77,7 +77,21 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
       } else {
         // Jika gagal karena ditolak oleh server
-        ref.read(licenseExpiredProvider.notifier).state = true;
+        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || result['message'] == 'Perangkat tidak terdaftar';
+        if (isAuthError) {
+          final storage = ref.read(secureStorageServiceProvider);
+          await storage.clearAll();
+          
+          if (appNavigatorKey.currentContext != null) {
+            Navigator.pushAndRemoveUntil(
+              appNavigatorKey.currentContext!,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+            );
+          }
+        } else {
+          ref.read(licenseExpiredProvider.notifier).state = true;
+        }
       }
     }
   }

@@ -344,28 +344,6 @@ class TableOrderDetailSheet {
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              confirmClearTable(context, ref, table, activeOrder);
-                            },
-                            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.error),
-                            label: const Text('Kosongkan Meja', style: TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.error),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ],
               ),
@@ -448,28 +426,6 @@ class TableOrderDetailSheet {
     } else {
       AppSnackbar.showError(context, 'Gagal mencetak ulang tiket dapur.');
     }
-  }
-
-  static void confirmClearTable(BuildContext context, WidgetRef ref, TableModel table, dynamic activeOrder) {
-    final hasOrder = activeOrder != null;
-    AppDialog.show(
-      context: context,
-      title: 'Kosongkan Meja',
-      message: hasOrder
-          ? 'Meja ini memiliki pesanan aktif. Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?'
-          : 'Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?',
-      confirmText: 'Ya, Kosongkan',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () async {
-        await ref.read(orderNotifierProvider.notifier).clearOccupiedTable(table);
-        await ref.read(tableNotifierProvider.notifier).loadTables();
-        await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        if (context.mounted) {
-          AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
-        }
-      },
-    );
   }
 
   static void handleMoveTable(BuildContext context, WidgetRef ref, TableModel sourceTable, dynamic activeOrder) {

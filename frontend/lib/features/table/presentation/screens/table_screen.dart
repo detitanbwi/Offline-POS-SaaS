@@ -643,22 +643,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(sheetContext);
-                              _confirmClearTable(table, activeOrder);
-                            },
-                            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.error),
-                            label: const Text('Kosongkan', style: TextStyle(color: AppColors.error, fontSize: 12)),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.error),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ],
@@ -667,59 +651,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             ],
           ),
           ),
-        );
-      },
-    );
-  }
-
-  void _confirmClearTable(TableModel table, dynamic activeOrder) {
-    final reasonController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Kosongkan Meja'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonController,
-                decoration: const InputDecoration(
-                  labelText: 'Alasan (Wajib)',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              onPressed: () async {
-                final reason = reasonController.text.trim();
-                if (reason.isEmpty) {
-                  AppSnackbar.showWarning(context, 'Alasan harus diisi.');
-                  return;
-                }
-                Navigator.pop(context);
-
-                await ref.read(orderNotifierProvider.notifier).clearOccupiedTable(table, reason);
-
-                if (context.mounted) {
-                  AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
-                  ref.read(tableNotifierProvider.notifier).loadTables();
-                  ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                }
-              },
-              child: const Text('Ya, Kosongkan'),
-            ),
-          ],
         );
       },
     );
