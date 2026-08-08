@@ -901,7 +901,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text(_isSelectionMode ? '${_selectedIds.length} Meja Terpilih' : 'Manajemen Meja Makan'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _isSelectionMode ? '${_selectedIds.length} Meja Terpilih' : 'Manajemen Meja Makan',
+              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            ),
+            if (!_isSelectionMode)
+              Text(
+                'Atur dan pantau ketersediaan meja',
+                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 12),
+              ),
+          ],
+        ),
         leading: _isSelectionMode
             ? IconButton(
                 icon: const Icon(Icons.close),
@@ -966,30 +979,54 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   await ref.read(tableNotifierProvider.notifier).loadTables();
                   await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
                 },
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.m),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Daftar Meja (${state.allTables.length})',
-                            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Ketuk meja terisi untuk kelola pesanan',
-                            style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                          ),
-                        ],
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.all(AppSpacing.m),
+                      sliver: SliverToBoxAdapter(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Daftar Meja (${state.allTables.length})',
+                                  style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text('Terisi', style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(color: AppColors.divider, shape: BoxShape.circle),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text('Kosong', style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
+                                  ],
+                                )
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: AppSpacing.s),
-                      Expanded(
-                        child: _buildTableGrid(context, state.allTables, orderState.activeOrdersMap),
-                      ),
-                    ],
-                  ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m).copyWith(bottom: 100),
+                      sliver: _buildTableGrid(context, state.allTables, orderState.activeOrdersMap),
+                    ),
+                  ],
                 ),
               ),
       ),
@@ -998,8 +1035,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               onPressed: () => _showFormDialog(context),
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              elevation: 4,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Tambah Meja'),
+              label: const Text('Tambah Meja', style: TextStyle(fontWeight: FontWeight.bold)),
             )
           : null,
     );
@@ -1007,198 +1045,203 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   Widget _buildTableGrid(BuildContext context, List<TableModel> tables, Map<String, dynamic> activeOrdersMap) {
     final width = MediaQuery.of(context).size.width;
-    int crossAxisCount = (width / 130).floor();
+    int crossAxisCount = (width / 160).floor();
     if (crossAxisCount < 2) crossAxisCount = 2;
     if (crossAxisCount > 8) crossAxisCount = 8;
 
-    return GridView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
+    return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        mainAxisSpacing: AppSpacing.s,
-        crossAxisSpacing: AppSpacing.s,
-        childAspectRatio: 1.15,
+        mainAxisSpacing: AppSpacing.m,
+        crossAxisSpacing: AppSpacing.m,
+        childAspectRatio: 0.95,
       ),
-      itemCount: tables.length,
-      itemBuilder: (context, index) {
-        final table = tables[index];
-        final activeOrder = activeOrdersMap[table.id];
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final table = tables[index];
+          final activeOrder = activeOrdersMap[table.id];
 
-        Color getStatusColor() {
-          if (table.status == 3) return AppColors.error; // Red - Alert / Timeout (#EF9A9A)
-          if (table.status == 2) return AppColors.success; // Green - Occupied Prepaid / Done (#A5D6A7)
-          if (table.status == 1 || table.status == 4 || table.isOccupied) return AppColors.warning; // Yellow - Occupied Unpaid (#FFF59D)
-          return AppColors.textPrimary; // White - Available (#FFFFFF)
-        }
+          final isFilled = table.isOccupied || table.isBillPrinted || activeOrder != null;
+          final isSelected = _selectedIds.contains(table.id);
 
-        final isFilled = table.isOccupied || table.isBillPrinted || activeOrder != null;
-        final isSelected = _selectedIds.contains(table.id);
+          Color primaryColor;
+          Color bgColor;
+          Color iconColor;
+          if (isFilled) {
+             if (table.isBillPrinted) {
+                 primaryColor = AppColors.warning;
+                 bgColor = AppColors.warning.withValues(alpha: 0.1);
+                 iconColor = AppColors.warning;
+             } else {
+                 primaryColor = AppColors.success;
+                 bgColor = AppColors.success.withValues(alpha: 0.1);
+                 iconColor = AppColors.success;
+             }
+          } else {
+             primaryColor = AppColors.textSecondary;
+             bgColor = Colors.white;
+             iconColor = AppColors.textSecondary.withValues(alpha: 0.5);
+          }
 
-        Color cardBgColor = Colors.white;
-        BorderSide borderSide = const BorderSide(color: AppColors.divider, width: 1.0);
-        Color textColor = AppColors.textPrimary;
-        Color statusTextColor = getStatusColor();
+          if (isSelected) {
+            bgColor = AppColors.primaryContainer;
+            primaryColor = AppColors.primary;
+          }
 
-        if (isFilled) {
-          cardBgColor = table.isBillPrinted ? AppColors.warning : AppColors.success;
-          borderSide = BorderSide.none;
-          textColor = Colors.white;
-          statusTextColor = Colors.white;
-        }
-
-        return InkWell(
-          onTap: _isSelectionMode
-              ? () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedIds.remove(table.id);
-                    } else {
-                      _selectedIds.add(table.id);
+          return Card(
+            elevation: isSelected ? 4 : 0,
+            margin: EdgeInsets.zero,
+            color: bgColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: isSelected ? AppColors.primary : primaryColor.withValues(alpha: 0.2),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _isSelectionMode
+                  ? () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedIds.remove(table.id);
+                        } else {
+                          _selectedIds.add(table.id);
+                        }
+                      });
                     }
-                  });
-                }
-              : () => _handleTableClick(table),
-          borderRadius: BorderRadius.circular(12),
-          child: AppCard(
-            color: cardBgColor,
-            borderSide: borderSide,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_isSelectionMode)
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: Checkbox(
-                            value: isSelected,
-                            onChanged: (val) {
-                              setState(() {
-                                if (val == true) {
-                                  _selectedIds.add(table.id);
-                                } else {
-                                  _selectedIds.remove(table.id);
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                        Text(
-                          'No: ${table.nomor}',
-                          style: TextStyle(
-                            color: isFilled ? Colors.white70 : AppColors.textSecondary,
-                            fontSize: 11.sp,
-                          ),
-                        ),
-                      ],
+                  : () => _handleTableClick(table),
+              child: Stack(
+                children: [
+                  // Top Accent Line
+                  Positioned(
+                    top: 0, left: 0, right: 0,
+                    child: Container(
+                      height: 4,
+                      color: primaryColor.withValues(alpha: isSelected ? 1 : 0.8),
                     ),
-                  )
-                else
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  ),
+                  
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isFilled ? Colors.white.withValues(alpha: 0.25) : getStatusColor().withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                        // Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                table.nomor,
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (_isSelectionMode)
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: isSelected,
+                                  activeColor: AppColors.primary,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      if (val == true) {
+                                        _selectedIds.add(table.id);
+                                      } else {
+                                        _selectedIds.remove(table.id);
+                                      }
+                                    });
+                                  },
+                                ),
+                              )
+                            else if (isFilled)
+                              Icon(Icons.people_alt_rounded, size: 16.sp, color: primaryColor)
+                            else
+                              Icon(Icons.table_restaurant_rounded, size: 16.sp, color: primaryColor.withValues(alpha: 0.5)),
+                          ],
+                        ),
+                        
+                        const Spacer(),
+                        
+                        // Center Info
+                        Text(
+                          table.nama,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
                           ),
-                          child: Text(
-                            table.statusLabel,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        
+                        if (isFilled && activeOrder != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            CurrencyFormatter.format(activeOrder.grandTotal),
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: isFilled ? Colors.white : (table.isEmpty ? AppColors.textPrimary : getStatusColor()),
-                              fontSize: 9.sp,
+                              color: primaryColor,
+                              fontSize: 11.sp,
                               fontWeight: FontWeight.bold,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'No: ${table.nomor}',
-                          style: TextStyle(
-                            color: isFilled ? Colors.white70 : AppColors.textSecondary,
-                            fontSize: 11.sp,
+                        ],
+                        
+                        const Spacer(),
+                        
+                        // Bottom Actions (if not in selection mode)
+                        if (!_isSelectionMode) ...[
+                          Divider(height: 1, color: AppColors.divider.withValues(alpha: 0.5)),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              InkWell(
+                                onTap: () => _showFormDialog(context, table: table),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Icon(Icons.edit_rounded, size: 16.sp, color: AppColors.textSecondary),
+                                ),
+                              ),
+                              Container(width: 1, height: 16, color: AppColors.divider),
+                              InkWell(
+                                onTap: () => _showDeleteDialog(context, table),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Icon(Icons.delete_outline_rounded, size: 16.sp, color: AppColors.error.withValues(alpha: 0.8)),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
-                const SizedBox(height: 8),
-                Text(
-                  table.nama,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (isFilled && activeOrder != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    CurrencyFormatter.format(activeOrder.grandTotal),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ],
-                const SizedBox(height: 4),
-                Divider(height: 4, color: isFilled ? Colors.white30 : AppColors.divider),
-                if (_isSelectionMode)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Center(
-                      child: Text(
-                        table.statusLabel,
-                        style: TextStyle(
-                          color: statusTextColor,
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.edit_outlined, size: 20.sp, color: isFilled ? Colors.white : AppColors.primary),
-                        onPressed: () => _showFormDialog(context, table: table),
-                        constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
-                        padding: const EdgeInsets.all(6),
-                        tooltip: 'Edit',
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline_rounded, size: 20.sp, color: isFilled ? Colors.white : AppColors.error),
-                        onPressed: () => _showDeleteDialog(context, table),
-                        constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
-                        padding: const EdgeInsets.all(6),
-                        tooltip: 'Hapus',
-                      ),
-                    ],
-                  ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+        childCount: tables.length,
+      ),
     );
   }
 }
