@@ -39,14 +39,12 @@ final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 class _MyAppState extends ConsumerState<MyApp> {
   late final Future<Widget> _initialRouteFuture;
-  Timer? _inactivityTimer;
   Timer? _periodicValidationTimer;
 
   @override
   void initState() {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
-    _resetInactivityTimer();
     
     // Start a strict periodic background validation every 7 days (Production)
     _periodicValidationTimer = Timer.periodic(const Duration(days: 7), (_) {
@@ -59,25 +57,8 @@ class _MyAppState extends ConsumerState<MyApp> {
     // });
   }
 
-  void _resetInactivityTimer() {
-    _inactivityTimer?.cancel();
-    _inactivityTimer = Timer(const Duration(minutes: 3), _handleInactivity);
-  }
-
-  void _handleInactivity() {
-    // 1. Clear session
-    ref.read(authSessionProvider.notifier).state = null;
-    
-    // 2. Lock app by returning to PinScreen
-    appNavigatorKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
-      (route) => false,
-    );
-  }
-
   @override
   void dispose() {
-    _inactivityTimer?.cancel();
     _periodicValidationTimer?.cancel();
     super.dispose();
   }
@@ -180,10 +161,8 @@ class _MyAppState extends ConsumerState<MyApp> {
             }
             return GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onPanDown: (_) => _resetInactivityTimer(),
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
-                _resetInactivityTimer();
               },
               child: widget ?? const SizedBox.shrink(),
             );
