@@ -319,7 +319,20 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text(_isSelectionMode ? 'Pilih Produk' : 'Kelola Produk'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _isSelectionMode ? 'Pilih Produk' : 'Kelola Produk',
+              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            ),
+            if (!_isSelectionMode)
+              Text(
+                'Atur dan pantau daftar produk Anda',
+                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 12),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: Icon(_isSelectionMode ? Icons.close : Icons.checklist_rounded),
@@ -543,67 +556,130 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                           actionText: _searchController.text.isNotEmpty ? null : 'Tambah Produk',
                           onActionPressed: () => _showAddEditDialog(context),
                         )
-                      : ResponsiveLayout(
-                          mobile: ListView.separated(
-                            padding: const EdgeInsets.all(AppSpacing.m),
-                            itemCount: state.filteredProducts.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final product = state.filteredProducts[index];
-                              final isSelected = _selectedIds.contains(product.id);
-                              return _ProductItemRow(
-                                product: product,
-                                isSelectionMode: _isSelectionMode,
-                                isSelected: isSelected,
-                                onSelectedChanged: (selected) {
-                                  setState(() {
-                                    if (selected == true) {
-                                      _selectedIds.add(product.id);
-                                    } else {
-                                      _selectedIds.remove(product.id);
-                                    }
-                                  });
-                                },
-                                onEdit: () => _showAddEditDialog(context, product),
-                                onDelete: () => _confirmDelete(context, product),
-                              );
-                            },
-                          ),
-                          tablet: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final crossAxisCount = constraints.maxWidth >= 900 ? 6 : 5;
-                              return GridView.builder(
-                                padding: const EdgeInsets.all(AppSpacing.m),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 0.75,
-                                ),
-                                itemCount: state.filteredProducts.length,
+                      : Builder(
+                          builder: (context) {
+                            // Group products by category
+                            final groupedProducts = <String, List<Product>>{};
+                            for (var p in state.filteredProducts) {
+                              final catName = p.kategoriNama ?? 'Tanpa Kategori';
+                              if (!groupedProducts.containsKey(catName)) {
+                                groupedProducts[catName] = [];
+                              }
+                              groupedProducts[catName]!.add(p);
+                            }
+                            final groupKeys = groupedProducts.keys.toList();
+
+                            return ResponsiveLayout(
+                              mobile: ListView.builder(
+                                padding: const EdgeInsets.all(AppSpacing.m).copyWith(bottom: 100),
+                                itemCount: groupKeys.length,
                                 itemBuilder: (context, index) {
-                                  final product = state.filteredProducts[index];
-                                  final isSelected = _selectedIds.contains(product.id);
-                                  return _ProductItemCard(
-                                    product: product,
-                                    isSelectionMode: _isSelectionMode,
-                                    isSelected: isSelected,
-                                    onSelectedChanged: (selected) {
-                                      setState(() {
-                                        if (selected == true) {
-                                          _selectedIds.add(product.id);
-                                        } else {
-                                          _selectedIds.remove(product.id);
-                                        }
-                                      });
-                                    },
-                                    onEdit: () => _showAddEditDialog(context, product),
-                                    onDelete: () => _confirmDelete(context, product),
+                                  final catName = groupKeys[index];
+                                  final products = groupedProducts[catName]!;
+                                  
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                                        child: Text(
+                                          '---- $catName',
+                                          style: AppTypography.titleMedium.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      ...products.map((product) {
+                                        final isSelected = _selectedIds.contains(product.id);
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 8.0),
+                                          child: _ProductItemRow(
+                                            product: product,
+                                            isSelectionMode: _isSelectionMode,
+                                            isSelected: isSelected,
+                                            onSelectedChanged: (selected) {
+                                              setState(() {
+                                                if (selected == true) {
+                                                  _selectedIds.add(product.id);
+                                                } else {
+                                                  _selectedIds.remove(product.id);
+                                                }
+                                              });
+                                            },
+                                            onEdit: () => _showAddEditDialog(context, product),
+                                            onDelete: () => _confirmDelete(context, product),
+                                          ),
+                                        );
+                                      }),
+                                    ],
                                   );
                                 },
-                              );
-                            },
-                          ),
+                              ),
+                              tablet: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final crossAxisCount = constraints.maxWidth >= 900 ? 6 : 5;
+                                  
+                                  return ListView.builder(
+                                    padding: const EdgeInsets.all(AppSpacing.m).copyWith(bottom: 100),
+                                    itemCount: groupKeys.length,
+                                    itemBuilder: (context, index) {
+                                      final catName = groupKeys[index];
+                                      final products = groupedProducts[catName]!;
+                                      
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                                            child: Text(
+                                              '---- $catName',
+                                              style: AppTypography.titleMedium.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          ),
+                                          GridView.builder(
+                                            shrinkWrap: true,
+                                            physics: const NeverScrollableScrollPhysics(),
+                                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: crossAxisCount,
+                                              crossAxisSpacing: 12,
+                                              mainAxisSpacing: 12,
+                                              childAspectRatio: 0.75,
+                                            ),
+                                            itemCount: products.length,
+                                            itemBuilder: (context, pIndex) {
+                                              final product = products[pIndex];
+                                              final isSelected = _selectedIds.contains(product.id);
+                                              return _ProductItemCard(
+                                                product: product,
+                                                isSelectionMode: _isSelectionMode,
+                                                isSelected: isSelected,
+                                                onSelectedChanged: (selected) {
+                                                  setState(() {
+                                                    if (selected == true) {
+                                                      _selectedIds.add(product.id);
+                                                    } else {
+                                                      _selectedIds.remove(product.id);
+                                                    }
+                                                  });
+                                                },
+                                                onEdit: () => _showAddEditDialog(context, product),
+                                                onDelete: () => _confirmDelete(context, product),
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(height: 16),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            );
+                          },
                         ),
             ),
           ],
@@ -669,105 +745,160 @@ class _ProductItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isOutOfStock = product.stok == 0;
+    
     return AppCard(
       onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      borderSide: const BorderSide(color: AppColors.divider),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      borderSide: BorderSide(
+        color: isSelected ? AppColors.primary : AppColors.divider.withValues(alpha: 0.5),
+        width: isSelected ? 2 : 1,
+      ),
+      color: isSelected ? AppColors.primaryContainer : Colors.white,
+      child: Stack(
         children: [
-          if (isSelectionMode)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Checkbox(
-                value: isSelected,
-                onChanged: onSelectedChanged,
-              ),
-            )
-          else
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: (product.isActive ? AppColors.primary : AppColors.disabled).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.divider),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: product.image != null && product.image!.isNotEmpty
-                    ? (Validators.isValidWebUrl(product.image!)
-                        ? Image.network(
-                            product.image!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
-                          )
-                        : Validators.isValidLocalFile(product.image!)
-                            ? Image.file(
-                                File(product.image!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
-                              )
-                            : const Icon(Icons.inventory_2_outlined, color: AppColors.primary))
-                    : Icon(
-                        Icons.inventory_2_outlined,
-                        color: product.isActive ? AppColors.primary : AppColors.disabled,
-                        size: 24,
-                      ),
-              ),
-            ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.nama,
-                  style: AppTypography.titleMedium.copyWith(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.bold,
-                    decoration: product.isActive ? null : TextDecoration.lineThrough,
+          Row(
+            children: [
+              if (isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Checkbox(
+                    value: isSelected,
+                    activeColor: AppColors.primary,
+                    onChanged: onSelectedChanged,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 11.sp,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              
+              // Product Image
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: (product.isActive ? AppColors.primary : AppColors.disabled).withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.divider.withValues(alpha: 0.5)),
                 ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    CurrencyFormatter.format(product.harga),
-                    style: AppTypography.titleMedium.copyWith(
-                      color: AppColors.secondary,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.bold,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: product.image != null && product.image!.isNotEmpty
+                      ? (Validators.isValidWebUrl(product.image!)
+                          ? Image.network(
+                              product.image!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                            )
+                          : Validators.isValidLocalFile(product.image!)
+                              ? Image.file(
+                                  File(product.image!),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                                )
+                              : const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary))
+                      : Icon(
+                          Icons.inventory_2_outlined,
+                          color: product.isActive ? AppColors.primary.withValues(alpha: 0.5) : AppColors.disabled.withValues(alpha: 0.5),
+                          size: 28,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              
+              // Product Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            product.nama,
+                            style: AppTypography.titleMedium.copyWith(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.bold,
+                              decoration: product.isActive ? null : TextDecoration.lineThrough,
+                              color: product.isActive ? AppColors.textPrimary : AppColors.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isOutOfStock)
+                           Container(
+                             margin: const EdgeInsets.only(left: 4),
+                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                             decoration: BoxDecoration(
+                               color: AppColors.error.withValues(alpha: 0.1),
+                               borderRadius: BorderRadius.circular(4),
+                             ),
+                             child: const Text('Habis', style: TextStyle(color: AppColors.error, fontSize: 10, fontWeight: FontWeight.bold)),
+                           ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      CurrencyFormatter.format(product.harga),
+                      style: AppTypography.titleMedium.copyWith(
+                        color: product.isActive ? AppColors.secondary : AppColors.textSecondary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Actions
+              if (!isSelectionMode) ...[
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    InkWell(
+                      onTap: onEdit,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6.0),
+                        child: Icon(Icons.edit_rounded, size: 20.sp, color: AppColors.textSecondary),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: onDelete,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6.0),
+                        child: Icon(Icons.delete_outline_rounded, size: 20.sp, color: AppColors.error.withValues(alpha: 0.8)),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
+            ],
           ),
-          if (!isSelectionMode) ...[
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-              onPressed: onEdit,
-              tooltip: 'Ubah',
+          
+          if (!product.isActive)
+            Positioned(
+              right: isSelectionMode ? 0 : 36, // Adjust position based on selection mode
+              top: 0,
+              child: Container(
+                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                 decoration: BoxDecoration(
+                   color: AppColors.disabled.withValues(alpha: 0.2),
+                   borderRadius: BorderRadius.circular(4),
+                 ),
+                 child: const Text('Nonaktif', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-              onPressed: onDelete,
-              tooltip: 'Hapus',
-            ),
-          ],
         ],
       ),
     );
@@ -793,25 +924,29 @@ class _ProductItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isOutOfStock = product.stok == 0;
+    
     return AppCard(
       onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
       padding: EdgeInsets.zero,
-      borderSide: const BorderSide(color: AppColors.divider),
+      borderSide: BorderSide(
+        color: isSelected ? AppColors.primary : AppColors.divider.withValues(alpha: 0.5),
+        width: isSelected ? 2 : 1,
+      ),
+      color: isSelected ? AppColors.primaryContainer : Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Top section (Image + Status)
           Expanded(
             flex: 4,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    child: Container(
+                      color: (product.isActive ? AppColors.primary : AppColors.disabled).withValues(alpha: 0.03),
                       child: product.image != null && product.image!.isNotEmpty
                           ? (Validators.isValidWebUrl(product.image!)
                               ? Image.network(
@@ -830,84 +965,86 @@ class _ProductItemCard extends StatelessWidget {
                                       ),
                                     )
                                   : const Center(
-                                      child: Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 36),
+                                      child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ))
-                          : const Center(
-                              child: Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 36),
+                          : Center(
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                color: product.isActive ? AppColors.primary.withValues(alpha: 0.4) : AppColors.disabled.withValues(alpha: 0.4),
+                                size: 40,
+                              ),
                             ),
                     ),
                   ),
+                ),
+                
+                // Badges
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (product.stok == -1 || product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Stok: ${product.stok == -1 ? '∞' : product.stok}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (!product.isActive) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.disabled.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Nonaktif',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                
+                if (isSelectionMode)
                   Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (product.stok == -1 || product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Stok: ${product.stok == -1 ? '∞' : product.stok}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    top: 4,
+                    left: 4,
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: isSelected,
+                        activeColor: AppColors.primary,
+                        onChanged: onSelectedChanged,
                       ),
                     ),
                   ),
-                  if (!isSelectionMode)
-                    Positioned(
-                      top: 6,
-                      left: 6,
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 13,
-                            backgroundColor: Colors.white.withValues(alpha: 0.9),
-                            child: IconButton(
-                              icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 14),
-                              onPressed: onEdit,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          CircleAvatar(
-                            radius: 13,
-                            backgroundColor: Colors.white.withValues(alpha: 0.9),
-                            child: IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 14),
-                              onPressed: onDelete,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (isSelectionMode)
-                    Positioned(
-                      top: 4,
-                      left: 4,
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: Checkbox(
-                          value: isSelected,
-                          onChanged: onSelectedChanged,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
+          
+          // Details section
           Expanded(
             flex: 3,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.all(10.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -921,16 +1058,17 @@ class _ProductItemCard extends StatelessWidget {
                           fontSize: 13.sp,
                           fontWeight: FontWeight.bold,
                           decoration: product.isActive ? null : TextDecoration.lineThrough,
+                          color: product.isActive ? AppColors.textPrimary : AppColors.textSecondary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 1),
+                      const SizedBox(height: 2),
                       Text(
                         product.kategoriNama ?? 'Tanpa Kategori',
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: 10.sp,
+                          fontSize: 11.sp,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -943,8 +1081,8 @@ class _ProductItemCard extends StatelessWidget {
                     child: Text(
                       CurrencyFormatter.format(product.harga),
                       style: AppTypography.titleMedium.copyWith(
-                        color: AppColors.secondary,
-                        fontSize: 13.sp,
+                        color: product.isActive ? AppColors.secondary : AppColors.textSecondary,
+                        fontSize: 14.sp,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -953,6 +1091,35 @@ class _ProductItemCard extends StatelessWidget {
               ),
             ),
           ),
+          
+          // Action Buttons
+          if (!isSelectionMode) ...[
+            Divider(height: 1, color: AppColors.divider.withValues(alpha: 0.5)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: onEdit,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Icon(Icons.edit_rounded, size: 16.sp, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 24, color: AppColors.divider.withValues(alpha: 0.5)),
+                Expanded(
+                  child: InkWell(
+                    onTap: onDelete,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Icon(Icons.delete_outline_rounded, size: 16.sp, color: AppColors.error.withValues(alpha: 0.8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
