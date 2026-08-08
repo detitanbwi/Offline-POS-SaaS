@@ -176,7 +176,7 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                     onActionPressed: () => _showAddEditDialog(context),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(AppSpacing.l),
+                    padding: const EdgeInsets.all(AppSpacing.l).copyWith(bottom: 100),
                     itemCount: state.platforms.length,
                     itemBuilder: (context, index) {
                       final platform = state.platforms[index];
