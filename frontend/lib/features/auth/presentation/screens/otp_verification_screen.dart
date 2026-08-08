@@ -160,11 +160,13 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                     children: List.generate(6, (index) {
                       return SizedBox(
                         width: 48.w,
+                        height: 56.h,
                         child: TextField(
                           controller: _controllers[index],
                           focusNode: _focusNodes[index],
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
+                          textAlignVertical: TextAlignVertical.center,
                           maxLength: 1,
                           style: AppTypography.titleLarge.copyWith(
                             fontWeight: FontWeight.bold,
@@ -172,8 +174,17 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                           ),
                           decoration: InputDecoration(
                             counterText: '',
-                            border: OutlineInputBorder(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 12.h),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10.r),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10.r),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 2),
                             ),
                           ),
                           onChanged: (val) => _onOtpChanged(val, index),
