@@ -138,7 +138,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                           onActionPressed: () => _showAddEditDialog(context),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 80),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 100),
                           itemCount: state.filteredMethods.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {

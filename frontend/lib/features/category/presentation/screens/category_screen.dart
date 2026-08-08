@@ -445,7 +445,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           onActionPressed: () => _showAddEditDialog(context),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 80),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 100),
                           itemCount: state.filteredCategories.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
