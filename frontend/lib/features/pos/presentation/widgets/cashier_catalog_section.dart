@@ -154,24 +154,17 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                       description: 'Coba ubah kata kunci pencarian atau filter kategori.',
                       icon: Icons.inventory_2_outlined,
                     )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final width = constraints.maxWidth;
-                        int crossAxisCount = (width / 130).floor();
-                        if (crossAxisCount < 2) crossAxisCount = 2;
-                        if (crossAxisCount > 6) crossAxisCount = 6;
-
-                        return GridView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            mainAxisSpacing: AppSpacing.s,
-                            crossAxisSpacing: AppSpacing.s,
-                            childAspectRatio: 0.85,
-                          ),
-                          itemCount: filteredProducts.length,
-                          itemBuilder: (context, index) {
-                            final product = filteredProducts[index];
+                  : GridView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 160,
+                        mainAxisSpacing: AppSpacing.s,
+                        crossAxisSpacing: AppSpacing.s,
+                        childAspectRatio: 0.85,
+                      ),
+                      itemCount: filteredProducts.length,
+                      itemBuilder: (context, index) {
+                        final product = filteredProducts[index];
                             final isOutOfStock = product.stok != -1 && product.stok <= 0;
 
                             return InkWell(
@@ -257,21 +250,33 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          CurrencyFormatter.format(product.harga),
-                                          style: TextStyle(
-                                            color: isOutOfStock ? AppColors.textSecondary : AppColors.primary,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                        Expanded(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              CurrencyFormatter.format(product.harga),
+                                              style: TextStyle(
+                                                color: isOutOfStock ? AppColors.textSecondary : AppColors.primary,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                         if (product.stok != -1)
-                                          Text(
-                                            isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: isOutOfStock ? AppColors.error : AppColors.textSecondary,
-                                              fontWeight: isOutOfStock ? FontWeight.bold : FontWeight.normal,
+                                          Flexible(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerRight,
+                                              child: Text(
+                                                isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: isOutOfStock ? AppColors.error : AppColors.textSecondary,
+                                                  fontWeight: isOutOfStock ? FontWeight.bold : FontWeight.normal,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                       ],
@@ -281,9 +286,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                               ),
                             );
                           },
-                        );
-                      },
-                    ),
+                        ),
         ),
       ],
     );

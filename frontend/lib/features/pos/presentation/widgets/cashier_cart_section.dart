@@ -642,6 +642,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                     child: Row(
                                       children: [
                                         Expanded(
+                                          flex: 3,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
@@ -689,12 +690,16 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                           ],
                                         ),
                                         const SizedBox(width: 8),
-                                        SizedBox(
-                                          width: 70,
-                                          child: Text(
-                                            CurrencyFormatter.format(newSubtotal),
-                                            textAlign: TextAlign.right,
-                                            style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold),
+                                        Flexible(
+                                          flex: 1,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              CurrencyFormatter.format(newSubtotal),
+                                              textAlign: TextAlign.right,
+                                              style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -754,6 +759,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                           child: Row(
                                             children: [
                                               Expanded(
+                                                flex: 3,
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
@@ -771,12 +777,16 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                   ],
                                                 ),
                                               ),
-                                              SizedBox(
-                                                width: 70,
-                                                child: Text(
-                                                  CurrencyFormatter.format(item.subtotal),
-                                                  textAlign: TextAlign.right,
-                                                  style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                              Flexible(
+                                                flex: 1,
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment: Alignment.centerRight,
+                                                  child: Text(
+                                                    CurrencyFormatter.format(item.subtotal),
+                                                    textAlign: TextAlign.right,
+                                                    style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -828,6 +838,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                         child: Row(
                                           children: [
                                             Expanded(
+                                              flex: 3,
                                               child: Column(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
@@ -845,12 +856,16 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                 ],
                                               ),
                                             ),
-                                            SizedBox(
-                                              width: 70,
-                                              child: Text(
-                                                CurrencyFormatter.format(savedSubtotal),
-                                                textAlign: TextAlign.right,
-                                                style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                            Flexible(
+                                              flex: 1,
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerRight,
+                                                child: Text(
+                                                  CurrencyFormatter.format(savedSubtotal),
+                                                  textAlign: TextAlign.right,
+                                                  style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                                ),
                                               ),
                                             ),
                                           ],
