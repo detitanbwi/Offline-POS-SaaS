@@ -409,7 +409,10 @@ class MainMenuScreen extends ConsumerWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const OrderHubScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const OrderHubScreen(),
+                  settings: const RouteSettings(name: '/order_hub'),
+                ),
               );
             },
           ),

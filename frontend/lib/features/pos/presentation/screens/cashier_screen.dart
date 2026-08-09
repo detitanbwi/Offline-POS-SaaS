@@ -39,7 +39,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
   }
 
   void _onSaveCompleted() {
-    Navigator.pop(context);
+    Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
   }
 
   @override

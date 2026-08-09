@@ -248,6 +248,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
 
       if (mounted) {
         AppSnackbar.showSuccess(context, 'Struk Bill Sementara berhasil dicetak! Status meja diperbarui (Bill Dicetak).');
+        Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
       }
     } catch (e) {
       if (mounted) {
@@ -497,10 +498,12 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
         await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
         if (mounted) {
           AppSnackbar.showSuccess(context, 'Struk Dapur $waveInfo berhasil dicetak.');
+          Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
         }
       } else {
         if (mounted) {
           AppSnackbar.showSuccess(context, 'Simulasi Struk Dapur $waveInfo (Printer tidak terhubung).');
+          Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
         }
       }
     } catch (e) {

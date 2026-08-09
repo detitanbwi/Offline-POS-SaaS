@@ -499,7 +499,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     ref.read(tableNotifierProvider.notifier).loadTables();
     ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
     if (mounted) {
-      Navigator.popUntil(context, (route) => route.isFirst);
+      Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
     }
   }
 
