@@ -8,14 +8,23 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/di/providers.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+
 import '../../../product/application/product_notifier.dart';
+import '../../../table/application/table_notifier.dart';
+import '../../../table/domain/models/table.dart';
 
 import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../application/online_platform_notifier.dart';
 import '../../domain/models/order.dart';
+import '../../domain/models/order_item.dart';
 import 'table_selector_screen.dart';
 import 'cashier_screen.dart';
+import 'payment_screen.dart';
 
 class OrderHubScreen extends ConsumerStatefulWidget {
   const OrderHubScreen({super.key});
@@ -215,7 +224,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     });
   }
 
-  Future<void> _handleDraftOrderSelected(OrderModel order) async {
+  Future<void> _navigateToPos(OrderModel order) async {
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
     final productState = ref.read(productNotifierProvider);
@@ -241,6 +250,544 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     ).then((_) {
       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
     });
+  }
+
+  Future<void> _navigateToPayment(OrderModel order) async {
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+    final productState = ref.read(productNotifierProvider);
+
+    if (order.tableId != null && order.tableId!.isNotEmpty && order.tableId != 'TABLE_TAKE_AWAY') {
+      await orderNotifier.loadActiveOrderForTable(order.tableId!);
+    } else {
+      await orderNotifier.loadOrderById(order.id);
+    }
+    final orderState = ref.read(orderNotifierProvider);
+
+    if (orderState.activeOrder != null) {
+      cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+    } else {
+      cartNotifier.clear();
+    }
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaymentScreen()),
+    ).then((_) {
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    });
+  }
+
+  Future<void> _showOrderActionBottomSheet(OrderModel order) async {
+    final repo = ref.read(orderRepositoryProvider);
+    final isDineIn = order.orderType == 'dine_in';
+
+    TableModel? table;
+    if (isDineIn && order.tableId != null) {
+      final tableState = ref.read(tableNotifierProvider);
+      try {
+        table = tableState.allTables.firstWhere((t) => t.id == order.tableId);
+      } catch (e) {
+        // Table not found in state
+      }
+    }
+
+    final isBillPrinted = table?.isBillPrinted ?? false;
+    final statusLabel = table != null ? table.statusLabel : (order.isDraft ? 'Open Bill' : 'Selesai');
+    final statusColor = isBillPrinted ? AppColors.warning : AppColors.success;
+    final title = isDineIn 
+        ? 'Rincian Meja ${order.tableNomor ?? '-'}' 
+        : 'Rincian Take Away (${order.takeAwaySubType == 'online_food' ? 'Online' : 'Reguler'})';
+
+    List<OrderItemModel> items = await repo.getOrderItems(order.id);
+    List<Map<String, dynamic>> batches = await repo.getPrintBatches(order.id);
+
+    final Map<String, int> batchIndexMap = {};
+    for (int i = 0; i < batches.length; i++) {
+      final bId = batches[i]['id'] as String;
+      batchIndexMap[bId] = i + 1;
+    }
+
+    final Map<String, List<OrderItemModel>> groupedItems = {};
+
+    for (var item in items) {
+      String batchTitle = 'Batch #1';
+      if (item.printBatchId != null && batchIndexMap.containsKey(item.printBatchId)) {
+        batchTitle = 'Batch #${batchIndexMap[item.printBatchId]}';
+      } else if (item.statusCetak == 0 && batches.isNotEmpty) {
+        batchTitle = 'Batch Baru (Belum Kirim Dapur)';
+      }
+
+      groupedItems.putIfAbsent(batchTitle, () => []).add(item);
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.m),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        if (order.customerName != null && order.customerName!.isNotEmpty)
+                          Text(
+                            'Atas Nama: ${order.customerName}',
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(sheetContext),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Status Card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isBillPrinted ? Icons.receipt_rounded : Icons.check_circle_outline_rounded,
+                        color: statusColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Status: $statusLabel',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isBillPrinted ? const Color(0xFF78350F) : const Color(0xFF14532D),
+                              ),
+                            ),
+                            Text('No. Order: ${order.nomorOrder}', style: const TextStyle(fontSize: 12)),
+                            Text(
+                              'Total Tagihan: ${CurrencyFormatter.format(order.grandTotal)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Items List Grouped by Batch
+                if (groupedItems.isNotEmpty) ...[
+                  Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  ListView(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: groupedItems.entries.map((entry) {
+                        final batchTitle = entry.key;
+                        final batchItemList = entry.value;
+                        final hasActiveItemsInBatch = batchItemList.any((i) => !i.isCancelled);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      batchTitle,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${batchItemList.length} Menu',
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
+                                      InkWell(
+                                        onTap: () {
+                                          Navigator.pop(sheetContext);
+                                          _showCancelDialog(context, order, batchId: batchItemList.first.printBatchId);
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(6),
+                                          child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              ...batchItemList.map((item) => Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${item.qty}x',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                        color: item.isCancelled ? Colors.grey : Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  item.produkNama,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13,
+                                                    decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                                    color: item.isCancelled ? Colors.grey : Colors.black87,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (item.isCancelled)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red.shade100,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    'DIBATALKAN',
+                                                    style: TextStyle(fontSize: 9, color: Colors.red.shade800, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          if (item.catatan != null && item.catatan!.isNotEmpty)
+                                            Text(
+                                              'Note: ${item.catatan}',
+                                              style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      CurrencyFormatter.format(item.subtotal),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                        color: item.isCancelled ? Colors.grey : Colors.black87,
+                                      ),
+                                    ),
+                                    if (!item.isCancelled) ...[
+                                      const SizedBox(width: 8),
+                                      InkWell(
+                                        onTap: () {
+                                          Navigator.pop(sheetContext);
+                                          _showCancelDialog(context, order, itemId: item.id, itemName: item.produkNama);
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(6),
+                                          child: Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              )),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                  ),
+                ] else
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text('Belum ada rincian pesanan'),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                // Action Buttons
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                              _navigateToPos(order);
+                            },
+                            icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                            label: const Text('Tambah Menu'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                              _navigateToPayment(order);
+                            },
+                            icon: const Icon(Icons.payments_outlined, size: 18),
+                            label: const Text('Bayar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isDineIn && table != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(sheetContext);
+                                _handleMoveTable(context, table!, order);
+                              },
+                              icon: const Icon(Icons.move_up_rounded, size: 18),
+                              label: const Text('Pindah Meja'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.secondary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCancelDialog(BuildContext context, OrderModel activeOrder, {String? batchId, String? itemId, String? itemName}) {
+    final reasonController = TextEditingController();
+    final pinController = TextEditingController();
+    final isBatch = batchId != null;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isBatch ? 'Batalkan Batch' : 'Batalkan $itemName'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Alasan Pembatalan:'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              const Text('Otorisasi Owner (PIN):'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: pinController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+              onPressed: () async {
+                final reason = reasonController.text.trim();
+                final pin = pinController.text.trim();
+
+                if (reason.isEmpty || pin.length != 6) {
+                  AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
+                  return;
+                }
+
+                const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+                var bytes = utf8.encode(pin + salt);
+                var digest = sha256.convert(bytes);
+                final hashedPin = digest.toString();
+
+                final cashierRepo = ref.read(cashierRepositoryProvider);
+                final cashier = await cashierRepo.getCashierByPin(hashedPin);
+
+                if (!context.mounted) return;
+
+                if (cashier == null || cashier.isOwner != 1) {
+                  AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
+                  return;
+                }
+
+                Navigator.pop(context); // Close dialog
+
+                if (isBatch) {
+                  await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
+                } else if (itemId != null) {
+                  await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
+                }
+
+                if (context.mounted) {
+                  AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
+                  ref.read(tableNotifierProvider.notifier).loadTables();
+                  ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                }
+              },
+              child: const Text('Batalkan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _handleMoveTable(BuildContext context, TableModel sourceTable, OrderModel activeOrder) {
+    final tableState = ref.read(tableNotifierProvider);
+    final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
+
+    if (emptyTables.isEmpty) {
+      AppSnackbar.showWarning(context, 'Tidak ada meja kosong yang tersedia untuk dipindahkan.');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            width: MediaQuery.of(context).size.width > 500 ? 400 : MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Pindah Meja - ${sourceTable.nama}',
+                  style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: emptyTables.length,
+                    separatorBuilder: (_, _) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final targetTable = emptyTables[index];
+                      return ListTile(
+                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        title: Text(targetTable.nama),
+                        subtitle: Text('Nomor: ${targetTable.nomor}'),
+                        onTap: () async {
+                          Navigator.pop(context);
+
+                          final orderRepo = ref.read(orderRepositoryProvider);
+                          try {
+                            await orderRepo.transferOrderTable(
+                              activeOrder.id,
+                              sourceTable.id,
+                              targetTable.id,
+                              targetTable.nama,
+                              targetTable.nomor,
+                            );
+
+                            ref.read(tableNotifierProvider.notifier).loadTables();
+                            ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+
+                            if (context.mounted) {
+                              AppSnackbar.showSuccess(context, 'Berhasil memindahkan pesanan ke ${targetTable.nama}');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              AppSnackbar.showError(context, 'Gagal memindahkan meja: $e');
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -394,7 +941,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               final formattedTime = DateFormat('HH:mm').format(order.createdAt);
 
                               return AppCard(
-                                onTap: () => _handleDraftOrderSelected(order),
+                                onTap: () => _showOrderActionBottomSheet(order),
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
                                   children: [
