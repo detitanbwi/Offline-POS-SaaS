@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -88,14 +89,14 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Manajemen Stok (In & Out)'),
+        title: Text('Manajemen Stok (In & Out)'),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.swap_vert_rounded),
-        label: const Text('Catat Stok'),
+        icon: Icon(Icons.swap_vert_rounded),
+        label: Text('Catat Stok'),
       ),
       body: SafeArea(
         child: Column(
@@ -129,7 +130,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                       : ListView.separated(
                           padding: const EdgeInsets.all(AppSpacing.m).copyWith(bottom: 100),
                           itemCount: state.filteredStockIn.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          separatorBuilder: (context, index) => SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final log = state.filteredStockIn[index];
                             final isOut = log.isOut;
@@ -157,7 +158,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                       size: 24,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
+                                  SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,34 +168,34 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                             Expanded(
                                               child: Text(
                                                 log.produkNama ?? 'Produk Tidak Diketahui',
-                                                style: AppTypography.titleMedium.copyWith(fontSize: 16),
+                                                style: AppTypography.titleMedium.copyWith(fontSize: 16.sp),
                                               ),
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                         if (log.catatan != null && log.catatan!.isNotEmpty) ...[
                                           Text(
                                             log.catatan!,
                                             style: AppTypography.bodyMedium.copyWith(
                                               color: isOut ? AppColors.textPrimary : AppColors.textSecondary,
-                                              fontSize: 13,
+                                              fontSize: 13.sp,
                                               fontWeight: isOut ? FontWeight.w500 : FontWeight.normal,
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
+                                          SizedBox(height: 4),
                                         ],
                                         Text(
                                           'Tanggal: ${log.tanggal}',
                                           style: AppTypography.bodyMedium.copyWith(
                                             color: AppColors.textSecondary,
-                                            fontSize: 12,
+                                            fontSize: 12.sp,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
@@ -206,7 +207,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                       style: TextStyle(
                                         color: badgeTextColor,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                        fontSize: 14.sp,
                                       ),
                                     ),
                                   ),

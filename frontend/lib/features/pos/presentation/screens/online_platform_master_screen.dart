@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -50,15 +51,15 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                       labelText: 'Nama Platform (Cth: GoFood, GrabFood)',
                       prefixIcon: Icons.delivery_dining_rounded,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     if (platform != null) ...[
-                      Text('Status', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                      const SizedBox(height: 8),
+                      Text('Status', style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                      SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: RadioListTile<int>(
-                              title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                              title: Text('Aktif', style: TextStyle(fontSize: 14.sp)),
                               value: 1,
                               groupValue: status,
                               onChanged: (val) => setState(() => status = val!),
@@ -67,7 +68,7 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                           ),
                           Expanded(
                             child: RadioListTile<int>(
-                              title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                              title: Text('Nonaktif', style: TextStyle(fontSize: 14.sp)),
                               value: 0,
                               groupValue: status,
                               onChanged: (val) => setState(() => status = val!),
@@ -83,7 +84,7 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Batal'),
+                  child: Text('Batal'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -113,7 +114,7 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                       AppSnackbar.showError(context, state.errorMessage!);
                     }
                   },
-                  child: const Text('Simpan'),
+                  child: Text('Simpan'),
                 ),
               ],
             );
@@ -150,10 +151,10 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Master Data Platform Online'),
+        title: Text('Master Data Platform Online'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: () => ref.read(onlinePlatformNotifierProvider.notifier).loadPlatforms(),
             tooltip: 'Refresh',
           ),
@@ -161,8 +162,8 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditDialog(context),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Tambah'),
+        icon: Icon(Icons.add_rounded),
+        label: Text('Tambah'),
       ),
       body: SafeArea(
         child: state.isLoading && state.platforms.isEmpty
@@ -196,7 +197,7 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                                 color: platform.isActive ? AppColors.primary : Colors.grey.shade600,
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +208,7 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                                       color: platform.isActive ? AppColors.textPrimary : AppColors.textSecondary,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
@@ -220,7 +221,7 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                                     child: Text(
                                       platform.isActive ? 'Aktif' : 'Nonaktif',
                                       style: TextStyle(
-                                        fontSize: 10,
+                                        fontSize: 10.sp,
                                         color: platform.isActive ? AppColors.success : Colors.grey.shade600,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -230,11 +231,11 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.edit_rounded, color: AppColors.primary),
+                              icon: Icon(Icons.edit_rounded, color: AppColors.primary),
                               onPressed: () => _showAddEditDialog(context, platform),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                              icon: Icon(Icons.delete_outline_rounded, color: AppColors.error),
                               onPressed: () => _confirmDelete(context, platform),
                             ),
                           ],

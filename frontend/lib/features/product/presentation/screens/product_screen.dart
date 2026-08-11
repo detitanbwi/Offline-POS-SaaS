@@ -208,15 +208,15 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       children: [
                         Text('Filter & Urutan Produk', style: AppTypography.titleLarge),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: Icon(Icons.close),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
                     const Divider(),
-                    const SizedBox(height: 12),
-                    Text('Filter Kategori', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 12),
+                    Text('Filter Kategori', style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                    SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -235,9 +235,9 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                         }),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Text('Filter Status', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 16),
+                    Text('Filter Status', style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         _FilterChip(
@@ -245,13 +245,13 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                           isSelected: state.statusFilter == null,
                           onTap: () => notifier.setStatusFilter(null),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         _FilterChip(
                           label: 'Aktif',
                           isSelected: state.statusFilter == 1,
                           onTap: () => notifier.setStatusFilter(1),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         _FilterChip(
                           label: 'Nonaktif',
                           isSelected: state.statusFilter == 0,
@@ -259,36 +259,36 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Text('Urutan Produk', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 16),
+                    Text('Urutan Produk', style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                    SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         ChoiceChip(
-                          label: const Text('Nama A-Z'),
+                          label: Text('Nama A-Z'),
                           selected: state.sortBy == 'name_asc',
                           onSelected: (_) => notifier.setSortBy('name_asc'),
                         ),
                         ChoiceChip(
-                          label: const Text('Nama Z-A'),
+                          label: Text('Nama Z-A'),
                           selected: state.sortBy == 'name_desc',
                           onSelected: (_) => notifier.setSortBy('name_desc'),
                         ),
                         ChoiceChip(
-                          label: const Text('Harga Termurah'),
+                          label: Text('Harga Termurah'),
                           selected: state.sortBy == 'price_asc',
                           onSelected: (_) => notifier.setSortBy('price_asc'),
                         ),
                         ChoiceChip(
-                          label: const Text('Harga Termahal'),
+                          label: Text('Harga Termahal'),
                           selected: state.sortBy == 'price_desc',
                           onSelected: (_) => notifier.setSortBy('price_desc'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -297,7 +297,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Terapkan Filter'),
+                      child: Text('Terapkan Filter'),
                     ),
                   ],
                 ),
@@ -329,7 +329,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
             if (!_isSelectionMode)
               Text(
                 'Atur dan pantau daftar produk Anda',
-                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
               ),
           ],
         ),
@@ -352,7 +352,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               onPressed: () => _showAddEditDialog(context),
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              child: const Icon(Icons.add),
+              child: Icon(Icons.add),
             ),
       body: SafeArea(
         child: Column(
@@ -374,7 +374,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             onChanged: (val) => notifier.setSearchQuery(val),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: (state.categoryIdFilter != null || state.statusFilter != null)
@@ -388,12 +388,12 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
                           ),
-                          icon: const Icon(Icons.tune_rounded, size: 20),
+                          icon: Icon(Icons.tune_rounded, size: 20),
                           label: Text(
                             (state.categoryIdFilter != null || state.statusFilter != null)
                                 ? 'Filter (Aktif)'
                                 : 'Filter & Urutkan',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           onPressed: () => _showFilterBottomSheet(context),
                         ),
@@ -406,7 +406,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       prefixIcon: Icons.search,
                       onChanged: (val) => notifier.setSearchQuery(val),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     // Categories chips scrollable filter
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -430,7 +430,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -445,13 +445,13 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                   isSelected: state.statusFilter == null,
                                   onTap: () => notifier.setStatusFilter(null),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 _FilterChip(
                                   label: 'Aktif',
                                   isSelected: state.statusFilter == 1,
                                   onTap: () => notifier.setStatusFilter(1),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 _FilterChip(
                                   label: 'Nonaktif',
                                   isSelected: state.statusFilter == 0,
@@ -463,7 +463,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                         ),
                         // Sorting menu
                         PopupMenuButton<String>(
-                          icon: const Icon(Icons.sort, color: AppColors.primary),
+                          icon: Icon(Icons.sort, color: AppColors.primary),
                           tooltip: 'Urutan',
                           onSelected: (val) => notifier.setSortBy(val),
                           itemBuilder: (context) => [
@@ -497,9 +497,9 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     ),
                   ],
                   if (_isSelectionMode) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     const Divider(),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Checkbox(
@@ -515,16 +515,16 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             });
                           },
                         ),
-                        const Text('Pilih Semua', style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 16),
+                        Text('Pilih Semua', style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(width: 16),
                         Text('${_selectedIds.length} Terpilih'),
                         const Spacer(),
                         ElevatedButton.icon(
                           onPressed: _selectedIds.isEmpty
                               ? null
                               : () => _confirmBulkDelete(context),
-                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                          label: const Text('Hapus Terpilih', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          icon: Icon(Icons.delete_outline_rounded, size: 16),
+                          label: Text('Hapus Terpilih', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
@@ -671,7 +671,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                               );
                                             },
                                           ),
-                                          const SizedBox(height: 16),
+                                          SizedBox(height: 16),
                                         ],
                                       );
                                     },
@@ -785,15 +785,15 @@ class _ProductItemRow extends StatelessWidget {
                           ? Image.network(
                               product.image!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                              errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
                             )
                           : Validators.isValidLocalFile(product.image!)
                               ? Image.file(
                                   File(product.image!),
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                                  errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
                                 )
-                              : const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary))
+                              : Icon(Icons.broken_image_outlined, color: AppColors.textSecondary))
                       : Icon(
                           Icons.inventory_2_outlined,
                           color: product.isActive ? AppColors.primary.withValues(alpha: 0.5) : AppColors.disabled.withValues(alpha: 0.5),
@@ -801,7 +801,7 @@ class _ProductItemRow extends StatelessWidget {
                         ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               
               // Product Details
               Expanded(
@@ -831,11 +831,11 @@ class _ProductItemRow extends StatelessWidget {
                                color: AppColors.error.withValues(alpha: 0.1),
                                borderRadius: BorderRadius.circular(4),
                              ),
-                             child: const Text('Habis', style: TextStyle(color: AppColors.error, fontSize: 10, fontWeight: FontWeight.bold)),
+                             child: Text('Habis', style: TextStyle(color: AppColors.error, fontSize: 10.sp, fontWeight: FontWeight.bold)),
                            ),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
                       style: AppTypography.bodyMedium.copyWith(
@@ -845,7 +845,7 @@ class _ProductItemRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       CurrencyFormatter.format(product.harga),
                       style: AppTypography.titleMedium.copyWith(
@@ -871,7 +871,7 @@ class _ProductItemRow extends StatelessWidget {
                         child: Icon(Icons.edit_rounded, size: 20.sp, color: AppColors.textSecondary),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     InkWell(
                       onTap: onDelete,
                       borderRadius: BorderRadius.circular(8),
@@ -896,7 +896,7 @@ class _ProductItemRow extends StatelessWidget {
                    color: AppColors.disabled.withValues(alpha: 0.2),
                    borderRadius: BorderRadius.circular(4),
                  ),
-                 child: const Text('Nonaktif', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                 child: Text('Nonaktif', style: TextStyle(color: AppColors.textSecondary, fontSize: 10.sp, fontWeight: FontWeight.bold)),
                ),
             ),
         ],
@@ -952,7 +952,7 @@ class _ProductItemCard extends StatelessWidget {
                               ? Image.network(
                                   product.image!,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, _, _) => const Center(
+                                  errorBuilder: (_, _, _) => Center(
                                     child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                   ),
                                 )
@@ -960,11 +960,11 @@ class _ProductItemCard extends StatelessWidget {
                                   ? Image.file(
                                       File(product.image!),
                                       fit: BoxFit.contain,
-                                      errorBuilder: (_, _, _) => const Center(
+                                      errorBuilder: (_, _, _) => Center(
                                         child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                       ),
                                     )
-                                  : const Center(
+                                  : Center(
                                       child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ))
                           : Center(
@@ -993,26 +993,26 @@ class _ProductItemCard extends StatelessWidget {
                         ),
                         child: Text(
                           'Stok: ${product.stok == -1 ? '∞' : product.stok}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 10.sp,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                       if (!product.isActive) ...[
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           decoration: BoxDecoration(
                             color: AppColors.disabled.withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Nonaktif',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: 10.sp,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1063,7 +1063,7 @@ class _ProductItemCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         product.kategoriNama ?? 'Tanpa Kategori',
                         style: AppTypography.bodyMedium.copyWith(

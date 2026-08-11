@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -73,10 +74,10 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
           onChanged: _onSearchChanged,
           decoration: InputDecoration(
             hintText: 'Cari produk atau kode...',
-            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+            prefixIcon: Icon(Icons.search_rounded, color: AppColors.textSecondary),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear_rounded),
+                    icon: Icon(Icons.clear_rounded),
                     onPressed: () {
                       _searchController.clear();
                       _onSearchChanged('');
@@ -92,7 +93,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
-        const SizedBox(height: AppSpacing.m),
+        SizedBox(height: AppSpacing.m),
 
         // Category filter chips
         if (categoryState.allCategories.isNotEmpty) ...[
@@ -104,13 +105,13 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: FilterChip(
-                    label: const Text('Semua'),
+                    label: Text('Semua'),
                     selected: _selectedCategoryId == null,
                     selectedColor: AppColors.primary,
                     labelStyle: TextStyle(
                       color: _selectedCategoryId == null ? Colors.white : AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 12.sp,
                     ),
                     onSelected: (_) {
                       setState(() => _selectedCategoryId = null);
@@ -128,7 +129,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.white : AppColors.textPrimary,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 12,
+                        fontSize: 12.sp,
                       ),
                       onSelected: (_) {
                         setState(() {
@@ -141,7 +142,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.m),
+          SizedBox(height: AppSpacing.m),
         ],
 
         // Product Grid
@@ -235,18 +236,18 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                                     Text(
                                       product.nama,
                                       style: AppTypography.titleMedium.copyWith(
-                                        fontSize: 13,
+                                        fontSize: 13.sp,
                                         fontWeight: FontWeight.bold,
                                         color: isOutOfStock ? AppColors.textSecondary : AppColors.textPrimary,
                                       ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(height: 2),
+                                    SizedBox(height: 2),
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
@@ -259,7 +260,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                               style: TextStyle(
                                                 color: isOutOfStock ? AppColors.textSecondary : AppColors.primary,
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 12,
+                                                fontSize: 12.sp,
                                               ),
                                             ),
                                           ),
@@ -272,7 +273,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                               child: Text(
                                                 isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
                                                 style: TextStyle(
-                                                  fontSize: 10,
+                                                  fontSize: 10.sp,
                                                   color: isOutOfStock ? AppColors.error : AppColors.textSecondary,
                                                   fontWeight: isOutOfStock ? FontWeight.bold : FontWeight.normal,
                                                 ),

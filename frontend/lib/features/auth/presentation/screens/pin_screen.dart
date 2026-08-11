@@ -223,8 +223,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.lock_person_rounded, size: 64, color: Colors.white),
-        const SizedBox(height: 16),
+        Icon(Icons.lock_person_rounded, size: 64, color: Colors.white),
+        SizedBox(height: 16),
         Text(
           "Buat PIN Keamanan (6 Digit)",
           textAlign: TextAlign.center,
@@ -286,8 +286,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.lock_person_rounded, size: 64, color: Colors.white),
-        const SizedBox(height: 16),
+        Icon(Icons.lock_person_rounded, size: 64, color: Colors.white),
+        SizedBox(height: 16),
         Text(
           "Pilih Akun Masuk",
           textAlign: TextAlign.center,
@@ -314,7 +314,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           ),
           clipBehavior: Clip.antiAlias,
           child: _isLoadingAccounts
-              ? const Padding(
+              ? Padding(
                   padding: EdgeInsets.all(40.0),
                   child: Center(
                     child: CircularProgressIndicator(),
@@ -370,7 +370,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                                         : AppColors.primary,
                                   ),
                                 ),
-                                const SizedBox(width: 14),
+                                SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -384,7 +384,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                                           color: AppColors.textPrimary,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      SizedBox(height: 4),
                                       Align(
                                         alignment: Alignment.centerLeft,
                                         child: Container(
@@ -402,7 +402,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                                                 ? 'PEMILIK TOKO'
                                                 : 'KASIR',
                                             style: TextStyle(
-                                              fontSize: 11,
+                                              fontSize: 11.sp,
                                               fontWeight: FontWeight.bold,
                                               color: account.isOwner
                                                   ? Colors.amber.shade800
@@ -414,7 +414,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                                     ],
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   Icons.arrow_forward_ios_rounded,
                                   size: 16,
                                   color: AppColors.textSecondary,
@@ -425,7 +425,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                         );
                       },
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                   ],
                 ),
         ),
@@ -460,7 +460,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,7 +472,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       account.isOwner ? 'Akun Pemilik Toko' : 'Akun Kasir',
                       style: AppTypography.bodySmall.copyWith(
@@ -490,8 +490,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                label: const Text('Ganti Akun'),
+                icon: Icon(Icons.swap_horiz_rounded, size: 18),
+                label: Text('Ganti Akun'),
                 onPressed: () {
                   setState(() {
                     _selectedAccount = null;
@@ -524,7 +524,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           maxLength: 6,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submitPin(),
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white),
           decoration: const InputDecoration(
             labelText: 'PIN Sesi (6 digit)',
             labelStyle: TextStyle(color: Colors.white70),
@@ -552,7 +552,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
                 SizedBox(width: 8.w),
                 Expanded(
                   child: Text(
@@ -581,8 +581,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
             style: TextButton.styleFrom(
               foregroundColor: Colors.white,
             ),
-            icon: const Icon(Icons.email_outlined, size: 18),
-            label: const Text('Lupa PIN? (OTP via Email)'),
+            icon: Icon(Icons.email_outlined, size: 18),
+            label: Text('Lupa PIN? (OTP via Email)'),
             onPressed: () {
               ForgotPinEmailModal.show(context);
             },

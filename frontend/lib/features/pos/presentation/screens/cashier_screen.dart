@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -55,7 +56,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text(titleText, style: const TextStyle(fontSize: 14)),
+        title: Text(titleText, style: TextStyle(fontSize: 14.sp)),
         toolbarHeight: 40,
         actions: [
           if (cartState.items.isNotEmpty)
@@ -70,7 +71,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
                   ),
                   child: Text(
                     '${cartState.items.fold(0, (sum, i) => sum + i.qty)} item',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.white, fontSize: 10.sp, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -86,13 +87,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Left 60%: Catalog
-                const Expanded(
+                Expanded(
                   flex: 6,
                   child: CashierCatalogSection(),
                 ),
-                const SizedBox(width: AppSpacing.s),
+                SizedBox(width: AppSpacing.s),
                 const VerticalDivider(width: 1, color: AppColors.divider),
-                const SizedBox(width: AppSpacing.s),
+                SizedBox(width: AppSpacing.s),
                 // Right 40%: Cart & Actions
                 Expanded(
                   flex: 4,
@@ -115,23 +116,23 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
                   labelColor: AppColors.primary,
                   unselectedLabelColor: AppColors.textSecondary,
                   indicatorColor: AppColors.primary,
-                  labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                  unselectedLabelStyle: const TextStyle(fontSize: 11),
+                  labelStyle: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold),
+                  unselectedLabelStyle: TextStyle(fontSize: 11.sp),
                   labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                   tabs: [
                     Tab(
                       height: 36,
-                      icon: const Icon(Icons.restaurant_menu_rounded, size: 16),
-                      child: const Text('Katalog', style: TextStyle(fontSize: 10)),
+                      icon: Icon(Icons.restaurant_menu_rounded, size: 16),
+                      child: Text('Katalog', style: TextStyle(fontSize: 10.sp)),
                     ),
                     Tab(
                       height: 36,
                       icon: Badge(
-                        label: Text('${cartState.items.length}', style: const TextStyle(fontSize: 8)),
+                        label: Text('${cartState.items.length}', style: TextStyle(fontSize: 8.sp)),
                         isLabelVisible: cartState.items.isNotEmpty,
-                        child: const Icon(Icons.shopping_cart_rounded, size: 16),
+                        child: Icon(Icons.shopping_cart_rounded, size: 16),
                       ),
-                      child: const Text('Keranjang', style: TextStyle(fontSize: 10)),
+                      child: Text('Keranjang', style: TextStyle(fontSize: 10.sp)),
                     ),
                   ],
                 ),

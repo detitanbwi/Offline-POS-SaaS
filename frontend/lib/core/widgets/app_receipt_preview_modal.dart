@@ -9,6 +9,7 @@ import '../widgets/app_button.dart';
 import '../widgets/app_snackbar.dart';
 import '../../features/printer/application/printer_notifier.dart';
 import '../../features/printer/domain/models/printer_config.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AppReceiptPreviewModal extends ConsumerWidget {
   final String title;
@@ -127,7 +128,7 @@ class AppReceiptPreviewModal extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text(
                       title,
-                      style: AppTypography.titleLarge.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: AppTypography.titleLarge.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -48,7 +49,7 @@ class TableActionBottomSheet extends ConsumerWidget {
                     Text(
                       'Meja ${table.nomor} - ${table.nama}',
                       style: AppTypography.titleMedium.copyWith(
-                        fontSize: 18,
+                        fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -64,14 +65,14 @@ class TableActionBottomSheet extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     _buildStatusChip(),
                   ],
                 ),
               ),
               // DANGER / DESTRUCTIVE MENU (Terisolasi dari aksi utama)
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Colors.grey),
+                icon: Icon(Icons.more_vert, color: Colors.grey),
                 tooltip: 'Aksi Lainnya & Manajemen',
                 onSelected: (value) {
                   if (value == 'move_table') {
@@ -115,7 +116,7 @@ class TableActionBottomSheet extends ConsumerWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -137,13 +138,13 @@ class TableActionBottomSheet extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
           ],
 
           // PRIMARY ACTIONS BAR (Bergantung pada state meja)
           ..._buildPrimaryActionButtons(context),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
         ],
       ),
     );
@@ -154,8 +155,8 @@ class TableActionBottomSheet extends ConsumerWidget {
       return [
         ElevatedButton.icon(
           onPressed: onAddBatch,
-          icon: const Icon(Icons.restaurant_menu),
-          label: const Text('BUKA PESANAN BARU (DINE-IN)'),
+          icon: Icon(Icons.restaurant_menu),
+          label: Text('BUKA PESANAN BARU (DINE-IN)'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
@@ -167,8 +168,8 @@ class TableActionBottomSheet extends ConsumerWidget {
       return [
         ElevatedButton.icon(
           onPressed: onFinishCleaning,
-          icon: const Icon(Icons.check_circle_outline),
-          label: const Text('SELESAI DIBERSIHKAN (KOSONGKAN)'),
+          icon: Icon(Icons.check_circle_outline),
+          label: Text('SELESAI DIBERSIHKAN (KOSONGKAN)'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.success,
             foregroundColor: Colors.white,
@@ -182,16 +183,16 @@ class TableActionBottomSheet extends ConsumerWidget {
         // Aksi Utama: Bayar
         ElevatedButton.icon(
           onPressed: onPay,
-          icon: const Icon(Icons.payment),
-          label: const Text('BAYAR SEKARANG'),
+          icon: Icon(Icons.payment),
+          label: Text('BAYAR SEKARANG'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.success,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            textStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp),
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         // Row Aksi Pendukung: Tambah Batch & Cetak Tagihan
         Row(
           children: [
@@ -219,12 +220,12 @@ class TableActionBottomSheet extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: onPrintBill,
-                icon: const Icon(Icons.print_outlined),
-                label: const Text('CETAK TAGIHAN'),
+                icon: Icon(Icons.print_outlined),
+                label: Text('CETAK TAGIHAN'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -261,7 +262,7 @@ class TableActionBottomSheet extends ConsumerWidget {
         Chip(
           label: Text(
             label,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+            style: TextStyle(color: Colors.white, fontSize: 12.sp),
           ),
           backgroundColor: color,
           visualDensity: VisualDensity.compact,
@@ -274,21 +275,21 @@ class TableActionBottomSheet extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tagihan Sudah Dicetak'),
-        content: const Text(
+        title: Text('Tagihan Sudah Dicetak'),
+        content: Text(
           'Tagihan meja ini sudah dicetak sebelumnya. Apakah Anda ingin membuka kunci pesanan untuk menambah pesanan batch baru?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               onConfirm();
             },
-            child: const Text('Override & Tambah'),
+            child: Text('Override & Tambah'),
           ),
         ],
       ),

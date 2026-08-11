@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -52,13 +53,13 @@ class MainMenuScreen extends ConsumerWidget {
                   style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   'Pilih opsi di bawah untuk mengunci aplikasi atau keluar dari akun SaaS.',
                   style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -66,8 +67,8 @@ class MainMenuScreen extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.lock_outline_rounded),
-                  label: const Text('Kunci Layar / Ganti User'),
+                  icon: Icon(Icons.lock_outline_rounded),
+                  label: Text('Kunci Layar / Ganti User'),
                   onPressed: () {
                     ref.read(authSessionProvider.notifier).state = null;
                     Navigator.pop(sheetContext);
@@ -77,7 +78,7 @@ class MainMenuScreen extends ConsumerWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.error,
@@ -85,8 +86,8 @@ class MainMenuScreen extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Keluar Akun SaaS (Logout)'),
+                  icon: Icon(Icons.logout_rounded),
+                  label: Text('Keluar Akun SaaS (Logout)'),
                   onPressed: () {
                     Navigator.pop(sheetContext);
                     _confirmSaaSLogout(context, ref);
@@ -152,12 +153,12 @@ class MainMenuScreen extends ConsumerWidget {
                       style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 _buildSubmenuItem(
                   context,
                   title: 'Kategori Produk',
@@ -168,7 +169,7 @@ class MainMenuScreen extends ConsumerWidget {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryScreen()));
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildSubmenuItem(
                   context,
                   title: 'Produk',
@@ -179,7 +180,7 @@ class MainMenuScreen extends ConsumerWidget {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductScreen()));
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildSubmenuItem(
                   context,
                   title: 'Stok Masuk (Stock In)',
@@ -190,7 +191,7 @@ class MainMenuScreen extends ConsumerWidget {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const StockInScreen()));
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildSubmenuItem(
                   context,
                   title: 'Metode Pembayaran',
@@ -201,7 +202,7 @@ class MainMenuScreen extends ConsumerWidget {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentMethodScreen()));
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildSubmenuItem(
                   context,
                   title: 'Pengaturan Pajak',
@@ -212,7 +213,7 @@ class MainMenuScreen extends ConsumerWidget {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const TaxSettingScreen()));
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildSubmenuItem(
                   context,
                   title: 'Platform Online (Take Away)',
@@ -253,18 +254,18 @@ class MainMenuScreen extends ConsumerWidget {
             ),
             child: Icon(icon, color: AppColors.primary, size: 24),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTypography.titleMedium.copyWith(fontSize: 15)),
-                const SizedBox(height: 2),
-                Text(description, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12)),
+                Text(title, style: AppTypography.titleMedium.copyWith(fontSize: 15.sp)),
+                SizedBox(height: 2),
+                Text(description, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          Icon(Icons.chevron_right, color: AppColors.textSecondary),
         ],
       ),
     );
@@ -291,7 +292,7 @@ class MainMenuScreen extends ConsumerWidget {
         title: Text(isOwner ? 'Dashboard Pemilik POS' : 'Dashboard Kasir POS'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.lock_rounded),
+            icon: Icon(Icons.lock_rounded),
             tooltip: 'Kunci Sesi / Logout',
             onPressed: () => _handleLogout(context, ref),
           ),
@@ -305,16 +306,16 @@ class MainMenuScreen extends ConsumerWidget {
             children: [
               Text(
                 isOwner ? 'Selamat Datang, Pemilik Toko!' : 'Selamat Datang, ${activeUser.nama}!',
-                style: AppTypography.headlineLarge.copyWith(fontSize: 28),
+                style: AppTypography.headlineLarge.copyWith(fontSize: 28.sp),
               ),
-              const SizedBox(height: AppSpacing.xs),
+              SizedBox(height: AppSpacing.xs),
               Text(
                 isOwner 
                     ? 'Kelola akun kasir, master data produk, dan pengaturan sistem Anda.'
                     : 'Sistem POS berjalan penuh secara offline. Silakan pilih menu di bawah.',
                 style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
-              const SizedBox(height: AppSpacing.xl),
+              SizedBox(height: AppSpacing.xl),
               Expanded(
                 child: ResponsiveLayout(
                   mobile: _buildGrid(context, ref, isOwner, isTablet: false),
@@ -490,21 +491,21 @@ class MainMenuScreen extends ConsumerWidget {
             ),
             child: Icon(icon, size: 24, color: iconColor),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             title,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
+            style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text(
             subtitle,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
           ),
         ],
       ),

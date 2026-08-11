@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -100,13 +101,13 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Metode Pembayaran'),
+        title: Text('Metode Pembayaran'),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditDialog(context),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        child: const Icon(Icons.add_card),
+        child: Icon(Icons.add_card),
       ),
       body: SafeArea(
         child: Column(
@@ -140,7 +141,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 100),
                           itemCount: state.filteredMethods.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          separatorBuilder: (context, index) => SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final pm = state.filteredMethods[index];
                             final isDefault = pm.id == 'pm-tunai';
@@ -163,7 +164,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                                       size: 24,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
+                                  SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,16 +172,16 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                                         Text(
                                           pm.nama,
                                           style: AppTypography.titleMedium.copyWith(
-                                            fontSize: 16,
+                                            fontSize: 16.sp,
                                             decoration: pm.isActive ? null : TextDecoration.lineThrough,
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
+                                        SizedBox(height: 2),
                                         Text(
                                           pm.isActive ? 'Status: Aktif' : 'Status: Nonaktif',
                                           style: AppTypography.bodyMedium.copyWith(
                                             color: pm.isActive ? AppColors.success : AppColors.textSecondary,
-                                            fontSize: 12,
+                                            fontSize: 12.sp,
                                           ),
                                         ),
                                       ],
@@ -200,9 +201,9 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                                             }
                                           },
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                                    icon: Icon(Icons.edit_outlined, color: AppColors.primary),
                                     onPressed: () => _showAddEditDialog(context, pm),
                                     tooltip: 'Ubah',
                                   ),
@@ -278,12 +279,12 @@ class _PaymentMethodFormState extends State<_PaymentMethodForm> {
               validator: (v) => Validators.required(v, 'Nama Metode Pembayaran'),
             ),
             if (widget.method != null && widget.method?.id != 'pm-tunai') ...[
-              const SizedBox(height: 16),
-              const Text(
+              SizedBox(height: 16),
+              Text(
                 'Status Aktif',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.sp),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               RadioGroup<int>(
                 groupValue: _status,
                 onChanged: (val) {
@@ -293,14 +294,14 @@ class _PaymentMethodFormState extends State<_PaymentMethodForm> {
                   children: [
                     Expanded(
                       child: RadioListTile<int>(
-                        title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                        title: Text('Aktif', style: TextStyle(fontSize: 14.sp)),
                         value: 1,
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
                     Expanded(
                       child: RadioListTile<int>(
-                        title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                        title: Text('Nonaktif', style: TextStyle(fontSize: 14.sp)),
                         value: 0,
                         contentPadding: EdgeInsets.zero,
                       ),

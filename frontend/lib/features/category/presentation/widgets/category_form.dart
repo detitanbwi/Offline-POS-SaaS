@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -90,7 +91,7 @@ class CategoryFormState extends State<CategoryForm> {
                   style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -98,14 +99,14 @@ class CategoryFormState extends State<CategoryForm> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Pilih dari Galeri'),
+                  icon: Icon(Icons.photo_library_outlined),
+                  label: Text('Pilih dari Galeri'),
                   onPressed: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.gallery);
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
@@ -113,8 +114,8 @@ class CategoryFormState extends State<CategoryForm> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.camera_alt_outlined),
-                  label: const Text('Ambil dari Kamera'),
+                  icon: Icon(Icons.camera_alt_outlined),
+                  label: Text('Ambil dari Kamera'),
                   onPressed: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.camera);
@@ -168,21 +169,21 @@ class CategoryFormState extends State<CategoryForm> {
             validator: (v) => Validators.required(v, 'Nama Kategori'),
           ),
           if (widget.category == null) ...[
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               'Gunakan tanda koma (,) atau baris baru untuk memasukkan beberapa kategori sekaligus.',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 12.sp,
                 color: Colors.grey[600],
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'Gambar Kategori (Opsional)',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.sp),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           GestureDetector(
             onTap: () => _showImageSourcePicker(context),
             child: Container(
@@ -203,11 +204,11 @@ class CategoryFormState extends State<CategoryForm> {
                             ? Image.file(
                                 File(_imagePath!),
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, _, _) => const Center(
+                                errorBuilder: (_, _, _) => Center(
                                   child: Icon(Icons.broken_image_outlined, size: 40, color: AppColors.error),
                                 ),
                               )
-                            : const Center(
+                            : Center(
                                 child: Icon(Icons.image_outlined, size: 40, color: AppColors.disabled),
                               ),
                       ),
@@ -219,7 +220,7 @@ class CategoryFormState extends State<CategoryForm> {
                         backgroundColor: Colors.black54,
                         radius: 18,
                         child: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+                          icon: Icon(Icons.delete_outline, color: Colors.white, size: 18),
                           onPressed: () {
                             setState(() {
                               _imagePath = null;
@@ -232,16 +233,16 @@ class CategoryFormState extends State<CategoryForm> {
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.primary),
-                        const SizedBox(height: 8),
+                        Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.primary),
+                        SizedBox(height: 8),
                         Text(
                           'Pilih Gambar (Galeri / Kamera)',
-                          style: AppTypography.titleMedium.copyWith(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: AppTypography.titleMedium.copyWith(color: AppColors.primary, fontSize: 13.sp, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           'Format didukung: JPG, PNG',
-                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10),
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10.sp),
                         ),
                       ],
                     ),
@@ -251,12 +252,12 @@ class CategoryFormState extends State<CategoryForm> {
             ),
           ),
           if (widget.category != null) ...[
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'Status Kategori',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.sp),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             RadioGroup<int>(
               groupValue: _status,
               onChanged: (val) {
@@ -266,14 +267,14 @@ class CategoryFormState extends State<CategoryForm> {
                 children: [
                   Expanded(
                     child: RadioListTile<int>(
-                      title: const Text('Aktif', style: TextStyle(fontSize: 14)),
+                      title: Text('Aktif', style: TextStyle(fontSize: 14.sp)),
                       value: 1,
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
                   Expanded(
                     child: RadioListTile<int>(
-                      title: const Text('Nonaktif', style: TextStyle(fontSize: 14)),
+                      title: Text('Nonaktif', style: TextStyle(fontSize: 14.sp)),
                       value: 0,
                       contentPadding: EdgeInsets.zero,
                     ),

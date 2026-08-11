@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -16,7 +17,7 @@ class AboutScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Tentang Aplikasi'),
+        title: Text('Tentang Aplikasi'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -24,7 +25,7 @@ class AboutScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               // App Logo / Icon Placeholder
               Center(
                 child: Container(
@@ -33,14 +34,14 @@ class AboutScreen extends ConsumerWidget {
                     color: AppColors.primaryContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.point_of_sale_rounded,
                     color: AppColors.primary,
                     size: 64,
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               Text(
                 appName,
                 textAlign: TextAlign.center,
@@ -49,13 +50,13 @@ class AboutScreen extends ConsumerWidget {
                   color: AppColors.primary,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 'Versi $appVersion (Build $appBuildNumber)',
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
               // System Info Card
               Card(
                 elevation: 0,
@@ -81,7 +82,7 @@ class AboutScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               // License Status Card
               FutureBuilder<String?>(
                 future: storage.getLicenseKey(),
@@ -121,13 +122,13 @@ class AboutScreen extends ConsumerWidget {
                   );
                 },
               ),
-              const SizedBox(height: 48),
+              SizedBox(height: 48),
               Text(
                 '© 2026 Wirodev SaaS POS. All rights reserved.',
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
-                  fontSize: 12,
+                  fontSize: 12.sp,
                 ),
               ),
             ],

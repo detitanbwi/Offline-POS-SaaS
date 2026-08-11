@@ -8,8 +8,8 @@ const String apiBaseUrl = 'https://demo2.wirodev.com';
 // const String apiBaseUrl = 'http://192.168.1.36:8000';
 
 /// Application metadata
-const String appVersion = '0.0.99';
-const String appBuildNumber = '99';
+const String appVersion = '0.1.0';
+const String appBuildNumber = '100';
 const String appName = 'SaaS POS Offline';
 
 /// Order status constants

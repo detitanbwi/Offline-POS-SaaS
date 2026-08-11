@@ -17,7 +17,8 @@ import '../screens/payment_screen.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../printer/domain/models/printer_config.dart';
-import '../../../../core/utils/receipt_generator.dart';
+import '../../../../core/utils/receipt_generator.dart';import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 
 class CashierCartSection extends ConsumerStatefulWidget {
   final VoidCallback onSaveDraftCompleted;
@@ -81,18 +82,18 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 22),
+                    child: Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 22),
                   ),
-                  const SizedBox(width: 10),
-                  const Text('Simpan Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  SizedBox(width: 10),
+                  Text('Simpan Pesanan', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const SizedBox(height: 12),
-              const Text(
+              SizedBox(height: 12),
+              Text(
                 'Apakah Anda ingin mengirim / mencetak nota pesanan ini ke dapur?',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -101,11 +102,11 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                   elevation: 0,
                 ),
-                icon: const Icon(Icons.print_rounded, size: 18),
-                label: const Text('Ya, Kirim Dapur', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                icon: Icon(Icons.print_rounded, size: 18),
+                label: Text('Ya, Kirim Dapur', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
                 onPressed: () => Navigator.pop(dialogCtx, true),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
@@ -114,15 +115,15 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
                 onPressed: () => Navigator.pop(dialogCtx, false),
-                child: const Text('Tidak, Hanya Simpan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                child: Text('Tidak, Hanya Simpan', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               TextButton(
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
                 onPressed: () => Navigator.pop(dialogCtx, null),
-                child: const Text('Batal', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                child: Text('Batal', style: TextStyle(fontSize: 13.sp, color: AppColors.primary, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -307,22 +308,22 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 24),
                     SizedBox(width: 10),
                     Text(
                       'Struk Batch Dapur',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                const Text(
+                SizedBox(height: 12),
+                Text(
                   'Pilih batch pesanan yang ingin dikirim / dicetak ke printer dapur:',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
 
                 // 1. If unprinted items exist, show prominent action tile at top!
                 if (unprintedCount > 0) ...[
@@ -340,17 +341,17 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                           color: AppColors.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                        child: Icon(Icons.send_rounded, size: 18, color: Colors.white),
                       ),
                       title: Text(
                         'Kirim Batch #${existingBatchCount + 1} ke Dapur',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
+                        style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                       subtitle: Text(
                         'Ada +$unprintedCount item baru yang belum dikirim',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                        style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                       ),
-                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+                      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
                       onTap: () async {
                         Navigator.pop(dialogCtx);
                         if (mounted) {
@@ -359,16 +360,16 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                 ],
 
                 // 2. Existing Printed Batches
                 if (existingBatchCount > 0) ...[
-                  const Text(
+                  Text(
                     'Batch Pesanan Sebelumnya:',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   ...List.generate(existingBatchCount, (index) {
                     final bNum = index + 1;
                     final bLabel = bNum == 1 ? 'Batch #1 (Pesanan Awal)' : 'Batch #$bNum (Pesanan Tambahan)';
@@ -382,15 +383,15 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       ),
                       child: ListTile(
                         dense: true,
-                        leading: const Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
-                        title: Text(bLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        leading: Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
+                        title: Text(bLabel, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600)),
                         trailing: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
+                          child: Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
                         ),
                         onTap: () async {
                           Navigator.pop(dialogCtx);
@@ -401,7 +402,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       ),
                     );
                   }),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Card(
                     elevation: 0,
                     color: AppColors.success.withValues(alpha: 0.08),
@@ -411,8 +412,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     ),
                     child: ListTile(
                       dense: true,
-                      leading: const Icon(Icons.receipt_long_rounded, size: 20, color: AppColors.success),
-                      title: const Text('Cetak Rekap Dapur (Semua Menu)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success)),
+                      leading: Icon(Icons.receipt_long_rounded, size: 20, color: AppColors.success),
+                      title: Text('Cetak Rekap Dapur (Semua Menu)', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.success)),
                       onTap: () async {
                         Navigator.pop(dialogCtx);
                         if (mounted && order != null) {
@@ -422,23 +423,23 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     ),
                   ),
                 ] else if (unprintedCount == 0) ...[
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 16.0),
                     child: Center(
                       child: Text(
                         'Belum ada batch pesanan tersimpan untuk meja ini.',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
                       ),
                     ),
                   ),
                 ],
 
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.pop(dialogCtx),
-                    child: const Text('Tutup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    child: Text('Tutup', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -543,7 +544,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                 color: AppColors.primary,
                 size: 14,
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Expanded(
                 child: Text(
                   orderState.isTakeAway
@@ -554,14 +555,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   style: AppTypography.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
-                    fontSize: 11,
+                    fontSize: 11.sp,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: 2),
 
         Expanded(
           child: cartState.items.isEmpty
@@ -570,7 +571,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.shopping_cart_outlined, size: 48, color: AppColors.textSecondary.withValues(alpha: 0.5)),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(
                         'Keranjang Masih Kosong',
                         style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
@@ -622,17 +623,17 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                 childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                 title: Row(
                                   children: [
-                                    const Icon(Icons.add_shopping_cart_rounded, size: 16, color: AppColors.primary),
-                                    const SizedBox(width: 6),
+                                    Icon(Icons.add_shopping_cart_rounded, size: 16, color: AppColors.primary),
+                                    SizedBox(width: 6),
                                     Text(
                                       'Batch Baru (Belum Kirim)',
-                                      style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                      style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.primary),
                                     ),
                                   ],
                                 ),
                                 subtitle: Text(
                                   '${newItems.length} menu baru',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                  style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
                                 ),
                                 children: newItems.map((item) {
                                   final newQty = item.initialSavedQty > 0 ? item.qty - item.initialSavedQty : item.qty;
@@ -648,11 +649,11 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                             children: [
                                               Text(
                                                 item.product.nama,
-                                                style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold),
+                                                style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                              const SizedBox(height: 2),
+                                              SizedBox(height: 2),
                                               Text(
                                                 CurrencyFormatter.format(item.product.harga),
                                                 style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
@@ -664,7 +665,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                           children: [
                                             if (item.canDecrement)
                                               IconButton(
-                                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18),
+                                                icon: Icon(Icons.remove_circle_outline_rounded, size: 18),
                                                 color: AppColors.error,
                                                 padding: EdgeInsets.zero,
                                                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -673,13 +674,13 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                 },
                                               )
                                             else
-                                              const SizedBox(width: 28),
+                                              SizedBox(width: 28),
                                             Text(
                                               '$newQty',
-                                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+                                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12.sp),
                                             ),
                                             IconButton(
-                                              icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                                              icon: Icon(Icons.add_circle_outline_rounded, size: 18),
                                               color: AppColors.primary,
                                               padding: EdgeInsets.zero,
                                               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -689,7 +690,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(width: 8),
+                                        SizedBox(width: 8),
                                         Flexible(
                                           flex: 1,
                                           child: FittedBox(
@@ -698,7 +699,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                             child: Text(
                                               CurrencyFormatter.format(newSubtotal),
                                               textAlign: TextAlign.right,
-                                              style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold),
+                                              style: AppTypography.titleMedium.copyWith(fontSize: 12.sp, fontWeight: FontWeight.bold),
                                             ),
                                           ),
                                         ),
@@ -741,17 +742,17 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                       childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                       title: Row(
                                         children: [
-                                          const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
-                                          const SizedBox(width: 6),
+                                          Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
+                                          SizedBox(width: 6),
                                           Text(
                                             bTitle,
-                                            style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success),
+                                            style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.success),
                                           ),
                                         ],
                                       ),
                                       subtitle: Text(
                                         '${bItems.length} menu • ${CurrencyFormatter.format(bSubtotal)}',
-                                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                        style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
                                       ),
                                       children: bItems.map((item) {
                                         return Padding(
@@ -765,14 +766,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                   children: [
                                                     Text(
                                                       item.produkNama,
-                                                      style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+                                                      style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.w600),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
                                                     ),
-                                                    const SizedBox(height: 2),
+                                                    SizedBox(height: 2),
                                                     Text(
                                                       '${item.qty}x @ ${CurrencyFormatter.format(item.produkHarga)} (Tersimpan)',
-                                                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                                                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                                                     ),
                                                   ],
                                                 ),
@@ -785,7 +786,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                   child: Text(
                                                     CurrencyFormatter.format(item.subtotal),
                                                     textAlign: TextAlign.right,
-                                                    style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                                    style: AppTypography.titleMedium.copyWith(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                                                   ),
                                                 ),
                                               ),
@@ -819,17 +820,17 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                     childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                     title: Row(
                                       children: [
-                                        const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
-                                        const SizedBox(width: 6),
+                                        Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
+                                        SizedBox(width: 6),
                                         Text(
                                           'Batch #1 (Pesanan Awal)',
-                                          style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success),
+                                          style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.success),
                                         ),
                                       ],
                                     ),
                                     subtitle: Text(
                                       '${savedCartItems.length} menu sudah dikirim ke dapur',
-                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
                                     ),
                                     children: savedCartItems.map((item) {
                                       final savedSubtotal = item.product.harga * item.initialSavedQty;
@@ -844,14 +845,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                 children: [
                                                   Text(
                                                     item.product.nama,
-                                                    style: AppTypography.titleMedium.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+                                                    style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.w600),
                                                     maxLines: 1,
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
-                                                  const SizedBox(height: 2),
+                                                  SizedBox(height: 2),
                                                   Text(
                                                     '${item.initialSavedQty}x @ ${CurrencyFormatter.format(item.product.harga)} (Tersimpan)',
-                                                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                                                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                                                   ),
                                                 ],
                                               ),
@@ -864,7 +865,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                 child: Text(
                                                   CurrencyFormatter.format(savedSubtotal),
                                                   textAlign: TextAlign.right,
-                                                  style: AppTypography.titleMedium.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                                  style: AppTypography.titleMedium.copyWith(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                                                 ),
                                               ),
                                             ),
@@ -883,7 +884,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   },
                 ),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        SizedBox(height: AppSpacing.xs),
 
         if (orderState.isOnlineFood) ...[
           Container(
@@ -899,14 +900,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                 Row(
                   children: [
                     Icon(Icons.monetization_on_rounded, size: 16, color: Colors.orange.shade900),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Text(
                       'Input Total di Aplikasi ${orderState.onlinePlatform ?? 'Online'}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                      style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 TextField(
                   controller: _appTotalController,
                   keyboardType: TextInputType.number,
@@ -937,14 +938,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   },
                 ),
                 if (orderState.onlinePlatformTotal != null) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Builder(
                     builder: (context) {
                       final diff = (orderState.onlinePlatformTotal! - cartState.grandTotal).abs();
                       return Text(
                         'Selisih Komisi: ${CurrencyFormatter.format(diff)}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.sp,
                           fontWeight: FontWeight.bold,
                           color: Colors.orange.shade900,
                         ),
@@ -955,7 +956,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
+          SizedBox(height: AppSpacing.xs),
         ],
 
         AppCard(
@@ -965,8 +966,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Subtotal', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                  Text(CurrencyFormatter.format(cartState.subtotal), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  Text('Subtotal', style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
+                  Text(CurrencyFormatter.format(cartState.subtotal), style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w500)),
                 ],
               ),
               const Divider(height: 8),
@@ -982,11 +983,11 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     children: [
                       Text(
                         onlineTotal != null ? 'Grand Total (${orderState.onlinePlatform ?? "Online"})' : 'Grand Total',
-                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12.sp),
                       ),
                       Text(
                         CurrencyFormatter.format(effectiveGrandTotal),
-                        style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14),
+                        style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14.sp),
                       ),
                     ],
                   );
@@ -995,7 +996,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
             ],
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: 2),
 
         SizedBox(
           height: 30,
@@ -1011,16 +1012,16 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
-                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                     ),
                     onPressed: cartState.items.isEmpty ? null : _handleSaveDraft,
                     child: _isSaving
-                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Simpan', overflow: TextOverflow.ellipsis),
+                        ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text('Simpan', overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Expanded(
                 child: SizedBox(
                   height: 30,
@@ -1031,14 +1032,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
-                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                     ),
                     onPressed: cartState.items.isEmpty ? null : _handlePrintBill,
-                    child: const Text('Cetak Bill', overflow: TextOverflow.ellipsis),
+                    child: Text('Cetak Bill', overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Expanded(
                 child: SizedBox(
                   height: 30,
@@ -1049,14 +1050,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
-                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                     ),
                     onPressed: cartState.items.isEmpty ? null : _handleGoToPayment,
-                    child: const Text('Bayar', overflow: TextOverflow.ellipsis),
+                    child: Text('Bayar', overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Expanded(
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -1072,10 +1073,10 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 elevation: 0,
-                                textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                               ),
                               onPressed: _showPrintBatchesDialog,
-                              child: const Text('Batch', overflow: TextOverflow.ellipsis),
+                              child: Text('Batch', overflow: TextOverflow.ellipsis),
                             )
                           : OutlinedButton(
                               style: OutlinedButton.styleFrom(
@@ -1083,10 +1084,10 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                 side: const BorderSide(color: AppColors.primary, width: 1),
                                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                               ),
                               onPressed: _showPrintBatchesDialog,
-                              child: const Text('Batch', overflow: TextOverflow.ellipsis),
+                              child: Text('Batch', overflow: TextOverflow.ellipsis),
                             ),
                     ),
                     if (unprintedCount > 0)
@@ -1101,9 +1102,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                           ),
                           child: Text(
                             '+$unprintedCount',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 8,
+                              fontSize: 8.sp,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

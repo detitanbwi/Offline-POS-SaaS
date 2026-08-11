@@ -1038,20 +1038,20 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       context: ctx,
       builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.soup_kitchen_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Cetak Ulang Struk Dapur', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.soup_kitchen_rounded, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text('Cetak Ulang Struk Dapur', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Pilih batch pesanan yang ingin dicetak ulang ke printer dapur:',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
             ...List.generate(effectiveBatchCount, (index) {

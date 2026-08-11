@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -64,8 +65,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.shopping_bag_rounded, color: AppColors.primary),
-            const SizedBox(width: 8),
+            Icon(Icons.shopping_bag_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
             Text('Tipe Take Away', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
@@ -73,22 +74,22 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Pilih kategori layanan pesanan bungkus/bawa pulang:'),
-            const SizedBox(height: 16),
+            Text('Pilih kategori layanan pesanan bungkus/bawa pulang:'),
+            SizedBox(height: 16),
             ListTile(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: const BorderSide(color: AppColors.divider),
               ),
-              leading: const Icon(Icons.person_pin_circle_rounded, color: AppColors.primary, size: 28),
-              title: const Text('Take Away Reguler', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Pesanan langsung oleh pelanggan di kasir toko'),
+              leading: Icon(Icons.person_pin_circle_rounded, color: AppColors.primary, size: 28),
+              title: Text('Take Away Reguler', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Pesanan langsung oleh pelanggan di kasir toko'),
               onTap: () {
                 Navigator.pop(context);
                 _navigateToCashierForTakeAway('reguler');
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             ListTile(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -97,7 +98,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
               tileColor: Colors.orange.shade50,
               leading: Icon(Icons.sports_esports_rounded, color: Colors.orange.shade800, size: 28),
               title: Text('Online Food', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
-              subtitle: const Text('Pesanan via aplikasi GoFood/GrabFood/ShopeeFood'),
+              subtitle: Text('Pesanan via aplikasi GoFood/GrabFood/ShopeeFood'),
               onTap: () {
                 Navigator.pop(context);
                 _showOnlinePlatformSelectionDialog();
@@ -125,7 +126,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
               title: Row(
                 children: [
                   Icon(Icons.delivery_dining_rounded, color: Colors.orange.shade800),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Pilih Platform',
@@ -141,24 +142,24 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Pilih aplikasi penyedia layanan online food:'),
-                    const SizedBox(height: 12),
+                    Text('Pilih aplikasi penyedia layanan online food:'),
+                    SizedBox(height: 12),
                     if (platformState.isLoading)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.all(16.0),
                         child: Center(child: CircularProgressIndicator()),
                       )
                     else if (activePlatforms.isEmpty) ...[
-                      const Text(
+                      Text(
                         'Belum ada platform online tersimpan.',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
                       ),
                     ] else
                       Flexible(
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: activePlatforms.length + 1,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          separatorBuilder: (_, _) => SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             if (index == activePlatforms.length) {
                               return ListTile(
@@ -166,8 +167,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                   side: const BorderSide(color: AppColors.divider),
                                 ),
-                                leading: const Icon(Icons.other_houses_rounded, color: AppColors.textSecondary),
-                                title: const Text('Lainnya / Umum', style: TextStyle(fontWeight: FontWeight.w600)),
+                                leading: Icon(Icons.other_houses_rounded, color: AppColors.textSecondary),
+                                title: Text('Lainnya / Umum', style: TextStyle(fontWeight: FontWeight.w600)),
                                 onTap: () {
                                   Navigator.pop(dialogCtx);
                                   _navigateToCashierForTakeAway('online_food', platform: 'Online Food');
@@ -182,8 +183,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               ),
                               tileColor: Colors.orange.shade50,
                               leading: Icon(Icons.delivery_dining_rounded, color: Colors.orange.shade800),
-                              title: Text(platform.nama, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              trailing: const Icon(Icons.chevron_right_rounded, color: Colors.orange),
+                              title: Text(platform.nama, style: TextStyle(fontWeight: FontWeight.bold)),
+                              trailing: Icon(Icons.chevron_right_rounded, color: Colors.orange),
                               onTap: () {
                                 Navigator.pop(dialogCtx);
                                 _navigateToCashierForTakeAway('online_food', platform: platform.nama);
@@ -198,7 +199,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('Batal'),
+                  child: Text('Batal'),
                 ),
               ],
             );
@@ -351,7 +352,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       children: [
                         Text(
                           title,
-                          style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                         ),
                         if (order.customerName != null && order.customerName!.isNotEmpty)
                           Text(
@@ -361,12 +362,12 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close),
                       onPressed: () => Navigator.pop(sheetContext),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 // Status Card
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -382,7 +383,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         color: statusColor,
                         size: 20,
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,14 +392,14 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               'Status: $statusLabel',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                fontSize: 13.sp,
                                 color: isBillPrinted ? const Color(0xFF78350F) : const Color(0xFF14532D),
                               ),
                             ),
-                            Text('No. Order: ${order.nomorOrder}', style: const TextStyle(fontSize: 12)),
+                            Text('No. Order: ${order.nomorOrder}', style: TextStyle(fontSize: 12.sp)),
                             Text(
                               'Total Tagihan: ${CurrencyFormatter.format(order.grandTotal)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                             ),
                           ],
                         ),
@@ -406,11 +407,11 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 // Items List Grouped by Batch
                 if (groupedItems.isNotEmpty) ...[
                   Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   ListView(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -437,25 +438,25 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                                    const SizedBox(width: 6),
+                                    Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
+                                    SizedBox(width: 6),
                                     Text(
                                       batchTitle,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                                     ),
                                     const Spacer(),
                                     Text(
                                       '${batchItemList.length} Menu',
-                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
                                       InkWell(
                                         onTap: () {
                                           Navigator.pop(sheetContext);
                                           _showCancelDialog(context, order, batchId: batchItemList.first.printBatchId);
                                         },
-                                        child: const Padding(
+                                        child: Padding(
                                           padding: EdgeInsets.all(6),
                                           child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
                                         ),
@@ -472,12 +473,12 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                       '${item.qty}x',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 13,
+                                        fontSize: 13.sp,
                                         decoration: item.isCancelled ? TextDecoration.lineThrough : null,
                                         color: item.isCancelled ? Colors.grey : Colors.black87,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,7 +490,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                   item.produkNama,
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w600,
-                                                    fontSize: 13,
+                                                    fontSize: 13.sp,
                                                     decoration: item.isCancelled ? TextDecoration.lineThrough : null,
                                                     color: item.isCancelled ? Colors.grey : Colors.black87,
                                                   ),
@@ -504,7 +505,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                   ),
                                                   child: Text(
                                                     'DIBATALKAN',
-                                                    style: TextStyle(fontSize: 9, color: Colors.red.shade800, fontWeight: FontWeight.bold),
+                                                    style: TextStyle(fontSize: 9.sp, color: Colors.red.shade800, fontWeight: FontWeight.bold),
                                                   ),
                                                 ),
                                             ],
@@ -512,29 +513,29 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                           if (item.catatan != null && item.catatan!.isNotEmpty)
                                             Text(
                                               'Note: ${item.catatan}',
-                                              style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic),
+                                              style: TextStyle(fontSize: 11.sp, color: Colors.orange, fontStyle: FontStyle.italic),
                                             ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     Text(
                                       CurrencyFormatter.format(item.subtotal),
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 12,
+                                        fontSize: 12.sp,
                                         decoration: item.isCancelled ? TextDecoration.lineThrough : null,
                                         color: item.isCancelled ? Colors.grey : Colors.black87,
                                       ),
                                     ),
                                     if (!item.isCancelled) ...[
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       InkWell(
                                         onTap: () {
                                           Navigator.pop(sheetContext);
                                           _showCancelDialog(context, order, itemId: item.id, itemName: item.produkNama);
                                         },
-                                        child: const Padding(
+                                        child: Padding(
                                           padding: EdgeInsets.all(6),
                                           child: Icon(Icons.delete_outline, size: 20, color: AppColors.error),
                                         ),
@@ -549,13 +550,13 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       }).toList(),
                   ),
                 ] else
-                  const Center(
+                  Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
                       child: Text('Belum ada rincian pesanan'),
                     ),
                   ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 // Action Buttons
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -568,8 +569,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               Navigator.pop(sheetContext);
                               _navigateToPos(order);
                             },
-                            icon: const Icon(Icons.shopping_cart_outlined, size: 18),
-                            label: const Text('Tambah Menu'),
+                            icon: Icon(Icons.shopping_cart_outlined, size: 18),
+                            label: Text('Tambah Menu'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
@@ -578,15 +579,15 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
                               Navigator.pop(sheetContext);
                               _navigateToPayment(order);
                             },
-                            icon: const Icon(Icons.payments_outlined, size: 18),
-                            label: const Text('Bayar'),
+                            icon: Icon(Icons.payments_outlined, size: 18),
+                            label: Text('Bayar'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.success,
                               foregroundColor: Colors.white,
@@ -598,7 +599,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       ],
                     ),
                     if (isDineIn && table != null) ...[
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
@@ -607,8 +608,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                 Navigator.pop(sheetContext);
                                 _handleMoveTable(context, table!, order);
                               },
-                              icon: const Icon(Icons.move_up_rounded, size: 18),
-                              label: const Text('Pindah Meja'),
+                              icon: Icon(Icons.move_up_rounded, size: 18),
+                              label: Text('Pindah Meja'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.secondary,
                                 foregroundColor: Colors.white,
@@ -644,15 +645,15 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Alasan Pembatalan:'),
-              const SizedBox(height: 8),
+              Text('Alasan Pembatalan:'),
+              SizedBox(height: 8),
               TextField(
                 controller: reasonController,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
               ),
-              const SizedBox(height: 16),
-              const Text('Otorisasi Owner (PIN):'),
-              const SizedBox(height: 8),
+              SizedBox(height: 16),
+              Text('Otorisasi Owner (PIN):'),
+              SizedBox(height: 8),
               TextField(
                 controller: pinController,
                 obscureText: true,
@@ -665,7 +666,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Tutup'),
+              child: Text('Tutup'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
@@ -707,7 +708,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
                 }
               },
-              child: const Text('Batalkan'),
+              child: Text('Batalkan'),
             ),
           ],
         );
@@ -740,7 +741,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   'Pindah Meja - ${sourceTable.nama}',
                   style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 300),
                   child: ListView.separated(
@@ -750,7 +751,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                     itemBuilder: (context, index) {
                       final targetTable = emptyTables[index];
                       return ListTile(
-                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        leading: Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
                         title: Text(targetTable.nama),
                         subtitle: Text('Nomor: ${targetTable.nomor}'),
                         onTap: () async {
@@ -798,10 +799,10 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Transaksi POS - Pesanan Barus & Aktif'),
+        title: Text('Transaksi POS - Pesanan Barus & Aktif'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Pesanan',
             onPressed: () {
               ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
@@ -831,8 +832,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         ),
                         child: Column(
                           children: [
-                            const Icon(Icons.restaurant_rounded, size: 38, color: AppColors.primary),
-                            const SizedBox(height: 6),
+                            Icon(Icons.restaurant_rounded, size: 38, color: AppColors.primary),
+                            SizedBox(height: 6),
                             Text(
                               'Dine-In',
                               style: AppTypography.titleMedium.copyWith(
@@ -840,10 +841,10 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                 color: AppColors.primary,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2),
                             Text(
                               'Makan di tempat (Pilih Meja)',
-                              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -851,7 +852,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.m),
+                  SizedBox(width: AppSpacing.m),
                   Expanded(
                     child: InkWell(
                       onTap: _handleTakeAwaySelected,
@@ -865,8 +866,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         ),
                         child: Column(
                           children: [
-                            const Icon(Icons.shopping_bag_rounded, size: 38, color: AppColors.secondary),
-                            const SizedBox(height: 6),
+                            Icon(Icons.shopping_bag_rounded, size: 38, color: AppColors.secondary),
+                            SizedBox(height: 6),
                             Text(
                               'Takeaway',
                               style: AppTypography.titleMedium.copyWith(
@@ -874,10 +875,10 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                 color: AppColors.secondary,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2),
                             Text(
                               'Bungkus / Online Food',
-                              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -887,7 +888,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.l),
+              SizedBox(height: AppSpacing.l),
 
               // Bottom Section Header: Daftar Pesanan Aktif
               Row(
@@ -901,7 +902,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                     ),
                   ),
                   if (draftOrders.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -912,7 +913,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         'Draft / Open Bill',
                         style: TextStyle(
                           color: AppColors.primary,
-                          fontSize: 11,
+                          fontSize: 11.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -920,7 +921,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   ],
                 ],
               ),
-              const SizedBox(height: AppSpacing.m),
+              SizedBox(height: AppSpacing.m),
 
               // Draft Orders List
               Expanded(
@@ -934,7 +935,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                           )
                         : ListView.separated(
                             itemCount: draftOrders.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.s),
+                            separatorBuilder: (_, _) => SizedBox(height: AppSpacing.s),
                             itemBuilder: (context, index) {
                               final order = draftOrders[index];
                               final isDineIn = order.orderType == 'dine_in';
@@ -959,7 +960,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                         size: 20,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -971,7 +972,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                             children: [
                                               Text(
                                                 order.nomorOrder,
-                                                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13),
+                                                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp),
                                               ),
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -985,24 +986,24 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                       : 'Take Away (${order.takeAwaySubType == 'online_food' ? 'Online' : 'Reguler'})',
                                                   style: TextStyle(
                                                     color: isDineIn ? Colors.blue.shade800 : Colors.orange.shade800,
-                                                    fontSize: 10,
+                                                    fontSize: 10.sp,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 4),
+                                          SizedBox(height: 4),
                                           Text(
                                             'Waktu: $formattedTime • Pelanggan: ${order.customerName ?? 'Umum'}',
-                                            style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                                            style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
@@ -1013,18 +1014,18 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                             style: AppTypography.titleMedium.copyWith(
                                               fontWeight: FontWeight.bold,
                                               color: AppColors.primary,
-                                              fontSize: 13,
+                                              fontSize: 13.sp,
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
-                                        const Row(
+                                        SizedBox(height: 2),
+                                        Row(
                                           children: [
                                             Text(
                                               'Buka Kasir',
                                               style: TextStyle(
                                                 color: AppColors.primary,
-                                                fontSize: 11,
+                                                fontSize: 11.sp,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),

@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -52,7 +53,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
 
     final items = await ref.read(transactionHistoryNotifierProvider.notifier).getItems(tx.id);
@@ -98,17 +99,17 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Otorisasi Pembatalan (Void)', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text('Otorisasi Pembatalan (Void)', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Form(
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   'Masukkan PIN Master Pemilik untuk mengotorisasi pembatalan transaksi ini.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  style: TextStyle(fontSize: 13.sp, color: Colors.grey),
                 ),
-                const SizedBox(height: AppSpacing.m),
+                SizedBox(height: AppSpacing.m),
                 AppTextField(
                   controller: pinController,
                   labelText: 'PIN Master Pemilik',
@@ -130,7 +131,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
+              child: Text('Batal'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -167,7 +168,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                   }
                 }
               },
-              child: const Text('Otorisasikan'),
+              child: Text('Otorisasikan'),
             ),
           ],
         );
@@ -183,7 +184,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Riwayat Transaksi'),
+        title: Text('Riwayat Transaksi'),
       ),
       body: SafeArea(
         child: Column(
@@ -215,7 +216,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                       : ListView.separated(
                           padding: const EdgeInsets.all(AppSpacing.m),
                           itemCount: state.filteredTransactions.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          separatorBuilder: (context, index) => SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final tx = state.filteredTransactions[index];
                             final timeStr = DateFormat('yyyy-MM-dd HH:mm').format(tx.createdAt);
@@ -243,7 +244,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                       size: 24,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
+                                  SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +257,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                              Text(
                                                tx.nomorTransaksi,
                                                style: AppTypography.titleMedium.copyWith(
-                                                 fontSize: 14,
+                                                 fontSize: 14.sp,
                                                  decoration: isVoided ? TextDecoration.lineThrough : null,
                                                  color: isVoided ? AppColors.textSecondary : AppColors.textPrimary,
                                                ),
@@ -268,23 +269,23 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                                    color: AppColors.error.withValues(alpha: 0.1),
                                                    borderRadius: BorderRadius.circular(6),
                                                  ),
-                                                 child: const Text(
+                                                 child: Text(
                                                    'VOID',
                                                    style: TextStyle(
                                                      color: AppColors.error,
-                                                     fontSize: 10,
+                                                     fontSize: 10.sp,
                                                      fontWeight: FontWeight.bold,
                                                    ),
                                                  ),
                                                ),
                                            ],
                                          ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                         Text(
                                           'Pembayaran: ${tx.paymentMethodNama} • $timeStr',
                                           style: AppTypography.bodyMedium.copyWith(
                                             color: AppColors.textSecondary,
-                                            fontSize: 12,
+                                            fontSize: 12.sp,
                                           ),
                                         ),
                                       ],
@@ -294,11 +295,11 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                     CurrencyFormatter.format(tx.grandTotal),
                                     style: AppTypography.titleMedium.copyWith(
                                       color: isVoided ? AppColors.textSecondary : AppColors.primary,
-                                      fontSize: 15,
+                                      fontSize: 15.sp,
                                       decoration: isVoided ? TextDecoration.lineThrough : null,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
+                                  SizedBox(width: 4),
                                   IconButton(
                                     icon: Icon(
                                       Icons.block_rounded,

@@ -145,7 +145,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       prefixIcon: Icons.table_restaurant_rounded,
                       validator: (v) => Validators.required(v, 'Nama Meja'),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     AppTextField(
                       controller: numberController,
                       labelText: 'Nomor Urut Meja',
@@ -222,11 +222,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
+                Text(
                   'Sistem akan otomatis membuatkan nama & nomor meja secara berurutan (misal: Meja 01, Meja 02, dst).',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 AppTextField(
                   controller: countController,
                   labelText: 'Jumlah Meja yang Ingin Dibuat',
@@ -373,7 +373,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     children: [
                       Text(
                         'Rincian ${table.nama}',
-                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                       ),
                       if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
                         Text(
@@ -383,12 +383,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close),
                     onPressed: () => Navigator.pop(sheetContext),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               // Status Card
               Container(
                 padding: const EdgeInsets.all(12),
@@ -404,7 +404,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       color: table.isBillPrinted ? AppColors.warning : AppColors.success,
                       size: 20,
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,15 +413,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             'Status: ${table.statusLabel}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                              fontSize: 13.sp,
                               color: table.isBillPrinted ? const Color(0xFF78350F) : const Color(0xFF14532D),
                             ),
                           ),
                           if (activeOrder != null) ...[
-                            Text('No. Order: ${activeOrder.nomorOrder}', style: const TextStyle(fontSize: 12)),
+                            Text('No. Order: ${activeOrder.nomorOrder}', style: TextStyle(fontSize: 12.sp)),
                             Text(
                               'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                             ),
                           ],
                         ],
@@ -430,11 +430,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               // Items List Grouped by Batch
               if (groupedItems.isNotEmpty) ...[
                 Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 ListView(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -461,25 +461,25 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                                  const SizedBox(width: 6),
+                                  Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
+                                  SizedBox(width: 6),
                                   Text(
                                     batchTitle,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                                   ),
                                   const Spacer(),
                                   Text(
                                     '${batchItemList.length} Menu',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                    style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
                                     InkWell(
                                       onTap: () {
                                         Navigator.pop(sheetContext);
                                         _showCancelDialog(context, table, activeOrder, batchId: batchItemList.first.printBatchId);
                                       },
-                                      child: const Padding(
+                                      child: Padding(
                                         padding: EdgeInsets.all(6),
                                         child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
                                       ),
@@ -496,12 +496,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                     '${item.qty}x',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                      fontSize: 13.sp,
                                       decoration: item.isCancelled ? TextDecoration.lineThrough : null,
                                       color: item.isCancelled ? Colors.grey : Colors.black87,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,7 +513,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                                 item.produkNama,
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
+                                                  fontSize: 13.sp,
                                                   decoration: item.isCancelled ? TextDecoration.lineThrough : null,
                                                   color: item.isCancelled ? Colors.grey : Colors.black87,
                                                 ),
@@ -528,7 +528,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                                 ),
                                                 child: Text(
                                                   'DIBATALKAN',
-                                                  style: TextStyle(fontSize: 9, color: Colors.red.shade800, fontWeight: FontWeight.bold),
+                                                  style: TextStyle(fontSize: 9.sp, color: Colors.red.shade800, fontWeight: FontWeight.bold),
                                                 ),
                                               ),
                                           ],
@@ -536,29 +536,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                         if (item.catatan != null && item.catatan!.isNotEmpty)
                                           Text(
                                             'Note: ${item.catatan}',
-                                            style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic),
+                                            style: TextStyle(fontSize: 11.sp, color: Colors.orange, fontStyle: FontStyle.italic),
                                           ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Text(
                                     CurrencyFormatter.format(item.subtotal),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                      fontSize: 12.sp,
                                       decoration: item.isCancelled ? TextDecoration.lineThrough : null,
                                       color: item.isCancelled ? Colors.grey : Colors.black87,
                                     ),
                                   ),
                                   if (!item.isCancelled) ...[
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     InkWell(
                                       onTap: () {
                                         Navigator.pop(sheetContext);
                                         _showCancelDialog(context, table, activeOrder, itemId: item.id, itemName: item.produkNama);
                                       },
-                                      child: const Padding(
+                                      child: Padding(
                                         padding: EdgeInsets.all(6),
                                         child: Icon(Icons.delete_outline, size: 20, color: AppColors.error),
                                       ),
@@ -573,13 +573,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     }).toList(),
                 ),
               ] else
-                const Center(
+                Center(
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 20),
                     child: Text('Belum ada rincian pesanan'),
                   ),
                 ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               // Action Buttons (4 Action Buttons)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -592,7 +592,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             Navigator.pop(sheetContext);
                             _navigateToPos(table, activeOrder);
                           },
-                          icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                          icon: Icon(Icons.shopping_cart_outlined, size: 18),
                           label: Text(activeOrder != null ? 'Tambah Menu' : 'Pesan Baru'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -603,15 +603,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         ),
                       ),
                       if (activeOrder != null) ...[
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
                               Navigator.pop(sheetContext);
                               _navigateToPayment(table, activeOrder);
                             },
-                            icon: const Icon(Icons.payments_outlined, size: 18),
-                            label: const Text('Bayar'),
+                            icon: Icon(Icons.payments_outlined, size: 18),
+                            label: Text('Bayar'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.success,
                               foregroundColor: Colors.white,
@@ -624,7 +624,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     ],
                   ),
                   if (activeOrder != null) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -633,8 +633,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                               Navigator.pop(sheetContext);
                               _handleMoveTable(context, table, activeOrder);
                             },
-                            icon: const Icon(Icons.move_up_rounded, size: 18),
-                            label: const Text('Pindah'),
+                            icon: Icon(Icons.move_up_rounded, size: 18),
+                            label: Text('Pindah'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.secondary,
                               foregroundColor: Colors.white,
@@ -670,15 +670,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Alasan Pembatalan:'),
-              const SizedBox(height: 8),
+              Text('Alasan Pembatalan:'),
+              SizedBox(height: 8),
               TextField(
                 controller: reasonController,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
               ),
-              const SizedBox(height: 16),
-              const Text('Otorisasi Owner (PIN):'),
-              const SizedBox(height: 8),
+              SizedBox(height: 16),
+              Text('Otorisasi Owner (PIN):'),
+              SizedBox(height: 8),
               TextField(
                 controller: pinController,
                 obscureText: true,
@@ -691,7 +691,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Tutup'),
+              child: Text('Tutup'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
@@ -733,7 +733,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
                 }
               },
-              child: const Text('Batalkan'),
+              child: Text('Batalkan'),
             ),
           ],
         );
@@ -766,7 +766,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   'Pindah Meja - ${sourceTable.nama}',
                   style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 300),
                   child: ListView.separated(
@@ -776,7 +776,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     itemBuilder: (context, index) {
                       final targetTable = emptyTables[index];
                       return ListTile(
-                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        leading: Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
                         title: Text(targetTable.nama),
                         subtitle: Text('Nomor: ${targetTable.nomor}'),
                         onTap: () async {
@@ -808,12 +808,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Batal'),
+                    child: Text('Batal'),
                   ),
                 ),
               ],
@@ -842,13 +842,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             if (!_isSelectionMode)
               Text(
                 'Atur dan pantau ketersediaan meja',
-                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 12),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
               ),
           ],
         ),
         leading: _isSelectionMode
             ? IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(Icons.close),
                 onPressed: () {
                   setState(() {
                     _isSelectionMode = false;
@@ -860,7 +860,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         actions: [
           if (_isSelectionMode) ...[
             IconButton(
-              icon: const Icon(Icons.select_all),
+              icon: Icon(Icons.select_all),
               tooltip: 'Pilih Semua',
               onPressed: () {
                 setState(() {
@@ -873,18 +873,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.error),
+              icon: Icon(Icons.delete_outline, color: AppColors.error),
               tooltip: 'Hapus Terpilih',
               onPressed: _selectedIds.isEmpty ? null : () => _confirmBulkDelete(context),
             ),
           ] else ...[
             IconButton(
-              icon: const Icon(Icons.auto_awesome_rounded),
+              icon: Icon(Icons.auto_awesome_rounded),
               tooltip: 'Generate Meja Otomatis',
               onPressed: () => _showGenerateDialog(context),
             ),
             IconButton(
-              icon: const Icon(Icons.checklist_rounded),
+              icon: Icon(Icons.checklist_rounded),
               tooltip: 'Mode Pilih Banyak',
               onPressed: () {
                 setState(() {
@@ -927,7 +927,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                   'Daftar Meja (${state.allTables.length})',
                                   style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(height: 4),
+                                SizedBox(height: 4),
                                 Row(
                                   children: [
                                     Container(
@@ -935,15 +935,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                       height: 8,
                                       decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
                                     ),
-                                    const SizedBox(width: 4),
+                                    SizedBox(width: 4),
                                     Text('Terisi', style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
-                                    const SizedBox(width: 12),
+                                    SizedBox(width: 12),
                                     Container(
                                       width: 8,
                                       height: 8,
                                       decoration: BoxDecoration(color: AppColors.divider, shape: BoxShape.circle),
                                     ),
-                                    const SizedBox(width: 4),
+                                    SizedBox(width: 4),
                                     Text('Kosong', style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
                                   ],
                                 )
@@ -967,8 +967,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 4,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Tambah Meja', style: TextStyle(fontWeight: FontWeight.bold)),
+              icon: Icon(Icons.add_rounded),
+              label: Text('Tambah Meja', style: TextStyle(fontWeight: FontWeight.bold)),
             )
           : null,
     );
@@ -1120,7 +1120,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         ),
                         
                         if (isFilled && activeOrder != null) ...[
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Text(
                             CurrencyFormatter.format(activeOrder.grandTotal),
                             textAlign: TextAlign.center,
@@ -1139,7 +1139,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         // Bottom Actions (if not in selection mode)
                         if (!_isSelectionMode) ...[
                           Divider(height: 1, color: AppColors.divider.withValues(alpha: 0.5)),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [

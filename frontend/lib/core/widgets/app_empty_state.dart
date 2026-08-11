@@ -3,6 +3,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_spacing.dart';
 import '../constants/app_typography.dart';
 import 'app_button.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AppEmptyState extends StatelessWidget {
   final String title;
@@ -50,7 +51,7 @@ class AppEmptyState extends StatelessWidget {
               title,
               style: AppTypography.titleLarge.copyWith(
                 fontWeight: FontWeight.bold,
-                fontSize: isCompactLandscape ? 18 : 22,
+                fontSize: isCompactLandscape ? 18.sp : 22.sp,
               ),
               textAlign: TextAlign.center,
             ),
