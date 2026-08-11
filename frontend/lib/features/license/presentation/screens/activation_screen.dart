@@ -105,26 +105,28 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
             return AlertDialog(
               backgroundColor: AppColors.surface,
               title: Text('Reset Perangkat', style: AppTypography.titleLarge.copyWith(color: AppColors.primary)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Token ini sudah terikat ke perangkat lain. Masukkan email dan password pemilik lisensi untuk mereset perangkat.', style: AppTypography.bodyMedium),
-                  SizedBox(height: 16.h),
-                  AppTextField(
-                    controller: emailController,
-                    labelText: 'Email',
-                    hintText: 'admin@toko.com',
-                    prefixIcon: Icons.email_rounded,
-                  ),
-                  SizedBox(height: 16.h),
-                  AppTextField(
-                    controller: passwordController,
-                    labelText: 'Password',
-                    hintText: 'Masukkan password Anda',
-                    prefixIcon: Icons.lock_rounded,
-                    obscureText: true,
-                  ),
-                ],
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Token ini sudah terikat ke perangkat lain. Masukkan email dan password pemilik lisensi untuk mereset perangkat.', style: AppTypography.bodyMedium),
+                    SizedBox(height: 16.h),
+                    AppTextField(
+                      controller: emailController,
+                      labelText: 'Email',
+                      hintText: 'admin@toko.com',
+                      prefixIcon: Icons.email_rounded,
+                    ),
+                    SizedBox(height: 16.h),
+                    AppTextField(
+                      controller: passwordController,
+                      labelText: 'Password',
+                      hintText: 'Masukkan password Anda',
+                      prefixIcon: Icons.lock_rounded,
+                      obscureText: true,
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
