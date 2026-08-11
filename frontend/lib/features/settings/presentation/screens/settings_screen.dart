@@ -12,6 +12,7 @@ import '../../../../core/services/app_logger.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
 import '../../../security/presentation/widgets/change_master_pin_modal.dart';
+import '../../../../core/theme/font_size_provider.dart';
 import 'about_screen.dart';
 import 'store_profile_screen.dart';
 
@@ -124,6 +125,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _showFontSizeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Ukuran Font'),
+          content: Consumer(
+            builder: (context, ref, child) {
+              final currentSize = ref.watch(fontSizeProvider);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: AppFontSize.values.map((size) {
+                  return RadioListTile<AppFontSize>(
+                    title: Text(size.label),
+                    value: size,
+                    groupValue: currentSize,
+                    onChanged: (value) {
+                      if (value != null) {
+                        ref.read(fontSizeProvider.notifier).setFontSize(value);
+                        Navigator.pop(context);
+                      }
+                    },
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeUser = ref.watch(authSessionProvider);
@@ -164,6 +197,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => const PrinterSettingScreen()),
                 );
+              },
+            ),
+            const SizedBox(height: 12),
+
+            // Font Size Option
+            _buildSettingsTile(
+              context,
+              title: 'Ukuran Font',
+              subtitle: 'Atur skala ukuran teks di seluruh aplikasi',
+              icon: Icons.text_fields_rounded,
+              onTap: () {
+                _showFontSizeDialog();
               },
             ),
             const SizedBox(height: 12),

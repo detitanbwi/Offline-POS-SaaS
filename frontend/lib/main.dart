@@ -12,6 +12,8 @@ import 'features/auth/presentation/providers/auth_providers.dart';
 import 'features/license/presentation/screens/activation_screen.dart';
 import 'features/license/presentation/screens/license_lock_screen.dart';
 import 'core/di/providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/theme/font_size_provider.dart';
 import 'core/services/app_logger.dart';
 
 void main() async {
@@ -21,9 +23,14 @@ void main() async {
   // Initialize the Indonesian locale formatting
   await initializeDateFormatting('id_ID', null);
   
+  final prefs = await SharedPreferences.getInstance();
+  
   runApp(
-    const ProviderScope(
-      child: MyApp(),
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+      child: const MyApp(),
     ),
   );
 }
@@ -137,6 +144,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     final isExpired = ref.watch(licenseExpiredProvider);
+    final fontSizeScale = ref.watch(fontSizeProvider).scale;
 
     // Determine design size dynamically (mobile vs tablet, portrait vs landscape)
     final mediaQuery = MediaQuery.maybeOf(context);
@@ -170,18 +178,25 @@ class _MyAppState extends ConsumerState<MyApp> {
           navigatorKey: appNavigatorKey,
           title: 'Offline POS Kasir SaaS',
           builder: (context, widget) {
+            Widget child = widget ?? const SizedBox.shrink();
             if (isExpired) {
-              return const LicenseLockScreen();
+              child = const LicenseLockScreen();
             }
-            return GestureDetector(
+            child = GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
               },
-              child: widget ?? const SizedBox.shrink(),
+              child: child,
+            );
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(fontSizeScale),
+              ),
+              child: child,
             );
           },
-          theme: AppTheme.lightTheme,
+          theme: AppTheme.getLightTheme(fontSizeScale),
           themeMode: ThemeMode.light,
           debugShowCheckedModeBanner: false,
           home: FutureBuilder<Widget>(

@@ -13,6 +13,7 @@ class AppButton extends StatelessWidget {
   final bool isLoading;
   final IconData? icon;
   final double? width;
+  final bool isDense;
 
   const AppButton({
     super.key,
@@ -22,11 +23,13 @@ class AppButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.width,
+    this.isDense = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isButtonDisabled = onPressed == null || isLoading;
+    final double scale = MediaQuery.textScalerOf(context).scale(1);
 
     Color getBgColor() {
       if (isButtonDisabled) return AppColors.disabled.withValues(alpha: 0.3);
@@ -71,27 +74,32 @@ class AppButton extends StatelessWidget {
       children: [
         if (isLoading) ...[
           SizedBox(
-            width: 20.r,
-            height: 20.r,
+            width: (isDense ? 14.r : 18.r) * scale,
+            height: (isDense ? 14.r : 18.r) * scale,
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(getTextColor()),
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: (isDense ? 4.w : 6.w) * scale),
         ] else if (icon != null) ...[
-          Icon(icon, size: 20.r, color: getTextColor()),
-          SizedBox(width: 8.w),
+          Icon(icon, size: (isDense ? 16.r : 20.r) * scale, color: getTextColor()),
+          SizedBox(width: (isDense ? 4.w : 6.w) * scale),
         ],
         Flexible(
           child: Text(
             text,
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
-            style: AppTypography.labelLarge.copyWith(
-              color: getTextColor(),
-              fontWeight: FontWeight.bold,
-            ),
+            style: isDense
+                ? AppTypography.labelMedium.copyWith(
+                    color: getTextColor(),
+                    fontWeight: FontWeight.bold,
+                  )
+                : AppTypography.labelLarge.copyWith(
+                    color: getTextColor(),
+                    fontWeight: FontWeight.bold,
+                  ),
           ),
         ),
       ],
@@ -102,7 +110,9 @@ class AppButton extends StatelessWidget {
       foregroundColor: WidgetStateProperty.all(getTextColor()),
       elevation: WidgetStateProperty.all(0),
       padding: WidgetStateProperty.all(
-        EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+        isDense
+            ? EdgeInsets.symmetric(horizontal: (8.w) * scale, vertical: (6.h) * scale)
+            : EdgeInsets.symmetric(horizontal: (14.w) * scale, vertical: (10.h) * scale),
       ),
       shape: WidgetStateProperty.all(
         const RoundedRectangleBorder(

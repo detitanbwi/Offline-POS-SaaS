@@ -4,7 +4,7 @@ import '../constants/app_radius.dart';
 import '../constants/app_typography.dart';
 
 class AppTheme {
-  static ThemeData get lightTheme {
+  static ThemeData getLightTheme(double scale) {
     final textTheme = TextTheme(
       displayLarge: AppTypography.displayLarge,
       displayMedium: AppTypography.displayMedium,
@@ -48,19 +48,19 @@ class AppTheme {
         thickness: 1.0,
         space: 1.0,
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: CardThemeData(
         color: AppColors.card,
         elevation: 1.0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.radius16,
+          borderRadius: BorderRadius.circular(16 * scale),
         ),
       ),
-      dialogTheme: const DialogThemeData(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.card,
         elevation: 2.0,
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.radius24,
+          borderRadius: BorderRadius.circular(24 * scale),
         ),
       ),
       appBarTheme: const AppBarTheme(
@@ -74,9 +74,9 @@ class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: const RoundedRectangleBorder(
-            borderRadius: AppRadius.radiusMax,
+          padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999 * scale),
           ),
           textStyle: AppTypography.labelLarge.copyWith(color: Colors.white),
         ),
@@ -85,9 +85,9 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
           side: const BorderSide(color: AppColors.primary, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: const RoundedRectangleBorder(
-            borderRadius: AppRadius.radiusMax,
+          padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999 * scale),
           ),
           textStyle: AppTypography.labelLarge.copyWith(color: AppColors.primary),
         ),
@@ -95,29 +95,29 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 6 * scale),
           textStyle: AppTypography.labelLarge.copyWith(color: AppColors.primary),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        border: const OutlineInputBorder(
-          borderRadius: AppRadius.radius12,
-          borderSide: BorderSide(color: AppColors.divider),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 16 * scale),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12 * scale),
+          borderSide: const BorderSide(color: AppColors.divider),
         ),
-        enabledBorder: const OutlineInputBorder(
-          borderRadius: AppRadius.radius12,
-          borderSide: BorderSide(color: AppColors.divider),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12 * scale),
+          borderSide: const BorderSide(color: AppColors.divider),
         ),
-        focusedBorder: const OutlineInputBorder(
-          borderRadius: AppRadius.radius12,
-          borderSide: BorderSide(color: AppColors.primary, width: 2.0),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12 * scale),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
         ),
-        errorBorder: const OutlineInputBorder(
-          borderRadius: AppRadius.radius12,
-          borderSide: BorderSide(color: AppColors.error),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12 * scale),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),

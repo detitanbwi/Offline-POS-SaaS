@@ -5,7 +5,6 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
-import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
@@ -531,10 +530,10 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: AppColors.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
           ),
           child: Row(
@@ -542,9 +541,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               Icon(
                 orderState.isTakeAway ? Icons.shopping_bag_rounded : Icons.table_restaurant_rounded,
                 color: AppColors.primary,
-                size: 20,
+                size: 14,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   orderState.isTakeAway
@@ -552,16 +551,17 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                           ? 'Take Away (${orderState.onlinePlatform ?? 'Online Food'})'
                           : 'Take Away (Reguler)')
                       : (orderState.selectedTable?.nama ?? orderState.activeOrder?.tableNama ?? 'Pesanan Meja'),
-                  style: AppTypography.titleMedium.copyWith(
+                  style: AppTypography.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
+                    fontSize: 11,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.s),
+        const SizedBox(height: 2),
 
         Expanded(
           child: cartState.items.isEmpty
@@ -608,7 +608,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                         // 1. Batch Baru (Belum Kirim Dapur)
                         if (newItems.isNotEmpty)
                           Container(
-                            margin: const EdgeInsets.only(bottom: 8),
+                            margin: const EdgeInsets.only(bottom: 4),
                             decoration: BoxDecoration(
                               color: AppColors.primaryContainer.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
@@ -618,8 +618,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                               child: ExpansionTile(
                                 initiallyExpanded: true,
-                                tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                                childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                 title: Row(
                                   children: [
                                     const Icon(Icons.add_shopping_cart_rounded, size: 16, color: AppColors.primary),
@@ -638,7 +638,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                   final newQty = item.initialSavedQty > 0 ? item.qty - item.initialSavedQty : item.qty;
                                   final newSubtotal = item.product.harga * newQty;
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+                                    padding: const EdgeInsets.symmetric(vertical: 3.0, horizontal: 4.0),
                                     child: Row(
                                       children: [
                                         Expanded(
@@ -664,25 +664,25 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                           children: [
                                             if (item.canDecrement)
                                               IconButton(
-                                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 22),
+                                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18),
                                                 color: AppColors.error,
                                                 padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                                                 onPressed: () {
                                                   cartNotifier.updateQuantity(item.product.id, item.qty - 1);
                                                 },
                                               )
                                             else
-                                              const SizedBox(width: 32),
+                                              const SizedBox(width: 28),
                                             Text(
                                               '$newQty',
-                                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                                             ),
                                             IconButton(
-                                              icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
+                                              icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
                                               color: AppColors.primary,
                                               padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                                               onPressed: () {
                                                 cartNotifier.updateQuantity(item.product.id, item.qty + 1);
                                               },
@@ -727,7 +727,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                 final bSubtotal = bItems.fold<double>(0, (sum, item) => sum + item.subtotal);
 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
+                                  margin: const EdgeInsets.only(bottom: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade50,
                                     borderRadius: BorderRadius.circular(12),
@@ -737,8 +737,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                     data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                                     child: ExpansionTile(
                                       initiallyExpanded: newItems.isEmpty && i == batches.length - 1,
-                                      tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                                      childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                      childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                       title: Row(
                                         children: [
                                           const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
@@ -755,7 +755,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                       ),
                                       children: bItems.map((item) {
                                         return Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+                                          padding: const EdgeInsets.symmetric(vertical: 3.0, horizontal: 4.0),
                                           child: Row(
                                             children: [
                                               Expanded(
@@ -805,7 +805,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                             builder: (context) {
                               final savedCartItems = cartState.items.where((i) => i.initialSavedQty > 0).toList();
                               return Container(
-                                margin: const EdgeInsets.only(bottom: 8),
+                                margin: const EdgeInsets.only(bottom: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade50,
                                   borderRadius: BorderRadius.circular(12),
@@ -815,8 +815,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                                   child: ExpansionTile(
                                     initiallyExpanded: newItems.isEmpty,
-                                    tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                                    childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                    childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                     title: Row(
                                       children: [
                                         const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
@@ -834,7 +834,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                     children: savedCartItems.map((item) {
                                       final savedSubtotal = item.product.harga * item.initialSavedQty;
                                       return Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+                                        padding: const EdgeInsets.symmetric(vertical: 3.0, horizontal: 4.0),
                                         child: Row(
                                           children: [
                                             Expanded(
@@ -883,7 +883,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   },
                 ),
         ),
-        const SizedBox(height: AppSpacing.s),
+        const SizedBox(height: AppSpacing.xs),
 
         if (orderState.isOnlineFood) ...[
           Container(
@@ -955,21 +955,21 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.s),
+          const SizedBox(height: AppSpacing.xs),
         ],
 
         AppCard(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Subtotal', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  Text(CurrencyFormatter.format(cartState.subtotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  const Text('Subtotal', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  Text(CurrencyFormatter.format(cartState.subtotal), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                 ],
               ),
-              const Divider(height: 12),
+              const Divider(height: 8),
               Builder(
                 builder: (context) {
                   final double? onlineTotal = (orderState.isOnlineFood && orderState.onlinePlatformTotal != null && orderState.onlinePlatformTotal! > 0)
@@ -982,11 +982,11 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     children: [
                       Text(
                         onlineTotal != null ? 'Grand Total (${orderState.onlinePlatform ?? "Online"})' : 'Grand Total',
-                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                       Text(
                         CurrencyFormatter.format(effectiveGrandTotal),
-                        style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
+                        style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14),
                       ),
                     ],
                   );
@@ -995,80 +995,123 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.m),
+        const SizedBox(height: 2),
 
-        Row(
-          children: [
-            Expanded(
-              child: AppButton(
-                text: 'Simpan',
-                type: AppButtonType.secondary,
-                isLoading: _isSaving,
-                onPressed: cartState.items.isEmpty ? null : _handleSaveDraft,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppButton(
-                text: 'Cetak Bill',
-                type: AppButtonType.secondary,
-                onPressed: cartState.items.isEmpty ? null : _handlePrintBill,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppButton(
-                text: 'Bayar',
-                type: AppButtonType.primary,
-                onPressed: cartState.items.isEmpty ? null : _handleGoToPayment,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
         SizedBox(
-          width: double.infinity,
-          child: Stack(
-            clipBehavior: Clip.none,
+          height: 30,
+          child: Row(
             children: [
-              SizedBox(
-                width: double.infinity,
-                child: AppButton(
-                  text: unprintedCount > 0
-                      ? 'Batch Pesanan (+$unprintedCount Baru)'
-                      : 'Batch Pesanan',
-                  type: unprintedCount > 0 ? AppButtonType.primary : AppButtonType.outlined,
-                  icon: Icons.soup_kitchen_rounded,
-                  onPressed: _showPrintBatchesDialog,
-                ),
-              ),
-              if (unprintedCount > 0)
-                Positioned(
-                  top: -6,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.error,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isSaving ? AppColors.disabled.withValues(alpha: 0.3) : AppColors.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                     ),
-                    child: Text(
-                      '+$unprintedCount Baru',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    onPressed: cartState.items.isEmpty ? null : _handleSaveDraft,
+                    child: _isSaving
+                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Simpan', overflow: TextOverflow.ellipsis),
                   ),
                 ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: cartState.items.isEmpty ? null : _handlePrintBill,
+                    child: const Text('Cetak Bill', overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: cartState.items.isEmpty ? null : _handleGoToPayment,
+                    child: const Text('Bayar', overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    SizedBox(
+                      height: 30,
+                      width: double.infinity,
+                      child: unprintedCount > 0
+                          ? ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                                textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: _showPrintBatchesDialog,
+                              child: const Text('Batch', overflow: TextOverflow.ellipsis),
+                            )
+                          : OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(color: AppColors.primary, width: 1),
+                                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: _showPrintBatchesDialog,
+                              child: const Text('Batch', overflow: TextOverflow.ellipsis),
+                            ),
+                    ),
+                    if (unprintedCount > 0)
+                      Positioned(
+                        top: -4,
+                        right: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '+$unprintedCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
