@@ -62,15 +62,14 @@ class DeviceFingerprintService {
     };
   }
 
-  Future<String> generateFingerprint(String activationTimestamp) async {
+  Future<String> generateFingerprint() async {
     final androidId = await getAndroidId();
     final info = await getDeviceInfo();
     final manufacturer = info['manufacturer'] ?? 'unknown';
     final brand = info['device_brand'] ?? 'unknown';
     final model = info['device_model'] ?? 'unknown';
-    final installationId = await getInstallationId();
 
-    final rawString = '$androidId$manufacturer$brand$model$installationId$activationTimestamp';
+    final rawString = '$androidId$manufacturer$brand$model';
     final bytes = utf8.encode(rawString);
     final digest = sha256.convert(bytes);
     return digest.toString();

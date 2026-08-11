@@ -41,8 +41,7 @@ void main() {
     });
 
     test('generateFingerprint produces a valid SHA-256 hash', () async {
-      final timestamp = DateTime.now().toIso8601String();
-      final hash = await service.generateFingerprint(timestamp);
+      final hash = await service.generateFingerprint();
       
       expect(hash, isNotNull);
       expect(hash.length, 64);

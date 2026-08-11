@@ -19,8 +19,8 @@ class LicenseService {
         return {'success': false, 'message': 'Token online tidak ditemukan. Silakan login kembali.'};
       }
 
-      final timestamp = DateTime.now().toIso8601String();
-      final fingerprint = await _fingerprintService.generateFingerprint(timestamp);
+      // timestamp variable removed since we no longer pass it to generateFingerprint
+      final fingerprint = await _fingerprintService.generateFingerprint();
       final deviceInfo = await _fingerprintService.getDeviceInfo();
 
       final response = await http.post(
