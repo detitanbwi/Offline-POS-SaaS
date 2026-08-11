@@ -11,7 +11,8 @@ import '../../../../core/di/providers.dart';
 import '../../../license/presentation/screens/activation_screen.dart';
 import 'pin_screen.dart';
 import 'forgot_password_screen.dart';
-
+import 'package:airplane_mode_checker/airplane_mode_checker.dart';
+import 'dart:async';
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -23,6 +24,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isAirplaneModeOn = false;
+  StreamSubscription? _airplaneModeSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAirplaneMode();
+    _airplaneModeSub = AirplaneModeChecker.instance.listenAirplaneMode().listen((status) {
+      if (mounted) {
+        setState(() {
+          _isAirplaneModeOn = status == AirplaneModeStatus.on;
+        });
+      }
+    });
+  }
+
+  Future<void> _checkAirplaneMode() async {
+    try {
+      final status = await AirplaneModeChecker.instance.checkAirplaneMode();
+      if (mounted) {
+        setState(() {
+          _isAirplaneModeOn = status == AirplaneModeStatus.on;
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _handleLogin() async {
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
@@ -67,6 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
+    _airplaneModeSub?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -110,6 +138,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (_isAirplaneModeOn) ...[
+                      SizedBox(height: 16.h),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          border: Border.all(color: Colors.amber.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade700, size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "Mohon nonaktifkan Mode Pesawat (Airplane Mode) selama proses login berlangsung agar waktu perangkat dapat disinkronkan dengan server. Setelah berhasil login, Mode Pesawat dapat diaktifkan kembali dan aplikasi tetap berfungsi secara offline.",
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: Colors.amber.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     SizedBox(height: 24.h),
                     AppTextField(
                       controller: _emailController,
