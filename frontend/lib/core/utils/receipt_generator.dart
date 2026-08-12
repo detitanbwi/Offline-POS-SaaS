@@ -272,10 +272,6 @@ class ReceiptGenerator {
       final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
       final qtyPrice = '  @ $unitPrice';
       bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
-
-      if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
-      }
     }
 
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
@@ -641,9 +637,6 @@ class ReceiptGenerator {
     for (var item in items) {
       buffer.writeln('${item.qty}x ${item.produkNama}');
       buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
-      if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        buffer.writeln('     - ${item.catatan}');
-      }
     }
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal), width: charsPerLine));
