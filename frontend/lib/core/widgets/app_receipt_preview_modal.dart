@@ -161,14 +161,19 @@ class AppReceiptPreviewModal extends ConsumerWidget {
                   child: Center(
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: 320),
-                      child: Text(
-                        receiptTextPreview,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          height: 1.3,
-                          color: Color(0xFF1E293B),
-                          fontWeight: FontWeight.w600,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.topCenter,
+                        child: Text(
+                          receiptTextPreview,
+                          softWrap: false,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            height: 1.3,
+                            color: Color(0xFF1E293B),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),

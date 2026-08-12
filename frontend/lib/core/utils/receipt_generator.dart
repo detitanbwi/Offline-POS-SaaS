@@ -85,7 +85,10 @@ class ReceiptGenerator {
       bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
 
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          bytes += generator.text(noteLine, styles: const PosStyles(align: PosAlign.left));
+        }
       }
     }
 
@@ -202,7 +205,10 @@ class ReceiptGenerator {
       final qtyStr = item.qty.toString().padLeft(2);
       bytes += generator.text('$qtyStr   ${item.produkNama}', styles: const PosStyles(align: PosAlign.left, bold: true));
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          bytes += generator.text(noteLine, styles: const PosStyles(align: PosAlign.left));
+        }
       }
     }
 
@@ -495,6 +501,40 @@ class ReceiptGenerator {
     return '${' ' * leftPadding}$text';
   }
 
+  static List<String> wrapTextWithIndent(String text, int width, {String firstLineIndent = '     - ', String otherLinesIndent = '       '}) {
+    List<String> lines = [];
+    String currentIndent = firstLineIndent;
+    
+    List<String> paragraphs = text.split('\n');
+    for (var p in paragraphs) {
+      String currentLine = currentIndent;
+      List<String> words = p.split(' ');
+      
+      for (var word in words) {
+        if (word.isEmpty) continue;
+        if ((currentLine.length + word.length + (currentLine == currentIndent ? 0 : 1)) <= width) {
+          if (currentLine != currentIndent) currentLine += ' ';
+          currentLine += word;
+        } else {
+          if (currentLine != currentIndent) {
+            lines.add(currentLine);
+          }
+          currentIndent = otherLinesIndent;
+          currentLine = currentIndent + word;
+          while (currentLine.length > width) {
+            lines.add(currentLine.substring(0, width));
+            currentLine = currentIndent + currentLine.substring(width);
+          }
+        }
+      }
+      if (currentLine != currentIndent) {
+        lines.add(currentLine);
+      }
+      currentIndent = otherLinesIndent; 
+    }
+    return lines;
+  }
+
   static Future<String> formatBillTextPreview({
     required OrderModel order,
     required List<OrderItemModel> items,
@@ -533,7 +573,10 @@ class ReceiptGenerator {
       buffer.writeln('${item.qty}x ${item.produkNama}');
       buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        buffer.writeln('     - ${item.catatan}');
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          buffer.writeln(noteLine);
+        }
       }
     }
     buffer.writeln(dashLine);
@@ -592,7 +635,10 @@ class ReceiptGenerator {
       final qtyStr = item.qty.toString().padLeft(2);
       buffer.writeln('$qtyStr   ${item.produkNama}');
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        buffer.writeln('     - ${item.catatan}');
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          buffer.writeln(noteLine);
+        }
       }
     }
     buffer.writeln(eqLine);
