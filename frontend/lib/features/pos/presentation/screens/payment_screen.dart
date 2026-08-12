@@ -220,6 +220,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             taxAmount,
             grandTotal,
             notes: notes.isNotEmpty ? notes : null,
+            cashierId: activeUser?.id,
+            cashierNama: activeUser?.nama,
           );
 
       // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/di/providers.dart';
+import '../../auth/presentation/providers/auth_providers.dart';
 import '../../table/domain/models/table.dart';
 import '../../table/application/table_notifier.dart';
 import '../domain/models/order.dart';
@@ -242,6 +243,10 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final orderNo = state.activeOrder?.nomorOrder ?? await _repository.generateNextOrderNumber();
       final finalCustomerName = customerName ?? state.customerName;
 
+      final authUser = _ref.read(authSessionProvider);
+      final effectiveCashierId = cashierId ?? state.activeOrder?.cashierId ?? authUser?.id;
+      final effectiveCashierNama = cashierNama ?? state.activeOrder?.cashierNama ?? authUser?.nama;
+
       final orderHeader = OrderModel(
         id: orderId,
         nomorOrder: orderNo,
@@ -256,10 +261,14 @@ class OrderNotifier extends StateNotifier<OrderState> {
         taxPercentage: taxRate,
         taxAmount: taxAmount,
         grandTotal: grandTotal,
+        onlinePlatformTotal: state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal,
+        platformDifference: (state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal) != null
+            ? ((state.onlinePlatformTotal ?? state.activeOrder!.onlinePlatformTotal!) - (subtotal + taxAmount))
+            : (state.activeOrder?.platformDifference),
         status: 'draft',
         catatan: notes,
-        cashierId: cashierId ?? state.activeOrder?.cashierId,
-        cashierNama: cashierNama ?? state.activeOrder?.cashierNama,
+        cashierId: effectiveCashierId,
+        cashierNama: effectiveCashierNama,
         createdAt: state.activeOrder?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -341,6 +350,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
               order: orderHeader,
               itemsToPrint: itemsToPrint,
               waveInfo: waveInfo,
+              cashierNama: effectiveCashierNama,
               paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
               charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
               autoCut: targetPrinter?.autoCut ?? false,

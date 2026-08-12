@@ -17,6 +17,7 @@ import '../screens/payment_screen.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../printer/domain/models/printer_config.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/utils/receipt_generator.dart';import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 
@@ -137,6 +138,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
 
   Future<void> _handleSaveDraftWithKitchenPrint(bool printChoice) async {
     final cartState = ref.read(cartNotifierProvider);
+    final activeUser = ref.read(authSessionProvider);
     if (cartState.items.isEmpty) {
       AppSnackbar.showWarning(context, 'Keranjang masih kosong!');
       return;
@@ -152,6 +154,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
         cartState.taxRate,
         cartState.taxAmount,
         cartState.grandTotal,
+        cashierId: activeUser?.id,
+        cashierNama: activeUser?.nama,
         printToKitchen: printChoice,
       );
 
@@ -181,6 +185,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
   Future<void> _handlePrintBill() async {
     final cartState = ref.read(cartNotifierProvider);
     final orderState = ref.read(orderNotifierProvider);
+    final activeUser = ref.read(authSessionProvider);
 
     if (cartState.items.isEmpty) {
       AppSnackbar.showWarning(context, 'Keranjang masih kosong untuk dicetak bill!');
@@ -203,6 +208,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
         return;
       }
 
+      final cashierName = orderState.activeOrder?.cashierNama ?? activeUser?.nama;
+
       final orderModel = orderState.activeOrder ??
           OrderModel(
             id: 'temp',
@@ -210,9 +217,13 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
             tableNama: orderState.selectedTable?.nama ?? 'Take Away',
             customerName: orderState.customerName ?? 'Umum',
             orderType: orderState.orderType,
+            takeAwaySubType: orderState.takeAwaySubType,
+            onlinePlatform: orderState.onlinePlatform,
             subtotal: cartState.subtotal,
             taxAmount: cartState.taxAmount,
             grandTotal: cartState.grandTotal,
+            onlinePlatformTotal: orderState.onlinePlatformTotal,
+            cashierNama: cashierName,
             status: 'draft',
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
@@ -234,6 +245,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
       final bytes = await ReceiptGenerator.generateBillReceipt(
         order: orderModel,
         items: orderItemsList,
+        cashierNama: cashierName,
         paperSize: activePrinter.escPosPaperSize,
         charsPerLine: activePrinter.effectiveCharsPerLine,
       );
