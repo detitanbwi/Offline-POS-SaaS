@@ -35,6 +35,8 @@ class OrderHubScreen extends ConsumerStatefulWidget {
 }
 
 class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
+  String _orderFilter = 'all'; // 'all', 'dine_in', 'take_away'
+
   @override
   void initState() {
     super.initState();
@@ -794,7 +796,16 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
   @override
   Widget build(BuildContext context) {
     final orderState = ref.watch(orderNotifierProvider);
-    final draftOrders = orderState.allDraftOrders;
+    final allDrafts = orderState.allDraftOrders;
+
+    final dineInCount = allDrafts.where((o) => o.orderType == 'dine_in').length;
+    final takeawayCount = allDrafts.where((o) => o.orderType == 'take_away').length;
+
+    final filteredDraftOrders = allDrafts.where((order) {
+      if (_orderFilter == 'dine_in') return order.orderType == 'dine_in';
+      if (_orderFilter == 'take_away') return order.orderType == 'take_away';
+      return true;
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -896,12 +907,12 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Daftar Pesanan Aktif (${draftOrders.length})',
+                      'Daftar Pesanan Aktif (${allDrafts.length})',
                       style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (draftOrders.isNotEmpty) ...[
+                  if (allDrafts.isNotEmpty) ...[
                     SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -921,23 +932,40 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   ],
                 ],
               ),
+              SizedBox(height: AppSpacing.s),
+
+              // Filter Chips: Semua / Dine-In / Takeaway
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildFilterChip('Semua', 'all', allDrafts.length, AppColors.primary, Icons.list_alt_rounded),
+                    SizedBox(width: 8),
+                    _buildFilterChip('Dine-In', 'dine_in', dineInCount, Colors.blue.shade700, Icons.restaurant_rounded),
+                    SizedBox(width: 8),
+                    _buildFilterChip('Takeaway', 'take_away', takeawayCount, Colors.orange.shade800, Icons.shopping_bag_rounded),
+                  ],
+                ),
+              ),
               SizedBox(height: AppSpacing.m),
 
               // Draft Orders List
               Expanded(
-                child: orderState.isLoading && draftOrders.isEmpty
+                child: orderState.isLoading && allDrafts.isEmpty
                     ? const AppLoading(message: 'Memuat pesanan aktif...')
-                    : draftOrders.isEmpty
-                        ? const AppEmptyState(
-                            title: 'Belum Ada Pesanan Aktif',
+                    : filteredDraftOrders.isEmpty
+                        ? AppEmptyState(
+                            title: _orderFilter == 'all'
+                                ? 'Belum Ada Pesanan Aktif'
+                                : (_orderFilter == 'dine_in' ? 'Tidak Ada Pesanan Dine-In Aktif' : 'Tidak Ada Pesanan Takeaway Aktif'),
                             description: 'Pilih "Dine In" atau "Take Away" di atas untuk membuat pesanan baru.',
                             icon: Icons.receipt_long_outlined,
                           )
                         : ListView.separated(
-                            itemCount: draftOrders.length,
+                            itemCount: filteredDraftOrders.length,
                             separatorBuilder: (_, _) => SizedBox(height: AppSpacing.s),
                             itemBuilder: (context, index) {
-                              final order = draftOrders[index];
+                              final order = filteredDraftOrders[index];
                               final isDineIn = order.orderType == 'dine_in';
                               final formattedTime = DateFormat('HH:mm').format(order.createdAt);
 
@@ -1042,6 +1070,65 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value, int count, Color activeColor, IconData icon) {
+    final isSelected = _orderFilter == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _orderFilter = value;
+        });
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : activeColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? activeColor : activeColor.withValues(alpha: 0.3),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14.sp,
+              color: isSelected ? Colors.white : activeColor,
+            ),
+            SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11.sp,
+                color: isSelected ? Colors.white : activeColor,
+              ),
+            ),
+            SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withValues(alpha: 0.25) : activeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10.sp,
+                  color: isSelected ? Colors.white : activeColor,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

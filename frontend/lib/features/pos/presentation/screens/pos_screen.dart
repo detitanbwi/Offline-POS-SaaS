@@ -50,6 +50,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
   Timer? _debounceTimer;
   String _searchQuery = '';
   bool _isOrderAscending = false;
+  String _orderFilter = 'all'; // 'all', 'dine_in', 'take_away'
 
   @override
   void initState() {
@@ -661,67 +662,100 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       );
     }
 
-    final sortedDrafts = List<OrderModel>.from(allDrafts);
+    final filteredDrafts = allDrafts.where((order) {
+      if (_orderFilter == 'dine_in') return order.orderType == 'dine_in';
+      if (_orderFilter == 'take_away') return order.orderType == 'take_away';
+      return true;
+    }).toList();
+
+    final sortedDrafts = List<OrderModel>.from(filteredDrafts);
     sortedDrafts.sort((a, b) => _isOrderAscending
         ? a.createdAt.compareTo(b.createdAt)
         : b.createdAt.compareTo(a.createdAt));
+
+    final dineInCount = allDrafts.where((o) => o.orderType == 'dine_in').length;
+    final takeawayCount = allDrafts.where((o) => o.orderType == 'take_away').length;
 
     return Column(
       children: [
         // Sort & Filter Bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
             children: [
-              Text(
-                '${sortedDrafts.length} Pesanan Aktif',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textSecondary),
-              ),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _isOrderAscending = !_isOrderAscending;
-                  });
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${allDrafts.length} Pesanan Aktif',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isOrderAscending = !_isOrderAscending;
+                      });
+                    },
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _isOrderAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                        size: 14,
-                        color: AppColors.primary,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _isOrderAscending ? 'Terlama (Asc)' : 'Terbaru (Desc)',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isOrderAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _isOrderAscending ? 'Terlama (Asc)' : 'Terbaru (Desc)',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Filter Chips: Semua / Dine-In / Takeaway
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildPosFilterChip('Semua', 'all', allDrafts.length, AppColors.primary, Icons.list_alt_rounded),
+                    const SizedBox(width: 8),
+                    _buildPosFilterChip('Dine-In', 'dine_in', dineInCount, Colors.blue.shade700, Icons.restaurant_rounded),
+                    const SizedBox(width: 8),
+                    _buildPosFilterChip('Takeaway', 'take_away', takeawayCount, Colors.orange.shade800, Icons.shopping_bag_rounded),
+                  ],
                 ),
               ),
             ],
           ),
         ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 4),
-            itemCount: sortedDrafts.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final order = sortedDrafts[index];
-              final isTakeAway = order.isTakeAway;
-              final tableName = order.tableNama ?? (isTakeAway ? 'Take Away' : 'Meja -');
-              final timeFormatted = DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt);
+          child: sortedDrafts.isEmpty
+              ? AppEmptyState(
+                  title: _orderFilter == 'dine_in' ? 'Tidak Ada Pesanan Dine-In' : 'Tidak Ada Pesanan Takeaway',
+                  description: 'Tidak ada pesanan aktif untuk kategori ini.',
+                  icon: Icons.receipt_long_rounded,
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 4),
+                  itemCount: sortedDrafts.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final order = sortedDrafts[index];
+                    final isTakeAway = order.isTakeAway;
+                    final tableName = order.tableNama ?? (isTakeAway ? 'Take Away' : 'Meja -');
+                    final timeFormatted = DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt);
 
               return AppCard(
                 padding: const EdgeInsets.all(16),
@@ -1715,6 +1749,65 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
           AppSnackbar.showError(context, err ?? 'Gagal membatalkan pesanan.');
         }
       },
+    );
+  }
+
+  Widget _buildPosFilterChip(String label, String value, int count, Color activeColor, IconData icon) {
+    final isSelected = _orderFilter == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _orderFilter = value;
+        });
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : activeColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? activeColor : activeColor.withValues(alpha: 0.3),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13.sp,
+              color: isSelected ? Colors.white : activeColor,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11.sp,
+                color: isSelected ? Colors.white : activeColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withValues(alpha: 0.25) : activeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10.sp,
+                  color: isSelected ? Colors.white : activeColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
