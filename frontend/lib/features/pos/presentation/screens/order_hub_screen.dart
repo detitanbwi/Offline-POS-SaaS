@@ -23,6 +23,13 @@ import '../../application/order_notifier.dart';
 import '../../application/online_platform_notifier.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import '../../../../core/utils/receipt_generator.dart';
+import '../../../../core/utils/pdf_receipt_generator.dart';
+import '../../../../core/widgets/app_receipt_preview_modal.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../printer/application/printer_notifier.dart';
+
 import 'table_selector_screen.dart';
 import 'cashier_screen.dart';
 import 'payment_screen.dart';
@@ -600,6 +607,56 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         ),
                       ],
                     ),
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final activeUser = ref.read(authSessionProvider);
+                              final printerState = ref.read(printerNotifierProvider);
+                              final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+                              final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+
+                              final textPreview = await ReceiptGenerator.formatBillTextPreview(
+                                order: order,
+                                items: items,
+                                cashierNama: order.cashierNama ?? activeUser?.nama,
+                                charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+                              );
+
+                              if (!sheetContext.mounted) return;
+                              AppReceiptPreviewModal.show(
+                                sheetContext,
+                                title: 'BILL SEMENTARA',
+                                receiptTextPreview: textPreview,
+                                printerType: 'cashier',
+                                onGeneratePdf: () => PdfReceiptGenerator.generateBillPdf(
+                                  order: order,
+                                  items: items,
+                                  cashierNama: order.cashierNama ?? activeUser?.nama,
+                                ),
+                                onGenerateEscPosBytes: () => ReceiptGenerator.generateBillReceipt(
+                                  order: order,
+                                  items: items,
+                                  cashierNama: order.cashierNama ?? activeUser?.nama,
+                                  paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
+                                  charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
+                                  autoCut: cashierPrinter?.autoCut ?? false,
+                                ),
+                              );
+                            },
+                            icon: Icon(Icons.receipt_long_rounded, size: 18, color: AppColors.secondary),
+                            label: Text('Cetak Bill', style: TextStyle(color: AppColors.secondary)),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: AppColors.secondary),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     if (isDineIn && table != null) ...[
                       SizedBox(height: 8),
                       Row(
@@ -810,7 +867,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text('Transaksi POS - Pesanan Barus & Aktif'),
+        title: Text('Transaksi POS - Pesanan Baru & Aktif'),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh_rounded),
