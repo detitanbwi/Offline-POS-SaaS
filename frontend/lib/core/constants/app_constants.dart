@@ -9,8 +9,8 @@ library;
 const String apiBaseUrl = 'https://demo2.rce-eastjava.org';
 
 /// Application metadata
-const String appVersion = '0.1.9';
-const String appBuildNumber = '109';
+const String appVersion = '0.1.10';
+const String appBuildNumber = '110';
 const String appName = 'SaaS POS Offline';
 
 /// Order status constants

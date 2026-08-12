@@ -1811,6 +1811,9 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
     );
   }
 
+
+  }
+
 }
 
 class _CartItemRow extends StatelessWidget {

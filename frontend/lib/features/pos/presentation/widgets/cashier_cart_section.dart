@@ -19,6 +19,7 @@ import '../../../printer/application/printer_notifier.dart';
 import '../../../printer/domain/models/printer_config.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/utils/receipt_generator.dart';import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../domain/models/cart_item.dart';
 
 
 class CashierCartSection extends ConsumerStatefulWidget {
@@ -56,6 +57,40 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
   void dispose() {
     _appTotalController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showNoteDialog(BuildContext context, CartItem item) async {
+    final noteController = TextEditingController(text: item.catatan);
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Catatan Item'),
+          content: TextField(
+            controller: noteController,
+            decoration: const InputDecoration(
+              hintText: 'Masukkan catatan (opsional)',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                ref.read(cartNotifierProvider.notifier).updateCatatan(item.product.id, noteController.text);
+                Navigator.pop(context);
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _handleSaveDraft() async {
@@ -622,12 +657,15 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                         if (newItems.isNotEmpty)
                           Container(
                             margin: const EdgeInsets.only(bottom: 4),
-                            decoration: BoxDecoration(
+                            child: Material(
                               color: AppColors.primaryContainer.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
-                            ),
-                            child: Theme(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                                ),
+                                child: Theme(
                               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                               child: ExpansionTile(
                                 initiallyExpanded: true,
@@ -652,66 +690,110 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                   final newSubtotal = item.product.harga * newQty;
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 3.0, horizontal: 4.0),
-                                    child: Row(
+                                     child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                item.product.nama,
-                                                style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              SizedBox(height: 2),
-                                              Text(
-                                                CurrencyFormatter.format(item.product.harga),
-                                                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
                                         Row(
                                           children: [
-                                            if (item.canDecrement)
-                                              IconButton(
-                                                icon: Icon(Icons.remove_circle_outline_rounded, size: 18),
-                                                color: AppColors.error,
-                                                padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                onPressed: () {
-                                                  cartNotifier.updateQuantity(item.product.id, item.qty - 1);
-                                                },
-                                              )
-                                            else
-                                              SizedBox(width: 28),
-                                            Text(
-                                              '$newQty',
-                                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12.sp),
+                                            Expanded(
+                                              flex: 3,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    item.product.nama,
+                                                    style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  SizedBox(height: 2),
+                                                  Text(
+                                                    CurrencyFormatter.format(item.product.harga),
+                                                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            IconButton(
-                                              icon: Icon(Icons.add_circle_outline_rounded, size: 18),
-                                              color: AppColors.primary,
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                              onPressed: () {
-                                                cartNotifier.updateQuantity(item.product.id, item.qty + 1);
-                                              },
+                                            Row(
+                                              children: [
+                                                if (item.canDecrement)
+                                                  IconButton(
+                                                    icon: Icon(Icons.remove_circle_outline_rounded, size: 18),
+                                                    color: AppColors.error,
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                    onPressed: () {
+                                                      cartNotifier.updateQuantity(item.product.id, item.qty - 1);
+                                                    },
+                                                  )
+                                                else
+                                                  SizedBox(width: 28),
+                                                Text(
+                                                  '$newQty',
+                                                  style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 12.sp),
+                                                ),
+                                                IconButton(
+                                                  icon: Icon(Icons.add_circle_outline_rounded, size: 18),
+                                                  color: AppColors.primary,
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                  onPressed: () {
+                                                    cartNotifier.updateQuantity(item.product.id, item.qty + 1);
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                            SizedBox(width: 8),
+                                            Flexible(
+                                              flex: 1,
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerRight,
+                                                child: Text(
+                                                  CurrencyFormatter.format(newSubtotal),
+                                                  textAlign: TextAlign.right,
+                                                  style: AppTypography.titleMedium.copyWith(fontSize: 12.sp, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
                                             ),
                                           ],
                                         ),
-                                        SizedBox(width: 8),
-                                        Flexible(
-                                          flex: 1,
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerRight,
+                                        if (item.catatan.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.secondaryContainer,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
                                             child: Text(
-                                              CurrencyFormatter.format(newSubtotal),
-                                              textAlign: TextAlign.right,
-                                              style: AppTypography.titleMedium.copyWith(fontSize: 12.sp, fontWeight: FontWeight.bold),
+                                              'Catatan: ${item.catatan}',
+                                              style: TextStyle(
+                                                color: AppColors.secondaryActive,
+                                                fontSize: 11.sp,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        const SizedBox(height: 4),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: TextButton.icon(
+                                            icon: Icon(
+                                              item.catatan.isEmpty ? Icons.add_comment_outlined : Icons.comment_rounded,
+                                              size: 14,
+                                              color: AppColors.primary,
+                                            ),
+                                            label: Text(
+                                              item.catatan.isEmpty ? 'Tambah Catatan' : 'Ubah Catatan',
+                                              style: TextStyle(color: AppColors.primary, fontSize: 11.sp),
+                                            ),
+                                            onPressed: () => _showNoteDialog(context, item),
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: const Size(60, 32),
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                             ),
                                           ),
                                         ),
@@ -719,6 +801,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                     ),
                                   );
                                 }).toList(),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -741,71 +825,76 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 4),
-                                  decoration: BoxDecoration(
+                                  child: Material(
                                     color: Colors.grey.shade50,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                  ),
-                                  child: Theme(
-                                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                                    child: ExpansionTile(
-                                      initiallyExpanded: newItems.isEmpty && i == batches.length - 1,
-                                      tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                      childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                      title: Row(
-                                        children: [
-                                          Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
-                                          SizedBox(width: 6),
-                                          Text(
-                                            bTitle,
-                                            style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.success),
-                                          ),
-                                        ],
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.grey.shade300),
                                       ),
-                                      subtitle: Text(
-                                        '${bItems.length} menu • ${CurrencyFormatter.format(bSubtotal)}',
-                                        style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                                      ),
-                                      children: bItems.map((item) {
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 3.0, horizontal: 4.0),
-                                          child: Row(
+                                      child: Theme(
+                                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                        child: ExpansionTile(
+                                          initiallyExpanded: newItems.isEmpty && i == batches.length - 1,
+                                          tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                          childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          title: Row(
                                             children: [
-                                              Expanded(
-                                                flex: 3,
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      item.produkNama,
-                                                      style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.w600),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                    SizedBox(height: 2),
-                                                    Text(
-                                                      '${item.qty}x @ ${CurrencyFormatter.format(item.produkHarga)} (Tersimpan)',
-                                                      style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              Flexible(
-                                                flex: 1,
-                                                child: FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  alignment: Alignment.centerRight,
-                                                  child: Text(
-                                                    CurrencyFormatter.format(item.subtotal),
-                                                    textAlign: TextAlign.right,
-                                                    style: AppTypography.titleMedium.copyWith(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                                                  ),
-                                                ),
+                                              Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.success),
+                                              SizedBox(width: 6),
+                                              Text(
+                                                bTitle,
+                                                style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.success),
                                               ),
                                             ],
                                           ),
-                                        );
-                                      }).toList(),
+                                          subtitle: Text(
+                                            '${bItems.length} menu • ${CurrencyFormatter.format(bSubtotal)}',
+                                            style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                                          ),
+                                          children: bItems.map((item) {
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(vertical: 3.0, horizontal: 4.0),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    flex: 3,
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          item.produkNama,
+                                                          style: AppTypography.titleMedium.copyWith(fontSize: 13.sp, fontWeight: FontWeight.w600),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                        SizedBox(height: 2),
+                                                        Text(
+                                                          '${item.qty}x @ ${CurrencyFormatter.format(item.produkHarga)} (Tersimpan)',
+                                                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Flexible(
+                                                    flex: 1,
+                                                    child: FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      alignment: Alignment.centerRight,
+                                                      child: Text(
+                                                        CurrencyFormatter.format(item.subtotal),
+                                                        textAlign: TextAlign.right,
+                                                        style: AppTypography.titleMedium.copyWith(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 );
