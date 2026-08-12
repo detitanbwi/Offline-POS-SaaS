@@ -35,27 +35,16 @@ class CashierCartSection extends ConsumerStatefulWidget {
 }
 
 class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
-  final _appTotalController = TextEditingController();
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    final orderState = ref.read(orderNotifierProvider);
-    final total = orderState.onlinePlatformTotal ?? orderState.activeOrder?.onlinePlatformTotal;
-    if (total != null && total > 0) {
-      _appTotalController.text = CurrencyFormatter.formatNumber(total);
-      if (orderState.onlinePlatformTotal == null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(orderNotifierProvider.notifier).setOnlinePlatformTotal(total);
-        });
-      }
-    }
+    // The online platform total initialization has been moved to payment screen
   }
 
   @override
   void dispose() {
-    _appTotalController.dispose();
     super.dispose();
   }
 
@@ -565,7 +554,6 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     final cartState = ref.watch(cartNotifierProvider);
     final orderState = ref.watch(orderNotifierProvider);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
-    final orderNotifier = ref.read(orderNotifierProvider.notifier);
 
     int unprintedCount = 0;
     for (var item in cartState.items) {
@@ -987,78 +975,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
         ),
         SizedBox(height: AppSpacing.xs),
 
-        if (orderState.isOnlineFood) ...[
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.orange.shade300),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.monetization_on_rounded, size: 16, color: Colors.orange.shade900),
-                    SizedBox(width: 6),
-                    Text(
-                      'Input Total di Aplikasi ${orderState.onlinePlatform ?? 'Online'}',
-                      style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 6),
-                TextField(
-                  controller: _appTotalController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    hintText: 'Nominal total di aplikasi (Rp)',
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (val) {
-                    final cleanText = val.replaceAll('.', '').replaceAll(',', '');
-                    final parsed = double.tryParse(cleanText);
-                    if (parsed != null) {
-                      final formatted = CurrencyFormatter.formatNumber(parsed);
-                      if (_appTotalController.text != formatted) {
-                        _appTotalController.value = TextEditingValue(
-                          text: formatted,
-                          selection: TextSelection.collapsed(offset: formatted.length),
-                        );
-                      }
-                    } else if (cleanText.isEmpty) {
-                      _appTotalController.clear();
-                    }
-                    orderNotifier.setOnlinePlatformTotal(parsed);
-                    setState(() {});
-                  },
-                ),
-                if (orderState.onlinePlatformTotal != null) ...[
-                  SizedBox(height: 6),
-                  Builder(
-                    builder: (context) {
-                      final diff = (orderState.onlinePlatformTotal! - cartState.grandTotal).abs();
-                      return Text(
-                        'Selisih Komisi: ${CurrencyFormatter.format(diff)}',
-                        style: TextStyle(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange.shade900,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-          SizedBox(height: AppSpacing.xs),
-        ],
+
 
         AppCard(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
