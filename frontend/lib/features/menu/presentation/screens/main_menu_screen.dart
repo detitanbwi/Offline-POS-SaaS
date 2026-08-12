@@ -336,7 +336,7 @@ class MainMenuScreen extends ConsumerWidget {
 
     if (!isTablet) {
       if (isLandscape) {
-        crossAxisCount = isOwner ? 3 : 4;
+        crossAxisCount = 4;
         childAspectRatio = 1.35;
       } else {
         crossAxisCount = 2;
@@ -344,10 +344,10 @@ class MainMenuScreen extends ConsumerWidget {
       }
     } else {
       if (isLandscape) {
-        crossAxisCount = isOwner ? 3 : 4;
+        crossAxisCount = 4;
         childAspectRatio = 1.35;
       } else {
-        crossAxisCount = isOwner ? 3 : 3;
+        crossAxisCount = 3;
         childAspectRatio = 1.2;
       }
     }
@@ -378,6 +378,17 @@ class MainMenuScreen extends ConsumerWidget {
             color: AppColors.secondaryContainer,
             iconColor: AppColors.secondary,
             onTap: () => _showMasterDataSubmenu(context),
+          ),
+          _buildMenuCard(
+            context,
+            title: 'Kelola Meja Makan',
+            subtitle: 'Kelola meja restoran & status',
+            icon: Icons.table_restaurant_rounded,
+            color: Colors.orange.shade50,
+            iconColor: Colors.orange.shade700,
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TableScreen()));
+            },
           ),
           _buildMenuCard(
             context,
@@ -415,17 +426,6 @@ class MainMenuScreen extends ConsumerWidget {
                   settings: const RouteSettings(name: '/order_hub'),
                 ),
               );
-            },
-          ),
-          _buildMenuCard(
-            context,
-            title: 'Kelola Meja Makan',
-            subtitle: 'Kelola meja restoran & status',
-            icon: Icons.table_restaurant_rounded,
-            color: Colors.orange.shade50,
-            iconColor: Colors.orange.shade700,
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const TableScreen()));
             },
           ),
           _buildMenuCard(
