@@ -640,34 +640,34 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                               ),
                                             ),
                                           ),
-                                          GridView.builder(
-                                            shrinkWrap: true,
-                                            physics: const NeverScrollableScrollPhysics(),
-                                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                              crossAxisCount: crossAxisCount,
-                                              crossAxisSpacing: 12,
-                                              mainAxisSpacing: 12,
-                                              childAspectRatio: 0.75,
-                                            ),
-                                            itemCount: products.length,
-                                            itemBuilder: (context, pIndex) {
-                                              final product = products[pIndex];
-                                              final isSelected = _selectedIds.contains(product.id);
-                                              return _ProductItemCard(
-                                                product: product,
-                                                isSelectionMode: _isSelectionMode,
-                                                isSelected: isSelected,
-                                                onSelectedChanged: (selected) {
-                                                  setState(() {
-                                                    if (selected == true) {
-                                                      _selectedIds.add(product.id);
-                                                    } else {
-                                                      _selectedIds.remove(product.id);
-                                                    }
-                                                  });
-                                                },
-                                                onEdit: () => _showAddEditDialog(context, product),
-                                                onDelete: () => _confirmDelete(context, product),
+                                          LayoutBuilder(
+                                            builder: (context, rowConstraints) {
+                                              final itemWidth = (rowConstraints.maxWidth - (crossAxisCount - 1) * 12) / crossAxisCount;
+                                              return Wrap(
+                                                spacing: 12,
+                                                runSpacing: 12,
+                                                children: products.map((product) {
+                                                  final isSelected = _selectedIds.contains(product.id);
+                                                  return SizedBox(
+                                                    width: itemWidth - 0.01,
+                                                    child: _ProductItemCard(
+                                                      product: product,
+                                                      isSelectionMode: _isSelectionMode,
+                                                      isSelected: isSelected,
+                                                      onSelectedChanged: (selected) {
+                                                        setState(() {
+                                                          if (selected == true) {
+                                                            _selectedIds.add(product.id);
+                                                          } else {
+                                                            _selectedIds.remove(product.id);
+                                                          }
+                                                        });
+                                                      },
+                                                      onEdit: () => _showAddEditDialog(context, product),
+                                                      onDelete: () => _confirmDelete(context, product),
+                                                    ),
+                                                  );
+                                                }).toList(),
                                               );
                                             },
                                           ),
@@ -936,10 +936,11 @@ class _ProductItemCard extends StatelessWidget {
       color: isSelected ? AppColors.primaryContainer : Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Top section (Image + Status)
-          Expanded(
-            flex: 4,
+          AspectRatio(
+            aspectRatio: 1,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -1041,18 +1042,16 @@ class _ProductItemCard extends StatelessWidget {
           ),
           
           // Details section
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                         product.nama,
                         style: AppTypography.titleMedium.copyWith(
                           fontSize: 13.sp,
@@ -1075,20 +1074,20 @@ class _ProductItemCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      CurrencyFormatter.format(product.harga),
-                      style: AppTypography.titleMedium.copyWith(
-                        color: product.isActive ? AppColors.secondary : AppColors.textSecondary,
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
+                SizedBox(height: 8),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    CurrencyFormatter.format(product.harga),
+                    style: AppTypography.titleMedium.copyWith(
+                      color: product.isActive ? AppColors.secondary : AppColors.textSecondary,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           
