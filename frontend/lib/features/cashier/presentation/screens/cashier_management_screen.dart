@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -66,7 +67,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                       return null;
                     },
                   ),
-                  const SizedBox(height: AppSpacing.m),
+                  SizedBox(height: AppSpacing.m),
                   AppTextField(
                     controller: usernameController,
                     labelText: 'Username (Akun Login)',
@@ -83,7 +84,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                       return null;
                     },
                   ),
-                  const SizedBox(height: AppSpacing.m),
+                  SizedBox(height: AppSpacing.m),
                   AppTextField(
                     controller: pinController,
                     labelText: isEdit ? 'Reset PIN (6 Digit, Opsional)' : 'PIN Sesi (6 Digit)',
@@ -109,7 +110,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
+              child: Text('Batal'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -190,10 +191,10 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Kelola Akun Kasir'),
+        title: Text('Kelola Akun Kasir'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_add_alt_1_rounded),
+            icon: Icon(Icons.person_add_alt_1_rounded),
             tooltip: 'Tambah Kasir Baru',
             onPressed: () => _showAddEditCashierDialog(context),
           ),
@@ -240,7 +241,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                       : ListView.separated(
                           padding: const EdgeInsets.all(AppSpacing.m),
                           itemCount: filteredList.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          separatorBuilder: (context, index) => SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final cashier = filteredList[index];
                             return AppCard(
@@ -258,7 +259,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                       color: cashier.isActive ? AppColors.primary : Colors.grey,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
+                                  SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,13 +269,13 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: AppTypography.titleMedium.copyWith(
-                                            fontSize: 16,
+                                            fontSize: 16.sp,
                                             fontWeight: FontWeight.bold,
                                             decoration: cashier.isActive ? null : TextDecoration.lineThrough,
                                             color: cashier.isActive ? AppColors.textPrimary : AppColors.textSecondary,
                                           ),
                                         ),
-                                         const SizedBox(height: 4),
+                                         SizedBox(height: 4),
                                          Wrap(
                                            crossAxisAlignment: WrapCrossAlignment.center,
                                            spacing: 6,
@@ -296,7 +297,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                              Text(
                                                cashier.isActive ? 'Akses Aktif' : 'Akses Nonaktif',
                                                style: AppTypography.bodyMedium.copyWith(
-                                                 fontSize: 12,
+                                                 fontSize: 12.sp,
                                                  color: cashier.isActive ? AppColors.success : AppColors.error,
                                                  fontWeight: FontWeight.bold,
                                                ),
@@ -327,14 +328,14 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
                                   
                                   // Edit Button
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                                    icon: Icon(Icons.edit_outlined, color: AppColors.primary),
                                     onPressed: () => _showAddEditCashierDialog(context, cashier),
                                     tooltip: 'Ubah Data & PIN',
                                   ),
                                   
                                   // Delete Button
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                                    icon: Icon(Icons.delete_outline_rounded, color: AppColors.error),
                                     onPressed: () => _confirmDeleteCashier(context, cashier),
                                     tooltip: 'Hapus Kasir',
                                   ),

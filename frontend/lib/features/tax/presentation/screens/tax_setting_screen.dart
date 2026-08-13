@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -82,7 +83,7 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Pengaturan Pajak (PPN)'),
+        title: Text('Pengaturan Pajak (PPN)'),
       ),
       body: SafeArea(
         child: state.isLoading && state.taxSetting == null
@@ -109,14 +110,14 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
                                     children: [
                                       Text(
                                         'Aktifkan Pajak (PPN)',
-                                        style: AppTypography.titleMedium.copyWith(fontSize: 16),
+                                        style: AppTypography.titleMedium.copyWith(fontSize: 16.sp),
                                       ),
-                                      const SizedBox(height: 4),
+                                      SizedBox(height: 4),
                                       Text(
                                         'Jika diaktifkan, setiap transaksi kasir akan dikenakan pajak tambahan.',
                                         style: AppTypography.bodyMedium.copyWith(
                                           color: AppColors.textSecondary,
-                                          fontSize: 12,
+                                          fontSize: 12.sp,
                                         ),
                                       ),
                                     ],
@@ -154,7 +155,7 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
                       AppButton(
                         text: 'Simpan Pengaturan',
                         isLoading: state.isLoading,

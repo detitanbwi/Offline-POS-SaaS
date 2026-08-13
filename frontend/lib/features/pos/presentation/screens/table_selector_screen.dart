@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -89,7 +90,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Pilih Meja Restoran'),
+        title: Text('Pilih Meja Restoran'),
       ),
       bottomNavigationBar: _selectedTable != null
           ? SafeArea(
@@ -136,11 +137,11 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                         ),
                         elevation: 2,
                       ),
-                      icon: const Text(
+                      icon: Text(
                         'Lanjutkan',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.sp),
                       ),
-                      label: const Icon(Icons.arrow_forward_rounded),
+                      label: Icon(Icons.arrow_forward_rounded),
                       onPressed: () => _navigateToCashier(_selectedTable!),
                     ),
                   ],
@@ -164,9 +165,9 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                       children: [
                         Text(
                           'Pilih Meja',
-                          style: AppTypography.headlineLarge.copyWith(fontSize: 24),
+                          style: AppTypography.headlineLarge.copyWith(fontSize: 24.sp),
                         ),
-                        const SizedBox(height: AppSpacing.l),
+                        SizedBox(height: AppSpacing.l),
                         Expanded(
                           child: _buildGrid(context, tableState.allTables, orderState.activeOrdersMap),
                         ),
@@ -255,17 +256,17 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                           table.statusLabel,
                           style: TextStyle(
                             color: isOccupied ? Colors.white : textColor,
-                            fontSize: 9,
+                            fontSize: 9.sp,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4),
                       Text(
                         'No: ${table.nomor}',
                         style: TextStyle(
                           color: isOccupied ? Colors.white70 : AppColors.textSecondary,
-                          fontSize: 10,
+                          fontSize: 10.sp,
                         ),
                       ),
                     ],
@@ -282,7 +283,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                   table.nama,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13.sp,
                     fontWeight: FontWeight.bold,
                     color: isOccupied ? Colors.white : AppColors.textPrimary,
                   ),
@@ -290,13 +291,13 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (isOccupied && activeOrder != null) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     CurrencyFormatter.format(activeOrder.grandTotal),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 1,

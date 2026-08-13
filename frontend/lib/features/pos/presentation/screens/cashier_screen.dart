@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -39,7 +40,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
   }
 
   void _onSaveCompleted() {
-    Navigator.pop(context);
+    Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
   }
 
   @override
@@ -55,21 +56,22 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text(titleText),
+        title: Text(titleText, style: TextStyle(fontSize: 14.sp)),
+        toolbarHeight: 40,
         actions: [
           if (cartState.items.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(right: 12.0),
+              padding: const EdgeInsets.only(right: 8.0),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${cartState.items.fold(0, (sum, i) => sum + i.qty)} item',
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.white, fontSize: 10.sp, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -80,18 +82,18 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
         child: ResponsiveLayout(
           // Tablet / POS Stand (Landscape Split View)
           tablet: Padding(
-            padding: const EdgeInsets.all(AppSpacing.m),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Left 60%: Catalog
-                const Expanded(
+                Expanded(
                   flex: 6,
                   child: CashierCatalogSection(),
                 ),
-                const SizedBox(width: AppSpacing.m),
+                SizedBox(width: AppSpacing.s),
                 const VerticalDivider(width: 1, color: AppColors.divider),
-                const SizedBox(width: AppSpacing.m),
+                SizedBox(width: AppSpacing.s),
                 // Right 40%: Cart & Actions
                 Expanded(
                   flex: 4,
@@ -114,22 +116,30 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
                   labelColor: AppColors.primary,
                   unselectedLabelColor: AppColors.textSecondary,
                   indicatorColor: AppColors.primary,
+                  labelStyle: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold),
+                  unselectedLabelStyle: TextStyle(fontSize: 11.sp),
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                   tabs: [
-                    const Tab(icon: Icon(Icons.restaurant_menu_rounded), text: 'Katalog Menu'),
                     Tab(
+                      height: 36,
+                      icon: Icon(Icons.restaurant_menu_rounded, size: 16),
+                      child: Text('Katalog', style: TextStyle(fontSize: 10.sp)),
+                    ),
+                    Tab(
+                      height: 36,
                       icon: Badge(
-                        label: Text('${cartState.items.length}'),
+                        label: Text('${cartState.items.length}', style: TextStyle(fontSize: 8.sp)),
                         isLabelVisible: cartState.items.isNotEmpty,
-                        child: const Icon(Icons.shopping_cart_rounded),
+                        child: Icon(Icons.shopping_cart_rounded, size: 16),
                       ),
-                      text: 'Keranjang',
+                      child: Text('Keranjang', style: TextStyle(fontSize: 10.sp)),
                     ),
                   ],
                 ),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.m),
+                  padding: const EdgeInsets.all(AppSpacing.s),
                   child: TabBarView(
                     controller: _mobileTabController,
                     children: [

@@ -12,6 +12,8 @@ import 'features/auth/presentation/providers/auth_providers.dart';
 import 'features/license/presentation/screens/activation_screen.dart';
 import 'features/license/presentation/screens/license_lock_screen.dart';
 import 'core/di/providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/theme/font_size_provider.dart';
 import 'core/services/app_logger.dart';
 
 void main() async {
@@ -21,9 +23,14 @@ void main() async {
   // Initialize the Indonesian locale formatting
   await initializeDateFormatting('id_ID', null);
   
+  final prefs = await SharedPreferences.getInstance();
+  
   runApp(
-    const ProviderScope(
-      child: MyApp(),
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+      child: const MyApp(),
     ),
   );
 }
@@ -39,14 +46,12 @@ final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 class _MyAppState extends ConsumerState<MyApp> {
   late final Future<Widget> _initialRouteFuture;
-  Timer? _inactivityTimer;
   Timer? _periodicValidationTimer;
 
   @override
   void initState() {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
-    _resetInactivityTimer();
     
     // Start a strict periodic background validation every 7 days (Production)
     _periodicValidationTimer = Timer.periodic(const Duration(days: 7), (_) {
@@ -59,25 +64,8 @@ class _MyAppState extends ConsumerState<MyApp> {
     // });
   }
 
-  void _resetInactivityTimer() {
-    _inactivityTimer?.cancel();
-    _inactivityTimer = Timer(const Duration(minutes: 3), _handleInactivity);
-  }
-
-  void _handleInactivity() {
-    // 1. Clear session
-    ref.read(authSessionProvider.notifier).state = null;
-    
-    // 2. Lock app by returning to PinScreen
-    appNavigatorKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
-      (route) => false,
-    );
-  }
-
   @override
   void dispose() {
-    _inactivityTimer?.cancel();
     _periodicValidationTimer?.cancel();
     super.dispose();
   }
@@ -96,7 +84,21 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
       } else {
         // Jika gagal karena ditolak oleh server
-        ref.read(licenseExpiredProvider.notifier).state = true;
+        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || result['message'] == 'Perangkat tidak terdaftar';
+        if (isAuthError) {
+          final storage = ref.read(secureStorageServiceProvider);
+          await storage.clearAll();
+          
+          if (appNavigatorKey.currentContext != null) {
+            Navigator.pushAndRemoveUntil(
+              appNavigatorKey.currentContext!,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+            );
+          }
+        } else {
+          ref.read(licenseExpiredProvider.notifier).state = true;
+        }
       }
     }
   }
@@ -142,6 +144,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     final isExpired = ref.watch(licenseExpiredProvider);
+    final fontSizeScale = ref.watch(fontSizeProvider).scale;
 
     // Determine design size dynamically (mobile vs tablet, portrait vs landscape)
     final mediaQuery = MediaQuery.maybeOf(context);
@@ -175,20 +178,25 @@ class _MyAppState extends ConsumerState<MyApp> {
           navigatorKey: appNavigatorKey,
           title: 'Offline POS Kasir SaaS',
           builder: (context, widget) {
+            Widget child = widget ?? const SizedBox.shrink();
             if (isExpired) {
-              return const LicenseLockScreen();
+              child = const LicenseLockScreen();
             }
-            return GestureDetector(
+            child = GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onPanDown: (_) => _resetInactivityTimer(),
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
-                _resetInactivityTimer();
               },
-              child: widget ?? const SizedBox.shrink(),
+              child: child,
+            );
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(fontSizeScale),
+              ),
+              child: child,
             );
           },
-          theme: AppTheme.lightTheme,
+          theme: AppTheme.getLightTheme(fontSizeScale),
           themeMode: ThemeMode.light,
           debugShowCheckedModeBanner: false,
           home: FutureBuilder<Widget>(

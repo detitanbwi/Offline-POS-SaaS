@@ -4,12 +4,13 @@ library;
 
 /// API base URL for the SaaS backend server.
 /// In production, this should be configured via environment or build config.
-const String apiBaseUrl = 'https://demo2.wirodev.com';
+// const String apiBaseUrl = 'https://demo2.wirodev.com';
 // const String apiBaseUrl = 'http://192.168.1.36:8000';
+const String apiBaseUrl = 'https://demo2.rce-eastjava.org';
 
 /// Application metadata
-const String appVersion = '1.0.0';
-const String appBuildNumber = '1';
+const String appVersion = '0.1.17';
+const String appBuildNumber = '117';
 const String appName = 'SaaS POS Offline';
 
 /// Order status constants

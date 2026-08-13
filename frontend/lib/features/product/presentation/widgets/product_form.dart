@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -135,7 +136,7 @@ class ProductFormState extends State<ProductForm> {
                   style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -143,14 +144,14 @@ class ProductFormState extends State<ProductForm> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.photo_library_outlined),
+                  icon: Icon(Icons.photo_library_outlined),
                   label: Text('Pilih dari Galeri', style: AppTypography.labelLarge.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
                   onPressed: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.gallery);
                   },
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
@@ -158,7 +159,7 @@ class ProductFormState extends State<ProductForm> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.camera_alt_outlined),
+                  icon: Icon(Icons.camera_alt_outlined),
                   label: Text('Ambil dari Kamera', style: AppTypography.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
                   onPressed: () {
                     Navigator.pop(context);
@@ -211,7 +212,7 @@ class ProductFormState extends State<ProductForm> {
               maxLength: 100,
               validator: (v) => Validators.required(v, 'Nama Produk'),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             // Category Dropdown
             DropdownButtonFormField<String>(
               initialValue: _selectedCategoryId,
@@ -221,7 +222,7 @@ class ProductFormState extends State<ProductForm> {
                 filled: true,
                 fillColor: AppColors.surface,
                 labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                prefixIcon: const Icon(Icons.category_outlined, color: AppColors.textSecondary),
+                prefixIcon: Icon(Icons.category_outlined, color: AppColors.textSecondary),
               ),
               items: activeCategories.map((cat) {
                 return DropdownMenuItem<String>(
@@ -237,12 +238,12 @@ class ProductFormState extends State<ProductForm> {
               },
               validator: (v) => v == null ? 'Kategori harus dipilih' : null,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(
               'Gambar Produk (Opsional)',
               style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             GestureDetector(
               onTap: () => _showImageSourcePicker(context),
               child: Container(
@@ -263,11 +264,11 @@ class ProductFormState extends State<ProductForm> {
                               ? Image.file(
                                   File(_imagePath!),
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, _, _) => const Center(
+                                  errorBuilder: (_, _, _) => Center(
                                     child: Icon(Icons.broken_image_outlined, size: 40, color: AppColors.error),
                                   ),
                                 )
-                              : const Center(
+                              : Center(
                                   child: Icon(Icons.image_outlined, size: 40, color: AppColors.disabled),
                                 ),
                         ),
@@ -279,7 +280,7 @@ class ProductFormState extends State<ProductForm> {
                           backgroundColor: Colors.black54,
                           radius: 18,
                           child: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+                            icon: Icon(Icons.delete_outline, color: Colors.white, size: 18),
                             onPressed: () {
                               setState(() {
                                 _imagePath = null;
@@ -292,16 +293,16 @@ class ProductFormState extends State<ProductForm> {
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.add_photo_alternate_outlined, size: 36, color: AppColors.primary),
-                          const SizedBox(height: 6),
+                          Icon(Icons.add_photo_alternate_outlined, size: 36, color: AppColors.primary),
+                          SizedBox(height: 6),
                           Text(
                             'Pilih Gambar (Galeri / Kamera)',
                             style: AppTypography.bodyMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                           Text(
                             'Format didukung: JPG, PNG',
-                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                           ),
                         ],
                       ),
@@ -310,7 +311,7 @@ class ProductFormState extends State<ProductForm> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             AppTextField(
               controller: _priceController,
               labelText: 'Harga Jual (Rupiah)',
@@ -336,12 +337,12 @@ class ProductFormState extends State<ProductForm> {
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(
               'Apakah produk selalu tersedia?',
               style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             RadioGroup<bool>(
               groupValue: _isAlwaysAvailable,
               onChanged: (val) {
@@ -375,7 +376,7 @@ class ProductFormState extends State<ProductForm> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             if (!_isAlwaysAvailable) ...[
               AppTextField(
                 controller: _stockController,
@@ -389,14 +390,14 @@ class ProductFormState extends State<ProductForm> {
                   return Validators.integer(v, 'Stok');
                 },
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
             ],
             if (widget.product != null) ...[
               Text(
                 'Status Produk',
                 style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               RadioGroup<int>(
                 groupValue: _status,
                 onChanged: (val) {

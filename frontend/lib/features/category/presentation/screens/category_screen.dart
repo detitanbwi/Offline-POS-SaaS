@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -176,15 +177,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       children: [
                         Text('Filter & Urutan Kategori', style: AppTypography.titleLarge),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: Icon(Icons.close),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
                     const Divider(),
-                    const SizedBox(height: 12),
-                    Text('Filter Status', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 12),
+                    Text('Filter Status', style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         _FilterChip(
@@ -192,13 +193,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           isSelected: state.statusFilter == null,
                           onTap: () => notifier.setStatusFilter(null),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         _FilterChip(
                           label: 'Aktif',
                           isSelected: state.statusFilter == 1,
                           onTap: () => notifier.setStatusFilter(1),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         _FilterChip(
                           label: 'Nonaktif',
                           isSelected: state.statusFilter == 0,
@@ -206,26 +207,26 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Text('Urutan Kategori', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 16),
+                    Text('Urutan Kategori', style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                    SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         ChoiceChip(
-                          label: const Text('Nama A-Z'),
+                          label: Text('Nama A-Z'),
                           selected: state.sortBy == 'name_asc',
                           onSelected: (_) => notifier.setSortBy('name_asc'),
                         ),
                         ChoiceChip(
-                          label: const Text('Nama Z-A'),
+                          label: Text('Nama Z-A'),
                           selected: state.sortBy == 'name_desc',
                           onSelected: (_) => notifier.setSortBy('name_desc'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -234,7 +235,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Terapkan Filter'),
+                      child: Text('Terapkan Filter'),
                     ),
                   ],
                 ),
@@ -275,7 +276,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
               onPressed: () => _showAddEditDialog(context),
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              child: const Icon(Icons.add),
+              child: Icon(Icons.add),
             ),
       body: SafeArea(
         child: Column(
@@ -297,7 +298,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             onChanged: (val) => notifier.setSearchQuery(val),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: state.statusFilter != null
@@ -311,10 +312,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
                           ),
-                          icon: const Icon(Icons.tune_rounded, size: 20),
+                          icon: Icon(Icons.tune_rounded, size: 20),
                           label: Text(
                             state.statusFilter != null ? 'Filter (Aktif)' : 'Filter & Urutkan',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           onPressed: () => _showFilterBottomSheet(context),
                         ),
@@ -327,7 +328,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       prefixIcon: Icons.search,
                       onChanged: (val) => notifier.setSearchQuery(val),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -342,13 +343,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                                   isSelected: state.statusFilter == null,
                                   onTap: () => notifier.setStatusFilter(null),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 _FilterChip(
                                   label: 'Aktif',
                                   isSelected: state.statusFilter == 1,
                                   onTap: () => notifier.setStatusFilter(1),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 _FilterChip(
                                   label: 'Nonaktif',
                                   isSelected: state.statusFilter == 0,
@@ -360,7 +361,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                         ),
                         // Sorting action
                         PopupMenuButton<String>(
-                          icon: const Icon(Icons.sort, color: AppColors.primary),
+                          icon: Icon(Icons.sort, color: AppColors.primary),
                           tooltip: 'Urutan',
                           onSelected: (val) => notifier.setSortBy(val),
                           itemBuilder: (context) => [
@@ -378,9 +379,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     ),
                   ],
                   if (_isSelectionMode) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     const Divider(),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Checkbox(
@@ -396,16 +397,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             });
                           },
                         ),
-                        const Text('Pilih Semua', style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 16),
+                        Text('Pilih Semua', style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(width: 16),
                         Text('${_selectedIds.length} Terpilih'),
                         const Spacer(),
                         ElevatedButton.icon(
                           onPressed: _selectedIds.isEmpty
                               ? null
                               : () => _confirmBulkDelete(context, state.filteredCategories),
-                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                          label: const Text('Hapus Terpilih', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          icon: Icon(Icons.delete_outline_rounded, size: 16),
+                          label: Text('Hapus Terpilih', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
@@ -445,9 +446,9 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           onActionPressed: () => _showAddEditDialog(context),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 80),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, 100),
                           itemCount: state.filteredCategories.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          separatorBuilder: (context, index) => SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final category = state.filteredCategories[index];
                             final isSelected = _selectedIds.contains(category.id);
@@ -539,16 +540,16 @@ class _CategoryItem extends StatelessWidget {
         imageWidget = Image.network(
           category.image!,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
+          errorBuilder: (_, _, _) => Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
       } else if (Validators.isValidLocalFile(category.image!)) {
         imageWidget = Image.file(
           File(category.image!),
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => const Icon(Icons.folder_open_rounded, color: AppColors.primary),
+          errorBuilder: (_, _, _) => Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
       } else {
-        imageWidget = const Icon(Icons.folder_open_rounded, color: AppColors.primary);
+        imageWidget = Icon(Icons.folder_open_rounded, color: AppColors.primary);
       }
     } else {
       imageWidget = Icon(
@@ -587,7 +588,7 @@ class _CategoryItem extends StatelessWidget {
                 child: Center(child: imageWidget),
               ),
             ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -595,16 +596,16 @@ class _CategoryItem extends StatelessWidget {
                 Text(
                   category.nama,
                   style: AppTypography.titleMedium.copyWith(
-                    fontSize: 16,
+                    fontSize: 16.sp,
                     decoration: category.isActive ? null : TextDecoration.lineThrough,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   category.isActive ? 'Status: Aktif' : 'Status: Nonaktif',
                   style: AppTypography.bodyMedium.copyWith(
                     color: category.isActive ? AppColors.success : AppColors.textSecondary,
-                    fontSize: 12,
+                    fontSize: 12.sp,
                   ),
                 ),
               ],
@@ -612,12 +613,12 @@ class _CategoryItem extends StatelessWidget {
           ),
           if (!isSelectionMode) ...[
             IconButton(
-              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              icon: Icon(Icons.edit_outlined, color: AppColors.primary),
               onPressed: onEdit,
               tooltip: 'Ubah',
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+              icon: Icon(Icons.delete_outline_rounded, color: AppColors.error),
               onPressed: onDelete,
               tooltip: 'Hapus',
             ),

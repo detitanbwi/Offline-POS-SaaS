@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -12,6 +13,7 @@ import '../../../../core/services/app_logger.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
 import '../../../security/presentation/widgets/change_master_pin_modal.dart';
+import '../../../../core/theme/font_size_provider.dart';
 import 'about_screen.dart';
 import 'store_profile_screen.dart';
 
@@ -91,9 +93,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Log Sistem'),
+            Text('Log Sistem'),
             IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.error),
+              icon: Icon(Icons.delete_sweep_outlined, color: AppColors.error),
               tooltip: 'Bersihkan Log',
               onPressed: () async {
                 await AppLogger.clearLogs();
@@ -110,17 +112,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: SingleChildScrollView(
             child: Text(
               logs,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              style: TextStyle(fontFamily: 'monospace', fontSize: 11.sp),
             ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
+            child: Text('Tutup'),
           ),
         ],
       ),
+    );
+  }
+
+  void _showFontSizeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Ukuran Font'),
+          content: Consumer(
+            builder: (context, ref, child) {
+              final currentSize = ref.watch(fontSizeProvider);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: AppFontSize.values.map((size) {
+                  return RadioListTile<AppFontSize>(
+                    title: Text(size.label),
+                    value: size,
+                    groupValue: currentSize,
+                    onChanged: (value) {
+                      if (value != null) {
+                        ref.read(fontSizeProvider.notifier).setFontSize(value);
+                        Navigator.pop(context);
+                      }
+                    },
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -132,7 +166,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Pengaturan Sistem'),
+        title: Text('Pengaturan Sistem'),
       ),
       body: SafeArea(
         child: ListView(
@@ -151,7 +185,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 );
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
 
             // Printers Config Option
             _buildSettingsTile(
@@ -166,7 +200,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 );
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
+
+            // Font Size Option
+            _buildSettingsTile(
+              context,
+              title: 'Ukuran Font',
+              subtitle: 'Atur skala ukuran teks di seluruh aplikasi',
+              icon: Icons.text_fields_rounded,
+              onTap: () {
+                _showFontSizeDialog();
+              },
+            ),
+            SizedBox(height: 12),
 
             if (isOwner) ...[
               // Change Master PIN Option (Sisi Master)
@@ -179,7 +225,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ChangeMasterPinModal.show(context);
                 },
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
             ],
 
             // Backup & Restore Card
@@ -198,8 +244,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.backup_rounded, color: AppColors.primary),
-                        const SizedBox(width: 12),
+                        Icon(Icons.backup_rounded, color: AppColors.primary),
+                        SizedBox(width: 12),
                         Text(
                           'Pencadangan Database',
                           style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
@@ -212,7 +258,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                     ),
                     if (_backupDetails != null) ...[
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
@@ -221,19 +267,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.info_outline, size: 16, color: AppColors.primary),
-                            const SizedBox(width: 8),
+                            Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                            SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 _backupDetails!,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.primary),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
@@ -244,7 +290,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                         if (_hasBackup) ...[
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: AppButton(
                               text: 'Pulihkan',
@@ -260,7 +306,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
 
             // Diagnostic Logs Option
             _buildSettingsTile(
@@ -270,7 +316,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               icon: Icons.developer_board_rounded,
               onTap: _showLogsDialog,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
 
             // About App Option
             _buildSettingsTile(
@@ -312,18 +358,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             child: Icon(icon, color: AppColors.primary, size: 24),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTypography.titleMedium.copyWith(fontSize: 15, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12)),
+                Text(title, style: AppTypography.titleMedium.copyWith(fontSize: 15.sp, fontWeight: FontWeight.bold)),
+                SizedBox(height: 2),
+                Text(subtitle, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          Icon(Icons.chevron_right, color: AppColors.textSecondary),
         ],
       ),
     );

@@ -15,11 +15,6 @@ class PdfReceiptGenerator {
     if (cashierNama != null && cashierNama.trim().isNotEmpty) {
       return cashierNama.trim();
     }
-    final storage = SecureStorageService();
-    final owner = await storage.getOwnerUsername();
-    if (owner != null && owner.trim().isNotEmpty) {
-      return owner.trim();
-    }
     return 'Kasir';
   }
 
@@ -37,7 +32,7 @@ class PdfReceiptGenerator {
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
-    final cashier = await _resolveCashierName(cashierNama);
+    final cashier = await _resolveCashierName(cashierNama ?? order.cashierNama);
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -47,6 +42,7 @@ class PdfReceiptGenerator {
       pw.Page(
         pageFormat: PdfPageFormat(_rollWidth, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (pw.Context context) {
+          final storeTotal = order.subtotal + order.taxAmount;
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
@@ -63,7 +59,7 @@ class PdfReceiptGenerator {
               pw.Text('Tgl   : $nowStr', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Kasir : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),
               if (order.isTakeAway)
-                pw.Text('Order : TAKE AWAY', style: pw.TextStyle(font: fontBold, fontSize: 8))
+                pw.Text('Order : TAKE AWAY${order.onlinePlatform != null && order.onlinePlatform!.isNotEmpty ? " (${order.onlinePlatform})" : ""}', style: pw.TextStyle(font: fontBold, fontSize: 8))
               else if (order.tableNama != null && order.tableNama!.isNotEmpty)
                 pw.Text('Meja  : ${order.tableNama}', style: pw.TextStyle(font: font, fontSize: 8)),
               if (order.customerName != null && order.customerName!.isNotEmpty)
@@ -96,10 +92,33 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
               _buildRowPdf(
                 fontBold,
-                'TOTAL TAGIHAN',
-                CurrencyFormatter.formatNumber(order.grandTotal),
+                'TOTAL',
+                CurrencyFormatter.formatNumber(order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0 ? storeTotal : order.grandTotal),
                 isBold: true,
               ),
+              pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+
+              if (order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0) ...[
+                _buildRowPdf(
+                  font,
+                  'Komisi Online',
+                  CurrencyFormatter.formatNumber(
+                    ((order.platformDifference != null && order.platformDifference != 0)
+                            ? order.platformDifference!
+                            : (order.onlinePlatformTotal! - storeTotal))
+                        .abs(),
+                  ),
+                ),
+                _buildRowPdf(
+                  fontBold,
+                  order.onlinePlatform != null && order.onlinePlatform!.isNotEmpty
+                      ? 'Total Aplikasi (${order.onlinePlatform})'
+                      : 'Total Aplikasi',
+                  CurrencyFormatter.formatNumber(order.onlinePlatformTotal!),
+                  isBold: true,
+                ),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
 
               // Footer
@@ -245,20 +264,20 @@ class PdfReceiptGenerator {
               if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) ...[
                 _buildRowPdf(
                   font,
-                  transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty
-                      ? 'Total App (${transaction.onlinePlatform})'
-                      : 'Total App Online',
-                  CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal!),
-                ),
-                _buildRowPdf(
-                  fontBold,
-                  'Selisih Komisi',
+                  'Komisi Online',
                   CurrencyFormatter.formatNumber(
                     ((transaction.platformDifference != null && transaction.platformDifference != 0)
                             ? transaction.platformDifference!
                             : (transaction.onlinePlatformTotal! - (transaction.subtotal + transaction.taxAmount)))
                         .abs(),
                   ),
+                ),
+                _buildRowPdf(
+                  fontBold,
+                  transaction.onlinePlatform != null && transaction.onlinePlatform!.isNotEmpty
+                      ? 'Total Aplikasi (${transaction.onlinePlatform})'
+                      : 'Total Aplikasi',
+                  CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal!),
                   isBold: true,
                 ),
                 pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),

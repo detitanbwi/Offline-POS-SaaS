@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -38,6 +39,7 @@ class PaymentScreen extends ConsumerStatefulWidget {
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   final _amountPaidController = TextEditingController();
   final _notesController = TextEditingController();
+  final _appTotalController = TextEditingController();
   final _uuid = const Uuid();
   
   PaymentMethod? _selectedMethod;
@@ -63,6 +65,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // Generate next order number
       final orderNo = await ref.read(transactionRepositoryProvider).generateNextOrderNumber();
       setState(() => _orderNumber = orderNo);
+
+      final orderState = ref.read(orderNotifierProvider);
+      final total = orderState.onlinePlatformTotal ?? orderState.activeOrder?.onlinePlatformTotal;
+      if (total != null && total > 0) {
+        _appTotalController.text = CurrencyFormatter.formatNumber(total);
+        if (orderState.onlinePlatformTotal == null) {
+          ref.read(orderNotifierProvider.notifier).setOnlinePlatformTotal(total);
+        }
+      }
     });
   }
 
@@ -70,6 +81,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void dispose() {
     _amountPaidController.dispose();
     _notesController.dispose();
+    _appTotalController.dispose();
     super.dispose();
   }
 
@@ -109,15 +121,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   children: [
                     Text(
                       'Pilih Metode Non-Tunai',
-                      style: AppTypography.titleMedium.copyWith(fontSize: 18),
+                      style: AppTypography.titleMedium.copyWith(fontSize: 18.sp),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -146,7 +158,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           ),
                         ),
                         trailing: isSelected
-                            ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                            ? Icon(Icons.check_circle_rounded, color: AppColors.primary)
                             : null,
                         onTap: () {
                           setState(() {
@@ -219,6 +231,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             taxAmount,
             grandTotal,
             notes: notes.isNotEmpty ? notes : null,
+            cashierId: activeUser?.id,
+            cashierNama: activeUser?.nama,
           );
 
       // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
@@ -349,24 +363,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         color: AppColors.success.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.check_circle_rounded,
                         color: AppColors.success,
                         size: 48,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Text(
                     isPaid ? 'Pembayaran Berhasil!' : 'Pesanan Berhasil Disimpan!',
                     textAlign: TextAlign.center,
                     style: AppTypography.titleMedium.copyWith(
-                      fontSize: 18,
+                      fontSize: 18.sp,
                       color: AppColors.success,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     isPaid
                         ? (tableName == 'Take Away' ? 'Transaksi Lunas.' : 'Transaksi Lunas. Meja $tableName kini kembali Kosong.')
@@ -374,14 +388,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     textAlign: TextAlign.center,
                     style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   const Divider(),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(
                     'Pilihan Cetak Pesanan',
                     style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   if (isPaid && header != null && txItems != null) ...[
                     OutlinedButton.icon(
                       onPressed: () async {
@@ -417,8 +431,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.receipt_long_rounded, color: AppColors.success),
-                      label: const Text('Cetak Nota (Lunas)', style: TextStyle(color: AppColors.success)),
+                      icon: Icon(Icons.receipt_long_rounded, color: AppColors.success),
+                      label: Text('Cetak Nota (Lunas)', style: TextStyle(color: AppColors.success)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: AppColors.success),
@@ -461,8 +475,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.receipt_long_rounded, color: AppColors.secondary),
-                      label: const Text('Cetak Bill Sementara', style: TextStyle(color: AppColors.secondary)),
+                      icon: Icon(Icons.receipt_long_rounded, color: AppColors.secondary),
+                      label: Text('Cetak Bill Sementara', style: TextStyle(color: AppColors.secondary)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: AppColors.secondary),
@@ -470,7 +484,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(dialogContext); // close dialog
@@ -482,7 +496,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Selesai & Kembali ke POS', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text('Selesai & Kembali ke POS', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -499,7 +513,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     ref.read(tableNotifierProvider.notifier).loadTables();
     ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
     if (mounted) {
-      Navigator.popUntil(context, (route) => route.isFirst);
+      Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
     }
   }
 
@@ -518,7 +532,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         ? orderState.onlinePlatformTotal
         : null;
 
-    final grandTotal = onlineTotal ?? storeGrandTotal;
+    final grandTotal = storeGrandTotal;
 
     double amountPaid = 0;
     if (isCash) {
@@ -537,7 +551,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           toolbarHeight: ResponsiveLayout.isMobileLandscape(context) ? 42 : null,
           title: Text('Pembayaran Transaksi', style: TextStyle(fontSize: ResponsiveLayout.isMobileLandscape(context) ? 14 : 16)),
           leading: IconButton(
-            icon: const Icon(Icons.close_rounded),
+            icon: Icon(Icons.close_rounded),
             tooltip: 'Batal',
             onPressed: () {
               Navigator.of(context).pop();
@@ -626,7 +640,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('No. Transaksi', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                    Text(_orderNumber, style: AppTypography.titleMedium.copyWith(fontSize: 15)),
+                    Text(_orderNumber, style: AppTypography.titleMedium.copyWith(fontSize: 15.sp)),
                   ],
                 ),
                 const Divider(height: 24),
@@ -638,7 +652,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   ],
                 ),
                 if (cartState.taxRate > 0) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -649,7 +663,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   ),
                 ],
                 if (onlineTotal != null) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -664,13 +678,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(onlineTotal != null ? 'Total Bayar Aplikasi' : 'Total Bayar', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Total Bayar', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
                     Text(
                       CurrencyFormatter.format(grandTotal),
                       style: AppTypography.titleLarge.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.bold,
-                        fontSize: 22,
+                        fontSize: 22.sp,
                       ),
                     ),
                   ],
@@ -678,12 +692,84 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
+          if (ref.read(orderNotifierProvider).isOnlineFood) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.monetization_on_rounded, size: 16, color: Colors.orange.shade900),
+                      SizedBox(width: 6),
+                      Text(
+                        'Input Total di Aplikasi ${onlinePlatform ?? 'Online'}',
+                        style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  TextField(
+                    controller: _appTotalController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: 'Nominal total di aplikasi (Rp)',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) {
+                      final cleanText = val.replaceAll('.', '').replaceAll(',', '');
+                      final parsed = double.tryParse(cleanText);
+                      if (parsed != null) {
+                        final formatted = CurrencyFormatter.formatNumber(parsed);
+                        if (_appTotalController.text != formatted) {
+                          _appTotalController.value = TextEditingValue(
+                            text: formatted,
+                            selection: TextSelection.collapsed(offset: formatted.length),
+                          );
+                        }
+                      } else if (cleanText.isEmpty) {
+                        _appTotalController.clear();
+                      }
+                      ref.read(orderNotifierProvider.notifier).setOnlinePlatformTotal(parsed);
+                      setState(() {});
+                    },
+                  ),
+                  if (onlineTotal != null) ...[
+                    SizedBox(height: 6),
+                    Builder(
+                      builder: (context) {
+                        final diff = (onlineTotal - cartState.grandTotal).abs();
+                        return Text(
+                          'Selisih Komisi: ${CurrencyFormatter.format(diff)}',
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            SizedBox(height: 24),
+          ],
           Text('Metode Pembayaran', style: AppTypography.titleMedium),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           // Payment methods selection (Tunai vs Non-Tunai)
           pmState.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(child: CircularProgressIndicator())
               : Row(
                   children: [
                     // Tunai Option
@@ -715,11 +801,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                                   color: isCashSelected ? AppColors.primary : AppColors.textSecondary,
                                   size: 28,
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8),
                                 Text(
                                   'Tunai (Cash)',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 14.sp,
                                     fontWeight: isCashSelected ? FontWeight.bold : FontWeight.normal,
                                     color: isCashSelected ? AppColors.primary : AppColors.textPrimary,
                                   ),
@@ -730,7 +816,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         }
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     // Non-Tunai Option
                     Expanded(
                       child: Builder(
@@ -752,11 +838,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                                   color: isNonCashSelected ? AppColors.primary : AppColors.textSecondary,
                                   size: 28,
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8),
                                 Text(
                                   isNonCashSelected ? _selectedMethod!.nama : 'Non-Tunai',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 14.sp,
                                     fontWeight: isNonCashSelected ? FontWeight.bold : FontWeight.normal,
                                     color: isNonCashSelected ? AppColors.primary : AppColors.textPrimary,
                                   ),
@@ -769,7 +855,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ),
                   ],
                 ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           AppTextField(
             controller: _notesController,
             labelText: 'Catatan Transaksi',
@@ -794,8 +880,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isCash) ...[
-            Text('Pembayaran Tunai', style: AppTypography.titleMedium.copyWith(fontSize: 18)),
-            const SizedBox(height: 20),
+            Text('Pembayaran Tunai', style: AppTypography.titleMedium.copyWith(fontSize: 18.sp)),
+            SizedBox(height: 20),
             AppTextField(
               controller: _amountPaidController,
               labelText: 'Nominal Uang Diterima',
@@ -807,38 +893,38 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ],
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             // Quick cash buttons
             Text('Pilih Cepat Uang Pas/Pasaran:',
-                style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12)),
-            const SizedBox(height: 8),
+                style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
+            SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 OutlinedButton(
                   onPressed: () => _applyPresetAmount(grandTotal),
-                  child: const Text('Uang Pas'),
+                  child: Text('Uang Pas'),
                 ),
                 OutlinedButton(
                   onPressed: () => _applyPresetAmount(20000),
-                  child: const Text('20.000'),
+                  child: Text('20.000'),
                 ),
                 OutlinedButton(
                   onPressed: () => _applyPresetAmount(50000),
-                  child: const Text('50.000'),
+                  child: Text('50.000'),
                 ),
                 OutlinedButton(
                   onPressed: () => _applyPresetAmount(100000),
-                  child: const Text('100.000'),
+                  child: Text('100.000'),
                 ),
                 OutlinedButton(
                   onPressed: () => _applyPresetAmount(200000),
-                  child: const Text('200.000'),
+                  child: Text('200.000'),
                 ),
                 OutlinedButton(
                   onPressed: () => _applyPresetAmount(500000),
-                  child: const Text('500.000'),
+                  child: Text('500.000'),
                 ),
               ],
             ),
@@ -856,7 +942,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     style: TextStyle(
                       color: change >= 0 ? Colors.green.shade800 : Colors.red.shade800,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 14.sp,
                     ),
                   ),
                   Text(
@@ -864,15 +950,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     style: TextStyle(
                       color: change >= 0 ? Colors.green.shade800 : Colors.red.shade800,
                       fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                      fontSize: 20.sp,
                     ),
                   ),
                 ],
               ),
             ),
           ] else ...[
-            Text('Pembayaran Non-Tunai', style: AppTypography.titleMedium.copyWith(fontSize: 18)),
-            const SizedBox(height: 16),
+            Text('Pembayaran Non-Tunai', style: AppTypography.titleMedium.copyWith(fontSize: 18.sp)),
+            SizedBox(height: 16),
             AppCard(
               color: AppColors.primaryContainer.withAlpha(77),
               borderSide: const BorderSide(color: AppColors.primaryContainer),
@@ -885,7 +971,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: AppButton(

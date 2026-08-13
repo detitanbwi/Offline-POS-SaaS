@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -85,7 +86,7 @@ class TableOrderDetailSheet {
                     children: [
                       Text(
                         'Rincian ${table.nama}',
-                        style: AppTypography.titleMedium.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                       ),
                       if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
                         Text(
@@ -95,12 +96,12 @@ class TableOrderDetailSheet {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               // Status Card
               Container(
                 padding: const EdgeInsets.all(12),
@@ -135,7 +136,7 @@ class TableOrderDetailSheet {
                               : Colors.blue,
                       size: 20,
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,7 +149,7 @@ class TableOrderDetailSheet {
                                     : 'Status: Terisi (Lunas di Awal / Sedang Makan)',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                              fontSize: 13.sp,
                               color: !hasOrder
                                   ? const Color(0xFF14532D)
                                   : isDraft
@@ -157,10 +158,10 @@ class TableOrderDetailSheet {
                             ),
                           ),
                           if (activeOrder != null) ...[
-                            Text('No. Order: ${activeOrder.nomorOrder}', style: const TextStyle(fontSize: 12)),
+                            Text('No. Order: ${activeOrder.nomorOrder}', style: TextStyle(fontSize: 12.sp)),
                             Text(
                               'Total Tagihan: ${CurrencyFormatter.format(activeOrder.grandTotal)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                             ),
                           ],
                         ],
@@ -169,11 +170,11 @@ class TableOrderDetailSheet {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               // Items List Grouped by Batch
               if (groupedItems.isNotEmpty) ...[
                 Text('Rincian Pesanan per Batch:', style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Expanded(
                   child: ListView(
                     children: groupedItems.entries.map((entry) {
@@ -198,16 +199,16 @@ class TableOrderDetailSheet {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
-                                  const SizedBox(width: 6),
+                                  Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                  SizedBox(width: 6),
                                   Text(
                                     batchTitle,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp, color: AppColors.primary),
                                   ),
                                   const Spacer(),
                                   Text(
                                     '${batchItemList.length} Menu',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                    style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
                                   ),
                                 ],
                               ),
@@ -217,25 +218,25 @@ class TableOrderDetailSheet {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Text('${item.qty}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                  const SizedBox(width: 8),
+                                  Text('${item.qty}x', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                                  SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(item.produkNama, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                        Text(item.produkNama, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.sp)),
                                         if (item.catatan != null && item.catatan!.isNotEmpty)
-                                          Text('Note: ${item.catatan}', style: const TextStyle(fontSize: 11, color: Colors.orange, fontStyle: FontStyle.italic)),
+                                          Text('Note: ${item.catatan}', style: TextStyle(fontSize: 11.sp, color: Colors.orange, fontStyle: FontStyle.italic)),
                                       ],
                                     ),
                                   ),
                                   Text(
                                     CurrencyFormatter.format(item.subtotal),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp),
                                   ),
-                                  const SizedBox(width: 4),
+                                  SizedBox(width: 4),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+                                    icon: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
                                     tooltip: 'Batalkan Menu (Void Item)',
@@ -254,12 +255,12 @@ class TableOrderDetailSheet {
                   ),
                 ),
               ] else
-                const Expanded(
+                Expanded(
                   child: Center(
                     child: Text('Belum ada rincian pesanan'),
                   ),
                 ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               // Action Buttons
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -272,7 +273,7 @@ class TableOrderDetailSheet {
                             Navigator.pop(context);
                             navigateToPos(context, ref, table);
                           },
-                          icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                          icon: Icon(Icons.shopping_cart_outlined, size: 18),
                           label: Text(hasOrder ? 'Tambah Menu' : 'Pesan Baru'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -286,7 +287,7 @@ class TableOrderDetailSheet {
                   ),
                   if (hasOrder) ...[
                     if (isDraft) ...[
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
@@ -295,8 +296,8 @@ class TableOrderDetailSheet {
                                 Navigator.pop(context);
                                 navigateToPayment(context, ref, table, activeOrder);
                               },
-                              icon: const Icon(Icons.payments_outlined, size: 18),
-                              label: const Text('Bayar Tagihan (Open Bill)'),
+                              icon: Icon(Icons.payments_outlined, size: 18),
+                              label: Text('Bayar Tagihan (Open Bill)'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.success,
                                 foregroundColor: Colors.white,
@@ -308,7 +309,7 @@ class TableOrderDetailSheet {
                         ],
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -317,8 +318,8 @@ class TableOrderDetailSheet {
                               Navigator.pop(context);
                               handleMoveTable(context, ref, table, activeOrder);
                             },
-                            icon: const Icon(Icons.move_up_rounded, size: 18),
-                            label: const Text('Pindah Meja'),
+                            icon: Icon(Icons.move_up_rounded, size: 18),
+                            label: Text('Pindah Meja'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.secondary,
                               foregroundColor: Colors.white,
@@ -327,15 +328,15 @@ class TableOrderDetailSheet {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
                               Navigator.pop(context);
                               handleReprintKitchenTicket(context, ref, activeOrder, table);
                             },
-                            icon: const Icon(Icons.print_rounded, size: 18),
-                            label: const Text('Cetak Ulang (Reprint)'),
+                            icon: Icon(Icons.print_rounded, size: 18),
+                            label: Text('Cetak Ulang (Reprint)'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryContainer,
                               foregroundColor: AppColors.primary,
@@ -344,31 +345,11 @@ class TableOrderDetailSheet {
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              confirmClearTable(context, ref, table, activeOrder);
-                            },
-                            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.error),
-                            label: const Text('Kosongkan Meja', style: TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.error),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
-                ],
-              ),
+                ),
+              ],
+            ],
+          ),
             ],
           ),
         );
@@ -450,28 +431,6 @@ class TableOrderDetailSheet {
     }
   }
 
-  static void confirmClearTable(BuildContext context, WidgetRef ref, TableModel table, dynamic activeOrder) {
-    final hasOrder = activeOrder != null;
-    AppDialog.show(
-      context: context,
-      title: 'Kosongkan Meja',
-      message: hasOrder
-          ? 'Meja ini memiliki pesanan aktif. Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?'
-          : 'Apakah Anda yakin ingin mengosongkan meja "${table.nama}"?',
-      confirmText: 'Ya, Kosongkan',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () async {
-        await ref.read(orderNotifierProvider.notifier).clearOccupiedTable(table);
-        await ref.read(tableNotifierProvider.notifier).loadTables();
-        await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        if (context.mounted) {
-          AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dikosongkan.');
-        }
-      },
-    );
-  }
-
   static void handleMoveTable(BuildContext context, WidgetRef ref, TableModel sourceTable, dynamic activeOrder) {
     final tableState = ref.read(tableNotifierProvider);
     final emptyTables = tableState.allTables.where((t) => t.isEmpty).toList();
@@ -497,7 +456,7 @@ class TableOrderDetailSheet {
                   'Pindah Meja - ${sourceTable.nama}',
                   style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 300),
                   child: ListView.separated(
@@ -507,7 +466,7 @@ class TableOrderDetailSheet {
                     itemBuilder: (context, index) {
                       final targetTable = emptyTables[index];
                       return ListTile(
-                        leading: const Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
+                        leading: Icon(Icons.table_restaurant_rounded, color: AppColors.primary),
                         title: Text(targetTable.nama),
                         subtitle: Text('Nomor: ${targetTable.nomor}'),
                         onTap: () async {
@@ -539,12 +498,12 @@ class TableOrderDetailSheet {
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Batal'),
+                    child: Text('Batal'),
                   ),
                 ),
               ],
@@ -565,7 +524,7 @@ class TableOrderDetailSheet {
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Void Menu: ${item.produkNama}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: Text('Void Menu: ${item.produkNama}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp)),
           content: Form(
             key: formKey,
             child: Column(
@@ -574,9 +533,9 @@ class TableOrderDetailSheet {
               children: [
                 Text(
                   'Batalkan item "${item.produkNama}" (${item.qty}x)? Masukkan PIN Kasir/Manager dan Alasan.',
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 AppTextField(
                   controller: reasonController,
                   labelText: 'Alasan Pembatalan',
@@ -584,7 +543,7 @@ class TableOrderDetailSheet {
                   prefixIcon: Icons.edit_note_rounded,
                   validator: (val) => val == null || val.trim().isEmpty ? 'Alasan harus diisi' : null,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 AppTextField(
                   controller: pinController,
                   labelText: 'PIN Manager / Kasir',
@@ -601,7 +560,7 @@ class TableOrderDetailSheet {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Batal'),
+              child: Text('Batal'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -637,7 +596,7 @@ class TableOrderDetailSheet {
                   }
                 }
               },
-              child: const Text('Batalkan Menu'),
+              child: Text('Batalkan Menu'),
             ),
           ],
         );

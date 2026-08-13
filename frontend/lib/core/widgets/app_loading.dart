@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_radius.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AppLoading extends StatelessWidget {
   final String? message;
@@ -21,7 +22,7 @@ class AppLoading extends StatelessWidget {
               message!,
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 14,
+                fontSize: 14.sp,
               ),
             ),
           ],

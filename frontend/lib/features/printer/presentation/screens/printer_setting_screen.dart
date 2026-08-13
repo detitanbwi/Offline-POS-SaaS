@@ -341,7 +341,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                       ),
                       child: Text(
                         state.errorMessage!,
-                        style: AppTypography.bodyMedium.copyWith(color: AppColors.error, fontSize: 13),
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.error, fontSize: 13.sp),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -363,8 +363,8 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                               final dev = state.scannedDevices[index];
                               return ListTile(
                                 leading: const Icon(Icons.print_rounded, color: AppColors.primary),
-                                title: Text(dev.name, style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                                subtitle: Text(dev.address, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12)),
+                                title: Text(dev.name, style: AppTypography.titleMedium.copyWith(fontSize: 14.sp)),
+                                subtitle: Text(dev.address, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -447,7 +447,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Konfigurasi Thermal Printer', style: AppTypography.headlineLarge.copyWith(fontSize: 24)),
+                    Text('Konfigurasi Thermal Printer', style: AppTypography.headlineLarge.copyWith(fontSize: 24.sp)),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       'Atur printer Bluetooth untuk kasir dan dapur. Pilih lebar kertas (58mm/80mm) dan jumlah karakter per baris yang sesuai.',
@@ -573,8 +573,8 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                     children: [
                       Expanded(
                         child: RadioListTile<int>(
-                          title: const Text('58 mm', style: TextStyle(fontSize: 13)),
-                          subtitle: const Text('Def: 32 Karakter', style: TextStyle(fontSize: 11)),
+                          title: Text('58 mm', style: TextStyle(fontSize: 13.sp)),
+                          subtitle: Text('Def: 32 Karakter', style: TextStyle(fontSize: 11.sp)),
                           value: 58,
                           groupValue: printer.paperSize,
                           contentPadding: EdgeInsets.zero,
@@ -591,8 +591,8 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                       ),
                       Expanded(
                         child: RadioListTile<int>(
-                          title: const Text('80 mm', style: TextStyle(fontSize: 13)),
-                          subtitle: const Text('Def: 48 Karakter', style: TextStyle(fontSize: 11)),
+                          title: Text('80 mm', style: TextStyle(fontSize: 13.sp)),
+                          subtitle: Text('Def: 48 Karakter', style: TextStyle(fontSize: 11.sp)),
                           value: 80,
                           groupValue: printer.paperSize,
                           contentPadding: EdgeInsets.zero,
@@ -616,14 +616,14 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Jumlah Karakter per Baris', style: AppTypography.titleMedium.copyWith(fontSize: 12)),
-                            Text('Ditentukan oleh tipe/font printer', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10)),
+                            Text('Jumlah Karakter per Baris', style: AppTypography.titleMedium.copyWith(fontSize: 12.sp)),
+                            Text('Ditentukan oleh tipe/font printer', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10.sp)),
                           ],
                         ),
                       ),
                       DropdownButton<int>(
                         value: printer.charsPerLine,
-                        style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                        style: AppTypography.bodyMedium.copyWith(fontSize: 12.sp),
                         underline: const SizedBox(),
                         items: [
                           DropdownMenuItem(
@@ -649,8 +649,8 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                   ),
                   const Divider(height: 16),
                   SwitchListTile(
-                    title: Text('Auto Cut (Potong Kertas Otomatis)', style: AppTypography.titleMedium.copyWith(fontSize: 12)),
-                    subtitle: Text('Kirim perintah pemotong pisau otomatis setelah mencetak', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10)),
+                    title: Text('Auto Cut (Potong Kertas Otomatis)', style: AppTypography.titleMedium.copyWith(fontSize: 12.sp)),
+                    subtitle: Text('Kirim perintah pemotong pisau otomatis setelah mencetak', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 10.sp)),
                     value: printer.autoCut,
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -682,7 +682,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                 children: [
                   OutlinedButton.icon(
                     icon: const Icon(Icons.remove_red_eye_rounded, size: 14),
-                    label: const Text('Preview', style: TextStyle(fontSize: 12)),
+                    label: Text('Preview', style: TextStyle(fontSize: 12.sp)),
                     onPressed: () => _showPreviewDialog(printer),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -690,7 +690,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.print_rounded, size: 14),
-                    label: const Text('Test Print', style: TextStyle(fontSize: 12)),
+                    label: Text('Test Print', style: TextStyle(fontSize: 12.sp)),
                     onPressed: () => _handleTestPrint(printer),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -698,7 +698,7 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.link_off_rounded, size: 14, color: AppColors.error),
-                    label: const Text('Putuskan', style: TextStyle(color: AppColors.error, fontSize: 12)),
+                    label: Text('Putuskan', style: TextStyle(color: AppColors.error, fontSize: 12.sp)),
                     onPressed: () async {
                       final success = await ref.read(printerNotifierProvider.notifier).deletePrinter(printer.id);
                       if (success && mounted) {

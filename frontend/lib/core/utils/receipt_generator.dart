@@ -18,11 +18,6 @@ class ReceiptGenerator {
     if (cashierNama != null && cashierNama.trim().isNotEmpty) {
       return cashierNama.trim();
     }
-    final storage = SecureStorageService();
-    final owner = await storage.getOwnerUsername();
-    if (owner != null && owner.trim().isNotEmpty) {
-      return owner.trim();
-    }
     return 'Kasir';
   }
 
@@ -50,7 +45,7 @@ class ReceiptGenerator {
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
-    final cashier = await _resolveCashierName(cashierNama);
+    final cashier = await _resolveCashierName(cashierNama ?? order.cashierNama);
 
     final eqLine = _equalsDivider(charsPerLine);
     final dashLine = _dashDivider(charsPerLine);
@@ -90,7 +85,10 @@ class ReceiptGenerator {
       bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
 
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          bytes += generator.text(noteLine, styles: const PosStyles(align: PosAlign.left));
+        }
       }
     }
 
@@ -111,14 +109,39 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
+    final storeTotal = order.subtotal + order.taxAmount;
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += _renderRow(
       generator,
-      'TOTAL TAGIHAN',
-      CurrencyFormatter.formatNumber(order.grandTotal),
+      'TOTAL',
+      CurrencyFormatter.formatNumber(order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0 ? storeTotal : order.grandTotal),
       bold: true,
       totalWidth: charsPerLine,
     );
+    bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+
+    if (order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0) {
+      final diff = (order.platformDifference != null && order.platformDifference != 0)
+          ? order.platformDifference!
+          : (order.onlinePlatformTotal! - storeTotal);
+      final platformLabel = order.onlinePlatform != null && order.onlinePlatform!.isNotEmpty
+          ? 'Total Aplikasi (${order.onlinePlatform})'
+          : 'Total Aplikasi';
+      bytes += _renderRow(
+        generator,
+        'Komisi Online',
+        CurrencyFormatter.formatNumber(diff.abs()),
+        totalWidth: charsPerLine,
+      );
+      bytes += _renderRow(
+        generator,
+        platformLabel,
+        CurrencyFormatter.formatNumber(order.onlinePlatformTotal!),
+        bold: true,
+        totalWidth: charsPerLine,
+      );
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+    }
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Warning Footer
@@ -182,7 +205,10 @@ class ReceiptGenerator {
       final qtyStr = item.qty.toString().padLeft(2);
       bytes += generator.text('$qtyStr   ${item.produkNama}', styles: const PosStyles(align: PosAlign.left, bold: true));
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          bytes += generator.text(noteLine, styles: const PosStyles(align: PosAlign.left));
+        }
       }
     }
 
@@ -252,10 +278,6 @@ class ReceiptGenerator {
       final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
       final qtyPrice = '  @ $unitPrice';
       bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
-
-      if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        bytes += generator.text('     - ${item.catatan}', styles: const PosStyles(align: PosAlign.left));
-      }
     }
 
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
@@ -479,6 +501,40 @@ class ReceiptGenerator {
     return '${' ' * leftPadding}$text';
   }
 
+  static List<String> wrapTextWithIndent(String text, int width, {String firstLineIndent = '     - ', String otherLinesIndent = '       '}) {
+    List<String> lines = [];
+    String currentIndent = firstLineIndent;
+    
+    List<String> paragraphs = text.split('\n');
+    for (var p in paragraphs) {
+      String currentLine = currentIndent;
+      List<String> words = p.split(' ');
+      
+      for (var word in words) {
+        if (word.isEmpty) continue;
+        if ((currentLine.length + word.length + (currentLine == currentIndent ? 0 : 1)) <= width) {
+          if (currentLine != currentIndent) currentLine += ' ';
+          currentLine += word;
+        } else {
+          if (currentLine != currentIndent) {
+            lines.add(currentLine);
+          }
+          currentIndent = otherLinesIndent;
+          currentLine = currentIndent + word;
+          while (currentLine.length > width) {
+            lines.add(currentLine.substring(0, width));
+            currentLine = currentIndent + currentLine.substring(width);
+          }
+        }
+      }
+      if (currentLine != currentIndent) {
+        lines.add(currentLine);
+      }
+      currentIndent = otherLinesIndent; 
+    }
+    return lines;
+  }
+
   static Future<String> formatBillTextPreview({
     required OrderModel order,
     required List<OrderItemModel> items,
@@ -491,7 +547,7 @@ class ReceiptGenerator {
     final storeAddress = await storage.getStoreAddress() ?? 'Jl. Kalimantan No. 45\nJember, Jawa Timur';
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
-    final cashier = await _resolveCashierName(cashierNama);
+    final cashier = await _resolveCashierName(cashierNama ?? order.cashierNama);
 
     final eqLine = _equalsDivider(charsPerLine);
     final dashLine = _dashDivider(charsPerLine);
@@ -517,7 +573,10 @@ class ReceiptGenerator {
       buffer.writeln('${item.qty}x ${item.produkNama}');
       buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        buffer.writeln('     - ${item.catatan}');
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          buffer.writeln(noteLine);
+        }
       }
     }
     buffer.writeln(dashLine);
@@ -525,8 +584,21 @@ class ReceiptGenerator {
     if (order.taxAmount > 0) {
       buffer.writeln(formatTextRow('Pajak (${order.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(order.taxAmount), width: charsPerLine));
     }
+    final storeTotal = order.subtotal + order.taxAmount;
     buffer.writeln(dashLine);
-    buffer.writeln(formatTextRow('TOTAL TAGIHAN', CurrencyFormatter.formatNumber(order.grandTotal), width: charsPerLine));
+    buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0 ? storeTotal : order.grandTotal), width: charsPerLine));
+    buffer.writeln(dashLine);
+    if (order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0) {
+      final diff = (order.platformDifference != null && order.platformDifference != 0)
+          ? order.platformDifference!
+          : (order.onlinePlatformTotal! - storeTotal);
+      final platformLabel = order.onlinePlatform != null && order.onlinePlatform!.isNotEmpty
+          ? 'Total Aplikasi (${order.onlinePlatform})'
+          : 'Total Aplikasi';
+      buffer.writeln(formatTextRow('Komisi Online', CurrencyFormatter.formatNumber(diff.abs()), width: charsPerLine));
+      buffer.writeln(formatTextRow(platformLabel, CurrencyFormatter.formatNumber(order.onlinePlatformTotal!), width: charsPerLine));
+      buffer.writeln(dashLine);
+    }
     buffer.writeln(eqLine);
     buffer.writeln(centerText('* Ini BUKAN bukti pembayaran *', width: charsPerLine));
     buffer.writeln(centerText('sah. Silakan bawa tagihan ini', width: charsPerLine));
@@ -563,7 +635,10 @@ class ReceiptGenerator {
       final qtyStr = item.qty.toString().padLeft(2);
       buffer.writeln('$qtyStr   ${item.produkNama}');
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        buffer.writeln('     - ${item.catatan}');
+        final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
+        for (var noteLine in wrappedNotes) {
+          buffer.writeln(noteLine);
+        }
       }
     }
     buffer.writeln(eqLine);
@@ -608,9 +683,6 @@ class ReceiptGenerator {
     for (var item in items) {
       buffer.writeln('${item.qty}x ${item.produkNama}');
       buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
-      if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
-        buffer.writeln('     - ${item.catatan}');
-      }
     }
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal), width: charsPerLine));

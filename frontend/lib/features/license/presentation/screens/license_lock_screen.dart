@@ -34,7 +34,9 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
       }
     } else {
       if (mounted) {
-        if (result['message'] == 'Data aktivasi tidak lengkap') {
+        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || result['message'] == 'Perangkat tidak terdaftar';
+        
+        if (isAuthError) {
           final storage = ref.read(secureStorageServiceProvider);
           await storage.clearAll();
           
@@ -42,7 +44,11 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
             // Buka blokir UI
             ref.read(licenseExpiredProvider.notifier).state = false;
 
-            AppSnackbar.showError(context, 'Sesi tidak valid. Silakan login kembali.');
+            final errorMessage = result['message'] == 'Perangkat tidak terdaftar' 
+                ? 'Perangkat tidak terdaftar. Silakan login kembali.' 
+                : 'Sesi tidak valid. Silakan login kembali.';
+
+            AppSnackbar.showError(context, errorMessage);
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (_) => const LoginScreen()),

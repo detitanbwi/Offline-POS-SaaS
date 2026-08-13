@@ -105,26 +105,31 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
             return AlertDialog(
               backgroundColor: AppColors.surface,
               title: Text('Reset Perangkat', style: AppTypography.titleLarge.copyWith(color: AppColors.primary)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Token ini sudah terikat ke perangkat lain. Masukkan email dan password pemilik lisensi untuk mereset perangkat.', style: AppTypography.bodyMedium),
-                  SizedBox(height: 16.h),
-                  AppTextField(
-                    controller: emailController,
-                    labelText: 'Email',
-                    hintText: 'admin@toko.com',
-                    prefixIcon: Icons.email_rounded,
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Token ini sudah terikat ke perangkat lain. Masukkan email dan password pemilik lisensi untuk mereset perangkat.', style: AppTypography.bodyMedium),
+                      SizedBox(height: 16.0),
+                      AppTextField(
+                        controller: emailController,
+                        labelText: 'Email',
+                        hintText: 'admin@toko.com',
+                        prefixIcon: Icons.email_rounded,
+                      ),
+                      SizedBox(height: 16.0),
+                      AppTextField(
+                        controller: passwordController,
+                        labelText: 'Password',
+                        hintText: 'Masukkan password Anda',
+                        prefixIcon: Icons.lock_rounded,
+                        obscureText: true,
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 16.h),
-                  AppTextField(
-                    controller: passwordController,
-                    labelText: 'Password',
-                    hintText: 'Masukkan password Anda',
-                    prefixIcon: Icons.lock_rounded,
-                    obscureText: true,
-                  ),
-                ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -133,6 +138,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                 ),
                 AppButton(
                   text: 'Kirim OTP',
+                  isDense: true,
                   isLoading: isRequesting,
                   onPressed: () async {
                     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
@@ -179,20 +185,25 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
             return AlertDialog(
               backgroundColor: AppColors.surface,
               title: Text('Verifikasi OTP', style: AppTypography.titleLarge.copyWith(color: AppColors.primary)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Masukkan 6 digit kode OTP yang dikirim ke email $email', style: AppTypography.bodyMedium),
-                  SizedBox(height: 16.h),
-                  AppTextField(
-                    controller: otpController,
-                    labelText: 'Kode OTP',
-                    hintText: '123456',
-                    prefixIcon: Icons.security_rounded,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Masukkan 6 digit kode OTP yang dikirim ke email $email', style: AppTypography.bodyMedium),
+                      SizedBox(height: 16.0),
+                      AppTextField(
+                        controller: otpController,
+                        labelText: 'Kode OTP',
+                        hintText: '123456',
+                        prefixIcon: Icons.security_rounded,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -201,6 +212,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                 ),
                 AppButton(
                   text: 'Verifikasi & Reset',
+                  isDense: true,
                   isLoading: isVerifying,
                   onPressed: () async {
                     if (otpController.text.length != 6) {

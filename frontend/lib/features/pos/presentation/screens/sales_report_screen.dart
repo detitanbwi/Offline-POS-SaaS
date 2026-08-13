@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -66,13 +67,13 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Input Kas Fisik (Tutup Shift)'),
+        title: Text('Input Kas Fisik (Tutup Shift)'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Expected Kas (Sistem): ${CurrencyFormatter.format(expectedCash)}', style: AppTypography.bodyMedium),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
               controller: actualCashController,
               keyboardType: TextInputType.number,
@@ -87,14 +88,14 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, null),
-            child: const Text('Batal'),
+            child: Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () {
               final val = double.tryParse(actualCashController.text) ?? expectedCash;
               Navigator.pop(context, val);
             },
-            child: const Text('Lanjutkan Cetak'),
+            child: Text('Lanjutkan Cetak'),
           ),
         ],
       ),
@@ -319,7 +320,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Laporan Penjualan Harian'),
+        title: Text('Laporan Penjualan Harian'),
       ),
       body: SafeArea(
         child: Padding(
@@ -339,12 +340,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _selectDate(context),
-                    icon: const Icon(Icons.calendar_month_rounded),
-                    label: const Text('Ubah Tanggal'),
+                    icon: Icon(Icons.calendar_month_rounded),
+                    label: Text('Ubah Tanggal'),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.l),
+              SizedBox(height: AppSpacing.l),
               
               Expanded(
                 child: reportState.isLoading
@@ -385,19 +386,19 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Total Omset', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 CurrencyFormatter.format(totalSales),
                 style: AppTypography.titleMedium.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
-                  fontSize: 18,
+                  fontSize: 18.sp,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -407,16 +408,16 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Total Transaksi', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       '$totalTransactions',
-                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 18.sp),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: AppCard(
                 padding: const EdgeInsets.all(16),
@@ -424,10 +425,10 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Total Pajak (PPN)', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       CurrencyFormatter.format(totalTax),
-                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 18.sp),
                     ),
                   ],
                 ),
@@ -435,7 +436,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         AppCard(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -507,7 +508,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(prod['nama'] as String, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
-                              Text('${prod['qty']} porsi terjual', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12)),
+                              Text('${prod['qty']} porsi terjual', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
                             ],
                           ),
                         ),
@@ -522,13 +523,13 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         AppButton(
           text: 'Cetak Laporan Ringkasan',
           onPressed: totalTransactions == 0 ? null : () => _handlePrintReport(report),
           icon: Icons.print_rounded,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         AppButton(
           text: 'Unduh / Ekspor Laporan PDF',
           type: AppButtonType.secondary,
@@ -546,7 +547,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             flex: 1,
             child: SingleChildScrollView(child: overviewCards),
           ),
-          const SizedBox(width: 20),
+          SizedBox(width: 20),
           Expanded(
             flex: 1,
             child: SingleChildScrollView(child: detailsCard),
@@ -557,7 +558,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       return ListView(
         children: [
           overviewCards,
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           detailsCard,
         ],
       );
