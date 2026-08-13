@@ -206,93 +206,6 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     }
   }
 
-  Future<void> _handlePrintBill() async {
-    final cartState = ref.read(cartNotifierProvider);
-    final orderState = ref.read(orderNotifierProvider);
-    final activeUser = ref.read(authSessionProvider);
-
-    if (cartState.items.isEmpty) {
-      AppSnackbar.showWarning(context, 'Keranjang masih kosong untuk dicetak bill!');
-      return;
-    }
-
-    try {
-      final printerNotifier = ref.read(printerNotifierProvider.notifier);
-      final printerState = ref.read(printerNotifierProvider);
-      
-      final activePrinter = printerState.configuredPrinters.firstWhere(
-        (p) => p.isCashier || p.type == 'cashier',
-        orElse: () => printerState.configuredPrinters.isNotEmpty
-            ? printerState.configuredPrinters.first
-            : PrinterConfigModel(id: '', name: '', address: '', type: 'cashier', createdAt: DateTime.now()),
-      );
-
-      if (activePrinter.address.isEmpty) {
-        AppSnackbar.showWarning(context, 'Printer bluetooth belum terhubung / dikonfigurasi!');
-        return;
-      }
-
-      final cashierName = orderState.activeOrder?.cashierNama ?? activeUser?.nama;
-
-      final orderModel = orderState.activeOrder ??
-          OrderModel(
-            id: 'temp',
-            nomorOrder: 'DRAFT',
-            tableNama: orderState.selectedTable?.nama ?? 'Take Away',
-            customerName: orderState.customerName ?? 'Umum',
-            orderType: orderState.orderType,
-            takeAwaySubType: orderState.takeAwaySubType,
-            onlinePlatform: orderState.onlinePlatform,
-            subtotal: cartState.subtotal,
-            taxAmount: cartState.taxAmount,
-            grandTotal: cartState.grandTotal,
-            onlinePlatformTotal: orderState.onlinePlatformTotal,
-            cashierNama: cashierName,
-            status: 'draft',
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-
-      final orderItemsList = cartState.items
-          .map((i) => OrderItemModel(
-                id: '',
-                orderId: orderModel.id,
-                produkId: i.product.id,
-                produkNama: i.product.nama,
-                produkHarga: i.product.harga,
-                qty: i.qty,
-                subtotal: i.subtotal,
-                catatan: i.catatan,
-              ))
-          .toList();
-
-      final bytes = await ReceiptGenerator.generateBillReceipt(
-        order: orderModel,
-        items: orderItemsList,
-        cashierNama: cashierName,
-        paperSize: activePrinter.escPosPaperSize,
-        charsPerLine: activePrinter.effectiveCharsPerLine,
-      );
-
-      await printerNotifier.printBytes(activePrinter, bytes);
-
-      // Update table status to 4 (Bill Dicetak) if Dine-In table
-      final tableId = orderState.selectedTable?.id ?? orderState.activeOrder?.tableId;
-      if (tableId != null && tableId.isNotEmpty && tableId != 'TABLE_TAKE_AWAY') {
-        await ref.read(tableNotifierProvider.notifier).updateStatus(tableId, 4);
-      }
-
-      if (mounted) {
-        AppSnackbar.showSuccess(context, 'Struk Bill Sementara berhasil dicetak! Status meja diperbarui (Bill Dicetak).');
-        Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackbar.showError(context, 'Gagal mencetak bill: $e');
-      }
-    }
-  }
-
   void _handleGoToPayment() {
     final cartState = ref.read(cartNotifierProvider);
     if (cartState.items.isEmpty) {
@@ -1039,24 +952,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   ),
                 ),
               ),
-              SizedBox(width: 4),
-              Expanded(
-                child: SizedBox(
-                  height: 30,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                      textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: cartState.items.isEmpty ? null : _handlePrintBill,
-                    child: Text('Cetak Bill', overflow: TextOverflow.ellipsis),
-                  ),
-                ),
-              ),
+
               SizedBox(width: 4),
               Expanded(
                 child: SizedBox(
