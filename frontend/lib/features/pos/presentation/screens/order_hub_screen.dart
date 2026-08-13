@@ -309,7 +309,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     final statusColor = isBillPrinted ? AppColors.warning : AppColors.success;
     final title = isDineIn 
         ? 'Rincian Meja ${order.tableNomor ?? '-'}' 
-        : 'Rincian Take Away (${order.takeAwaySubType == 'online_food' ? 'Online' : 'Reguler'})';
+        : 'Rincian Take Away (${order.takeAwaySubType == 'online_food' ? 'Online${order.onlinePlatform != null ? " - ${order.onlinePlatform}" : ""}' : 'Reguler'})';
 
     List<OrderItemModel> items = await repo.getOrderItems(order.id);
     List<Map<String, dynamic>> batches = await repo.getPrintBatches(order.id);
@@ -1068,7 +1068,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                 child: Text(
                                                   isDineIn
                                                       ? 'Meja: ${order.tableNama ?? order.tableNomor ?? '-'}'
-                                                      : 'Take Away (${order.takeAwaySubType == 'online_food' ? 'Online' : 'Reguler'})',
+                                                      : 'Take Away (${order.takeAwaySubType == 'online_food' ? 'Online${order.onlinePlatform != null ? " - ${order.onlinePlatform}" : ""}' : 'Reguler'})',
                                                   style: TextStyle(
                                                     color: isDineIn ? Colors.blue.shade800 : Colors.orange.shade800,
                                                     fontSize: 10.sp,
