@@ -111,8 +111,8 @@ class ProductFormState extends State<ProductForm> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SafeArea(
-        child: Container(
+      useSafeArea: true,
+      builder: (context) => Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
@@ -169,7 +169,6 @@ class ProductFormState extends State<ProductForm> {
               ],
             ),
           ),
-        ),
       ),
     );
   }

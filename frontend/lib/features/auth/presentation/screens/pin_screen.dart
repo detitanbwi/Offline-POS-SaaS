@@ -106,6 +106,8 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   bool _isSubmitting = false;
 
   Future<void> _submitPin() async {
+    FocusScope.of(context).unfocus(); // Dismiss keyboard to prevent IME freeze
+
     final pin = _pinController.text.trim();
     final hashedPin = _hashPIN(pin);
 
