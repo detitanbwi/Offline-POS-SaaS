@@ -33,6 +33,7 @@ class TableScreen extends ConsumerStatefulWidget {
 class _TableScreenState extends ConsumerState<TableScreen> {
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
+  String? _loadingTableId;
 
   @override
   void initState() {
@@ -1122,7 +1123,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         }
                       });
                     }
-                  : () => _handleTableClick(table),
+                  : (_loadingTableId != null ? null : () async {
+                      setState(() => _loadingTableId = table.id);
+                      await Future.delayed(const Duration(milliseconds: 50));
+                      await _handleTableClick(table);
+                      if (mounted) setState(() => _loadingTableId = null);
+                    }),
               child: Stack(
                 children: [
                   // Top Accent Line
@@ -1176,6 +1182,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                     });
                                   },
                                 ),
+                              )
+                            else if (_loadingTableId == table.id)
+                              SizedBox(
+                                width: 16.sp,
+                                height: 16.sp,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
                               )
                             else if (isFilled)
                               Icon(Icons.people_alt_rounded, size: 16.sp, color: primaryColor)

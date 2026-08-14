@@ -6,6 +6,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/di/providers.dart';
@@ -69,15 +70,21 @@ class TableOrderDetailSheet {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
-          padding: const EdgeInsets.all(AppSpacing.m),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      builder: (sheetContext) {
+        bool isProcessing = false;
+        return StatefulBuilder(
+          builder: (context, setStateSheet) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
+              padding: const EdgeInsets.all(AppSpacing.m),
+              child: isProcessing ? const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: AppLoading(message: 'Memproses...'),
+              ) : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -270,8 +277,10 @@ class TableOrderDetailSheet {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
+                          onPressed: isProcessing ? null : () async {
+                            setStateSheet(() => isProcessing = true);
+                            await Future.delayed(const Duration(milliseconds: 100));
+                            if (context.mounted) Navigator.pop(context);
                             navigateToPos(context, ref, table);
                           },
                           icon: Icon(Icons.shopping_cart_outlined, size: 18),
@@ -293,8 +302,10 @@ class TableOrderDetailSheet {
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(context);
+                              onPressed: isProcessing ? null : () async {
+                                setStateSheet(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (context.mounted) Navigator.pop(context);
                                 navigateToPayment(context, ref, table, activeOrder);
                               },
                               icon: Icon(Icons.payments_outlined, size: 18),
@@ -315,8 +326,10 @@ class TableOrderDetailSheet {
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(context);
+                              onPressed: isProcessing ? null : () async {
+                                setStateSheet(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (context.mounted) Navigator.pop(context);
                                 handleClearTable(context, ref, table, activeOrder);
                               },
                               icon: Icon(Icons.cleaning_services_rounded, size: 18),
@@ -337,8 +350,10 @@ class TableOrderDetailSheet {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
+                            onPressed: isProcessing ? null : () async {
+                              setStateSheet(() => isProcessing = true);
+                              await Future.delayed(const Duration(milliseconds: 100));
+                              if (context.mounted) Navigator.pop(context);
                               handleMoveTable(context, ref, table, activeOrder);
                             },
                             icon: Icon(Icons.move_up_rounded, size: 18),

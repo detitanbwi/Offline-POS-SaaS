@@ -25,6 +25,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../domain/models/cart_item.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import '../../../product/application/product_notifier.dart';
 
 
 class CashierCartSection extends ConsumerStatefulWidget {
@@ -244,7 +245,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     await _handleSaveDraftWithKitchenPrint(printChoice);
   }
 
-  Future<void> _handleSaveDraftWithKitchenPrint(bool printChoice) async {
+  Future<void> _handleSaveDraftWithKitchenPrint(bool printChoice, {bool stayOnScreen = false}) async {
     final cartState = ref.read(cartNotifierProvider);
     final activeUser = ref.read(authSessionProvider);
     if (cartState.items.isEmpty) {
@@ -275,9 +276,29 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
           context,
           printChoice ? 'Pesanan disimpan & dikirim ke dapur!' : 'Pesanan berhasil disimpan!',
         );
-        ref.read(orderNotifierProvider.notifier).resetOrder();
-        ref.read(cartNotifierProvider.notifier).clear();
-        widget.onSaveDraftCompleted();
+        
+        if (stayOnScreen) {
+          final orderNotifier = ref.read(orderNotifierProvider.notifier);
+          final cartNotifier = ref.read(cartNotifierProvider.notifier);
+          final productState = ref.read(productNotifierProvider);
+          
+          final activeOrder = ref.read(orderNotifierProvider).activeOrder;
+          if (activeOrder != null) {
+            if (activeOrder.tableId != null && activeOrder.tableId!.isNotEmpty && activeOrder.tableId != 'TABLE_TAKE_AWAY') {
+              await orderNotifier.loadActiveOrderForTable(activeOrder.tableId!);
+            } else {
+              await orderNotifier.loadOrderById(activeOrder.id);
+            }
+            final updatedOrderState = ref.read(orderNotifierProvider);
+            if (updatedOrderState.activeOrder != null) {
+              cartNotifier.loadDraftItems(updatedOrderState.activeOrderItems, productState.allProducts, updatedOrderState.activePrintBatches);
+            }
+          }
+        } else {
+          ref.read(orderNotifierProvider.notifier).resetOrder();
+          ref.read(cartNotifierProvider.notifier).clear();
+          widget.onSaveDraftCompleted();
+        }
       } else {
         final err = ref.read(orderNotifierProvider).errorMessage;
         AppSnackbar.showError(context, err ?? 'Gagal menyimpan pesanan. Pastikan meja atau tipe pesanan telah dipilih.');
@@ -417,7 +438,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                 setStateDialog(() => isProcessing = true);
                                 await Future.delayed(const Duration(milliseconds: 100));
                                 if (mounted) {
-                                  await _handleSaveDraftWithKitchenPrint(true);
+                                  await _handleSaveDraftWithKitchenPrint(true, stayOnScreen: true);
                                 }
                                 if (mounted) Navigator.pop(dialogCtx);
                               },

@@ -44,6 +44,8 @@ class OrderHubScreen extends ConsumerStatefulWidget {
 
 class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
   String _orderFilter = 'all'; // 'all', 'dine_in', 'take_away'
+  bool _isNavigatingToDineIn = false;
+  String? _loadingOrderId;
 
   @override
   void initState() {
@@ -54,18 +56,25 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     });
   }
 
-  void _handleDineInSelected() {
+  void _handleDineInSelected() async {
+    setState(() => _isNavigatingToDineIn = true);
+    await Future.delayed(const Duration(milliseconds: 50));
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
     orderNotifier.setOrderType('dine_in');
     cartNotifier.clear();
 
-    Navigator.push(
+    if (!mounted) return;
+
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const TableSelectorScreen()),
-    ).then((_) {
+    );
+    
+    if (mounted) {
+      setState(() => _isNavigatingToDineIn = false);
       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-    });
+    }
   }
 
   void _handleTakeAwaySelected() {
@@ -369,11 +378,17 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
-        return Container(
+        bool isProcessing = false;
+        return StatefulBuilder(
+          builder: (context, setStateSheet) {
+            return Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.9,
           ),
-          child: SingleChildScrollView(
+          child: isProcessing ? const Padding(
+            padding: EdgeInsets.all(32.0),
+            child: AppLoading(message: 'Memproses...'),
+          ) : SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.m),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -600,12 +615,14 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () {
+                            onPressed: () async {
                               if (isBillPrinted) {
                                 AppSnackbar.showWarning(context, 'Pesanan sudah di-bill. Tidak dapat menambah menu lagi.');
                                 return;
                               }
-                              Navigator.pop(sheetContext);
+                              setStateSheet(() => isProcessing = true);
+                              await Future.delayed(const Duration(milliseconds: 100));
+                              if (mounted) Navigator.pop(sheetContext);
                               _navigateToPos(order);
                             },
                             icon: Icon(Icons.shopping_cart_outlined, size: 18),
@@ -623,7 +640,9 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                           child: order.isPaid
                               ? ElevatedButton.icon(
                                   onPressed: () async {
-                                    Navigator.pop(sheetContext);
+                                    setStateSheet(() => isProcessing = true);
+                                    await Future.delayed(const Duration(milliseconds: 100));
+                                    if (mounted) Navigator.pop(sheetContext);
                                     await ref.read(orderRepositoryProvider).completeOrder(order.id, tableId: order.tableId);
                                     ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
                                     ref.read(tableNotifierProvider.notifier).loadTables();
@@ -639,8 +658,10 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                   ),
                                 )
                               : ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.pop(sheetContext);
+                                  onPressed: () async {
+                                    setStateSheet(() => isProcessing = true);
+                                    await Future.delayed(const Duration(milliseconds: 100));
+                                    if (mounted) Navigator.pop(sheetContext);
                                     _navigateToPayment(order);
                                   },
                                   icon: Icon(Icons.payments_outlined, size: 18),
@@ -732,8 +753,10 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(sheetContext);
+                              onPressed: isProcessing ? null : () async {
+                                setStateSheet(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (mounted) Navigator.pop(sheetContext);
                                 _handleMoveTable(context, table!, order);
                               },
                               icon: Icon(Icons.move_up_rounded, size: 18),
@@ -754,6 +777,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
               ],
             ),
           ),
+        );
+          },
         );
       },
     );
@@ -956,7 +981,9 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppColors.primary, width: 2),
                         ),
-                        child: Column(
+                        child: _isNavigatingToDineIn 
+                          ? const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: AppLoading(message: 'Memuat...')))
+                          : Column(
                           children: [
                             Icon(Icons.restaurant_rounded, size: 38, color: AppColors.primary),
                             SizedBox(height: 6),
@@ -1085,7 +1112,12 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               final formattedTime = DateFormat('HH:mm').format(order.createdAt);
 
                               return AppCard(
-                                onTap: () => _showOrderActionBottomSheet(order),
+                                onTap: _loadingOrderId != null ? null : () async {
+                                  setState(() => _loadingOrderId = order.id);
+                                  await Future.delayed(const Duration(milliseconds: 100));
+                                  await _showOrderActionBottomSheet(order);
+                                  if (mounted) setState(() => _loadingOrderId = null);
+                                },
                                 padding: const EdgeInsets.all(12),
                                 color: order.isBillPrinted ? Colors.amber.shade50 : null,
                                 borderSide: order.isBillPrinted
@@ -1218,19 +1250,29 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                           ),
                                         ),
                                         SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              'Buka Kasir',
-                                              style: TextStyle(
-                                                color: AppColors.primary,
-                                                fontSize: 11.sp,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                        if (_loadingOrderId == order.id)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4, right: 4),
+                                            child: SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                                             ),
-                                            Icon(Icons.chevron_right_rounded, size: 14, color: AppColors.primary),
-                                          ],
-                                        ),
+                                          )
+                                        else
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'Buka Kasir',
+                                                style: TextStyle(
+                                                  color: AppColors.primary,
+                                                  fontSize: 11.sp,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              Icon(Icons.chevron_right_rounded, size: 14, color: AppColors.primary),
+                                            ],
+                                          ),
                                       ],
                                     ),
                                   ],
