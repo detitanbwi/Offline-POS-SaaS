@@ -9,17 +9,34 @@ library;
 const String apiBaseUrl = 'https://demo2.rce-eastjava.org';
 
 /// Application metadata
-const String appVersion = '0.1.17';
-const String appBuildNumber = '117';
+const String appVersion = '0.1.18';
+const String appBuildNumber = '118';
 const String appName = 'SaaS POS Offline';
 
-/// Order status constants
-class OrderStatus {
+/// Order Type constants
+class AppOrderType {
+  static const String dineIn = 'dine_in';
+  static const String takeAway = 'take_away';
+}
+
+/// Order Status constants
+class AppOrderStatus {
   static const String draft = 'draft';
+  static const String processing = 'processing';
+  static const String served = 'served';
   static const String completed = 'completed';
   static const String cancelled = 'cancelled';
+  
+  static const List<String> all = [draft, processing, served, completed, cancelled];
+}
 
-  static const List<String> all = [draft, completed, cancelled];
+/// Payment Status constants
+class AppPaymentStatus {
+  static const String unpaid = 'unpaid';
+  static const String billed = 'billed';
+  static const String paid = 'paid';
+  
+  static const List<String> all = [unpaid, billed, paid];
 }
 
 /// Transaction status constants

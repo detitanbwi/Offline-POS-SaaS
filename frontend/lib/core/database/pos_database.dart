@@ -297,6 +297,7 @@ class PosDatabase {
       CREATE TABLE print_batches (
         id TEXT PRIMARY KEY,
         order_id TEXT NOT NULL,
+        payment_status TEXT NOT NULL DEFAULT 'unpaid',
         created_at TEXT NOT NULL,
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
       )
@@ -382,6 +383,7 @@ class PosDatabase {
         master_order_id TEXT NOT NULL,
         batch_number INTEGER NOT NULL,
         created_by_cashier_id TEXT,
+        payment_status TEXT NOT NULL DEFAULT 'unpaid',
         created_at TEXT NOT NULL,
         FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE,
         UNIQUE(master_order_id, batch_number)
@@ -495,6 +497,7 @@ class PosDatabase {
         CREATE TABLE IF NOT EXISTS print_batches (
           id TEXT PRIMARY KEY,
           order_id TEXT NOT NULL,
+          payment_status TEXT NOT NULL DEFAULT 'unpaid',
           created_at TEXT NOT NULL,
           FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
         )
@@ -678,6 +681,7 @@ class PosDatabase {
           master_order_id TEXT NOT NULL,
           batch_number INTEGER NOT NULL,
           created_by_cashier_id TEXT,
+          payment_status TEXT NOT NULL DEFAULT 'unpaid',
           created_at TEXT NOT NULL,
           FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE,
           UNIQUE(master_order_id, batch_number)

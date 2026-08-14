@@ -266,7 +266,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final orderState = ref.read(orderNotifierProvider);
 
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }
@@ -296,7 +296,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final orderState = ref.read(orderNotifierProvider);
 
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }
@@ -605,20 +605,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       if (activeOrder != null) ...[
                         SizedBox(width: 8),
                         Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(sheetContext);
-                              _navigateToPayment(table, activeOrder);
-                            },
-                            icon: Icon(Icons.payments_outlined, size: 18),
-                            label: Text('Bayar'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.success,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
+                          child: activeOrder.isPaid
+                              ? ElevatedButton.icon(
+                                  onPressed: () async {
+                                    Navigator.pop(sheetContext);
+                                    await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
+                                    ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                    ref.read(tableNotifierProvider.notifier).loadTables();
+                                    if (mounted) AppSnackbar.showSuccess(context, 'Meja berhasil dibersihkan dan pesanan diselesaikan.');
+                                  },
+                                  icon: Icon(Icons.cleaning_services_rounded, size: 18),
+                                  label: Text('Bersihkan Meja'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blueGrey,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                )
+                              : ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(sheetContext);
+                                    _navigateToPayment(table, activeOrder);
+                                  },
+                                  icon: Icon(Icons.payments_outlined, size: 18),
+                                  label: Text('Bayar'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.success,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                ),
                         ),
                       ],
                     ],

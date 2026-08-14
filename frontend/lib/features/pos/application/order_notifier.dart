@@ -12,11 +12,13 @@ import '../domain/models/cart_item.dart';
 import '../domain/repositories/order_repository.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../printer/application/printer_notifier.dart';
+import '../domain/models/print_batch.dart';
 
 class OrderState {
   final TableModel? selectedTable;
   final OrderModel? activeOrder;
   final List<OrderItemModel> activeOrderItems;
+  final List<PrintBatchModel> activePrintBatches;
   final Map<String, OrderModel> activeOrdersMap;
   final List<OrderModel> allDraftOrders;
   final String orderType; // 'dine_in' or 'take_away'
@@ -32,6 +34,7 @@ class OrderState {
     this.selectedTable,
     this.activeOrder,
     this.activeOrderItems = const [],
+    this.activePrintBatches = const [],
     this.activeOrdersMap = const {},
     this.allDraftOrders = const [],
     this.orderType = 'dine_in',
@@ -51,6 +54,7 @@ class OrderState {
     TableModel? selectedTable,
     OrderModel? activeOrder,
     List<OrderItemModel>? activeOrderItems,
+    List<PrintBatchModel>? activePrintBatches,
     Map<String, OrderModel>? activeOrdersMap,
     List<OrderModel>? allDraftOrders,
     String? orderType,
@@ -69,6 +73,7 @@ class OrderState {
       selectedTable: clearSelectedTable ? null : (selectedTable ?? this.selectedTable),
       activeOrder: clearActiveOrder ? null : (activeOrder ?? this.activeOrder),
       activeOrderItems: clearActiveOrder ? const [] : (activeOrderItems ?? this.activeOrderItems),
+      activePrintBatches: clearActiveOrder ? const [] : (activePrintBatches ?? this.activePrintBatches),
       activeOrdersMap: activeOrdersMap ?? this.activeOrdersMap,
       allDraftOrders: allDraftOrders ?? this.allDraftOrders,
       orderType: orderType ?? this.orderType,
@@ -164,10 +169,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
         return;
       }
       final items = await _repository.getOrderItems(orderId);
+      final rawBatches = await _repository.getPrintBatches(orderId);
+      final printBatches = rawBatches.map((m) => PrintBatchModel.fromMap(m)).toList();
       final batchCount = await _repository.getBatchCount(orderId);
       state = state.copyWith(
         activeOrder: order,
         activeOrderItems: items,
+        activePrintBatches: printBatches,
         orderType: order.orderType,
         takeAwaySubType: order.takeAwaySubType,
         onlinePlatform: order.onlinePlatform,
@@ -187,10 +195,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final activeOrder = await _repository.getActiveOrderForTable(tableId);
       if (activeOrder != null) {
         final items = await _repository.getOrderItems(activeOrder.id);
+        final rawBatches = await _repository.getPrintBatches(activeOrder.id);
+        final printBatches = rawBatches.map((m) => PrintBatchModel.fromMap(m)).toList();
         final batchCount = await _repository.getBatchCount(activeOrder.id);
         state = state.copyWith(
           activeOrder: activeOrder,
           activeOrderItems: items,
+          activePrintBatches: printBatches,
           customerName: activeOrder.customerName ?? state.customerName,
           orderType: activeOrder.orderType,
           takeAwaySubType: activeOrder.takeAwaySubType,
@@ -247,32 +258,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final effectiveCashierId = cashierId ?? state.activeOrder?.cashierId ?? authUser?.id;
       final effectiveCashierNama = cashierNama ?? state.activeOrder?.cashierNama ?? authUser?.nama;
 
-      final orderHeader = OrderModel(
-        id: orderId,
-        nomorOrder: orderNo,
-        tableId: isTakeAway ? null : activeTableId,
-        tableNama: isTakeAway ? 'Take Away' : (activeTableNama ?? 'Meja'),
-        tableNomor: isTakeAway ? '-' : (activeTableNomor ?? '-'),
-        customerName: finalCustomerName,
-        orderType: state.orderType,
-        takeAwaySubType: state.takeAwaySubType,
-        onlinePlatform: state.onlinePlatform,
-        subtotal: subtotal,
-        taxPercentage: taxRate,
-        taxAmount: taxAmount,
-        grandTotal: grandTotal,
-        onlinePlatformTotal: state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal,
-        platformDifference: (state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal) != null
-            ? ((state.onlinePlatformTotal ?? state.activeOrder!.onlinePlatformTotal!) - (subtotal + taxAmount))
-            : (state.activeOrder?.platformDifference),
-        status: 'draft',
-        catatan: notes,
-        cashierId: effectiveCashierId,
-        cashierNama: effectiveCashierNama,
-        createdAt: state.activeOrder?.createdAt ?? DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
+      // We will create orderHeader after calculating itemsToPrint
       // Fetch existing items for this draft to calculate difference
       final dbItems = await _repository.getOrderItems(orderId);
       
@@ -323,6 +309,42 @@ class OrderNotifier extends StateNotifier<OrderState> {
         }
       }
 
+      String updatedPaymentStatus = state.activeOrder?.paymentStatus ?? 'unpaid';
+      if (itemsToPrint.isNotEmpty) {
+        if (updatedPaymentStatus == 'paid' || updatedPaymentStatus == 'partially_paid') {
+          updatedPaymentStatus = 'partially_paid';
+        } else if (updatedPaymentStatus == 'billed') {
+          updatedPaymentStatus = 'unpaid';
+        }
+      }
+
+      final orderHeader = OrderModel(
+        id: orderId,
+        nomorOrder: orderNo,
+        tableId: isTakeAway ? null : activeTableId,
+        tableNama: isTakeAway ? 'Take Away' : (activeTableNama ?? 'Meja'),
+        tableNomor: isTakeAway ? '-' : (activeTableNomor ?? '-'),
+        customerName: finalCustomerName,
+        orderType: state.orderType,
+        takeAwaySubType: state.takeAwaySubType,
+        onlinePlatform: state.onlinePlatform,
+        subtotal: subtotal,
+        taxPercentage: taxRate,
+        taxAmount: taxAmount,
+        grandTotal: grandTotal,
+        onlinePlatformTotal: state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal,
+        platformDifference: (state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal) != null
+            ? ((state.onlinePlatformTotal ?? state.activeOrder!.onlinePlatformTotal!) - (subtotal + taxAmount))
+            : (state.activeOrder?.platformDifference),
+        status: state.activeOrder?.status == 'draft' || state.activeOrder?.status == null ? 'processing' : state.activeOrder!.status,
+        paymentStatus: updatedPaymentStatus,
+        catatan: notes,
+        cashierId: effectiveCashierId,
+        cashierNama: effectiveCashierNama,
+        createdAt: state.activeOrder?.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
       // 1. Save order to SQLite (upsert strategy — preserves existing item batch IDs)
       await _repository.saveOrder(orderHeader, allOrderItems);
 
@@ -361,7 +383,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
             } else {
               if (kDebugMode) {
                 debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
-                debugPrint(String.fromCharCodes(receiptBytes));
+                debugPrint('Simulated kitchen ticket receipt: ${receiptBytes.length} bytes generated.');
                 debugPrint('----------------------------------');
               }
             }
@@ -418,6 +440,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       selectedTable: null,
       activeOrder: null,
       activeOrderItems: const [],
+      activePrintBatches: const [],
       customerName: null,
       takeAwaySubType: null,
       onlinePlatform: null,
@@ -530,6 +553,46 @@ class OrderNotifier extends StateNotifier<OrderState> {
     } catch (e) {
       debugPrint('[CLEAR_TABLE_DEBUG] Error clearing table: $e');
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengosongkan meja: $e');
+      return false;
+    }
+  }
+
+  Future<bool> markOrderAsBilled(String orderId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.updatePaymentStatus(orderId, 'billed');
+      if (state.activeOrder?.id == orderId) {
+        state = state.copyWith(
+          activeOrder: state.activeOrder!.copyWith(paymentStatus: 'billed'),
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+      await loadActiveOrdersMap();
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal menandai bill: $e');
+      return false;
+    }
+  }
+
+  Future<bool> unlockOrder(String orderId) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _repository.updatePaymentStatus(orderId, 'unpaid');
+      if (state.activeOrder?.id == orderId) {
+        state = state.copyWith(
+          activeOrder: state.activeOrder!.copyWith(paymentStatus: 'unpaid'),
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+      await loadActiveOrdersMap();
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Gagal membuka kunci order: $e');
       return false;
     }
   }

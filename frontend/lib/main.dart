@@ -182,13 +182,7 @@ class _MyAppState extends ConsumerState<MyApp> {
             if (isExpired) {
               child = const LicenseLockScreen();
             }
-            child = GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
-              child: child,
-            );
+            // Removed global GestureDetector for unfocus to prevent tap swallowing
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(
                 textScaler: TextScaler.linear(fontSizeScale),

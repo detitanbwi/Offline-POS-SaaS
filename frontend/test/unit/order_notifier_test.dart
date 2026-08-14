@@ -73,6 +73,13 @@ class OrderRepositoryMock implements OrderRepository {
   }
 
   @override
+  Future<void> updatePaymentStatus(String orderId, String status) async {
+    if (mockActiveOrder != null && mockActiveOrder!.id == orderId) {
+      mockActiveOrder = mockActiveOrder!.copyWith(paymentStatus: status);
+    }
+  }
+
+  @override
   Future<void> cancelOrder(String orderId, String tableId) async {
     cancelOrderCalled = true;
     mockActiveOrder = null;

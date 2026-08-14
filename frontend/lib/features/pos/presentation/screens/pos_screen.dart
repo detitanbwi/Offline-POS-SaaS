@@ -52,6 +52,34 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
   bool _isOrderAscending = false;
   String _orderFilter = 'all'; // 'all', 'dine_in', 'take_away'
 
+  Color _getOrderStatusColor(String status) {
+    switch (status) {
+      case 'processing':
+        return Colors.blue;
+      case 'served':
+        return Colors.orange;
+      case 'completed':
+        return AppColors.success;
+      case 'draft':
+      default:
+        return Colors.grey.shade600;
+    }
+  }
+
+  Color _getPaymentStatusColor(String status) {
+    switch (status) {
+      case 'billed':
+        return Colors.purple;
+      case 'partially_paid':
+        return Colors.yellow.shade800;
+      case 'paid':
+        return AppColors.success;
+      case 'unpaid':
+      default:
+        return AppColors.error;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -227,20 +255,23 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
   }
 
   Future<bool> _showExitConfirmation(BuildContext context) async {
-    bool result = false;
-    await AppDialog.show(
+    final result = await showDialog<bool>(
       context: context,
-      title: 'Keluar Transaksi POS',
-      message: 'Apakah Anda yakin ingin keluar?',
-      confirmText: 'Keluar',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () {
-        result = true;
-        Navigator.pop(context);
-      },
+      builder: (dialogContext) => AppDialog(
+        title: 'Keluar Transaksi POS',
+        message: 'Apakah Anda yakin ingin keluar?',
+        confirmText: 'Keluar',
+        cancelText: 'Batal',
+        isDestructive: true,
+        onConfirm: () {
+          Navigator.pop(dialogContext, true);
+        },
+        onCancel: () {
+          Navigator.pop(dialogContext, false);
+        },
+      ),
     );
-    return result;
+    return result ?? false;
   }
 
   Future<bool> _ensureTableSelected() async {
@@ -821,6 +852,46 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  // Order Status Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getOrderStatusColor(order.status).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: _getOrderStatusColor(order.status).withValues(alpha: 0.5)),
+                                    ),
+                                    child: Text(
+                                      order.status.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: _getOrderStatusColor(order.status),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  // Payment Status Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getPaymentStatusColor(order.paymentStatus).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: _getPaymentStatusColor(order.paymentStatus).withValues(alpha: 0.5)),
+                                    ),
+                                    child: Text(
+                                      order.paymentStatus.replaceAll('_', ' ').toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: _getPaymentStatusColor(order.paymentStatus),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -851,7 +922,8 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                     // 2. Load item ke cart
                     final items = await ref.read(orderRepositoryProvider).getOrderItems(order.id);
                     final products = ref.read(productNotifierProvider).allProducts;
-                    ref.read(cartNotifierProvider.notifier).loadDraftItems(items, products);
+                    final batches = ref.read(orderNotifierProvider).activePrintBatches;
+                    ref.read(cartNotifierProvider.notifier).loadDraftItems(items, products, batches);
 
                     // 3. Pindah ke segmen Kasir
                     _posTabController.animateTo(0);
@@ -995,29 +1067,51 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: cState.items.isEmpty
-                                  ? null
-                                  : () async {
-                                      if (await _ensureTableSelected()) {
-                                        Navigator.of(sheetContext).pop();
-                                        if (!mounted) return;
-                                        await Navigator.of(context, rootNavigator: true).push(
-                                          MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                        );
-                                        if (!mounted) return;
-                                        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                                      }
+                            child: (orderState.activeOrder?.isPaid ?? false)
+                                ? ElevatedButton.icon(
+                                    onPressed: () async {
+                                      Navigator.of(sheetContext).pop();
+                                      final orderId = orderState.activeOrder!.id;
+                                      final tableId = orderState.activeOrder!.tableId;
+                                      await ref.read(orderRepositoryProvider).completeOrder(orderId, tableId: tableId);
+                                      cNotifier.clear();
+                                      orderNotifier.resetForNewTransaction();
+                                      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                      ref.read(tableNotifierProvider.notifier).loadTables();
+                                      if (mounted) AppSnackbar.showSuccess(context, 'Meja dibersihkan dan pesanan diselesaikan.');
                                     },
-                              icon: const Icon(Icons.payments_rounded, size: 18),
-                              label: const Text('Bayar Now', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.success,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
+                                    icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+                                    label: const Text('Bersihkan Meja', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blueGrey,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  )
+                                : ElevatedButton.icon(
+                                    onPressed: cState.items.isEmpty
+                                        ? null
+                                        : () async {
+                                            if (await _ensureTableSelected()) {
+                                              Navigator.of(sheetContext).pop();
+                                              if (!mounted) return;
+                                              await Navigator.of(context, rootNavigator: true).push(
+                                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                              );
+                                              if (!mounted) return;
+                                              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                            }
+                                          },
+                                    icon: const Icon(Icons.payments_rounded, size: 18),
+                                    label: const Text('Bayar Now', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.success,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
                           ),
                         ],
                       ),
@@ -1810,8 +1904,6 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       ),
     );
   }
-
-  }
 }
 
 class _CartItemRow extends StatelessWidget {
@@ -1839,6 +1931,24 @@ class _CartItemRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (item.batchName != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: item.isBilled ? Colors.grey.shade300 : AppColors.primaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          item.isBilled ? '${item.batchName} (Billed)' : item.batchName!,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: item.isBilled ? Colors.grey.shade700 : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
                       item.product.nama,
                       style: AppTypography.titleMedium.copyWith(fontSize: 15.sp),

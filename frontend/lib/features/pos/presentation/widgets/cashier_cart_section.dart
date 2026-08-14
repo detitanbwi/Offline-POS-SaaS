@@ -18,8 +18,11 @@ import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../printer/domain/models/printer_config.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../../core/utils/receipt_generator.dart';import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../../../core/utils/receipt_generator.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../domain/models/cart_item.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 
 class CashierCartSection extends ConsumerStatefulWidget {
@@ -46,6 +49,76 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
   @override
   void dispose() {
     super.dispose();
+  }
+
+  void _showUnlockDialog() {
+    final pinController = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text('Otorisasi Manager (Buka Bill)', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Bill sudah tercetak. Masukkan PIN Owner/Manager untuk membuka kunci pesanan ini.'),
+            SizedBox(height: 16),
+            TextField(
+              controller: pinController,
+              decoration: const InputDecoration(
+                labelText: 'PIN (6 Digit)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock_rounded),
+              ),
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 6,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () async {
+              final pin = pinController.text.trim();
+              if (pin.length != 6) {
+                AppSnackbar.showWarning(context, 'Harap isi PIN (6 digit).');
+                return;
+              }
+
+              const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+              var bytes = utf8.encode(pin + salt);
+              var digest = sha256.convert(bytes);
+              final hashedPin = digest.toString();
+
+              final cashierRepo = ref.read(cashierRepositoryProvider);
+              final cashier = await cashierRepo.getCashierByPin(hashedPin);
+
+              if (!context.mounted) return;
+
+              if (cashier == null || cashier.isOwner != 1) {
+                AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
+                return;
+              }
+
+              Navigator.pop(context);
+              final activeOrderId = ref.read(orderNotifierProvider).activeOrder?.id;
+              if (activeOrderId != null) {
+                await ref.read(orderNotifierProvider.notifier).unlockOrder(activeOrderId);
+                if (context.mounted) {
+                  AppSnackbar.showSuccess(context, 'Kunci pesanan berhasil dibuka.');
+                }
+              }
+            },
+            child: Text('Buka Kunci'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showNoteDialog(BuildContext context, CartItem item) async {
@@ -276,12 +349,13 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
 
                 // 1. If unprinted items exist, show prominent action tile at top!
                 if (unprintedCount > 0) ...[
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                  Material(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary, width: 1.5),
+                      side: BorderSide(color: AppColors.primary, width: 1.5),
                     ),
+                    clipBehavior: Clip.antiAlias,
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       leading: Container(
@@ -475,6 +549,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
       }
     }
 
+    final isBilled = orderState.activeOrder?.isBilled ?? false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -527,7 +603,42 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     ],
                   ),
                 )
-              : FutureBuilder<List<Map<String, dynamic>>>(
+              : Column(
+                  children: [
+                    if (isBilled)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.lock_rounded, color: Colors.orange.shade800, size: 20),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Pesanan Terkunci (Bill Sudah Dicetak)',
+                                style: TextStyle(color: Colors.orange.shade900, fontSize: 11.sp, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _showUnlockDialog,
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: Colors.orange.shade100,
+                              ),
+                              child: Text('Buka', style: TextStyle(color: Colors.orange.shade900, fontSize: 10.sp, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Expanded(
+                      child: FutureBuilder<List<Map<String, dynamic>>>(
                   future: orderState.activeOrder != null
                       ? ref.read(orderRepositoryProvider).getPrintBatches(orderState.activeOrder!.id)
                       : Future.value([]),
@@ -623,7 +734,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                     color: AppColors.error,
                                                     padding: EdgeInsets.zero,
                                                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    onPressed: () {
+                                                    onPressed: item.isBilled ? null : () {
                                                       cartNotifier.updateQuantity(item.product.id, item.qty - 1);
                                                     },
                                                   )
@@ -635,10 +746,10 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                 ),
                                                 IconButton(
                                                   icon: Icon(Icons.add_circle_outline_rounded, size: 18),
-                                                  color: AppColors.primary,
+                                                  color: item.isBilled ? AppColors.disabled : AppColors.primary,
                                                   padding: EdgeInsets.zero,
                                                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                  onPressed: () {
+                                                  onPressed: item.isBilled ? null : () {
                                                     cartNotifier.updateQuantity(item.product.id, item.qty + 1);
                                                   },
                                                 ),
@@ -688,9 +799,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                             ),
                                             label: Text(
                                               item.catatan.isEmpty ? 'Tambah Catatan' : 'Ubah Catatan',
-                                              style: TextStyle(color: AppColors.primary, fontSize: 11.sp),
+                                              style: TextStyle(color: item.isBilled ? AppColors.disabled : AppColors.primary, fontSize: 11.sp),
                                             ),
-                                            onPressed: () => _showNoteDialog(context, item),
+                                            onPressed: item.isBilled ? null : () => _showNoteDialog(context, item),
                                             style: TextButton.styleFrom(
                                               padding: EdgeInsets.zero,
                                               minimumSize: const Size(60, 32),
@@ -885,6 +996,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                     );
                   },
                 ),
+              ),
+            ],
+          ),
         ),
         SizedBox(height: AppSpacing.xs),
 
@@ -995,7 +1109,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                           : OutlinedButton(
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primary,
-                                side: const BorderSide(color: AppColors.primary, width: 1),
+                                side: BorderSide(color: AppColors.primary, width: 1),
                                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),

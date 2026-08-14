@@ -1,7 +1,8 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=D:\develop\flutter"
-export "FLUTTER_APPLICATION_PATH=D:\xampp\htdocs\saas-security\frontend"
+export "FLUTTER_ROOT=C:\flutter"
+export "FLUTTER_APPLICATION_PATH=D:\Wirodev\point-of-sales\Offline-POS-SaaS\frontend"
+export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=D:\Wirodev\point-of-sales\Offline-POS-SaaS\frontend\ios\Flutter\ephemeral\Packages\.packages\FlutterFramework"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib\main.dart"
 export "FLUTTER_BUILD_DIR=build"

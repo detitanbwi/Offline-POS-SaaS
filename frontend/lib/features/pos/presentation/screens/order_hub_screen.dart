@@ -247,7 +247,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     final orderState = ref.read(orderNotifierProvider);
 
     if (orderState.activeOrder != null) {
-      cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+      cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
     } else {
       cartNotifier.clear();
     }
@@ -275,7 +275,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     final orderState = ref.read(orderNotifierProvider);
 
     if (orderState.activeOrder != null) {
-      cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+      cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
     } else {
       cartNotifier.clear();
     }
@@ -590,20 +590,38 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         ),
                         SizedBox(width: 8),
                         Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(sheetContext);
-                              _navigateToPayment(order);
-                            },
-                            icon: Icon(Icons.payments_outlined, size: 18),
-                            label: Text('Bayar'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.success,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
+                          child: order.isPaid
+                              ? ElevatedButton.icon(
+                                  onPressed: () async {
+                                    Navigator.pop(sheetContext);
+                                    await ref.read(orderRepositoryProvider).completeOrder(order.id, tableId: order.tableId);
+                                    ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                    ref.read(tableNotifierProvider.notifier).loadTables();
+                                    if (mounted) AppSnackbar.showSuccess(context, 'Meja berhasil dibersihkan dan pesanan diselesaikan.');
+                                  },
+                                  icon: Icon(Icons.cleaning_services_rounded, size: 18),
+                                  label: Text(isDineIn ? 'Bersihkan Meja' : 'Selesaikan'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blueGrey,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                )
+                              : ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(sheetContext);
+                                    _navigateToPayment(order);
+                                  },
+                                  icon: Icon(Icons.payments_outlined, size: 18),
+                                  label: Text('Bayar'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.success,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                ),
                         ),
                       ],
                     ),
@@ -626,6 +644,10 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               );
 
                               if (!sheetContext.mounted) return;
+                              
+                              // Mark as billed
+                              await ref.read(orderNotifierProvider.notifier).markOrderAsBilled(order.id);
+                              
                               AppReceiptPreviewModal.show(
                                 sheetContext,
                                 title: 'BILL SEMENTARA',
@@ -1072,6 +1094,28 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                   style: TextStyle(
                                                     color: isDineIn ? Colors.blue.shade800 : Colors.orange.shade800,
                                                     fontSize: 10.sp,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(height: 6),
+                                          Wrap(
+                                            spacing: 6,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: order.paymentStatus == 'unpaid' ? Colors.red.shade50 : (order.paymentStatus == 'billed' ? Colors.orange.shade50 : Colors.green.shade50),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: order.paymentStatus == 'unpaid' ? Colors.red.shade200 : (order.paymentStatus == 'billed' ? Colors.orange.shade200 : Colors.green.shade200)),
+                                                ),
+                                                child: Text(
+                                                  order.paymentStatus.toUpperCase(),
+                                                  style: TextStyle(
+                                                    color: order.paymentStatus == 'unpaid' ? Colors.red.shade700 : (order.paymentStatus == 'billed' ? Colors.orange.shade800 : Colors.green.shade700),
+                                                    fontSize: 9.sp,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),

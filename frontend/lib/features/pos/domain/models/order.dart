@@ -15,7 +15,8 @@ class OrderModel {
   final double grandTotal;
   final double? onlinePlatformTotal;
   final double? platformDifference;
-  final String status; // 'draft', 'completed', 'cancelled'
+  final String status; // 'draft', 'processing', 'completed', 'cancelled'
+  final String paymentStatus; // 'unpaid', 'billed', 'paid'
   final String? catatan;
   final String? cashierId;
   final String? cashierNama;
@@ -40,6 +41,7 @@ class OrderModel {
     this.onlinePlatformTotal,
     this.platformDifference,
     this.status = 'draft',
+    this.paymentStatus = 'unpaid',
     this.catatan,
     this.cashierId,
     this.cashierNama,
@@ -48,8 +50,13 @@ class OrderModel {
   });
 
   bool get isDraft => status == 'draft';
+  bool get isProcessing => status == 'processing';
+  bool get isServed => status == 'served';
   bool get isCompleted => status == 'completed';
   bool get isCancelled => status == 'cancelled';
+  bool get isBilled => paymentStatus == 'billed';
+  bool get isPartiallyPaid => paymentStatus == 'partially_paid';
+  bool get isPaid => paymentStatus == 'paid';
   bool get isTakeAway => orderType == 'take_away';
 
   OrderModel copyWith({
@@ -70,6 +77,7 @@ class OrderModel {
     double? onlinePlatformTotal,
     double? platformDifference,
     String? status,
+    String? paymentStatus,
     String? catatan,
     String? cashierId,
     String? cashierNama,
@@ -94,6 +102,7 @@ class OrderModel {
       onlinePlatformTotal: onlinePlatformTotal ?? this.onlinePlatformTotal,
       platformDifference: platformDifference ?? this.platformDifference,
       status: status ?? this.status,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       catatan: catatan ?? this.catatan,
       cashierId: cashierId ?? this.cashierId,
       cashierNama: cashierNama ?? this.cashierNama,
@@ -121,6 +130,7 @@ class OrderModel {
       'online_platform_total': onlinePlatformTotal,
       'platform_difference': platformDifference,
       'status': status,
+      'payment_status': paymentStatus,
       'catatan': catatan,
       'cashier_id': cashierId,
       'cashier_nama': cashierNama,
@@ -150,6 +160,7 @@ class OrderModel {
       onlinePlatformTotal: (map['online_platform_total'] as num?)?.toDouble(),
       platformDifference: (map['platform_difference'] as num?)?.toDouble(),
       status: map['status'] as String,
+      paymentStatus: map['payment_status'] as String? ?? 'unpaid',
       catatan: map['catatan'] as String?,
       cashierId: map['cashier_id'] as String?,
       cashierNama: map['cashier_nama'] as String?,

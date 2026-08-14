@@ -63,7 +63,7 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
       final orderState = ref.read(orderNotifierProvider);
 
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }

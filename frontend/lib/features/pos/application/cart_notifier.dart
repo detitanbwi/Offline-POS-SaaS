@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../product/domain/models/product.dart';
 import '../domain/models/cart_item.dart';
 import '../domain/models/order_item.dart';
+import '../domain/models/print_batch.dart';
 import '../../tax/application/tax_notifier.dart';
 
 class CartState {
@@ -151,15 +152,34 @@ class CartNotifier extends StateNotifier<CartState> {
     _recalculate(currentItems: updatedItems);
   }
 
-  void loadDraftItems(List<OrderItemModel> draftItems, List<Product> allProducts) {
+  void loadDraftItems(List<OrderItemModel> draftItems, List<Product> allProducts, List<PrintBatchModel> batches) {
     final Map<String, CartItem> consolidatedMap = {};
+    
+    // Sort batches by createdAt to assign round numbers
+    final sortedBatches = List<PrintBatchModel>.from(batches)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
+    final batchIndices = {for (var i = 0; i < sortedBatches.length; i++) sortedBatches[i].id: i + 1};
+
     for (var draft in draftItems) {
       if (draft.isCancelled) continue;
       final productIndex = allProducts.indexWhere((p) => p.id == draft.produkId);
       if (productIndex != -1) {
         final product = allProducts[productIndex];
         final catatan = draft.catatan ?? '';
-        final key = '${product.id}_$catatan';
+        final batchId = draft.printBatchId;
+        final key = '${product.id}_${catatan}_$batchId';
+
+        bool isBilled = false;
+        String? batchName;
+        if (batchId != null) {
+          final batch = batches.firstWhere((b) => b.id == batchId, orElse: () => PrintBatchModel(id: '', orderId: '', createdAt: DateTime.now()));
+          if (batch.id.isNotEmpty) {
+            isBilled = batch.paymentStatus == 'billed' || batch.paymentStatus == 'paid';
+          }
+          final roundNum = batchIndices[batchId] ?? 0;
+          batchName = roundNum > 0 ? 'Round $roundNum' : null;
+        }
 
         if (consolidatedMap.containsKey(key)) {
           final existing = consolidatedMap[key]!;
@@ -174,11 +194,26 @@ class CartNotifier extends StateNotifier<CartState> {
             qty: draft.qty,
             catatan: catatan,
             initialSavedQty: draft.qty,
+            batchId: batchId,
+            isBilled: isBilled,
+            batchName: batchName,
           );
         }
       }
     }
-    _recalculate(currentItems: consolidatedMap.values.toList());
+    
+    // Sort items so earlier batches come first, and new items (null batchId) come last
+    final sortedItems = consolidatedMap.values.toList()
+      ..sort((a, b) {
+        if (a.batchId == null && b.batchId == null) return 0;
+        if (a.batchId == null) return 1;
+        if (b.batchId == null) return -1;
+        final indexA = batchIndices[a.batchId!] ?? 0;
+        final indexB = batchIndices[b.batchId!] ?? 0;
+        return indexA.compareTo(indexB);
+      });
+      
+    _recalculate(currentItems: sortedItems);
   }
 
   void clear() {

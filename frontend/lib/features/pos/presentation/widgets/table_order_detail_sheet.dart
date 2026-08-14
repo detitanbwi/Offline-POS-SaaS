@@ -28,6 +28,7 @@ class TableOrderDetailSheet {
   ) async {
     final hasOrder = activeOrder != null;
     final isDraft = hasOrder && (activeOrder as OrderModel).isDraft;
+    final isPaid = hasOrder && (activeOrder as OrderModel).isPaid;
     final repo = ref.read(orderRepositoryProvider);
 
     List<OrderItemModel> items = [];
@@ -286,7 +287,7 @@ class TableOrderDetailSheet {
                     ],
                   ),
                   if (hasOrder) ...[
-                    if (isDraft) ...[
+                    if (isDraft && !isPaid) ...[
                       SizedBox(height: 8),
                       Row(
                         children: [
@@ -300,6 +301,28 @@ class TableOrderDetailSheet {
                               label: Text('Bayar Tagihan (Open Bill)'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.success,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (isPaid) ...[
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                handleClearTable(context, ref, table, activeOrder);
+                              },
+                              icon: Icon(Icons.cleaning_services_rounded, size: 18),
+                              label: Text('Bersihkan Meja'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.error,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -428,6 +451,20 @@ class TableOrderDetailSheet {
       AppSnackbar.showSuccess(context, 'Tiket dapur (Reprint) berhasil dicetak dengan watermark JANGAN DIMASAK ULANG.');
     } else {
       AppSnackbar.showError(context, 'Gagal mencetak ulang tiket dapur.');
+    }
+  }
+
+  static Future<void> handleClearTable(BuildContext context, WidgetRef ref, TableModel table, dynamic activeOrder) async {
+    if (activeOrder == null) return;
+    try {
+      await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: table.id);
+      if (!context.mounted) return;
+      AppSnackbar.showSuccess(context, 'Meja ${table.nama} berhasil dibersihkan.');
+      ref.read(tableNotifierProvider.notifier).loadTables();
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    } catch (e) {
+      if (!context.mounted) return;
+      AppSnackbar.showError(context, 'Gagal membersihkan meja: $e');
     }
   }
 
