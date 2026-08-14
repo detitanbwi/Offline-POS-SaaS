@@ -215,6 +215,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       return;
     }
 
+    final orderState = ref.read(orderNotifierProvider);
+    final activeOrder = orderState.activeOrder;
+    if (activeOrder != null) {
+      final freshOrder = await ref.read(orderRepositoryProvider).getOrderById(activeOrder.id);
+      if (freshOrder != null && freshOrder.isCompleted) {
+        AppSnackbar.showWarning(context, 'Pesanan ini sudah selesai / dibayar sebelumnya.');
+        return;
+      }
+    }
+
     double amountPaid = 0;
     double change = 0;
 

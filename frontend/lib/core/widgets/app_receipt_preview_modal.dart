@@ -53,13 +53,6 @@ class AppReceiptPreviewModal extends ConsumerWidget {
     final printerState = ref.read(printerNotifierProvider);
     final hasPrinter = printerState.configuredPrinters.isNotEmpty;
 
-    if (!hasPrinter) {
-      AppSnackbar.showWarning(
-        context,
-        'Belum ada printer Bluetooth terkonfigurasi. Menggunakan pratinjau simulator.',
-      );
-    }
-
     final bytes = await onGenerateEscPosBytes();
 
     if (hasPrinter) {

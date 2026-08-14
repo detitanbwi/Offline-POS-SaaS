@@ -90,6 +90,8 @@ class PosDatabase {
     final alterColumns = [
       "ALTER TABLE orders ADD COLUMN online_platform_total REAL",
       "ALTER TABLE orders ADD COLUMN platform_difference REAL",
+      "ALTER TABLE orders ADD COLUMN is_bill_printed INTEGER NOT NULL DEFAULT 0",
+      "ALTER TABLE orders ADD COLUMN bill_printed_at TEXT",
       "ALTER TABLE transactions ADD COLUMN online_platform_total REAL",
       "ALTER TABLE transactions ADD COLUMN platform_difference REAL",
       "ALTER TABLE transactions ADD COLUMN online_platform TEXT",

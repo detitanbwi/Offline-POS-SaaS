@@ -32,5 +32,6 @@ abstract class OrderRepository {
   Future<void> cancelOrderBatch(String batchId, String reason);
   Future<void> clearTableOnly(String orderId, String tableId, String reason);
   Future<void> markTableBillPrinted(String tableId);
+  Future<void> markOrderBillPrinted(String orderId);
   Future<OrderModel?> getOrderById(String orderId);
 }

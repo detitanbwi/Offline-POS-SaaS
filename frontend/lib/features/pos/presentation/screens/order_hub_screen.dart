@@ -235,6 +235,22 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
   }
 
   Future<void> _navigateToPos(OrderModel order) async {
+    final freshOrder = await ref.read(orderRepositoryProvider).getOrderById(order.id);
+    if (freshOrder != null && freshOrder.isCompleted) {
+      if (mounted) {
+        AppSnackbar.showWarning(context, 'Pesanan ini sudah selesai / dibayar.');
+        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+      }
+      return;
+    }
+
+    if (freshOrder != null && freshOrder.isBillPrinted) {
+      if (mounted) {
+        AppSnackbar.showWarning(context, 'Pesanan sudah di-bill. Tidak dapat menambah menu lagi.');
+      }
+      return;
+    }
+
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
     final productState = ref.read(productNotifierProvider);
@@ -263,6 +279,15 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
   }
 
   Future<void> _navigateToPayment(OrderModel order) async {
+    final freshOrder = await ref.read(orderRepositoryProvider).getOrderById(order.id);
+    if (freshOrder != null && freshOrder.isCompleted) {
+      if (mounted) {
+        AppSnackbar.showWarning(context, 'Pesanan ini sudah selesai / dibayar.');
+        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+      }
+      return;
+    }
+
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
     final productState = ref.read(productNotifierProvider);
@@ -304,8 +329,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
       }
     }
 
-    final isBillPrinted = table?.isBillPrinted ?? false;
-    final statusLabel = table != null ? table.statusLabel : (order.isDraft ? 'Open Bill' : 'Selesai');
+    final isBillPrinted = order.isBillPrinted || (table?.isBillPrinted ?? false);
+    final statusLabel = isBillPrinted ? 'Bill Dicetak' : (table != null ? table.statusLabel : (order.isDraft ? 'Open Bill' : 'Selesai'));
     final statusColor = isBillPrinted ? AppColors.warning : AppColors.success;
     final title = isDineIn 
         ? 'Rincian Meja ${order.tableNomor ?? '-'}' 
@@ -575,13 +600,17 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
+                              if (isBillPrinted) {
+                                AppSnackbar.showWarning(context, 'Pesanan sudah di-bill. Tidak dapat menambah menu lagi.');
+                                return;
+                              }
                               Navigator.pop(sheetContext);
                               _navigateToPos(order);
                             },
                             icon: Icon(Icons.shopping_cart_outlined, size: 18),
                             label: Text('Tambah Menu'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
+                              backgroundColor: isBillPrinted ? Colors.grey : AppColors.primary,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -631,6 +660,45 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  title: Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
+                                      SizedBox(width: 8),
+                                      Text('Konfirmasi Cetak Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  content: const Text(
+                                    'Setelah Bill dicetak, pesanan ini tidak dapat diubah atau ditambah menu lagi.\n\nApakah Anda yakin ingin mencetak bill sekarang?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('Batal'),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.amber.shade800,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Ya, Cetak Bill'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirm != true) return;
+
+                              await repo.markOrderBillPrinted(order.id);
+                              if (isDineIn && order.tableId != null) {
+                                await repo.markTableBillPrinted(order.tableId!);
+                              }
+                              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+
                               final activeUser = ref.read(authSessionProvider);
                               final printerState = ref.read(printerNotifierProvider);
                               final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
@@ -1051,19 +1119,29 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               return AppCard(
                                 onTap: () => _showOrderActionBottomSheet(order),
                                 padding: const EdgeInsets.all(12),
+                                color: order.isBillPrinted ? Colors.amber.shade50 : null,
+                                borderSide: order.isBillPrinted
+                                    ? BorderSide(color: Colors.amber.shade400, width: 1.5)
+                                    : null,
                                 child: Row(
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: isDineIn
-                                            ? AppColors.primary.withValues(alpha: 0.1)
-                                            : AppColors.secondary.withValues(alpha: 0.1),
+                                        color: order.isBillPrinted
+                                            ? Colors.amber.shade100
+                                            : (isDineIn
+                                                ? AppColors.primary.withValues(alpha: 0.1)
+                                                : AppColors.secondary.withValues(alpha: 0.1)),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
-                                        isDineIn ? Icons.table_restaurant_rounded : Icons.shopping_bag_rounded,
-                                        color: isDineIn ? AppColors.primary : AppColors.secondary,
+                                        order.isBillPrinted
+                                            ? Icons.receipt_long_rounded
+                                            : (isDineIn ? Icons.table_restaurant_rounded : Icons.shopping_bag_rounded),
+                                        color: order.isBillPrinted
+                                            ? Colors.amber.shade900
+                                            : (isDineIn ? AppColors.primary : AppColors.secondary),
                                         size: 20,
                                       ),
                                     ),
@@ -1098,6 +1176,30 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                   ),
                                                 ),
                                               ),
+                                              if (order.isBillPrinted)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.amber.shade100,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: Colors.amber.shade600),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.receipt_rounded, size: 10, color: Colors.amber.shade900),
+                                                      SizedBox(width: 3),
+                                                      Text(
+                                                        'SUDAH DI-BILL',
+                                                        style: TextStyle(
+                                                          color: Colors.amber.shade900,
+                                                          fontSize: 9.sp,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                           SizedBox(height: 6),

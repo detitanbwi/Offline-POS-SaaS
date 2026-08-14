@@ -560,5 +560,20 @@ class OrderRepositoryImpl implements OrderRepository {
       whereArgs: [tableId],
     );
   }
+
+  @override
+  Future<void> markOrderBillPrinted(String orderId) async {
+    final db = await _db.database;
+    await db.update(
+      'orders',
+      {
+        'is_bill_printed': 1,
+        'bill_printed_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [orderId],
+    );
+  }
 }
 

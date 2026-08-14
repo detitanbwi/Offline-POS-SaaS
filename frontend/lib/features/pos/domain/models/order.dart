@@ -20,6 +20,8 @@ class OrderModel {
   final String? catatan;
   final String? cashierId;
   final String? cashierNama;
+  final bool isBillPrinted;
+  final DateTime? billPrintedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -45,6 +47,8 @@ class OrderModel {
     this.catatan,
     this.cashierId,
     this.cashierNama,
+    this.isBillPrinted = false,
+    this.billPrintedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -81,6 +85,8 @@ class OrderModel {
     String? catatan,
     String? cashierId,
     String? cashierNama,
+    bool? isBillPrinted,
+    DateTime? billPrintedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -106,6 +112,8 @@ class OrderModel {
       catatan: catatan ?? this.catatan,
       cashierId: cashierId ?? this.cashierId,
       cashierNama: cashierNama ?? this.cashierNama,
+      isBillPrinted: isBillPrinted ?? this.isBillPrinted,
+      billPrintedAt: billPrintedAt ?? this.billPrintedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -134,6 +142,8 @@ class OrderModel {
       'catatan': catatan,
       'cashier_id': cashierId,
       'cashier_nama': cashierNama,
+      'is_bill_printed': isBillPrinted ? 1 : 0,
+      'bill_printed_at': billPrintedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -164,6 +174,8 @@ class OrderModel {
       catatan: map['catatan'] as String?,
       cashierId: map['cashier_id'] as String?,
       cashierNama: map['cashier_nama'] as String?,
+      isBillPrinted: (map['is_bill_printed'] as int?) == 1,
+      billPrintedAt: map['bill_printed_at'] != null ? DateTime.parse(map['bill_printed_at'] as String) : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
