@@ -35,6 +35,7 @@ class TaxNotifier extends StateNotifier<TaxState> {
   }
 
   Future<void> loadTaxSetting() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final setting = await _repository.getTaxSetting();

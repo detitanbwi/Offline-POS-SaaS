@@ -35,6 +35,7 @@ class OnlinePlatformNotifier extends StateNotifier<OnlinePlatformState> {
   }
 
   Future<void> loadPlatforms() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final platforms = await _repository.getAllPlatforms();

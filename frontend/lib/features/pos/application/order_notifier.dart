@@ -150,6 +150,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   Future<void> loadActiveOrdersMap() async {
+    // Memberi jeda 300ms agar animasi transisi layar selesai
+    await Future.delayed(const Duration(milliseconds: 300));
     try {
       final map = await _repository.getActiveOrdersMap();
       final drafts = await _repository.getAllDraftOrders();

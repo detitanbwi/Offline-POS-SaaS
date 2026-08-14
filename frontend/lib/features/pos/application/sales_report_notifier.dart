@@ -33,6 +33,7 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
   SalesReportNotifier(this._repository) : super(SalesReportState());
 
   Future<void> loadDailyReport(DateTime date) async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);

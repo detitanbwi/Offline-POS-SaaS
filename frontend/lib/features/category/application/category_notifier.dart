@@ -49,10 +49,16 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
   final _uuid = const Uuid();
 
   CategoryNotifier(this._repository) : super(CategoryState()) {
-    loadCategories();
+    _initLoad();
+  }
+
+  Future<void> _initLoad() async {
+    await loadCategories();
   }
 
   Future<void> loadCategories() async {
+    // Memberi jeda 300ms agar animasi transisi layar selesai
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final categories = await _repository.getAllCategories();

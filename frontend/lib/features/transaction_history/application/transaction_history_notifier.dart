@@ -43,6 +43,7 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
   }
 
   Future<void> loadTransactions() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final list = await _repository.getAllTransactions();

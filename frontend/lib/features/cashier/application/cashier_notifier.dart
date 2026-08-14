@@ -50,6 +50,7 @@ class CashierNotifier extends StateNotifier<CashierState> {
   }
 
   Future<void> loadCashiers() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null, successMessage: null);
     try {
       final cashiers = await _repository.getAllCashiers();

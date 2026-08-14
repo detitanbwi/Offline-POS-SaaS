@@ -33,10 +33,16 @@ class TableNotifier extends StateNotifier<TableState> {
   final _uuid = const Uuid();
 
   TableNotifier(this._repository) : super(TableState()) {
-    loadTables();
+    _initLoad();
+  }
+
+  Future<void> _initLoad() async {
+    await loadTables();
   }
 
   Future<void> loadTables() async {
+    // Memberi jeda 300ms agar animasi transisi layar selesai
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final tables = await _repository.getAllTables();
