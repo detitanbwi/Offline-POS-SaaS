@@ -91,7 +91,12 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       }
     });
     // Pre-load products, categories, tables, and active orders map
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Tunggu animasi transisi layar dan penutupan keyboard selesai
+      // agar UI tidak freeze saat memuat banyak data secara bersamaan.
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+
       ref.read(productNotifierProvider.notifier).loadProducts();
       ref.read(categoryNotifierProvider.notifier).loadCategories();
       ref.read(tableNotifierProvider.notifier).loadTables();
