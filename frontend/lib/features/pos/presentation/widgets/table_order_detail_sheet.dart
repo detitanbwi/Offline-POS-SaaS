@@ -392,7 +392,7 @@ class TableOrderDetailSheet {
       final orderState = ref.read(orderNotifierProvider);
       
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }
@@ -422,7 +422,7 @@ class TableOrderDetailSheet {
       final orderState = ref.read(orderNotifierProvider);
       
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }

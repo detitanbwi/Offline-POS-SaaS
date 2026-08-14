@@ -568,8 +568,14 @@ class ReceiptGenerator {
     buffer.writeln(eqLine);
     buffer.writeln('Tgl   : $nowStr');
     buffer.writeln('Kasir : $cashier');
-    if (order.tableNama != null && order.tableNama!.isNotEmpty) {
+    if (order.isTakeAway) {
+      final pName = order.onlinePlatform != null && order.onlinePlatform!.isNotEmpty ? ' (${order.onlinePlatform})' : '';
+      buffer.writeln('Order : TAKE AWAY$pName');
+    } else if (order.tableNama != null && order.tableNama!.isNotEmpty) {
       buffer.writeln('Meja  : ${order.tableNama}');
+    }
+    if (order.customerName != null && order.customerName!.isNotEmpty) {
+      buffer.writeln('Nama  : ${order.customerName}');
     }
     buffer.writeln('Status: BELUM DIBAYAR');
     buffer.writeln(dashLine);
@@ -693,6 +699,9 @@ class ReceiptGenerator {
       buffer.writeln('Order : TAKE AWAY$pName');
     } else if (tableName != null && tableName.isNotEmpty) {
       buffer.writeln('Meja  : $tableName');
+    }
+    if (transaction.customerName != null && transaction.customerName!.isNotEmpty) {
+      buffer.writeln('Nama  : ${transaction.customerName}');
     }
     buffer.writeln(dashLine);
     for (var item in items) {

@@ -39,15 +39,22 @@ class CashierCartSection extends ConsumerStatefulWidget {
 
 class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
   bool _isSaving = false;
+  final _customerNameController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // The online platform total initialization has been moved to payment screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final existingName = ref.read(orderNotifierProvider).customerName;
+      if (existingName != null) {
+        _customerNameController.text = existingName;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _customerNameController.dispose();
     super.dispose();
   }
 
@@ -585,6 +592,21 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               ),
             ],
           ),
+        ),
+        SizedBox(height: 8),
+        TextField(
+          controller: _customerNameController,
+          decoration: InputDecoration(
+            hintText: 'Nama Pembeli (Opsional)',
+            prefixIcon: const Icon(Icons.person_outline, size: 18),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onChanged: (val) {
+             ref.read(orderNotifierProvider.notifier).setCustomerName(val);
+          },
+          style: TextStyle(fontSize: 12.sp),
         ),
         SizedBox(height: 2),
 
