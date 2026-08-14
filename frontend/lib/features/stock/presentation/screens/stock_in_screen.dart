@@ -110,6 +110,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                 labelText: 'Cari Riwayat Mutasi Stok',
                 prefixIcon: Icons.search,
                 onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
               ),
             ),
             const Divider(height: 1),

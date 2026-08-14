@@ -28,7 +28,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLicenseInfo();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchLicenseInfo();
+    });
   }
 
   Future<void> _fetchLicenseInfo() async {

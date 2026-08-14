@@ -41,7 +41,7 @@ class PosDatabase {
         db = await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 12,
+            version: 13,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -50,7 +50,7 @@ class PosDatabase {
       } else {
         db = await openDatabase(
           path,
-          version: 12,
+          version: 13,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
@@ -60,7 +60,7 @@ class PosDatabase {
       try {
         db = await openDatabase(
           path,
-          version: 12,
+          version: 13,
           password: encryptionKey,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
@@ -70,7 +70,7 @@ class PosDatabase {
         try {
           db = await openDatabase(
             path,
-            version: 12,
+            version: 13,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -87,21 +87,20 @@ class PosDatabase {
   }
 
   Future<void> _ensureNewColumnsExist(Database db) async {
-    final alterColumns = [
-      "ALTER TABLE orders ADD COLUMN online_platform_total REAL",
-      "ALTER TABLE orders ADD COLUMN platform_difference REAL",
-      "ALTER TABLE orders ADD COLUMN is_bill_printed INTEGER NOT NULL DEFAULT 0",
-      "ALTER TABLE orders ADD COLUMN bill_printed_at TEXT",
-      "ALTER TABLE transactions ADD COLUMN online_platform_total REAL",
-      "ALTER TABLE transactions ADD COLUMN platform_difference REAL",
-      "ALTER TABLE transactions ADD COLUMN online_platform TEXT",
-    ];
-    for (final sql in alterColumns) {
-      try {
-        await db.execute(sql);
-      } catch (_) {
-        // Column already exists
-      }
+    await _addColumnIfNotExists(db, 'orders', 'online_platform_total', 'REAL');
+    await _addColumnIfNotExists(db, 'orders', 'platform_difference', 'REAL');
+    await _addColumnIfNotExists(db, 'orders', 'is_bill_printed', 'INTEGER NOT NULL DEFAULT 0');
+    await _addColumnIfNotExists(db, 'orders', 'bill_printed_at', 'TEXT');
+    await _addColumnIfNotExists(db, 'transactions', 'online_platform_total', 'REAL');
+    await _addColumnIfNotExists(db, 'transactions', 'platform_difference', 'REAL');
+    await _addColumnIfNotExists(db, 'transactions', 'online_platform', 'TEXT');
+  }
+
+  Future<void> _addColumnIfNotExists(Database db, String table, String column, String type) async {
+    final result = await db.rawQuery("PRAGMA table_info($table)");
+    final hasColumn = result.any((row) => row['name'] == column);
+    if (!hasColumn) {
+      await db.execute("ALTER TABLE $table ADD COLUMN $column $type");
     }
   }
 
@@ -447,6 +446,17 @@ class PosDatabase {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 13) {
+      // TAHAP PENGEMBANGAN: Hapus semua tabel dan buat ulang dari awal untuk memastikan schema bersih
+      final tables = await db.rawQuery('SELECT name FROM sqlite_master WHERE type="table" AND name NOT LIKE "sqlite_%"');
+      for (final table in tables) {
+        final tableName = table['name'];
+        await db.execute('DROP TABLE IF EXISTS $tableName');
+      }
+      await _createDB(db, newVersion);
+      return; // Skip migrasi versi lama karena database sudah di-reset
+    }
+
     if (oldVersion < 2) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS tables (

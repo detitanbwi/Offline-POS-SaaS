@@ -296,6 +296,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             labelText: 'Cari Kategori',
                             prefixIcon: Icons.search,
                             onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                           ),
                         ),
                         SizedBox(width: 12),
@@ -327,6 +328,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       labelText: 'Cari Kategori',
                       prefixIcon: Icons.search,
                       onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                     ),
                     SizedBox(height: 12),
                     Row(

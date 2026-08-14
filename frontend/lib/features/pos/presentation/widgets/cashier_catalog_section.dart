@@ -197,6 +197,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                                       fit: BoxFit.cover,
                                                       width: double.infinity,
                                                       height: double.infinity,
+                                                      cacheWidth: 300,
                                                       errorBuilder: (context, error, stackTrace) => Icon(
                                                         Icons.fastfood_rounded,
                                                         size: 36,
@@ -211,6 +212,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                                           fit: BoxFit.cover,
                                                           width: double.infinity,
                                                           height: double.infinity,
+                                                          cacheWidth: 300,
                                                           errorBuilder: (context, error, stackTrace) => Icon(
                                                             Icons.fastfood_rounded,
                                                             size: 36,

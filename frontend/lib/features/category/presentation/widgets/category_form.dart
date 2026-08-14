@@ -159,25 +159,13 @@ class CategoryFormState extends State<CategoryForm> {
           AppTextField(
             controller: _nameController,
             labelText: 'Nama Kategori',
-            hintText: widget.category == null
-                ? 'Masukkan nama kategori (bisa dipisah koma/baris baru)'
-                : 'Masukkan nama kategori (contoh: Makanan)',
+            hintText: 'Masukkan nama kategori (contoh: Makanan)',
             prefixIcon: Icons.category_rounded,
-            maxLines: widget.category == null ? null : 1,
-            keyboardType: widget.category == null ? TextInputType.multiline : TextInputType.text,
-            textInputAction: TextInputAction.newline,
+            maxLines: 1,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.done,
             validator: (v) => Validators.required(v, 'Nama Kategori'),
           ),
-          if (widget.category == null) ...[
-            SizedBox(height: 6),
-            Text(
-              'Gunakan tanda koma (,) atau baris baru untuk memasukkan beberapa kategori sekaligus.',
-              style: TextStyle(
-                fontSize: 12.sp,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
           SizedBox(height: 16),
           Text(
             'Gambar Kategori (Opsional)',
@@ -293,22 +281,9 @@ class CategoryFormState extends State<CategoryForm> {
   bool submit() {
     if (_formKey.currentState?.validate() ?? false) {
       final input = _nameController.text.trim();
-      if (widget.category != null) {
-        // Edit mode: treat whole input as single category name
-        widget.onSubmit([input], _status, _imagePath);
-      } else {
-        // Add mode: split by commas and newlines
-        final names = input
-            .split(RegExp(r'[,\n]'))
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
-        
-        if (names.isEmpty) {
-          return false;
-        }
-        widget.onSubmit(names, _status, _imagePath);
-      }
+      if (input.isEmpty) return false;
+      
+      widget.onSubmit([input], _status, _imagePath);
       return true;
     }
     return false;

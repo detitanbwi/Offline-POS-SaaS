@@ -1319,6 +1319,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                             ? Image.network(
                                 product.image!,
                                 fit: BoxFit.contain,
+                                cacheWidth: 300,
                                 errorBuilder: (_, _, _) => const Center(
                                   child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                 ),
@@ -1327,6 +1328,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                 ? Image.file(
                                     File(product.image!),
                                     fit: BoxFit.contain,
+                                    cacheWidth: 300,
                                     errorBuilder: (_, _, _) => const Center(
                                       child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ),
@@ -1577,17 +1579,12 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
         ],
         const SizedBox(height: 8),
         // Atas Nama (Customer Name) Field
-        TextField(
+        AppTextField(
           controller: _customerNameController,
           onChanged: (val) => orderNotifier.setCustomerName(val),
-          style: const TextStyle(fontSize: 13),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: 'Atas Nama / Nama Customer (Opsional)',
-            prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
+          debounceDuration: const Duration(milliseconds: 500),
+          labelText: 'Atas Nama / Nama Customer (Opsional)',
+          prefixIcon: Icons.person_outline_rounded,
         ),
       ],
     );

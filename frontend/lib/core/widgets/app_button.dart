@@ -86,21 +86,19 @@ class AppButton extends StatelessWidget {
           Icon(icon, size: (isDense ? 16.r : 20.r) * scale, color: getTextColor()),
           SizedBox(width: (isDense ? 4.w : 6.w) * scale),
         ],
-        Flexible(
-          child: Text(
-            text,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: isDense
-                ? AppTypography.labelMedium.copyWith(
-                    color: getTextColor(),
-                    fontWeight: FontWeight.bold,
-                  )
-                : AppTypography.labelLarge.copyWith(
-                    color: getTextColor(),
-                    fontWeight: FontWeight.bold,
-                  ),
-          ),
+        Text(
+          text,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: isDense
+              ? AppTypography.labelMedium.copyWith(
+                  color: getTextColor(),
+                  fontWeight: FontWeight.bold,
+                )
+              : AppTypography.labelLarge.copyWith(
+                  color: getTextColor(),
+                  fontWeight: FontWeight.bold,
+                ),
         ),
       ],
     );

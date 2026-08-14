@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
 
-class AppTextField extends StatelessWidget {
+class AppTextField extends StatefulWidget {
   final TextEditingController? controller;
   final String labelText;
   final String? hintText;
@@ -20,6 +21,7 @@ class AppTextField extends StatelessWidget {
   final int? maxLines;
   final int? maxLength;
   final String? prefixText;
+  final Duration? debounceDuration;
 
   const AppTextField({
     super.key,
@@ -39,34 +41,63 @@ class AppTextField extends StatelessWidget {
     this.maxLines = 1,
     this.maxLength,
     this.prefixText,
+    this.debounceDuration,
   });
+
+  @override
+  State<AppTextField> createState() => _AppTextFieldState();
+}
+
+class _AppTextFieldState extends State<AppTextField> {
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _handleChanged(String value) {
+    if (widget.onChanged == null) return;
+    
+    if (widget.debounceDuration != null) {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(widget.debounceDuration!, () {
+        if (mounted) {
+          widget.onChanged!(value);
+        }
+      });
+    } else {
+      widget.onChanged!(value);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller,
-      validator: validator,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      onChanged: onChanged,
-      textInputAction: textInputAction,
-      readOnly: readOnly,
-      onTap: onTap,
-      maxLines: maxLines,
-      maxLength: maxLength,
+      controller: widget.controller,
+      validator: widget.validator,
+      obscureText: widget.obscureText,
+      keyboardType: widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
+      onChanged: _handleChanged,
+      textInputAction: widget.textInputAction,
+      readOnly: widget.readOnly,
+      onTap: widget.onTap,
+      maxLines: widget.maxLines,
+      maxLength: widget.maxLength,
       style: AppTypography.bodyLarge.copyWith(color: AppColors.textPrimary),
       decoration: InputDecoration(
-        labelText: labelText,
-        hintText: hintText,
+        labelText: widget.labelText,
+        hintText: widget.hintText,
         counterText: "",
         filled: true,
         fillColor: AppColors.surface,
         labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-        prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppColors.textSecondary) : null,
-        prefixText: prefixText,
-        suffixIcon: suffixIcon,
+        prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon, color: AppColors.textSecondary) : null,
+        prefixText: widget.prefixText,
+        suffixIcon: widget.suffixIcon,
       ),
     );
   }

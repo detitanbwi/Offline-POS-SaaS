@@ -372,6 +372,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             labelText: 'Cari Produk',
                             prefixIcon: Icons.search,
                             onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                           ),
                         ),
                         SizedBox(width: 12),
@@ -405,6 +406,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       labelText: 'Cari Produk',
                       prefixIcon: Icons.search,
                       onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                     ),
                     SizedBox(height: 12),
                     // Categories chips scrollable filter
@@ -785,12 +787,14 @@ class _ProductItemRow extends StatelessWidget {
                           ? Image.network(
                               product.image!,
                               fit: BoxFit.cover,
+                              cacheWidth: 300,
                               errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
                             )
                           : Validators.isValidLocalFile(product.image!)
                               ? Image.file(
                                   File(product.image!),
                                   fit: BoxFit.cover,
+                                  cacheWidth: 300,
                                   errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
                                 )
                               : Icon(Icons.broken_image_outlined, color: AppColors.textSecondary))

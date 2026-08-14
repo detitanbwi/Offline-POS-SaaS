@@ -121,6 +121,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                 labelText: 'Cari Metode Pembayaran',
                 prefixIcon: Icons.search,
                 onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
               ),
             ),
             const Divider(),

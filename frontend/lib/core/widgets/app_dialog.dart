@@ -108,29 +108,19 @@ class AppDialog extends StatelessWidget {
                 )
               : null),
       actions: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Flexible(
-              child: TextButton(
-                onPressed: isLoading ? null : (onCancel ?? () => Navigator.pop(context)),
-                child: Text(
-                  cancelText, 
-                  style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: AppButton(
-                text: confirmText,
-                isLoading: isLoading,
-                type: isDestructive ? AppButtonType.destructive : AppButtonType.primary,
-                onPressed: onConfirm,
-              ),
-            ),
-          ],
+        TextButton(
+          onPressed: isLoading ? null : (onCancel ?? () => Navigator.pop(context)),
+          child: Text(
+            cancelText, 
+            style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        AppButton(
+          text: confirmText,
+          isLoading: isLoading,
+          type: isDestructive ? AppButtonType.destructive : AppButtonType.primary,
+          onPressed: onConfirm,
         ),
       ],
     );

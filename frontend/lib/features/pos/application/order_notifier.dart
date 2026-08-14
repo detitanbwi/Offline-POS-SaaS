@@ -379,7 +379,12 @@ class OrderNotifier extends StateNotifier<OrderState> {
             );
 
             if (targetPrinter != null) {
-              await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+              if (targetPrinter.isConnected) {
+                // Fire and forget
+                _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+              } else {
+                debugPrint('Printer dapur belum terhubung. Melewati cetak dapur otomatis.');
+              }
             } else {
               if (kDebugMode) {
                 debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
@@ -527,6 +532,10 @@ class OrderNotifier extends StateNotifier<OrderState> {
       );
 
       if (targetPrinter != null) {
+        if (!targetPrinter.isConnected) {
+          state = state.copyWith(isLoading: false, errorMessage: 'Printer dapur tidak terhubung.');
+          return false;
+        }
         await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
       }
 

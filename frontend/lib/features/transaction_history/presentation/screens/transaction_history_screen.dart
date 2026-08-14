@@ -198,6 +198,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                 labelText: 'Cari Struk Transaksi',
                 prefixIcon: Icons.search,
                 onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
               ),
             ),
             const Divider(),

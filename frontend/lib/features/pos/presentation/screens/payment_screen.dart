@@ -381,17 +381,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
           final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
 
-          final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
-            transaction: savedHeader,
-            items: savedItems,
-            tableName: orderState.selectedTable?.nama,
-            paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
-            charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
-            autoCut: cashierPrinter?.autoCut ?? false,
-          );
-
           if (cashierPrinter != null) {
-            await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
+            if (cashierPrinter.isConnected) {
+              final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
+                transaction: savedHeader,
+                items: savedItems,
+                tableName: orderState.selectedTable?.nama,
+                paperSize: cashierPrinter.escPosPaperSize ?? PaperSize.mm58,
+                charsPerLine: cashierPrinter.effectiveCharsPerLine ?? 32,
+                autoCut: cashierPrinter.autoCut ?? false,
+              );
+
+              // Fire and forget so we don't freeze the payment flow
+              ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes).then((success) {
+                if (!success && mounted) {
+                  AppSnackbar.showWarning(context, 'Cetak otomatis dilewati: Printer kasir tidak merespons.');
+                }
+              });
+            } else {
+              AppSnackbar.showWarning(context, 'Cetak otomatis dilewati: Printer kasir belum terhubung.');
+            }
           }
         } catch (_) {}
       }
