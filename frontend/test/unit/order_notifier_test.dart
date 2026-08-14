@@ -107,6 +107,12 @@ class OrderRepositoryMock implements OrderRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getPrintBatchesWithItems(String orderId) async => [];
+
+  @override
+  Future<void> updatePrintBatchPaymentStatus(String batchId, String status) async {}
+
+  @override
   Future<String> recordPrintBatch(String orderId) async {
     batchCounter++;
     return 'batch-$batchCounter';
