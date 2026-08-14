@@ -91,63 +91,87 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
 
     final formKey = GlobalKey<ProductFormState>();
 
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: product == null ? 'Tambah Produk' : 'Ubah Produk',
-      confirmText: 'Simpan',
-      content: SizedBox(
-        width: 420,
-        child: ProductForm(
-          key: formKey,
-          product: product,
-          categories: categoryState.allCategories,
-          onSubmit: ({
-            required String nama,
-            required String kategoriId,
-            required double harga,
-            required int stok,
-            required int status,
-            String? image,
-          }) async {
-            Navigator.pop(context); // close dialog
+      barrierDismissible: false,
+      builder: (context) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: product == null ? 'Tambah Produk' : 'Ubah Produk',
+              confirmText: 'Simpan',
+              isLoading: isSaving,
+              content: SizedBox(
+                width: 420,
+                child: ProductForm(
+                  key: formKey,
+                  product: product,
+                  categories: categoryState.allCategories,
+                  onSubmit: ({
+                    required String nama,
+                    required String kategoriId,
+                    required double harga,
+                    required int stok,
+                    required int status,
+                    String? image,
+                  }) async {
+                    if (isSaving) return;
+                    
+                    // Unfocus keyboard to start hiding animation smoothly
+                    FocusScope.of(context).unfocus();
+                    
+                    setState(() => isSaving = true);
+                    
+                    // Yield control to the event loop so the UI can render the loading indicator
+                    // and keyboard hide animation can complete without dropping frames.
+                    await Future.delayed(const Duration(milliseconds: 300));
 
-            bool success;
-            if (product == null) {
-              success = await ref.read(productNotifierProvider.notifier).addProduct(
-                    nama: nama,
-                    kategoriId: kategoriId,
-                    harga: harga,
-                    stok: stok,
-                    status: status,
-                    image: image,
-                  );
-            } else {
-              success = await ref.read(productNotifierProvider.notifier).updateProduct(
-                    id: product.id,
-                    nama: nama,
-                    kategoriId: kategoriId,
-                    harga: harga,
-                    stok: stok,
-                    status: status,
-                    image: image,
-                  );
-            }
+                    bool success;
+                    if (product == null) {
+                      success = await ref.read(productNotifierProvider.notifier).addProduct(
+                            nama: nama,
+                            kategoriId: kategoriId,
+                            harga: harga,
+                            stok: stok,
+                            status: status,
+                            image: image,
+                          );
+                    } else {
+                      success = await ref.read(productNotifierProvider.notifier).updateProduct(
+                            id: product.id,
+                            nama: nama,
+                            kategoriId: kategoriId,
+                            harga: harga,
+                            stok: stok,
+                            status: status,
+                            image: image,
+                          );
+                    }
 
-            if (!context.mounted) return;
-            final state = ref.read(productNotifierProvider);
-            if (success) {
-              AppSnackbar.showSuccess(
-                context,
-                product == null ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!',
-              );
-            } else if (state.errorMessage != null) {
-              AppSnackbar.showError(context, state.errorMessage!);
-            }
+                    if (!context.mounted) return;
+                    
+                    // Close the dialog only after processing is done
+                    Navigator.pop(context);
+
+                    final state = ref.read(productNotifierProvider);
+                    if (success) {
+                      AppSnackbar.showSuccess(
+                        context,
+                        product == null ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!',
+                      );
+                    } else if (state.errorMessage != null) {
+                      AppSnackbar.showError(context, state.errorMessage!);
+                    }
+                  },
+                ),
+              ),
+              onConfirm: () {
+                formKey.currentState?.submit();
+              },
+            );
           },
-        ),
-      ),
-      onConfirm: () {
-        formKey.currentState?.submit();
+        );
       },
     );
   }

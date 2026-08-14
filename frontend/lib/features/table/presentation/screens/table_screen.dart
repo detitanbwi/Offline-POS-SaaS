@@ -45,40 +45,57 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _confirmBulkDelete(BuildContext context) {
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: 'Hapus Masal Meja',
-      message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} meja terpilih? Meja yang sedang terisi tidak akan dapat dihapus.',
-      confirmText: 'Hapus All',
-      isDestructive: true,
-      onConfirm: () async {
-        final notifier = ref.read(tableNotifierProvider.notifier);
-        int successCount = 0;
-        List<String> failedTables = [];
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: 'Hapus Masal Meja',
+              message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} meja terpilih? Meja yang sedang terisi tidak akan dapat dihapus.',
+              confirmText: 'Hapus All',
+              isDestructive: true,
+              isLoading: isDeleting,
+              onConfirm: () async {
+                if (isDeleting) return;
+                setState(() => isDeleting = true);
+                await Future.delayed(const Duration(milliseconds: 300));
+                
+                final notifier = ref.read(tableNotifierProvider.notifier);
+                int successCount = 0;
+                List<String> failedTables = [];
 
-        for (final id in _selectedIds) {
-          final res = await notifier.deleteTable(id);
-          if (res) {
-            successCount++;
-          } else {
-            failedTables.add(id);
-          }
-        }
+                for (final id in _selectedIds) {
+                  final res = await notifier.deleteTable(id);
+                  if (res) {
+                    successCount++;
+                  } else {
+                    failedTables.add(id);
+                  }
+                }
 
-        if (!context.mounted) return;
-        setState(() {
-          _isSelectionMode = false;
-          _selectedIds.clear();
-        });
+                if (!context.mounted) return;
+                Navigator.pop(context);
 
-        if (failedTables.isEmpty) {
-          AppSnackbar.showSuccess(context, '$successCount meja berhasil dihapus.');
-        } else {
-          AppSnackbar.showWarning(
-            context,
-            'Berhasil menghapus $successCount meja. ${failedTables.length} meja gagal dihapus (mungkin sedang terisi pesanan).',
-          );
-        }
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
+                });
+
+                if (failedTables.isEmpty) {
+                  AppSnackbar.showSuccess(context, '$successCount meja berhasil dihapus.');
+                } else {
+                  AppSnackbar.showWarning(
+                    context,
+                    'Berhasil menghapus $successCount meja. ${failedTables.length} meja gagal dihapus (mungkin sedang terisi pesanan).',
+                  );
+                }
+              },
+            );
+          },
+        );
       },
     );
   }
@@ -91,14 +108,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
+        bool isSaving = false;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AppDialog(
               title: isEdit ? 'Ubah Data Meja' : 'Tambah Meja Baru',
               confirmText: 'Simpan',
+              isLoading: isSaving,
               onConfirm: () async {
+                if (isSaving) return;
                 if (formKey.currentState!.validate()) {
+                  FocusScope.of(context).unfocus();
+                  setDialogState(() => isSaving = true);
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  
                   final name = nameController.text.trim();
                   final number = numberController.text.trim();
 
@@ -125,6 +150,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       isEdit ? 'Data meja berhasil diperbarui.' : 'Meja baru berhasil ditambahkan.',
                     );
                   } else {
+                    setDialogState(() => isSaving = false);
                     final err = ref.read(tableNotifierProvider).errorMessage;
                     if (err != null) {
                       AppSnackbar.showError(context, err);
@@ -165,22 +191,37 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _showDeleteDialog(BuildContext context, TableModel table) {
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: 'Hapus Meja',
-      message: 'Apakah Anda yakin ingin menghapus "${table.nama}"? Tindakan ini tidak dapat dibatalkan.',
-      confirmText: 'Hapus',
-      isDestructive: true,
-      onConfirm: () async {
-        final success = await ref.read(tableNotifierProvider.notifier).deleteTable(table.id);
-        if (!context.mounted) return;
-        Navigator.pop(context);
-        if (success) {
-          AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dihapus.');
-        } else {
-          final err = ref.read(tableNotifierProvider).errorMessage;
-          AppSnackbar.showError(context, err ?? 'Gagal menghapus meja.');
-        }
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: 'Hapus Meja',
+              message: 'Apakah Anda yakin ingin menghapus "${table.nama}"? Tindakan ini tidak dapat dibatalkan.',
+              confirmText: 'Hapus',
+              isDestructive: true,
+              isLoading: isDeleting,
+              onConfirm: () async {
+                if (isDeleting) return;
+                setState(() => isDeleting = true);
+                await Future.delayed(const Duration(milliseconds: 300));
+
+                final success = await ref.read(tableNotifierProvider.notifier).deleteTable(table.id);
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (success) {
+                  AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dihapus.');
+                } else {
+                  final err = ref.read(tableNotifierProvider).errorMessage;
+                  AppSnackbar.showError(context, err ?? 'Gagal menghapus meja.');
+                }
+              },
+            );
+          },
+        );
       },
     );
   }
@@ -191,53 +232,66 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
-        return AppDialog(
-          title: 'Generate Meja Otomatis',
-          confirmText: 'Generate',
-          onConfirm: () async {
-            if (formKey.currentState!.validate()) {
-              final count = int.tryParse(countController.text.trim()) ?? 0;
-              if (count <= 0 || count > 50) {
-                AppSnackbar.showWarning(context, 'Jumlah meja harus antara 1 dan 50.');
-                return;
-              }
+        bool isGenerating = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AppDialog(
+              title: 'Generate Meja Otomatis',
+              confirmText: 'Generate',
+              isLoading: isGenerating,
+              onConfirm: () async {
+                if (isGenerating) return;
+                if (formKey.currentState!.validate()) {
+                  final count = int.tryParse(countController.text.trim()) ?? 0;
+                  if (count <= 0 || count > 50) {
+                    AppSnackbar.showWarning(context, 'Jumlah meja harus antara 1 dan 50.');
+                    return;
+                  }
 
-              final success = await ref.read(tableNotifierProvider.notifier).generateMultipleTables(count);
-              if (!context.mounted) return;
-              if (success) {
-                Navigator.pop(context);
-                AppSnackbar.showSuccess(context, 'Berhasil menambahkan $count meja otomatis.');
-              } else {
-                final err = ref.read(tableNotifierProvider).errorMessage;
-                if (err != null) {
-                  AppSnackbar.showError(context, err);
+                  FocusScope.of(context).unfocus();
+                  setDialogState(() => isGenerating = true);
+                  await Future.delayed(const Duration(milliseconds: 300));
+
+                  final success = await ref.read(tableNotifierProvider.notifier).generateMultipleTables(count);
+                  if (!context.mounted) return;
+                  if (success) {
+                    Navigator.pop(context);
+                    AppSnackbar.showSuccess(context, 'Berhasil menambahkan $count meja otomatis.');
+                  } else {
+                    setDialogState(() => isGenerating = false);
+                    final err = ref.read(tableNotifierProvider).errorMessage;
+                    if (err != null) {
+                      AppSnackbar.showError(context, err);
+                    }
+                  }
                 }
-              }
-            }
+              },
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Sistem akan otomatis membuatkan nama & nomor meja secara berurutan (misal: Meja 01, Meja 02, dst).',
+                      style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
+                    ),
+                    SizedBox(height: 16),
+                    AppTextField(
+                      controller: countController,
+                      labelText: 'Jumlah Meja yang Ingin Dibuat',
+                      hintText: 'Contoh: 10',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: Icons.add_moderator_rounded,
+                      validator: (v) => Validators.required(v, 'Jumlah Meja'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           },
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Sistem akan otomatis membuatkan nama & nomor meja secara berurutan (misal: Meja 01, Meja 02, dst).',
-                  style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
-                ),
-                SizedBox(height: 16),
-                AppTextField(
-                  controller: countController,
-                  labelText: 'Jumlah Meja yang Ingin Dibuat',
-                  hintText: 'Contoh: 10',
-                  keyboardType: TextInputType.number,
-                  prefixIcon: Icons.add_moderator_rounded,
-                  validator: (v) => Validators.required(v, 'Jumlah Meja'),
-                ),
-              ],
-            ),
-          ),
         );
       },
     );
