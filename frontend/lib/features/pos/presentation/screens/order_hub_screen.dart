@@ -7,6 +7,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -659,45 +660,21 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
+                            onPressed: () {
+                              AppDialog.show(
                                 context: context,
-                                builder: (ctx) => AlertDialog(
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  title: Row(
-                                    children: [
-                                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
-                                      SizedBox(width: 8),
-                                      Text('Konfirmasi Cetak Bill', style: TextStyle(fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                  content: const Text(
-                                    'Setelah Bill dicetak, pesanan ini tidak dapat diubah atau ditambah menu lagi.\n\nApakah Anda yakin ingin mencetak bill sekarang?',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
-                                      child: const Text('Batal'),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.amber.shade800,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      child: const Text('Ya, Cetak Bill'),
-                                    ),
-                                  ],
-                                ),
-                              );
-
-                              if (confirm != true) return;
-
-                              await repo.markOrderBillPrinted(order.id);
-                              if (isDineIn && order.tableId != null) {
-                                await repo.markTableBillPrinted(order.tableId!);
-                              }
-                              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                title: 'Konfirmasi Cetak Bill',
+                                message: 'Setelah Bill dicetak, pesanan ini tidak dapat diubah atau ditambah menu lagi.\n\nApakah Anda yakin ingin mencetak bill sekarang?',
+                                confirmText: 'Ya, Cetak Bill',
+                                cancelText: 'Batal',
+                                onConfirm: () async {
+                                  Navigator.pop(context); // close dialog
+                                  final repo = ref.read(orderRepositoryProvider);
+                                  await repo.markOrderBillPrinted(order.id);
+                                  if (isDineIn && order.tableId != null) {
+                                    await repo.markTableBillPrinted(order.tableId!);
+                                  }
+                                  ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
 
                               final activeUser = ref.read(authSessionProvider);
                               final printerState = ref.read(printerNotifierProvider);
@@ -736,6 +713,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                 ),
                               );
                             },
+                          );
+                        },
                             icon: Icon(Icons.receipt_long_rounded, size: 18, color: AppColors.secondary),
                             label: Text('Cetak Bill', style: TextStyle(color: AppColors.secondary)),
                             style: OutlinedButton.styleFrom(
@@ -785,82 +764,71 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     final pinController = TextEditingController();
     final isBatch = batchId != null;
 
-    showDialog(
+    AppDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(isBatch ? 'Batalkan Batch' : 'Batalkan $itemName'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Alasan Pembatalan:'),
-              SizedBox(height: 8),
-              TextField(
-                controller: reasonController,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-              ),
-              SizedBox(height: 16),
-              Text('Otorisasi Owner (PIN):'),
-              SizedBox(height: 8),
-              TextField(
-                controller: pinController,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-              ),
-            ],
+      title: isBatch ? 'Batalkan Batch' : 'Batalkan $itemName',
+      confirmText: 'Batalkan',
+      cancelText: 'Tutup',
+      isDestructive: true,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Alasan Pembatalan:'),
+          SizedBox(height: 8),
+          TextField(
+            controller: reasonController,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Tutup'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              onPressed: () async {
-                final reason = reasonController.text.trim();
-                final pin = pinController.text.trim();
+          SizedBox(height: 16),
+          Text('Otorisasi Owner (PIN):'),
+          SizedBox(height: 8),
+          TextField(
+            controller: pinController,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+          ),
+        ],
+      ),
+      onConfirm: () async {
+        final reason = reasonController.text.trim();
+        final pin = pinController.text.trim();
 
-                if (reason.isEmpty || pin.length != 6) {
-                  AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
-                  return;
-                }
+        if (reason.isEmpty || pin.length != 6) {
+          AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
+          return;
+        }
 
-                const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
-                var bytes = utf8.encode(pin + salt);
-                var digest = sha256.convert(bytes);
-                final hashedPin = digest.toString();
+        const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+        var bytes = utf8.encode(pin + salt);
+        var digest = sha256.convert(bytes);
+        final hashedPin = digest.toString();
 
-                final cashierRepo = ref.read(cashierRepositoryProvider);
-                final cashier = await cashierRepo.getCashierByPin(hashedPin);
+        final cashierRepo = ref.read(cashierRepositoryProvider);
+        final cashier = await cashierRepo.getCashierByPin(hashedPin);
 
-                if (!context.mounted) return;
+        if (!context.mounted) return;
 
-                if (cashier == null || cashier.isOwner != 1) {
-                  AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
-                  return;
-                }
+        if (cashier == null || cashier.isOwner != 1) {
+          AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
+          return;
+        }
 
-                Navigator.pop(context); // Close dialog
+        Navigator.pop(context); // Close dialog
 
-                if (isBatch) {
-                  await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
-                } else if (itemId != null) {
-                  await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
-                }
+        if (isBatch) {
+          await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
+        } else if (itemId != null) {
+          await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
+        }
 
-                if (context.mounted) {
-                  AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
-                  ref.read(tableNotifierProvider.notifier).loadTables();
-                  ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                }
-              },
-              child: Text('Batalkan'),
-            ),
-          ],
-        );
+        if (context.mounted) {
+          AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
+          ref.read(tableNotifierProvider.notifier).loadTables();
+          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+        }
       },
     );
   }

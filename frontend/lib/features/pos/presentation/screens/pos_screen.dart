@@ -958,6 +958,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
 
   void _openCartBottomSheet(BuildContext parentContext) {
     debugPrint('[DEBUG_BAYAR] Inside _openCartBottomSheet function');
+    bool isSaving = false;
     showModalBottomSheet(
       context: parentContext,
       isScrollControlled: true,
@@ -967,7 +968,8 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
         initialChildSize: 0.85,
         maxChildSize: 0.95,
         minChildSize: 0.5,
-        builder: (sheetContext2, scrollController) => Container(
+        builder: (sheetContext2, scrollController) => StatefulBuilder(
+          builder: (context, setStateSheet) => Container(
           decoration: const BoxDecoration(
             color: AppColors.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -1034,11 +1036,15 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: cState.items.isEmpty
+                            child: AppButton(
+                              type: AppButtonType.outlined,
+                              isLoading: isSaving,
+                              onPressed: cState.items.isEmpty || isSaving
                                   ? null
                                   : () async {
-                                      Navigator.of(sheetContext).pop(); // Pop sheet dulu
+                                      setStateSheet(() => isSaving = true);
+                                      await Future.delayed(const Duration(milliseconds: 100)); // Allow UI update
+
                                       if (await _ensureTableSelected()) {
                                         final authUser = ref.read(authSessionProvider);
                                         final savedItems = await orderNotifier.saveCurrentOrderDraft(
@@ -1049,33 +1055,38 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                           cState.grandTotal,
                                           cashierId: authUser?.id,
                                           cashierNama: authUser?.nama,
+                                          printToKitchen: true,
                                         );
+
+                                        if (!mounted) return;
+                                        Navigator.of(sheetContext).pop(); // Pop sheet AFTER done
+                                        
                                         if (savedItems != null) {
                                           cNotifier.clear();
                                           orderNotifier.resetForNewTransaction();
-                                          if (!mounted) return;
                                           AppSnackbar.showSuccess(parentContext, 'Pesanan terkirim ke Dapur & disimpan (Bayar Nanti).');
                                         } else {
                                           final err = ref.read(orderNotifierProvider).errorMessage;
-                                          if (!mounted) return;
                                           AppSnackbar.showError(parentContext, err ?? 'Gagal menyimpan pesanan.');
                                         }
+                                      } else {
+                                        if (mounted) setStateSheet(() => isSaving = false);
                                       }
                                     },
-                              icon: const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                              label: const Text('Kirim ke Dapur', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
+                              icon: Icons.soup_kitchen_rounded,
+                              text: 'Kirim ke Dapur',
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: (orderState.activeOrder?.isPaid ?? false)
-                                ? ElevatedButton.icon(
-                                    onPressed: () async {
-                                      Navigator.of(sheetContext).pop();
+                                ? AppButton(
+                                    type: AppButtonType.primary,
+                                    isLoading: isSaving,
+                                    onPressed: isSaving ? null : () async {
+                                      setStateSheet(() => isSaving = true);
+                                      await Future.delayed(const Duration(milliseconds: 100));
+
                                       final orderId = orderState.activeOrder!.id;
                                       final tableId = orderState.activeOrder!.tableId;
                                       await ref.read(orderRepositoryProvider).completeOrder(orderId, tableId: tableId);
@@ -1083,39 +1094,36 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                       orderNotifier.resetForNewTransaction();
                                       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
                                       ref.read(tableNotifierProvider.notifier).loadTables();
-                                      if (mounted) AppSnackbar.showSuccess(context, 'Meja dibersihkan dan pesanan diselesaikan.');
+                                      
+                                      if (!mounted) return;
+                                      Navigator.of(sheetContext).pop();
+                                      AppSnackbar.showSuccess(context, 'Meja dibersihkan dan pesanan diselesaikan.');
                                     },
-                                    icon: const Icon(Icons.cleaning_services_rounded, size: 18),
-                                    label: const Text('Bersihkan Meja', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blueGrey,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
+                                    icon: Icons.cleaning_services_rounded,
+                                    text: 'Bersihkan Meja',
                                   )
-                                : ElevatedButton.icon(
-                                    onPressed: cState.items.isEmpty
+                                : AppButton(
+                                    type: AppButtonType.primary,
+                                    isLoading: isSaving,
+                                    onPressed: cState.items.isEmpty || isSaving
                                         ? null
                                         : () async {
+                                            setStateSheet(() => isSaving = true);
+                                            
                                             if (await _ensureTableSelected()) {
-                                              Navigator.of(sheetContext).pop();
                                               if (!mounted) return;
+                                              Navigator.of(sheetContext).pop();
                                               await Navigator.of(context, rootNavigator: true).push(
                                                 MaterialPageRoute(builder: (_) => const PaymentScreen()),
                                               );
                                               if (!mounted) return;
                                               ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                            } else {
+                                              if (mounted) setStateSheet(() => isSaving = false);
                                             }
                                           },
-                                    icon: const Icon(Icons.payments_rounded, size: 18),
-                                    label: const Text('Bayar Now', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.success,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
+                                    icon: Icons.payments_rounded,
+                                    text: 'Bayar Now',
                                   ),
                           ),
                         ],
@@ -1154,6 +1162,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                 ),
               );
             },
+          ),
           ),
         ),
       ),

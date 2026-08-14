@@ -250,6 +250,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     setState(() => _isProcessing = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
 
     try {
       final activeUser = ref.read(authSessionProvider);
@@ -597,13 +598,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   void _finishAndResetTransaction() {
-    ref.read(cartNotifierProvider.notifier).clear();
-    ref.read(orderNotifierProvider.notifier).resetOrder();
-    ref.read(tableNotifierProvider.notifier).loadTables();
-    ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final tableNotifier = ref.read(tableNotifierProvider.notifier);
+
     if (mounted) {
+      FocusManager.instance.primaryFocus?.unfocus();
       Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
     }
+
+    // Beri jeda waktu agar animasi pop screen selesai sebelum mereset state,
+    // mencegah freeze akibat re-build masif pada screen yang sedang dianimasikan keluar.
+    Future.delayed(const Duration(milliseconds: 300), () {
+      cartNotifier.clear();
+      orderNotifier.resetOrder();
+      tableNotifier.loadTables();
+      orderNotifier.loadActiveOrdersMap();
+    });
   }
 
 
@@ -660,9 +671,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           ),
         ),
         body: SafeArea(
-          child: _isProcessing
-              ? const AppLoading(message: 'Menyimpan transaksi offline...')
-            : LayoutBuilder(
+          child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 600;
                   final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
@@ -714,8 +723,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   }
                 },
               ),
-      ),
-    );
+        ),
+      );
   }
 
   Widget _buildBillingPanel(
@@ -1117,7 +1126,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             child: AppButton(
               text: 'Bayar Sekarang',
               type: AppButtonType.primary,
-              onPressed: isPayDisabled
+              isLoading: _isProcessing,
+              onPressed: isPayDisabled || _isProcessing
                   ? null
                   : () => _handlePayment(
                         grandTotal,

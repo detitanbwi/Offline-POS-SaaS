@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
+import '../../auth/domain/models/auth_user.dart';
+import '../../auth/presentation/providers/auth_providers.dart';
 import '../../pos/domain/models/transaction.dart';
 import '../../pos/domain/repositories/transaction_repository.dart';
 
@@ -37,8 +39,9 @@ class TransactionHistoryState {
 
 class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> {
   final TransactionRepository _repository;
+  final AuthUser? _authUser;
 
-  TransactionHistoryNotifier(this._repository) : super(TransactionHistoryState()) {
+  TransactionHistoryNotifier(this._repository, this._authUser) : super(TransactionHistoryState()) {
     loadTransactions();
   }
 
@@ -46,7 +49,11 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
     await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final list = await _repository.getAllTransactions();
+      String? cashierId;
+      if (_authUser != null && _authUser!.isCashier) {
+        cashierId = _authUser!.id;
+      }
+      final list = await _repository.getAllTransactions(cashierId: cashierId);
       state = state.copyWith(
         allTransactions: list,
         isLoading: false,
@@ -96,5 +103,6 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
 final transactionHistoryNotifierProvider =
     StateNotifierProvider<TransactionHistoryNotifier, TransactionHistoryState>((ref) {
   final repo = ref.watch(transactionRepositoryProvider);
-  return TransactionHistoryNotifier(repo);
+  final authUser = ref.watch(authSessionProvider);
+  return TransactionHistoryNotifier(repo, authUser);
 });

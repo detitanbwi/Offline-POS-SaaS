@@ -63,6 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
 
     final authService = ref.read(authServiceProvider);
     final result = await authService.login(

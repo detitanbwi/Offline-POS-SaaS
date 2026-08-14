@@ -21,6 +21,7 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
 
   Future<void> _handleSync() async {
     setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
     
     final licenseService = ref.read(licenseServiceProvider);
     final result = await licenseService.validateLicenseOnline();

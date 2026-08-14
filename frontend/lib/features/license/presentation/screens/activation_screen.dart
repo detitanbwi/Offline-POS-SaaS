@@ -35,6 +35,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
 
   Future<void> _fetchLicenseInfo() async {
     setState(() => _isFetchingToken = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
     final licenseService = ref.read(licenseServiceProvider);
     final result = await licenseService.getLicenseInfo();
     if (!mounted) return;
@@ -70,6 +71,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     }
 
     setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
 
     final licenseService = ref.read(licenseServiceProvider);
     final result = await licenseService.activate(key);

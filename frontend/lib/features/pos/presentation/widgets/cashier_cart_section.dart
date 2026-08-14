@@ -7,6 +7,8 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/di/providers.dart';
 
 import '../../application/cart_notifier.dart';
@@ -38,8 +40,11 @@ class CashierCartSection extends ConsumerStatefulWidget {
 }
 
 class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
+  final TextEditingController noteController = TextEditingController();
+  final TextEditingController _customerNameController = TextEditingController();
   bool _isSaving = false;
-  final _customerNameController = TextEditingController();
+  bool _isNavigating = false;
+  bool _isOpeningBatch = false;
 
   @override
   void initState() {
@@ -171,69 +176,68 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
 
     final printChoice = await showDialog<bool>(
       context: context,
-      builder: (dialogCtx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        bool isProcessing = false;
+        return StatefulBuilder(
+          builder: (context, setStateDialog) => Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: isProcessing
+                  ? const Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: AppLoading(message: 'Menyimpan pesanan...'),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 22),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Simpan Pesanan', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Apakah Anda ingin mengirim / mencetak nota pesanan ini ke dapur?',
+                          style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
+                        ),
+                        SizedBox(height: 20),
+                        AppButton(
+                          text: 'Ya, Kirim Dapur',
+                          icon: Icons.print_rounded,
+                          onPressed: () => Navigator.pop(dialogCtx, true),
+                        ),
+                        SizedBox(height: 10),
+                        AppButton(
+                          type: AppButtonType.outlined,
+                          text: 'Tidak, Hanya Simpan',
+                          onPressed: () => Navigator.pop(dialogCtx, false),
+                        ),
+                        SizedBox(height: 10),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onPressed: () => Navigator.pop(dialogCtx, null),
+                          child: Text('Batal', style: TextStyle(fontSize: 13.sp, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
                     ),
-                    child: Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 22),
-                  ),
-                  SizedBox(width: 10),
-                  Text('Simpan Pesanan', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Apakah Anda ingin mengirim / mencetak nota pesanan ini ke dapur?',
-                style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
-              ),
-              SizedBox(height: 20),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  elevation: 0,
-                ),
-                icon: Icon(Icons.print_rounded, size: 18),
-                label: Text('Ya, Kirim Dapur', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
-                onPressed: () => Navigator.pop(dialogCtx, true),
-              ),
-              SizedBox(height: 10),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary, width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                ),
-                onPressed: () => Navigator.pop(dialogCtx, false),
-                child: Text('Tidak, Hanya Simpan', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
-              ),
-              SizedBox(height: 10),
-              TextButton(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-                onPressed: () => Navigator.pop(dialogCtx, null),
-                child: Text('Batal', style: TextStyle(fontSize: 13.sp, color: AppColors.primary, fontWeight: FontWeight.w600)),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     if (printChoice == null) return;
@@ -249,6 +253,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     }
 
     setState(() => _isSaving = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
     try {
       final orderNotifier = ref.read(orderNotifierProvider.notifier);
 
@@ -286,17 +291,34 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     }
   }
 
-  void _handleGoToPayment() {
+  Future<void> _handleGoToPayment() async {
     final cartState = ref.read(cartNotifierProvider);
     if (cartState.items.isEmpty) {
       AppSnackbar.showWarning(context, 'Keranjang masih kosong!');
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const PaymentScreen()),
-    );
+    setState(() => _isNavigating = true);
+    await Future.delayed(const Duration(milliseconds: 50));
+    
+    if (mounted) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaymentScreen()),
+      );
+    }
+    
+    if (mounted) setState(() => _isNavigating = false);
+  }
+
+  Future<void> _handleOpenBatch() async {
+    setState(() => _isOpeningBatch = true);
+    await Future.delayed(const Duration(milliseconds: 50));
+    
+    if (mounted) {
+      _showPrintBatchesDialog(); // Don't await, let it return immediately to stop loading
+      setState(() => _isOpeningBatch = false);
+    }
   }
 
   Future<void> _showPrintBatchesDialog() async {
@@ -307,7 +329,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     int unprintedCount = 0;
     for (var item in cartState.items) {
       if (item.qty > item.initialSavedQty) {
-        unprintedCount += (item.qty - item.initialSavedQty);
+        unprintedCount += (item.qty - item.initialSavedQty).toInt();
       }
     }
 
@@ -324,155 +346,168 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogCtx) {
         final screenWidth = MediaQuery.of(context).size.width;
         final dialogWidth = screenWidth > 600 ? 500.0 : screenWidth * 0.94;
-        return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            width: dialogWidth,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 24),
-                    SizedBox(width: 10),
-                    Text(
-                      'Struk Batch Dapur',
-                      style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Pilih batch pesanan yang ingin dikirim / dicetak ke printer dapur:',
-                  style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
-                ),
-                SizedBox(height: 16),
-
-                // 1. If unprinted items exist, show prominent action tile at top!
-                if (unprintedCount > 0) ...[
-                  Material(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: AppColors.primary, width: 1.5),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
+        bool isProcessing = false;
+        
+        return StatefulBuilder(
+          builder: (context, setStateDialog) => Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: dialogWidth,
+              padding: const EdgeInsets.all(20),
+              child: isProcessing
+                  ? const Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: AppLoading(message: 'Memproses batch dapur...'),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.soup_kitchen_rounded, color: AppColors.primary, size: 24),
+                            SizedBox(width: 10),
+                            Text(
+                              'Struk Batch Dapur',
+                              style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
-                        child: Icon(Icons.send_rounded, size: 18, color: Colors.white),
-                      ),
-                      title: Text(
-                        'Kirim Batch #${existingBatchCount + 1} ke Dapur',
-                        style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: AppColors.primary),
-                      ),
-                      subtitle: Text(
-                        'Ada +$unprintedCount item baru yang belum dikirim',
-                        style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-                      ),
-                      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
-                      onTap: () async {
-                        Navigator.pop(dialogCtx);
-                        if (mounted) {
-                          await _handleSaveDraftWithKitchenPrint(true);
-                        }
-                      },
-                    ),
-                  ),
-                  SizedBox(height: 14),
-                ],
+                        SizedBox(height: 12),
+                        Text(
+                          'Pilih batch pesanan yang ingin dikirim / dicetak ke printer dapur:',
+                          style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
+                        ),
+                        SizedBox(height: 16),
 
-                // 2. Existing Printed Batches
-                if (existingBatchCount > 0) ...[
-                  Text(
-                    'Batch Pesanan Sebelumnya:',
-                    style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                  ),
-                  SizedBox(height: 8),
-                  ...List.generate(existingBatchCount, (index) {
-                    final bNum = index + 1;
-                    final bLabel = bNum == 1 ? 'Batch #1 (Pesanan Awal)' : 'Batch #$bNum (Pesanan Tambahan)';
-                    return Card(
-                      elevation: 0,
-                      margin: const EdgeInsets.only(bottom: 6),
-                      color: AppColors.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: AppColors.divider),
-                      ),
-                      child: ListTile(
-                        dense: true,
-                        leading: Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
-                        title: Text(bLabel, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600)),
-                        trailing: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
+                        // 1. If unprinted items exist, show prominent action tile at top!
+                        if (unprintedCount > 0) ...[
+                          Material(
                             color: AppColors.primary.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: AppColors.primary, width: 1.5),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                              ),
+                              title: Text(
+                                'Kirim Batch #${existingBatchCount + 1} ke Dapur',
+                                style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              ),
+                              subtitle: Text(
+                                'Ada +$unprintedCount item baru yang belum dikirim',
+                                style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                              ),
+                              trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+                              onTap: () async {
+                                setStateDialog(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (mounted) {
+                                  await _handleSaveDraftWithKitchenPrint(true);
+                                }
+                                if (mounted) Navigator.pop(dialogCtx);
+                              },
+                            ),
                           ),
-                          child: Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
-                        ),
-                        onTap: () async {
-                          Navigator.pop(dialogCtx);
-                          if (mounted && order != null) {
-                            await _reprintKitchenBatch(order, bNum);
-                          }
-                        },
-                      ),
-                    );
-                  }),
-                  SizedBox(height: 4),
-                  Card(
-                    elevation: 0,
-                    color: AppColors.success.withValues(alpha: 0.08),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: AppColors.success.withValues(alpha: 0.3)),
-                    ),
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.receipt_long_rounded, size: 20, color: AppColors.success),
-                      title: Text('Cetak Rekap Dapur (Semua Menu)', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.success)),
-                      onTap: () async {
-                        Navigator.pop(dialogCtx);
-                        if (mounted && order != null) {
-                          await _reprintKitchenBatch(order, 0);
-                        }
-                      },
-                    ),
-                  ),
-                ] else if (unprintedCount == 0) ...[
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16.0),
-                    child: Center(
-                      child: Text(
-                        'Belum ada batch pesanan tersimpan untuk meja ini.',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
-                      ),
-                    ),
-                  ),
-                ],
+                          SizedBox(height: 14),
+                        ],
 
-                SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(dialogCtx),
-                    child: Text('Tutup', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+                        // 2. Existing Printed Batches
+                        if (existingBatchCount > 0) ...[
+                          Text(
+                            'Batch Pesanan Sebelumnya:',
+                            style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                          ),
+                          SizedBox(height: 8),
+                          ...List.generate(existingBatchCount, (index) {
+                            final bNum = index + 1;
+                            final bLabel = bNum == 1 ? 'Batch #1 (Pesanan Awal)' : 'Batch #$bNum (Pesanan Tambahan)';
+                            return Card(
+                              elevation: 0,
+                              margin: const EdgeInsets.only(bottom: 6),
+                              color: AppColors.surface,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: const BorderSide(color: AppColors.divider),
+                              ),
+                              child: ListTile(
+                                dense: true,
+                                leading: Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
+                                title: Text(bLabel, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600)),
+                                trailing: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.print_rounded, size: 20, color: AppColors.primary),
+                                ),
+                                onTap: () async {
+                                  setStateDialog(() => isProcessing = true);
+                                  await Future.delayed(const Duration(milliseconds: 100));
+                                  if (mounted && order != null) {
+                                    await _reprintKitchenBatch(order, bNum);
+                                  }
+                                  if (mounted) Navigator.pop(dialogCtx);
+                                },
+                              ),
+                            );
+                          }),
+                          SizedBox(height: 4),
+                          Card(
+                            elevation: 0,
+                            color: AppColors.success.withValues(alpha: 0.08),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: AppColors.success.withValues(alpha: 0.3)),
+                            ),
+                            child: ListTile(
+                              dense: true,
+                              leading: Icon(Icons.receipt_long_rounded, size: 20, color: AppColors.success),
+                              title: Text('Cetak Rekap Dapur (Semua Menu)', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.success)),
+                              onTap: () async {
+                                setStateDialog(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (mounted && order != null) {
+                                  await _reprintKitchenBatch(order, 0);
+                                }
+                                if (mounted) Navigator.pop(dialogCtx);
+                              },
+                            ),
+                          ),
+                        ] else if (unprintedCount == 0) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
+                            child: Center(
+                              child: Text(
+                                'Belum ada batch pesanan tersimpan untuk meja ini.',
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+                              ),
+                            ),
+                          ),
+                        ],
+                        SizedBox(height: 16),
+                        AppButton(
+                          type: AppButtonType.outlined,
+                          text: 'Tutup',
+                          onPressed: () => Navigator.pop(dialogCtx),
+                        ),
+                      ],
+                    ),
             ),
           ),
         );
@@ -552,7 +587,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     int unprintedCount = 0;
     for (var item in cartState.items) {
       if (item.qty > item.initialSavedQty) {
-        unprintedCount += (item.qty - item.initialSavedQty);
+        unprintedCount += (item.qty - item.initialSavedQty).toInt();
       }
     }
 
@@ -1095,15 +1130,17 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   height: 30,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: _isNavigating ? AppColors.disabled.withValues(alpha: 0.3) : AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                       textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                     ),
-                    onPressed: cartState.items.isEmpty ? null : _handleGoToPayment,
-                    child: Text('Bayar', overflow: TextOverflow.ellipsis),
+                    onPressed: cartState.items.isEmpty || _isNavigating ? null : _handleGoToPayment,
+                    child: _isNavigating
+                        ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text('Bayar', overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ),
@@ -1118,26 +1155,30 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       child: unprintedCount > 0
                           ? ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange.shade700,
+                                backgroundColor: _isOpeningBatch ? AppColors.disabled.withValues(alpha: 0.3) : Colors.orange.shade700,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 elevation: 0,
                                 textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                               ),
-                              onPressed: _showPrintBatchesDialog,
-                              child: Text('Batch', overflow: TextOverflow.ellipsis),
+                              onPressed: _isOpeningBatch ? null : _handleOpenBatch,
+                              child: _isOpeningBatch
+                                  ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : Text('Batch', overflow: TextOverflow.ellipsis),
                             )
                           : OutlinedButton(
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primary,
-                                side: BorderSide(color: AppColors.primary, width: 1),
+                                side: BorderSide(color: _isOpeningBatch ? AppColors.disabled : AppColors.primary, width: 1),
                                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
                               ),
-                              onPressed: _showPrintBatchesDialog,
-                              child: Text('Batch', overflow: TextOverflow.ellipsis),
+                              onPressed: _isOpeningBatch ? null : _handleOpenBatch,
+                              child: _isOpeningBatch
+                                  ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                                  : Text('Batch', overflow: TextOverflow.ellipsis),
                             ),
                     ),
                     if (unprintedCount > 0)

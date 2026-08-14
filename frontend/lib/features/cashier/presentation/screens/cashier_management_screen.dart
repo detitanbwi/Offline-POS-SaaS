@@ -38,138 +38,112 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
     final pinController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    showDialog(
+    AppDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          scrollable: true,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            isEdit ? 'Ubah Data & Reset PIN' : 'Pendaftaran Kasir Baru',
-            style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
-          ),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppTextField(
-                    controller: nameController,
-                    labelText: 'Nama Lengkap Kasir (Nama Pengguna)',
-                    hintText: 'Contoh: Budi Santoso',
-                    prefixIcon: Icons.person_outline_rounded,
-                    maxLength: 50,
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Nama tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: AppSpacing.m),
-                  AppTextField(
-                    controller: usernameController,
-                    labelText: 'Username (Akun Login)',
-                    hintText: 'Contoh: budi_s (tanpa spasi)',
-                    prefixIcon: Icons.account_circle_outlined,
-                    maxLength: 30,
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Username tidak boleh kosong';
-                      }
-                      if (val.trim().contains(' ')) {
-                        return 'Username tidak boleh mengandung spasi';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: AppSpacing.m),
-                  AppTextField(
-                    controller: pinController,
-                    labelText: isEdit ? 'Reset PIN (6 Digit, Opsional)' : 'PIN Sesi (6 Digit)',
-                    hintText: isEdit ? 'Kosongkan jika tidak ingin diubah' : 'Masukkan 6 digit angka',
-                    prefixIcon: Icons.lock_outline_rounded,
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    maxLength: 6,
-                    validator: (val) {
-                      if (!isEdit && (val == null || val.length != 6)) {
-                        return 'PIN harus 6 digit angka';
-                      }
-                      if (isEdit && val != null && val.isNotEmpty && val.length != 6) {
-                        return 'PIN baru harus 6 digit angka';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Batal'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () async {
-                if (formKey.currentState?.validate() ?? false) {
-                  final notifier = ref.read(cashierNotifierProvider.notifier);
-                  bool success;
-                  
-                  if (isEdit) {
-                    success = await notifier.updateCashier(
-                      cashier.id,
-                      nameController.text.trim(),
-                      usernameController.text.trim(),
-                      pinController.text.isNotEmpty ? pinController.text : null,
-                    );
-                  } else {
-                    success = await notifier.addCashier(
-                      nameController.text.trim(),
-                      usernameController.text.trim(),
-                      pinController.text,
-                    );
-                  }
-
-                  if (!context.mounted) return;
-                  Navigator.pop(context);
-
-                  final state = ref.read(cashierNotifierProvider);
-                  if (success) {
-                    AppSnackbar.showSuccess(context, state.successMessage ?? 'Operasi Berhasil!');
-                  } else {
-                    AppSnackbar.showError(context, state.errorMessage ?? 'Operasi Gagal!');
-                  }
+      title: isEdit ? 'Ubah Data & Reset PIN' : 'Pendaftaran Kasir Baru',
+      confirmText: isEdit ? 'Simpan' : 'Daftarkan',
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppTextField(
+              controller: nameController,
+              labelText: 'Nama Lengkap Kasir (Nama Pengguna)',
+              hintText: 'Contoh: Budi Santoso',
+              prefixIcon: Icons.person_outline_rounded,
+              maxLength: 50,
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) {
+                  return 'Nama tidak boleh kosong';
                 }
+                return null;
               },
-              child: Text(isEdit ? 'Simpan' : 'Daftarkan'),
+            ),
+            SizedBox(height: AppSpacing.m),
+            AppTextField(
+              controller: usernameController,
+              labelText: 'Username (Akun Login)',
+              hintText: 'Contoh: budi_s (tanpa spasi)',
+              prefixIcon: Icons.account_circle_outlined,
+              maxLength: 30,
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) {
+                  return 'Username tidak boleh kosong';
+                }
+                if (val.trim().contains(' ')) {
+                  return 'Username tidak boleh mengandung spasi';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: AppSpacing.m),
+            AppTextField(
+              controller: pinController,
+              labelText: isEdit ? 'Reset PIN (6 Digit, Opsional)' : 'PIN Sesi (6 Digit)',
+              hintText: isEdit ? 'Kosongkan jika tidak ingin diubah' : 'Masukkan 6 digit angka',
+              prefixIcon: Icons.lock_outline_rounded,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 6,
+              validator: (val) {
+                if (!isEdit && (val == null || val.length != 6)) {
+                  return 'PIN harus 6 digit angka';
+                }
+                if (isEdit && val != null && val.isNotEmpty && val.length != 6) {
+                  return 'PIN baru harus 6 digit angka';
+                }
+                return null;
+              },
             ),
           ],
-        );
+        ),
+      ),
+      onConfirm: () async {
+        if (formKey.currentState?.validate() ?? false) {
+          final notifier = ref.read(cashierNotifierProvider.notifier);
+          bool success;
+          
+          if (isEdit) {
+            success = await notifier.updateCashier(
+              cashier.id,
+              nameController.text.trim(),
+              usernameController.text.trim(),
+              pinController.text.isNotEmpty ? pinController.text : null,
+            );
+          } else {
+            success = await notifier.addCashier(
+              nameController.text.trim(),
+              usernameController.text.trim(),
+              pinController.text,
+            );
+          }
+
+          if (!context.mounted) return;
+          Navigator.pop(context);
+
+          final state = ref.read(cashierNotifierProvider);
+          if (success) {
+            AppSnackbar.showSuccess(context, state.successMessage ?? 'Operasi Berhasil!');
+          } else {
+            AppSnackbar.showError(context, state.errorMessage ?? 'Operasi Gagal!');
+          }
+        }
       },
     );
   }
 
   void _confirmDeleteCashier(BuildContext context, CashierModel cashier) {
-    AppDialog.show(
+    AppDialog.showConfirmDelete(
       context: context,
       title: 'Hapus Akses Kasir',
-      message: 'Apakah Anda yakin ingin menghapus akses kasir "${cashier.nama}"? Shift transaksi kasir ini akan dipertahankan namun kasir tidak bisa masuk lagi.',
-      confirmText: 'Hapus Akses',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () async {
+      itemName: cashier.nama,
+      onDelete: () async {
         final notifier = ref.read(cashierNotifierProvider.notifier);
         await notifier.deleteCashier(cashier.id);
         
         if (!context.mounted) return;
+        Navigator.pop(context); // Close the dialog
         final state = ref.read(cashierNotifierProvider);
         if (state.errorMessage != null) {
           AppSnackbar.showError(context, state.errorMessage!);

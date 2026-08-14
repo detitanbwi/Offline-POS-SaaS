@@ -10,10 +10,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
   TransactionRepositoryImpl(this._db);
 
   @override
-  Future<List<TransactionHeader>> getAllTransactions() async {
+  Future<List<TransactionHeader>> getAllTransactions({String? cashierId}) async {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
+      where: cashierId != null ? 'cashier_id = ?' : null,
+      whereArgs: cashierId != null ? [cashierId] : null,
       orderBy: 'created_at DESC',
     );
     return List.generate(maps.length, (i) => TransactionHeader.fromMap(maps[i]));
@@ -105,9 +107,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> getDailySalesReport(String dateStr) async {
+  Future<Map<String, dynamic>> getDailySalesReport(String dateStr, {String? cashierId}) async {
     final db = await _db.database;
     final searchPattern = '$dateStr%';
+
+    String whereClause = 'created_at LIKE ?';
+    List<Object?> whereArgs = [searchPattern];
+
+    if (cashierId != null) {
+      whereClause += ' AND cashier_id = ?';
+      whereArgs.add(cashierId);
+    }
 
     final List<Map<String, dynamic>> summaryResult = await db.rawQuery(
       '''
@@ -116,9 +126,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
         COALESCE(SUM(grand_total), 0) as total_sales, 
         COALESCE(SUM(tax_amount), 0) as total_tax 
       FROM transactions 
-      WHERE created_at LIKE ?
+      WHERE $whereClause
       ''',
-      [searchPattern],
+      whereArgs,
     );
 
     final totalTransactions = summaryResult.first['total_transactions'] as int;
@@ -129,10 +139,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
       '''
       SELECT payment_method_nama, COALESCE(SUM(grand_total), 0) as total 
       FROM transactions 
-      WHERE created_at LIKE ? 
+      WHERE $whereClause 
       GROUP BY payment_method_nama
       ''',
-      [searchPattern],
+      whereArgs,
     );
 
     final Map<String, double> paymentBreakdown = {};
@@ -146,12 +156,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
       '''
       SELECT produk_nama as nama, SUM(qty) as qty, SUM(subtotal) as total 
       FROM transaction_items 
-      WHERE transaction_id IN (SELECT id FROM transactions WHERE created_at LIKE ?) 
+      WHERE transaction_id IN (SELECT id FROM transactions WHERE $whereClause) 
       GROUP BY produk_id 
       ORDER BY qty DESC 
       LIMIT 5
       ''',
-      [searchPattern],
+      whereArgs,
     );
 
     final List<Map<String, dynamic>> topProducts = productResult.map((row) {

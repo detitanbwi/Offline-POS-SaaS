@@ -56,6 +56,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   Future<void> _loadAccounts() async {
     setState(() => _isLoadingAccounts = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
     try {
       final storage = ref.read(secureStorageServiceProvider);
       final ownerUsername = await storage.getOwnerUsername() ?? 'owner';
@@ -121,6 +122,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       if (!mounted) return;
 
       setState(() => _isSubmitting = true);
+      await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
       try {
         final storage = ref.read(secureStorageServiceProvider);
         final licenseKey = await storage.getLicenseKey() ?? 'XXXX-XXXX-XXXX';
@@ -159,6 +161,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     }
 
     setState(() => _isSubmitting = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
     try {
       if (_selectedAccount!.isOwner) {
         final securityRepo = ref.read(securityRepositoryProvider);

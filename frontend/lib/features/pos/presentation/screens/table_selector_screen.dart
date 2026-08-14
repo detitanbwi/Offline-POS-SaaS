@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -26,6 +27,7 @@ class TableSelectorScreen extends ConsumerStatefulWidget {
 class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
   String? _selectedTableId;
   TableModel? _selectedTable;
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -52,6 +54,10 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
   }
 
   Future<void> _navigateToCashier(TableModel table) async {
+    if (_isNavigating) return;
+    setState(() => _isNavigating = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // allow UI to update
+
     final orderNotifier = ref.read(orderNotifierProvider.notifier);
     final cartNotifier = ref.read(cartNotifierProvider.notifier);
     final productState = ref.read(productNotifierProvider);
@@ -73,13 +79,17 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
 
     if (!mounted) return;
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const CashierScreen()),
     ).then((_) {
       ref.read(tableNotifierProvider.notifier).loadTables();
       ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
     });
+
+    if (mounted) {
+      setState(() => _isNavigating = false);
+    }
   }
 
   @override
@@ -127,21 +137,10 @@ class _TableSelectorScreenState extends ConsumerState<TableSelectorScreen> {
                         ],
                       ),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      icon: Text(
-                        'Lanjutkan',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.sp),
-                      ),
-                      label: Icon(Icons.arrow_forward_rounded),
+                    AppButton(
+                      text: 'Lanjutkan',
+                      icon: Icons.arrow_forward_rounded,
+                      isLoading: _isNavigating,
                       onPressed: () => _navigateToCashier(_selectedTable!),
                     ),
                   ],

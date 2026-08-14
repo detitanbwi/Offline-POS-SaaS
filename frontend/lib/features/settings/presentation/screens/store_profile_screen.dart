@@ -58,6 +58,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     }
 
     setState(() => _isSaving = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
 
     final storage = ref.read(secureStorageServiceProvider);
     await storage.saveStoreInfo(

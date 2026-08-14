@@ -409,10 +409,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
+        bool isClearingTable = false;
+        return StatefulBuilder(
+          builder: (sheetContextInner, setSheetState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.m),
             child: Column(
@@ -661,18 +664,32 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         Expanded(
                           child: activeOrder.isPaid
                               ? ElevatedButton.icon(
-                                  onPressed: () async {
-                                    Navigator.pop(sheetContext);
+                                  onPressed: isClearingTable ? null : () async {
+                                    setSheetState(() => isClearingTable = true);
+                                    await Future.delayed(const Duration(milliseconds: 100)); // allow UI to update
+                                    
                                     await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-                                    ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                                    ref.read(tableNotifierProvider.notifier).loadTables();
-                                    if (mounted) AppSnackbar.showSuccess(context, 'Meja berhasil dibersihkan dan pesanan diselesaikan.');
+                                    await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                    await ref.read(tableNotifierProvider.notifier).loadTables();
+                                    
+                                    if (mounted) {
+                                      Navigator.pop(sheetContext);
+                                      AppSnackbar.showSuccess(context, 'Meja berhasil dibersihkan dan pesanan diselesaikan.');
+                                    }
                                   },
-                                  icon: Icon(Icons.cleaning_services_rounded, size: 18),
-                                  label: Text('Bersihkan Meja'),
+                                  icon: isClearingTable
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        )
+                                      : const Icon(Icons.cleaning_services_rounded, size: 18),
+                                  label: Text(isClearingTable ? 'Memproses...' : 'Bersihkan Meja'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blueGrey,
                                     foregroundColor: Colors.white,
+                                    disabledBackgroundColor: Colors.blueGrey.withValues(alpha: 0.5),
+                                    disabledForegroundColor: Colors.white70,
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
@@ -723,6 +740,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             ],
           ),
           ),
+            );
+          },
         );
       },
     );
@@ -733,82 +752,71 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final pinController = TextEditingController();
     final isBatch = batchId != null;
 
-    showDialog(
+    AppDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(isBatch ? 'Batalkan Batch' : 'Batalkan $itemName'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Alasan Pembatalan:'),
-              SizedBox(height: 8),
-              TextField(
-                controller: reasonController,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-              ),
-              SizedBox(height: 16),
-              Text('Otorisasi Owner (PIN):'),
-              SizedBox(height: 8),
-              TextField(
-                controller: pinController,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-              ),
-            ],
+      title: isBatch ? 'Batalkan Batch' : 'Batalkan $itemName',
+      confirmText: 'Batalkan',
+      cancelText: 'Tutup',
+      isDestructive: true,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Alasan Pembatalan:'),
+          SizedBox(height: 8),
+          TextField(
+            controller: reasonController,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Tutup'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              onPressed: () async {
-                final reason = reasonController.text.trim();
-                final pin = pinController.text.trim();
+          SizedBox(height: 16),
+          Text('Otorisasi Owner (PIN):'),
+          SizedBox(height: 8),
+          TextField(
+            controller: pinController,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+          ),
+        ],
+      ),
+      onConfirm: () async {
+        final reason = reasonController.text.trim();
+        final pin = pinController.text.trim();
 
-                if (reason.isEmpty || pin.length != 6) {
-                  AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
-                  return;
-                }
+        if (reason.isEmpty || pin.length != 6) {
+          AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
+          return;
+        }
 
-                const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
-                var bytes = utf8.encode(pin + salt);
-                var digest = sha256.convert(bytes);
-                final hashedPin = digest.toString();
+        const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+        var bytes = utf8.encode(pin + salt);
+        var digest = sha256.convert(bytes);
+        final hashedPin = digest.toString();
 
-                final cashierRepo = ref.read(cashierRepositoryProvider);
-                final cashier = await cashierRepo.getCashierByPin(hashedPin);
+        final cashierRepo = ref.read(cashierRepositoryProvider);
+        final cashier = await cashierRepo.getCashierByPin(hashedPin);
 
-                if (!context.mounted) return;
+        if (!context.mounted) return;
 
-                if (cashier == null || cashier.isOwner != 1) {
-                  AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
-                  return;
-                }
+        if (cashier == null || cashier.isOwner != 1) {
+          AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
+          return;
+        }
 
-                Navigator.pop(context); // Close dialog
+        Navigator.pop(context); // Close dialog
 
-                if (isBatch) {
-                  await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
-                } else if (itemId != null) {
-                  await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
-                }
+        if (isBatch) {
+          await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
+        } else if (itemId != null) {
+          await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
+        }
 
-                if (context.mounted) {
-                  AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
-                  ref.read(tableNotifierProvider.notifier).loadTables();
-                  ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                }
-              },
-              child: Text('Batalkan'),
-            ),
-          ],
-        );
+        if (context.mounted) {
+          AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
+          ref.read(tableNotifierProvider.notifier).loadTables();
+          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+        }
       },
     );
   }
