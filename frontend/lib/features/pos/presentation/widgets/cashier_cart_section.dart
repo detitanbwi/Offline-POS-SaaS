@@ -44,7 +44,6 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
   final TextEditingController noteController = TextEditingController();
   final TextEditingController _customerNameController = TextEditingController();
   bool _isSaving = false;
-  bool _isNavigating = false;
   bool _isOpeningBatch = false;
 
   @override
@@ -312,25 +311,6 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
     }
   }
 
-  Future<void> _handleGoToPayment() async {
-    final cartState = ref.read(cartNotifierProvider);
-    if (cartState.items.isEmpty) {
-      AppSnackbar.showWarning(context, 'Keranjang masih kosong!');
-      return;
-    }
-
-    setState(() => _isNavigating = true);
-    await Future.delayed(const Duration(milliseconds: 50));
-    
-    if (mounted) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const PaymentScreen()),
-      );
-    }
-    
-    if (mounted) setState(() => _isNavigating = false);
-  }
 
   Future<void> _handleOpenBatch() async {
     setState(() => _isOpeningBatch = true);
@@ -1145,26 +1125,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                 ),
               ),
 
-              SizedBox(width: 4),
-              Expanded(
-                child: SizedBox(
-                  height: 30,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isNavigating ? AppColors.disabled.withValues(alpha: 0.3) : AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                      textStyle: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: cartState.items.isEmpty || _isNavigating ? null : _handleGoToPayment,
-                    child: _isNavigating
-                        ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text('Bayar', overflow: TextOverflow.ellipsis),
-                  ),
-                ),
-              ),
+
               SizedBox(width: 4),
               Expanded(
                 child: Stack(

@@ -448,10 +448,26 @@ class PosDatabase {
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 13) {
       // TAHAP PENGEMBANGAN: Hapus semua tabel dan buat ulang dari awal untuk memastikan schema bersih
-      final tables = await db.rawQuery('SELECT name FROM sqlite_master WHERE type="table" AND name NOT LIKE "sqlite_%"');
-      for (final table in tables) {
-        final tableName = table['name'];
-        await db.execute('DROP TABLE IF EXISTS $tableName');
+      bool droppedAll = false;
+      while (!droppedAll) {
+        final tables = await db.rawQuery('SELECT name FROM sqlite_master WHERE type="table" AND name NOT LIKE "sqlite_%"');
+        if (tables.isEmpty) {
+          droppedAll = true;
+          break;
+        }
+        int droppedCount = 0;
+        for (final table in tables) {
+          final tableName = table['name'];
+          try {
+            await db.execute('DROP TABLE IF EXISTS $tableName');
+            droppedCount++;
+          } catch (e) {
+            // Ignore foreign key constraint errors and retry in next pass
+          }
+        }
+        if (droppedCount == 0) {
+          break; // Avoid infinite loop if a table cannot be dropped for other reasons
+        }
       }
       await _createDB(db, newVersion);
       return; // Skip migrasi versi lama karena database sudah di-reset
