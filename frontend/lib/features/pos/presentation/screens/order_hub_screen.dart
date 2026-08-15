@@ -426,14 +426,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
       }
     }
 
-    final isBillPrinted =
+    final initialIsBillPrinted =
         order.isBillPrinted || (table?.isBillPrinted ?? false);
-    final statusLabel = isBillPrinted
-        ? 'Bill Dicetak'
-        : (table != null
-              ? table.statusLabel
-              : (order.isDraft ? 'Open Bill' : 'Selesai'));
-    final statusColor = isBillPrinted ? AppColors.warning : AppColors.success;
     final title = isDineIn
         ? 'Rincian Meja ${order.tableNomor ?? '-'}'
         : 'Rincian Take Away (${order.takeAwaySubType == 'online_food' ? 'Online${order.onlinePlatform != null ? " - ${order.onlinePlatform}" : ""}' : 'Reguler'})';
@@ -473,8 +467,16 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
       builder: (sheetContext) {
         bool isProcessing = false;
         Set<String> expandedBatches = {};
+        bool isBillPrinted = initialIsBillPrinted;
+        
         return StatefulBuilder(
           builder: (context, setStateSheet) {
+            final statusLabel = isBillPrinted
+                ? 'Bill Dicetak'
+                : (table != null
+                      ? table.statusLabel
+                      : (order.isDraft ? 'Open Bill' : 'Selesai'));
+            final statusColor = isBillPrinted ? AppColors.warning : AppColors.success;
             return Container(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.9,
@@ -1020,6 +1022,12 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                 order.tableId!,
                                               );
                                             }
+
+                                            // Update local state so UI refreshes immediately
+                                            setStateSheet(() {
+                                              isBillPrinted = true;
+                                            });
+
                                             ref
                                                 .read(
                                                   orderNotifierProvider
@@ -1628,9 +1636,11 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                             onTap: _loadingOrderId != null
                                 ? null
                                 : () async {
+                                    FocusScope.of(context).unfocus();
                                     setState(() => _loadingOrderId = order.id);
+                                    // Mencegah animasi bottom sheet bertabrakan dengan dialog yang sedang menutup
                                     await Future.delayed(
-                                      const Duration(milliseconds: 100),
+                                      const Duration(milliseconds: 300),
                                     );
                                     await _showOrderActionBottomSheet(order);
                                     if (mounted)

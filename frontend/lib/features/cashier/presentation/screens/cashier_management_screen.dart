@@ -101,6 +101,10 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
       ),
       onConfirm: () async {
         if (formKey.currentState?.validate() ?? false) {
+          // Mencegah IME freeze: Pastikan keyboard tertutup sepenuhnya
+          FocusScope.of(context).unfocus();
+          await Future.delayed(const Duration(milliseconds: 300));
+
           final notifier = ref.read(cashierNotifierProvider.notifier);
           bool success;
           

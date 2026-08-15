@@ -192,6 +192,11 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
       return;
     }
 
+    // Mencegah IME freeze: Pastikan keyboard tertutup sepenuhnya sebelum dialog muncul
+    FocusScope.of(context).unfocus();
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
     final printChoice = await showDialog<bool>(
       context: context,
       barrierDismissible: false,

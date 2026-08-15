@@ -94,6 +94,11 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
                       return;
                     }
 
+                    // Mencegah IME freeze dengan menutup keyboard dan menunggu sebelum pop dialog
+                    FocusScope.of(context).unfocus();
+                    await Future.delayed(const Duration(milliseconds: 300));
+                    
+                    if (!context.mounted) return;
                     Navigator.pop(context);
 
                     bool success;
