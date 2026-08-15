@@ -191,7 +191,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                               try {
                                 final cashierRepo = ref.read(cashierRepositoryProvider);
                                 final cashier = await cashierRepo.getCashierByPin(enteredHash);
-                                if (cashier != null && (cashier.isOwner == 1 || cashier.isOwner == true)) {
+                                if (cashier != null && cashier.isOwner == 1) {
                                   isAuthorized = true;
                                 }
                               } catch (_) {}
