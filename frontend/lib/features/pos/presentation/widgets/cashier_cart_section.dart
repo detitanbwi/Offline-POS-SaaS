@@ -26,6 +26,7 @@ import '../../domain/models/cart_item.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../../../product/application/product_notifier.dart';
+import '../screens/order_hub_screen.dart';
 
 
 class CashierCartSection extends ConsumerStatefulWidget {
@@ -463,7 +464,6 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                   if (mounted && order != null) {
                                     await _reprintKitchenBatch(order, bNum);
                                   }
-                                  if (mounted) Navigator.pop(dialogCtx);
                                 },
                               ),
                             );
@@ -486,7 +486,6 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                 if (mounted && order != null) {
                                   await _reprintKitchenBatch(order, 0);
                                 }
-                                if (mounted) Navigator.pop(dialogCtx);
                               },
                             ),
                           ),
@@ -564,12 +563,20 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
         await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
         if (mounted) {
           AppSnackbar.showSuccess(context, 'Struk Dapur $waveInfo berhasil dicetak.');
-          Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const OrderHubScreen()),
+            (route) => route.isFirst,
+          );
         }
       } else {
         if (mounted) {
           AppSnackbar.showSuccess(context, 'Simulasi Struk Dapur $waveInfo (Printer tidak terhubung).');
-          Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const OrderHubScreen()),
+            (route) => route.isFirst,
+          );
         }
       }
     } catch (e) {
@@ -978,11 +985,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                               final savedCartItems = cartState.items.where((i) => i.initialSavedQty > 0).toList();
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 4),
-                                decoration: BoxDecoration(
+                                child: Material(
                                   color: Colors.grey.shade50,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade300),
-                                ),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
                                 child: Theme(
                                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                                   child: ExpansionTile(
@@ -1046,7 +1056,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                     }).toList(),
                                   ),
                                 ),
-                              );
+                              ),
+                            ),
+                          );
                             },
                           ),
                         ],
