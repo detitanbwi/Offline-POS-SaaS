@@ -1,5 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../security/data/datasources/security_database.dart';
+import '../../../../core/database/pos_database.dart';
+
 class SecureStorageService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -135,5 +138,11 @@ class SecureStorageService {
 
   Future<void> clearAll() async {
     await _storage.deleteAll();
+    try {
+      await SecurityDatabase.instance.deleteDatabaseFile();
+    } catch (_) {}
+    try {
+      await PosDatabase.instance.deleteDatabaseFile();
+    } catch (_) {}
   }
 }

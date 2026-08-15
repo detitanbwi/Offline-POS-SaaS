@@ -55,44 +55,63 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   }
 
   Future<void> _loadAccounts() async {
-    setState(() => _isLoadingAccounts = true);
-    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
-    try {
-      final storage = ref.read(secureStorageServiceProvider);
-      final ownerUsername = await storage.getOwnerUsername() ?? 'owner';
-      final ownerName = await storage.getOwnerName() ?? 'Pemilik Toko';
+    setState(() {
+      _isLoadingAccounts = true;
+      _errorMessage = '';
+    });
 
-      final cashierRepo = ref.read(cashierRepositoryProvider);
-      final cashiers = await cashierRepo.getAllCashiers();
-      final activeCashiers =
-          cashiers.where((c) => c.isActive && !c.isSoftDeleted).toList();
+    // Retry mechanism: database mungkin belum siap setelah update app
+    const maxAttempts = 3;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Delay sebelum tiap percobaan (exponential backoff)
+      await Future.delayed(Duration(milliseconds: attempt == 1 ? 100 : 500 * attempt));
+      
+      try {
+        final storage = ref.read(secureStorageServiceProvider);
+        final ownerUsername = await storage.getOwnerUsername() ?? 'owner';
+        final ownerName = await storage.getOwnerName() ?? 'Pemilik Toko';
 
-      final items = <AccountItem>[
-        AccountItem(
-          id: 'owner',
-          nama: ownerName,
-          username: ownerUsername,
-          role: 'pemilik',
-          isOwner: true,
-        ),
-        ...activeCashiers.map((c) => AccountItem(
-              id: c.id,
-              nama: c.nama,
-              username: c.username,
-              role: 'kasir',
-              isOwner: false,
-            )),
-      ];
+        final cashierRepo = ref.read(cashierRepositoryProvider);
+        final cashiers = await cashierRepo.getAllCashiers();
+        final activeCashiers =
+            cashiers.where((c) => c.isActive && !c.isSoftDeleted).toList();
 
-      if (mounted) {
-        setState(() {
-          _accounts = items;
-          _isLoadingAccounts = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingAccounts = false);
+        final items = <AccountItem>[
+          AccountItem(
+            id: 'owner',
+            nama: ownerName,
+            username: ownerUsername,
+            role: 'pemilik',
+            isOwner: true,
+          ),
+          ...activeCashiers.map((c) => AccountItem(
+                id: c.id,
+                nama: c.nama,
+                username: c.username,
+                role: 'kasir',
+                isOwner: false,
+              )),
+        ];
+
+        if (mounted) {
+          setState(() {
+            _accounts = items;
+            _isLoadingAccounts = false;
+          });
+        }
+        return; // Berhasil, keluar dari loop
+      } catch (e) {
+        debugPrint('[PinScreen] _loadAccounts attempt $attempt/$maxAttempts gagal: $e');
+        if (attempt == maxAttempts) {
+          // Semua percobaan gagal
+          if (mounted) {
+            setState(() {
+              _isLoadingAccounts = false;
+              _errorMessage = 'Gagal memuat daftar pengguna. Silakan coba lagi.';
+            });
+          }
+        }
+        // Jika bukan percobaan terakhir, lanjut loop (retry)
       }
     }
   }
@@ -321,120 +340,144 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           ),
           clipBehavior: Clip.antiAlias,
           child: _isLoadingAccounts
-              ? Padding(
+              ? const Padding(
                   padding: EdgeInsets.all(40.0),
                   child: Center(
                     child: CircularProgressIndicator(),
                   ),
                 )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                      child: Text(
-                        "PENGGUNA TERSEDIA",
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
+              : _accounts.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.account_circle_outlined, size: 44.r, color: AppColors.textSecondary),
+                          SizedBox(height: 12.h),
+                          Text(
+                            "Belum ada akun pengguna tersedia.",
+                            textAlign: TextAlign.center,
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                          ),
+                          SizedBox(height: 16.h),
+                          AppButton(
+                            text: 'Muat Ulang Pengguna',
+                            type: AppButtonType.outlined,
+                            icon: Icons.refresh_rounded,
+                            isDense: true,
+                            onPressed: _loadAccounts,
+                          ),
+                        ],
                       ),
-                    ),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _accounts.length,
-                      separatorBuilder: (context, index) =>
-                          const Divider(height: 1, indent: 68),
-                      itemBuilder: (context, index) {
-                        final account = _accounts[index];
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedAccount = account;
-                              _errorMessage = '';
-                              _pinController.clear();
-                            });
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 14),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: account.isOwner
-                                      ? Colors.amber.shade100
-                                      : AppColors.primaryContainer,
-                                  child: Icon(
-                                    account.isOwner
-                                        ? Icons.admin_panel_settings_rounded
-                                        : Icons.person_rounded,
-                                    color: account.isOwner
-                                        ? Colors.amber.shade800
-                                        : AppColors.primary,
-                                  ),
-                                ),
-                                SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        account.nama,
-                                        style:
-                                            AppTypography.titleMedium.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      SizedBox(height: 4),
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: account.isOwner
-                                                ? Colors.amber.shade50
-                                                : Colors.blue.shade50,
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            account.isOwner
-                                                ? 'PEMILIK TOKO'
-                                                : 'KASIR',
-                                            style: TextStyle(
-                                              fontSize: 11.sp,
-                                              fontWeight: FontWeight.bold,
-                                              color: account.isOwner
-                                                  ? Colors.amber.shade800
-                                                  : Colors.blue.shade800,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_forward_ios_rounded,
-                                  size: 16,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ],
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                          child: Text(
+                            "PENGGUNA TERSEDIA",
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
                             ),
                           ),
-                        );
-                      },
+                        ),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _accounts.length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(height: 1, indent: 68),
+                          itemBuilder: (context, index) {
+                            final account = _accounts[index];
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedAccount = account;
+                                  _errorMessage = '';
+                                  _pinController.clear();
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 22,
+                                      backgroundColor: account.isOwner
+                                          ? Colors.amber.shade100
+                                          : AppColors.primaryContainer,
+                                      child: Icon(
+                                        account.isOwner
+                                            ? Icons.admin_panel_settings_rounded
+                                            : Icons.person_rounded,
+                                        color: account.isOwner
+                                            ? Colors.amber.shade800
+                                            : AppColors.primary,
+                                      ),
+                                    ),
+                                    SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            account.nama,
+                                            style:
+                                                AppTypography.titleMedium.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: account.isOwner
+                                                    ? Colors.amber.shade50
+                                                    : Colors.blue.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                account.isOwner
+                                                    ? 'PEMILIK TOKO'
+                                                    : 'KASIR',
+                                                style: TextStyle(
+                                                  fontSize: 11.sp,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: account.isOwner
+                                                      ? Colors.amber.shade800
+                                                      : Colors.blue.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: 16,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(height: 8),
+                      ],
                     ),
-                    SizedBox(height: 8),
-                  ],
-                ),
         ),
       ],
     );

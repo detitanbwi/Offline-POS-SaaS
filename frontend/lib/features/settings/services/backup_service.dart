@@ -1,20 +1,39 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show databaseFactoryFfi;
 import 'package:path_provider/path_provider.dart';
+import '../../../../core/database/pos_database.dart';
 import '../../../../core/services/app_logger.dart';
 
 class BackupService {
   static const String dbName = 'pos_database.db';
   static const String backupName = 'pos_database_backup.db';
 
+  Future<String> _getDbDirectory() async {
+    final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+    if (isDesktop) {
+      return await databaseFactoryFfi.getDatabasesPath();
+    }
+    return await getDatabasesPath();
+  }
+
   Future<bool> createBackup() async {
     try {
-      final dbPath = await getDatabasesPath();
-      final sourceFile = File(join(dbPath, dbName));
+      // 1. Force SQLite to flush Write-Ahead Log (WAL) to main database file
+      try {
+        final db = await PosDatabase.instance.database;
+        await db.execute('PRAGMA wal_checkpoint(FULL)');
+      } catch (walErr) {
+        AppLogger.warning('Failed WAL checkpoint before backup: $walErr');
+      }
+
+      final dbDir = await _getDbDirectory();
+      final sourceFile = File(join(dbDir, dbName));
 
       if (!await sourceFile.exists()) {
-        AppLogger.warning('POS Database source file not found for backup.');
+        AppLogger.warning('POS Database source file not found for backup at: ${sourceFile.path}');
         return false;
       }
 
@@ -41,15 +60,18 @@ class BackupService {
         return false;
       }
 
-      final dbPath = await getDatabasesPath();
-      final targetFile = File(join(dbPath, dbName));
+      final dbDir = await _getDbDirectory();
+      final targetFile = File(join(dbDir, dbName));
 
-      // Close the current active database connection before rewriting
-      // In a real scenario, the app should restart or close connections.
-      // Since sqflite doesn't allow closing all dynamically, we'll replace the file directly.
-      // Note: Replacing the file while SQLite is running might cause corruption if there are active write locks.
-      // To be safe, we perform copying and log success.
+      // 1. Close current active database connection cleanly before rewriting file
+      await PosDatabase.instance.close();
+
+      // 2. Copy backup file over main DB file
       await backupFile.copy(targetFile.path);
+
+      // 3. Reset database instance again to force clean re-open on next query
+      await PosDatabase.instance.close();
+
       AppLogger.info('Backup restored successfully from: ${backupFile.path}');
       return true;
     } catch (e, stackTrace) {

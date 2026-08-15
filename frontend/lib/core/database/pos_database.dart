@@ -13,7 +13,7 @@ class PosDatabase {
   PosDatabase._init();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDB('pos_database.db');
     return _database!;
   }
@@ -35,10 +35,9 @@ class PosDatabase {
 
     final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
 
-    Database db;
-    if (!shouldEncrypt) {
+    Future<Database> openWithParams({String? pwd}) async {
       if (isDesktop) {
-        db = await databaseFactoryFfi.openDatabase(
+        return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
             version: 13,
@@ -48,36 +47,50 @@ class PosDatabase {
           ),
         );
       } else {
-        db = await openDatabase(
+        return await openDatabase(
           path,
           version: 13,
+          password: pwd,
           onCreate: _createDB,
           onUpgrade: _upgradeDB,
           onConfigure: _onConfigure,
         );
       }
+    }
+
+    Database db;
+    if (!shouldEncrypt) {
+      try {
+        db = await openWithParams();
+      } catch (e) {
+        debugPrint('[PosDatabase] Unencrypted open failed: $e. Re-creating DB...');
+        try {
+          if (isDesktop) {
+            await databaseFactoryFfi.deleteDatabase(path);
+          } else {
+            await deleteDatabase(path);
+          }
+        } catch (_) {}
+        db = await openWithParams();
+      }
     } else {
       try {
-        db = await openDatabase(
-          path,
-          version: 13,
-          password: encryptionKey,
-          onCreate: _createDB,
-          onUpgrade: _upgradeDB,
-          onConfigure: _onConfigure,
-        );
+        db = await openWithParams(pwd: encryptionKey);
       } catch (e) {
+        debugPrint('[PosDatabase] Encrypted open failed: $e. Trying fallback...');
         try {
-          db = await openDatabase(
-            path,
-            version: 13,
-            onCreate: _createDB,
-            onUpgrade: _upgradeDB,
-            onConfigure: _onConfigure,
-          );
+          db = await openWithParams();
           await db.execute("PRAGMA rekey = '$encryptionKey'");
         } catch (innerErr) {
-          rethrow;
+          debugPrint('[PosDatabase] Fallback failed ($innerErr). Re-creating fresh database...');
+          try {
+            if (isDesktop) {
+              await databaseFactoryFfi.deleteDatabase(path);
+            } else {
+              await deleteDatabase(path);
+            }
+          } catch (_) {}
+          db = await openWithParams(pwd: encryptionKey);
         }
       }
     }
@@ -879,5 +892,31 @@ class PosDatabase {
     for (var table in defaultTables) {
       await db.insert('tables', table, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
+  }
+
+  Future<void> close() async {
+    final db = _database;
+    if (db != null) {
+      try {
+        await db.close();
+      } catch (_) {}
+      _database = null;
+    }
+  }
+
+  Future<void> deleteDatabaseFile() async {
+    await close();
+    final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+    final dbPath = isDesktop 
+        ? await databaseFactoryFfi.getDatabasesPath()
+        : await getDatabasesPath();
+    final path = join(dbPath, 'pos_database.db');
+    try {
+      if (isDesktop) {
+        await databaseFactoryFfi.deleteDatabase(path);
+      } else {
+        await deleteDatabase(path);
+      }
+    } catch (_) {}
   }
 }

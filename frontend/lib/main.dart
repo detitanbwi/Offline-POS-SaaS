@@ -135,7 +135,15 @@ class _MyAppState extends ConsumerState<MyApp> {
     // 4. Background validation (triggered asynchronously)
     _triggerBackgroundValidation();
 
-    // 5. Normal PIN routing
+    // 5. Pre-warm POS Database agar siap saat PinScreen memuat daftar akun
+    try {
+      final db = ref.read(posDatabaseProvider);
+      await db.database;
+    } catch (_) {
+      // Database init gagal saat pre-warm, PinScreen akan retry sendiri
+    }
+
+    // 6. Normal PIN routing
     final savedPin = await storage.getLocalPIN();
     if (savedPin != null && savedPin.isNotEmpty) {
       return const PinScreen(isSetup: false);
