@@ -130,6 +130,8 @@ class _NewPinSetupScreenState extends ConsumerState<NewPinSetupScreen> {
                     controller: _pinController,
                     keyboardType: TextInputType.number,
                     obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
                     maxLength: 6,
                     decoration: const InputDecoration(
                       labelText: 'PIN Baru (6 Digit)',
@@ -142,6 +144,8 @@ class _NewPinSetupScreenState extends ConsumerState<NewPinSetupScreen> {
                     controller: _confirmPinController,
                     keyboardType: TextInputType.number,
                     obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
                     maxLength: 6,
                     decoration: const InputDecoration(
                       labelText: 'Konfirmasi PIN Baru',

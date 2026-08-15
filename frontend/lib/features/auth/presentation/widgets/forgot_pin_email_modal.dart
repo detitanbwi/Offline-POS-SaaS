@@ -94,6 +94,8 @@ class _ForgotPinEmailModalState extends ConsumerState<ForgotPinEmailModal> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                enableSuggestions: false,
+                autocorrect: false,
                 decoration: const InputDecoration(
                   labelText: 'Alamat Email Terdaftar',
                   hintText: 'Contoh: owner@toko.com',

@@ -63,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
+    await Future.delayed(const Duration(milliseconds: 300)); // Allow UI to render loading state and keyboard to hide completely
 
     final authService = ref.read(authServiceProvider);
     final result = await authService.login(
@@ -71,10 +71,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _passwordController.text,
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success']) {
-      if (!mounted) return;
       AppSnackbar.showSuccess(context, 'Login Berhasil!');
       
       final storage = ref.read(secureStorageServiceProvider);
@@ -93,7 +93,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } else {
-      if (!mounted) return;
       AppSnackbar.showError(context, result['message']);
     }
   }
@@ -176,6 +175,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       hintText: 'contoh: test@example.com',
                       prefixIcon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
+                      enableSuggestions: false,
+                      autocorrect: false,
                     ),
                     SizedBox(height: 12.h),
                     AppTextField(

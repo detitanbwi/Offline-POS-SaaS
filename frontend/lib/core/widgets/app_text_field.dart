@@ -22,6 +22,8 @@ class AppTextField extends StatefulWidget {
   final int? maxLength;
   final String? prefixText;
   final Duration? debounceDuration;
+  final bool enableSuggestions;
+  final bool autocorrect;
 
   const AppTextField({
     super.key,
@@ -42,6 +44,8 @@ class AppTextField extends StatefulWidget {
     this.maxLength,
     this.prefixText,
     this.debounceDuration,
+    this.enableSuggestions = true,
+    this.autocorrect = true,
   });
 
   @override
@@ -78,6 +82,8 @@ class _AppTextFieldState extends State<AppTextField> {
       controller: widget.controller,
       validator: widget.validator,
       obscureText: widget.obscureText,
+      enableSuggestions: widget.enableSuggestions,
+      autocorrect: widget.autocorrect,
       keyboardType: widget.keyboardType,
       inputFormatters: widget.inputFormatters,
       onChanged: _handleChanged,
