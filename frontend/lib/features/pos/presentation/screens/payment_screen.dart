@@ -351,18 +351,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             final allPaid = allBatches.every((b) => b['payment_status'] == 'paid');
             if (allPaid) {
               await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
-              if (activeOrder.orderType != 'dine_in') {
-                await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-              }
+              await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
             } else {
               await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'partially_paid');
             }
           } else {
             // Full payment
             await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
-            if (activeOrder.orderType != 'dine_in') {
-              await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-            }
+            await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
             
             // Mark all batches as paid since we're paying the full order
             final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);

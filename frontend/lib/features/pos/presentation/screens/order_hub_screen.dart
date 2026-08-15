@@ -379,6 +379,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
       ),
       builder: (sheetContext) {
         bool isProcessing = false;
+        Set<String> expandedBatches = {};
         return StatefulBuilder(
           builder: (context, setStateSheet) {
             return Container(
@@ -480,41 +481,62 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryContainer.withValues(alpha: 0.6),
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      batchTitle,
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
+                              InkWell(
+                                onTap: () {
+                                  setStateSheet(() {
+                                    if (expandedBatches.contains(batchTitle)) {
+                                      expandedBatches.remove(batchTitle);
+                                    } else {
+                                      expandedBatches.add(batchTitle);
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.vertical(
+                                      top: const Radius.circular(9),
+                                      bottom: Radius.circular(expandedBatches.contains(batchTitle) ? 0 : 9),
                                     ),
-                                    const Spacer(),
-                                    Text(
-                                      '${batchItemList.length} Menu',
-                                      style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                                    ),
-                                    SizedBox(width: 8),
-                                    if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
-                                      InkWell(
-                                        onTap: () {
-                                          Navigator.pop(sheetContext);
-                                          _showCancelDialog(context, order, batchId: batchItemList.first.printBatchId);
-                                        },
-                                        child: Padding(
-                                          padding: EdgeInsets.all(6),
-                                          child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
-                                        ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        batchTitle,
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                                       ),
-                                  ],
+                                      const Spacer(),
+                                      Text(
+                                        '${batchItemList.length} Menu',
+                                        style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                                      ),
+                                      SizedBox(width: 8),
+                                      if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
+                                        InkWell(
+                                          onTap: () {
+                                            Navigator.pop(sheetContext);
+                                            _showCancelDialog(context, order, batchId: batchItemList.first.printBatchId);
+                                          },
+                                          child: Padding(
+                                            padding: EdgeInsets.all(6),
+                                            child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
+                                          ),
+                                        ),
+                                      SizedBox(width: 4),
+                                      Icon(
+                                        expandedBatches.contains(batchTitle) ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                        size: 20,
+                                        color: AppColors.primary,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              ...batchItemList.map((item) => Padding(
+                              if (expandedBatches.contains(batchTitle))
+                                ...batchItemList.map((item) => Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,45 +657,27 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                             ),
                           ),
                         ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: order.isPaid
-                              ? ElevatedButton.icon(
-                                  onPressed: () async {
-                                    setStateSheet(() => isProcessing = true);
-                                    await Future.delayed(const Duration(milliseconds: 100));
-                                    if (mounted) Navigator.pop(sheetContext);
-                                    await ref.read(orderRepositoryProvider).completeOrder(order.id, tableId: order.tableId);
-                                    ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                                    ref.read(tableNotifierProvider.notifier).loadTables();
-                                    if (mounted) AppSnackbar.showSuccess(context, 'Meja berhasil dibersihkan dan pesanan diselesaikan.');
-                                  },
-                                  icon: Icon(Icons.cleaning_services_rounded, size: 18),
-                                  label: Text(isDineIn ? 'Bersihkan Meja' : 'Selesaikan'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blueGrey,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                )
-                              : ElevatedButton.icon(
-                                  onPressed: () async {
-                                    setStateSheet(() => isProcessing = true);
-                                    await Future.delayed(const Duration(milliseconds: 100));
-                                    if (mounted) Navigator.pop(sheetContext);
-                                    _navigateToPayment(order);
-                                  },
-                                  icon: Icon(Icons.payments_outlined, size: 18),
-                                  label: Text('Bayar'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.success,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
-                        ),
+                        if (!order.isPaid) ...[
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                setStateSheet(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (mounted) Navigator.pop(sheetContext);
+                                _navigateToPayment(order);
+                              },
+                              icon: Icon(Icons.payments_outlined, size: 18),
+                              label: Text('Bayar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     SizedBox(height: 8),

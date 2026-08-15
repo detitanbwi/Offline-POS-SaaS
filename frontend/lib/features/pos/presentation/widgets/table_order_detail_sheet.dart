@@ -72,6 +72,7 @@ class TableOrderDetailSheet {
       ),
       builder: (sheetContext) {
         bool isProcessing = false;
+        Set<String> expandedBatches = {};
         return StatefulBuilder(
           builder: (context, setStateSheet) {
             return Container(
@@ -199,29 +200,50 @@ class TableOrderDetailSheet {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    batchTitle,
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp, color: AppColors.primary),
+                            InkWell(
+                              onTap: () {
+                                setStateSheet(() {
+                                  if (expandedBatches.contains(batchTitle)) {
+                                    expandedBatches.remove(batchTitle);
+                                  } else {
+                                    expandedBatches.add(batchTitle);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.vertical(
+                                    top: const Radius.circular(9),
+                                    bottom: Radius.circular(expandedBatches.contains(batchTitle) ? 0 : 9),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    '${batchItemList.length} Menu',
-                                    style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                                  ),
-                                ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      batchTitle,
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp, color: AppColors.primary),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${batchItemList.length} Menu',
+                                      style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(
+                                      expandedBatches.contains(batchTitle) ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                      size: 18,
+                                      color: AppColors.primary,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            ...batchItemList.map((item) => Padding(
+                            if (expandedBatches.contains(batchTitle))
+                              ...batchItemList.map((item) => Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,

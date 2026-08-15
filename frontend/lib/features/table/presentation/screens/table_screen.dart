@@ -411,6 +411,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ),
       builder: (sheetContext) {
         bool isClearingTable = false;
+        Set<String> expandedBatches = {};
         return StatefulBuilder(
           builder: (sheetContextInner, setSheetState) {
             return Container(
@@ -511,41 +512,62 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    batchTitle,
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
+                            InkWell(
+                              onTap: () {
+                                setSheetState(() {
+                                  if (expandedBatches.contains(batchTitle)) {
+                                    expandedBatches.remove(batchTitle);
+                                  } else {
+                                    expandedBatches.add(batchTitle);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.vertical(
+                                    top: const Radius.circular(9),
+                                    bottom: Radius.circular(expandedBatches.contains(batchTitle) ? 0 : 9),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    '${batchItemList.length} Menu',
-                                    style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                                  ),
-                                  SizedBox(width: 8),
-                                  if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
-                                    InkWell(
-                                      onTap: () {
-                                        Navigator.pop(sheetContext);
-                                        _showCancelDialog(context, table, activeOrder, batchId: batchItemList.first.printBatchId);
-                                      },
-                                      child: Padding(
-                                        padding: EdgeInsets.all(6),
-                                        child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
-                                      ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      batchTitle,
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                                     ),
-                                ],
+                                    const Spacer(),
+                                    Text(
+                                      '${batchItemList.length} Menu',
+                                      style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                                    ),
+                                    SizedBox(width: 8),
+                                    if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
+                                      InkWell(
+                                        onTap: () {
+                                          Navigator.pop(sheetContext);
+                                          _showCancelDialog(context, table, activeOrder, batchId: batchItemList.first.printBatchId);
+                                        },
+                                        child: Padding(
+                                          padding: EdgeInsets.all(6),
+                                          child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
+                                        ),
+                                      ),
+                                    SizedBox(width: 4),
+                                    Icon(
+                                      expandedBatches.contains(batchTitle) ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                      size: 20,
+                                      color: AppColors.primary,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            ...batchItemList.map((item) => Padding(
+                            if (expandedBatches.contains(batchTitle))
+                              ...batchItemList.map((item) => Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -660,55 +682,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           ),
                         ),
                       ),
-                      if (activeOrder != null) ...[
+                      if (activeOrder != null && !activeOrder.isPaid) ...[
                         SizedBox(width: 8),
                         Expanded(
-                          child: activeOrder.isPaid
-                              ? ElevatedButton.icon(
-                                  onPressed: isClearingTable ? null : () async {
-                                    setSheetState(() => isClearingTable = true);
-                                    await Future.delayed(const Duration(milliseconds: 100)); // allow UI to update
-                                    
-                                    await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-                                    await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                                    await ref.read(tableNotifierProvider.notifier).loadTables();
-                                    
-                                    if (mounted) {
-                                      Navigator.pop(sheetContext);
-                                      AppSnackbar.showSuccess(context, 'Meja berhasil dibersihkan dan pesanan diselesaikan.');
-                                    }
-                                  },
-                                  icon: isClearingTable
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : const Icon(Icons.cleaning_services_rounded, size: 18),
-                                  label: Text(isClearingTable ? 'Memproses...' : 'Bersihkan Meja'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blueGrey,
-                                    foregroundColor: Colors.white,
-                                    disabledBackgroundColor: Colors.blueGrey.withValues(alpha: 0.5),
-                                    disabledForegroundColor: Colors.white70,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                )
-                              : ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.pop(sheetContext);
-                                    _navigateToPayment(table, activeOrder);
-                                  },
-                                  icon: Icon(Icons.payments_outlined, size: 18),
-                                  label: Text('Bayar'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.success,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                              _navigateToPayment(table, activeOrder);
+                            },
+                            icon: Icon(Icons.payments_outlined, size: 18),
+                            label: Text('Bayar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
                         ),
                       ],
                     ],
