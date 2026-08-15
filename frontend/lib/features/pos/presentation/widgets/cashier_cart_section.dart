@@ -19,6 +19,7 @@ import '../screens/payment_screen.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../printer/domain/models/printer_config.dart';
+import '../../../security/presentation/providers/security_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -112,12 +113,16 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               var digest = sha256.convert(bytes);
               final hashedPin = digest.toString();
 
+              final isMasterPinValid = await ref
+                  .read(securityRepositoryProvider)
+                  .validateMasterPin(pin);
               final cashierRepo = ref.read(cashierRepositoryProvider);
               final cashier = await cashierRepo.getCashierByPin(hashedPin);
+              final isOwnerCashier = cashier != null && cashier.isOwner == 1;
 
               if (!context.mounted) return;
 
-              if (cashier == null || cashier.isOwner != 1) {
+              if (!isMasterPinValid && !isOwnerCashier) {
                 AppSnackbar.showError(
                   context,
                   'Otorisasi gagal! PIN salah atau bukan Owner.',
@@ -1270,8 +1275,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                           ...unmappedSavedItems,
                                         ];
                                       }
-                                      if (bItems.isEmpty)
+                                      if (bItems.isEmpty) {
                                         return const SizedBox.shrink();
+                                      }
 
                                       final bNum = i + 1;
                                       final bTitle = bNum == 1

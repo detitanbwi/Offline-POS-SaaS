@@ -20,6 +20,7 @@ import '../../../product/application/product_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../table/domain/models/table.dart';
 
+import '../../../security/presentation/providers/security_providers.dart';
 import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../application/online_platform_notifier.dart';
@@ -1253,12 +1254,15 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
         var digest = sha256.convert(bytes);
         final hashedPin = digest.toString();
 
+        final isMasterPinValid =
+            await ref.read(securityRepositoryProvider).validateMasterPin(pin);
         final cashierRepo = ref.read(cashierRepositoryProvider);
         final cashier = await cashierRepo.getCashierByPin(hashedPin);
+        final isOwnerCashier = cashier != null && cashier.isOwner == 1;
 
         if (!context.mounted) return;
 
-        if (cashier == null || cashier.isOwner != 1) {
+        if (!isMasterPinValid && !isOwnerCashier) {
           AppSnackbar.showError(
             context,
             'Otorisasi gagal! PIN salah atau bukan Owner.',

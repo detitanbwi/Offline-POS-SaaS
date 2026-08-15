@@ -22,6 +22,7 @@ import '../../../pos/application/order_notifier.dart';
 import '../../../pos/domain/models/order_item.dart';
 import '../../../pos/presentation/screens/cashier_screen.dart';
 import '../../../pos/presentation/screens/payment_screen.dart';
+import '../../../security/presentation/providers/security_providers.dart';
 
 class TableScreen extends ConsumerStatefulWidget {
   const TableScreen({super.key});
@@ -785,12 +786,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         var digest = sha256.convert(bytes);
         final hashedPin = digest.toString();
 
+        final isMasterPinValid = await ref.read(securityRepositoryProvider).validateMasterPin(pin);
         final cashierRepo = ref.read(cashierRepositoryProvider);
         final cashier = await cashierRepo.getCashierByPin(hashedPin);
+        final isOwnerCashier = cashier != null && cashier.isOwner == 1;
 
         if (!context.mounted) return;
 
-        if (cashier == null || cashier.isOwner != 1) {
+        if (!isMasterPinValid && !isOwnerCashier) {
           AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
           return;
         }
