@@ -88,7 +88,7 @@ class LicenseService
                 // Device berbeda → tolak (1 token = 1 device)
                 return [
                     'success' => false,
-                    'message' => 'Token sudah digunakan pada perangkat lain. Hubungi admin untuk reset.',
+                    'message' => 'Token sudah digunakan pada perangkat lain. Harap membeli lisensi lagi.',
                     'code' => 400,
                 ];
             }

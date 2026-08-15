@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
+import '../../../../main.dart';
 class LicenseLockScreen extends ConsumerStatefulWidget {
   const LicenseLockScreen({super.key});
 
@@ -35,7 +36,10 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
       }
     } else {
       if (mounted) {
-        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || result['message'] == 'Perangkat tidak terdaftar';
+        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || 
+                            result['message'] == 'Perangkat tidak terdaftar' || 
+                            result['message'] == 'Unauthenticated.' || 
+                            result['message'] == 'Unauthenticated';
         
         if (isAuthError) {
           final storage = ref.read(secureStorageServiceProvider);
@@ -50,11 +54,16 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                 : 'Sesi tidak valid. Silakan login kembali.';
 
             AppSnackbar.showError(context, errorMessage);
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-            );
+            
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (appNavigatorKey.currentContext != null) {
+                Navigator.pushAndRemoveUntil(
+                  appNavigatorKey.currentContext!,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            });
           }
         } else {
           AppSnackbar.showError(

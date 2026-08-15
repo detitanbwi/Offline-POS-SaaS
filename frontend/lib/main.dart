@@ -84,7 +84,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
       } else {
         // Jika gagal karena ditolak oleh server
-        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || result['message'] == 'Perangkat tidak terdaftar';
+        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || 
+                            result['message'] == 'Perangkat tidak terdaftar' ||
+                            result['message'] == 'Unauthenticated.' ||
+                            result['message'] == 'Unauthenticated';
         if (isAuthError) {
           final storage = ref.read(secureStorageServiceProvider);
           await storage.clearAll();
