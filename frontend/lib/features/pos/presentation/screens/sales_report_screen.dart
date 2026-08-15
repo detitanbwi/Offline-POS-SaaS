@@ -436,6 +436,34 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ),
           ],
         ),
+        if ((report['total_void_count'] as int? ?? 0) > 0) ...[
+          SizedBox(height: 12),
+          AppCard(
+            color: AppColors.error.withValues(alpha: 0.08),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Transaksi Dibatalkan (Void)', style: AppTypography.bodyMedium.copyWith(color: AppColors.error, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 2),
+                    Text('${report['total_void_count']} transaksi void (stok dikembalikan)', style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
+                  ],
+                ),
+                Text(
+                  CurrencyFormatter.format((report['total_void_amount'] as num?)?.toDouble() ?? 0.0),
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.error,
+                    fontSize: 15.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         SizedBox(height: 20),
         AppCard(
           padding: const EdgeInsets.all(16),
