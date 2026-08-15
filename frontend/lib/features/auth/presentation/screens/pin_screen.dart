@@ -122,7 +122,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       if (!mounted) return;
 
       setState(() => _isSubmitting = true);
-      await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
+      await Future.delayed(const Duration(milliseconds: 300)); // Allow UI to render loading state and keyboard to hide completely
       try {
         final storage = ref.read(secureStorageServiceProvider);
         final licenseKey = await storage.getLicenseKey() ?? 'XXXX-XXXX-XXXX';
@@ -161,7 +161,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     }
 
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
+    await Future.delayed(const Duration(milliseconds: 300)); // Allow UI to render loading state and keyboard to hide completely
     try {
       if (_selectedAccount!.isOwner) {
         final securityRepo = ref.read(securityRepositoryProvider);
