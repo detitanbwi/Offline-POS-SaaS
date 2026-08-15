@@ -22,6 +22,8 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../application/transaction_history_notifier.dart';
 import '../../../pos/domain/models/transaction.dart';
+import '../../../security/presentation/providers/security_providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
@@ -91,86 +93,153 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
   }
 
   void _handleVoidTransaction(BuildContext context, TransactionHeader tx) {
-    final pinController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final pinController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Otorisasi Pembatalan (Void)', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Masukkan PIN Master Pemilik untuk mengotorisasi pembatalan transaksi ini.',
-                  style: TextStyle(fontSize: 13.sp, color: Colors.grey),
+      builder: (dialogContext) {
+        String? errorMessage;
+        bool isSubmitting = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Otorisasi Pembatalan (Void)', style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Masukkan PIN Master Pemilik untuk mengotorisasi pembatalan transaksi ini.',
+                      style: TextStyle(fontSize: 13.sp, color: Colors.grey),
+                    ),
+                    SizedBox(height: AppSpacing.m),
+                    AppTextField(
+                      controller: pinController,
+                      labelText: 'PIN Master Pemilik',
+                      hintText: 'Masukkan 6 digit PIN Master',
+                      prefixIcon: Icons.lock_rounded,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 6,
+                      validator: (val) {
+                        if (val == null || val.length != 6) {
+                          return 'PIN harus tepat 6 digit';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (errorMessage != null) ...[
+                      SizedBox(height: 8.h),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Text(
+                          errorMessage!,
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                SizedBox(height: AppSpacing.m),
-                AppTextField(
-                  controller: pinController,
-                  labelText: 'PIN Master Pemilik',
-                  hintText: 'Masukkan 6 digit PIN Master',
-                  prefixIcon: Icons.lock_rounded,
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                  maxLength: 6,
-                  validator: (val) {
-                    if (val == null || val.length != 6) {
-                      return 'PIN harus tepat 6 digit';
-                    }
-                    return null;
-                  },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: Text('Batal'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (formKey.currentState?.validate() ?? false) {
+                            final enteredPin = pinController.text.trim();
+                            const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+                            final bytesBytes = utf8.encode(enteredPin + salt);
+                            final enteredHash = sha256.convert(bytesBytes).toString();
+
+                            setDialogState(() {
+                              isSubmitting = true;
+                              errorMessage = null;
+                            });
+
+                            // 1. Cek Local PIN di SecureStorage (PIN Owner saat setup/login)
+                            final storage = ref.read(secureStorageServiceProvider);
+                            final savedLocalPin = await storage.getLocalPIN();
+                            bool isAuthorized = savedLocalPin != null && (savedLocalPin == enteredHash || savedLocalPin == enteredPin);
+
+                            // 2. Cek Master PIN Keamanan jika belum authorized
+                            if (!isAuthorized) {
+                              try {
+                                isAuthorized = await ref.read(securityRepositoryProvider).validateMasterPin(enteredPin);
+                              } catch (_) {}
+                            }
+
+                            // 3. Cek Kasir bertipe Owner jika belum authorized
+                            if (!isAuthorized) {
+                              try {
+                                final cashierRepo = ref.read(cashierRepositoryProvider);
+                                final cashier = await cashierRepo.getCashierByPin(enteredHash);
+                                if (cashier != null && (cashier.isOwner == 1 || cashier.isOwner == true)) {
+                                  isAuthorized = true;
+                                }
+                              } catch (_) {}
+                            }
+
+                            // 4. Cek jika sesi aktif adalah Owner
+                            if (!isAuthorized) {
+                              final authUser = ref.read(authSessionProvider);
+                              if (authUser != null && (authUser.isOwner || authUser.role == 'pemilik')) {
+                                isAuthorized = true;
+                              }
+                            }
+
+                            if (!isAuthorized) {
+                              setDialogState(() {
+                                isSubmitting = false;
+                                errorMessage = 'Otorisasi gagal! PIN Master Pemilik salah.';
+                              });
+                              return;
+                            }
+
+                            final notifier = ref.read(transactionHistoryNotifierProvider.notifier);
+                            final success = await notifier.voidTransaction(tx.id);
+
+                            if (!dialogContext.mounted) return;
+                            Navigator.pop(dialogContext); // Tutup Dialog
+
+                            if (context.mounted) {
+                              if (success) {
+                                AppSnackbar.showSuccess(context, 'Transaksi ${tx.nomorTransaksi} berhasil dibatalkan (Void). Stok barang dikembalikan.');
+                              } else {
+                                final state = ref.read(transactionHistoryNotifierProvider);
+                                AppSnackbar.showError(context, state.errorMessage ?? 'Gagal membatalkan transaksi.');
+                              }
+                            }
+                          }
+                        },
+                  child: isSubmitting
+                      ? SizedBox(
+                          width: 16.r,
+                          height: 16.r,
+                          child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Otorisasikan'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Batal'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () async {
-                if (formKey.currentState?.validate() ?? false) {
-                  final enteredPin = pinController.text;
-                  const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
-                  final bytesBytes = utf8.encode(enteredPin + salt);
-                  final enteredHash = sha256.convert(bytesBytes).toString();
-
-                  final storage = ref.read(secureStorageServiceProvider);
-                  final savedHashedPin = await storage.getLocalPIN();
-
-                  if (!context.mounted) return;
-                  Navigator.pop(context); // Close dialog
-
-                  if (enteredHash == savedHashedPin) {
-                    final notifier = ref.read(transactionHistoryNotifierProvider.notifier);
-                    final success = await notifier.voidTransaction(tx.id);
-                    
-                    if (!context.mounted) return;
-                    if (success) {
-                      AppSnackbar.showSuccess(context, 'Transaksi ${tx.nomorTransaksi} berhasil dibatalkan (Void). Stok barang dikembalikan.');
-                    } else {
-                      final state = ref.read(transactionHistoryNotifierProvider);
-                      AppSnackbar.showError(context, state.errorMessage ?? 'Gagal membatalkan transaksi.');
-                    }
-                  } else {
-                    AppSnackbar.showError(context, 'Otorisasi gagal! PIN Master Pemilik salah.');
-                  }
-                }
-              },
-              child: Text('Otorisasikan'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
