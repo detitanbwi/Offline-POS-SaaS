@@ -236,24 +236,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final orderState = ref.read(orderNotifierProvider);
       final notes = _notesController.text.trim();
 
-      final isBatchSelected = _selectedBatchId != null && _selectedBatchId != 'all';
-
       // 1. Simpan draft pesanan (upsert pesanan & order_items, print struk dapur, dan set status meja = 1 Terisi/Billed)
-      // JIKA membayar per batch, kita TIDAK perlu menyimpan draft lagi karena batch sudah tersimpan (items tidak berubah).
-      if (!isBatchSelected) {
-        await ref.read(orderNotifierProvider.notifier).saveCurrentOrderDraft(
-              cartState.items,
-              subtotal,
-              taxRate,
-              taxAmount,
-              grandTotal,
-              notes: notes.isNotEmpty ? notes : null,
-              cashierId: activeUser?.id,
-              cashierNama: activeUser?.nama,
-            );
-        // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
-        ref.read(tableNotifierProvider.notifier).loadTables();
-      }
+      await ref.read(orderNotifierProvider.notifier).saveCurrentOrderDraft(
+            cartState.items,
+            subtotal,
+            taxRate,
+            taxAmount,
+            grandTotal,
+            notes: notes.isNotEmpty ? notes : null,
+            cashierId: activeUser?.id,
+            cashierNama: activeUser?.nama,
+          );
+      // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
+      ref.read(tableNotifierProvider.notifier).loadTables();
 
       TransactionHeader? savedHeader;
       List<TransactionItem>? savedItems;
@@ -287,35 +282,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           cashierNama: activeUser?.nama,
         );
 
-        if (isBatchSelected) {
-          final selectedBatchMap = _orderBatches.firstWhere((b) => (b['batch'] as PrintBatchModel).id == _selectedBatchId);
-          final items = selectedBatchMap['items'] as List<OrderItemModel>;
-          savedItems = items.map((item) {
-            return TransactionItem(
-              id: _uuid.v4(),
-              transactionId: txId,
-              produkId: item.produkId,
-              produkNama: item.produkNama,
-              produkHarga: item.produkHarga,
-              qty: item.qty,
-              subtotal: item.subtotal,
-              catatan: item.catatan,
-            );
-          }).toList();
-        } else {
-          savedItems = cartState.items.map((item) {
-            return TransactionItem(
-              id: _uuid.v4(),
-              transactionId: txId,
-              produkId: item.product.id,
-              produkNama: item.product.nama,
-              produkHarga: item.product.harga,
-              qty: item.qty,
-              subtotal: item.subtotal,
-              catatan: item.catatan,
-            );
-          }).toList();
-        }
+        savedItems = cartState.items.map((item) {
+          return TransactionItem(
+            id: _uuid.v4(),
+            transactionId: txId,
+            produkId: item.product.id,
+            produkNama: item.product.nama,
+            produkHarga: item.product.harga,
+            qty: item.qty,
+            subtotal: item.subtotal,
+            catatan: item.catatan,
+          );
+        }).toList();
 
         await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
@@ -323,27 +301,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         final currentOrderState = ref.read(orderNotifierProvider);
         final activeOrder = currentOrderState.activeOrder;
         if (activeOrder != null) {
-          if (isBatchSelected) {
-            await ref.read(orderRepositoryProvider).updatePrintBatchPaymentStatus(_selectedBatchId!, 'paid');
-            // Check if all batches are paid
-            final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);
-            final allPaid = allBatches.every((b) => b['payment_status'] == 'paid');
-            if (allPaid) {
-              await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
-              await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-            } else {
-              await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'partially_paid');
-            }
-          } else {
-            // Full payment
-            await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
-            await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-            
-            // Mark all batches as paid since we're paying the full order
-            final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);
-            for (var b in allBatches) {
-              await ref.read(orderRepositoryProvider).updatePrintBatchPaymentStatus(b['id'], 'paid');
-            }
+          // Full payment
+          await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
+          await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
+          
+          // Mark all batches as paid since we're paying the full order
+          final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);
+          for (var b in allBatches) {
+            await ref.read(orderRepositoryProvider).updatePrintBatchPaymentStatus(b['id'], 'paid');
           }
         }
 
