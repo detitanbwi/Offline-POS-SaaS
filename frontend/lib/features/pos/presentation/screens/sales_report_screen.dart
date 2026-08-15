@@ -298,6 +298,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       ),
     );
 
+    try {
       final pdfBytes = await pdf.save();
       final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
       final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
