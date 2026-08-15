@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/utils/file_saver_util.dart';
 import '../domain/entities/security_credential.dart';
 import '../domain/repositories/security_repository.dart';
 import '../domain/value_objects/master_pin.dart';
@@ -259,16 +260,13 @@ class SecurityService {
     return doc.save();
   }
 
-  /// Automatically exports the .pdf file to the local machine and triggers layout/share dialog.
+  /// Automatically exports the .pdf file to the local Downloads folder and triggers layout/share dialog.
   Future<String?> exportRecoveryPdfToLocalMachine({
     required Uint8List pdfBytes,
     String fileName = 'Kode_Pemulihan_POS.pdf',
   }) async {
     try {
-      // Try saving to application documents directory
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$fileName');
-      await file.writeAsBytes(pdfBytes, flush: true);
+      final file = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
 
       // Trigger system print/save dialog so user can visually save or print
       await Printing.layoutPdf(

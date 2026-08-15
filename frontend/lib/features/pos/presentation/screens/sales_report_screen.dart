@@ -12,6 +12,7 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
+import '../../../../core/utils/file_saver_util.dart';
 import '../../../../core/widgets/app_receipt_preview_modal.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -297,14 +298,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       ),
     );
 
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}/Laporan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
-      final file = File(path);
-      await file.writeAsBytes(await pdf.save());
+      final pdfBytes = await pdf.save();
+      final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
+      final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
       
       if (!mounted) return;
-      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan: $path');
+      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan di folder Downloads:\n${savedFile.path}');
     } catch (e) {
       if (!mounted) return;
       AppSnackbar.showError(context, 'Gagal membuat file PDF: $e');
