@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart' show databaseFactoryFfi;
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/services/app_logger.dart';
+import '../../../../core/utils/file_saver_util.dart';
 
 class BackupService {
   static const String dbName = 'pos_database.db';
@@ -21,27 +22,53 @@ class BackupService {
 
   Future<bool> createBackup() async {
     try {
+      final backupDir = await getApplicationDocumentsDirectory();
+      final targetFile = File(join(backupDir.path, backupName));
+
       // 1. Force SQLite to flush Write-Ahead Log (WAL) to main database file
+      final db = await PosDatabase.instance.database;
       try {
-        final db = await PosDatabase.instance.database;
         await db.execute('PRAGMA wal_checkpoint(FULL)');
       } catch (walErr) {
         AppLogger.warning('Failed WAL checkpoint before backup: $walErr');
       }
 
-      final dbDir = await _getDbDirectory();
-      final sourceFile = File(join(dbDir, dbName));
-
-      if (!await sourceFile.exists()) {
-        AppLogger.warning('POS Database source file not found for backup at: ${sourceFile.path}');
-        return false;
+      // 2. Export clean unencrypted database file using SQLite VACUUM INTO
+      bool vacuumSuccess = false;
+      try {
+        if (await targetFile.exists()) {
+          await targetFile.delete();
+        }
+        final escapedPath = targetFile.path.replaceAll("'", "''");
+        await db.execute("VACUUM INTO '$escapedPath'");
+        vacuumSuccess = await targetFile.exists();
+      } catch (vacErr) {
+        AppLogger.warning('VACUUM INTO export failed, falling back to direct copy: $vacErr');
       }
 
-      final backupDir = await getApplicationDocumentsDirectory();
-      final targetFile = File(join(backupDir.path, backupName));
+      // 3. Fallback to direct file copy if VACUUM INTO fails
+      if (!vacuumSuccess) {
+        final dbDir = await _getDbDirectory();
+        final sourceFile = File(join(dbDir, dbName));
 
-      // Copy database file
-      await sourceFile.copy(targetFile.path);
+        if (!await sourceFile.exists()) {
+          AppLogger.warning('POS Database source file not found for backup at: ${sourceFile.path}');
+          return false;
+        }
+
+        await sourceFile.copy(targetFile.path);
+      }
+
+      // 4. Also export copy to public Downloads folder for cross-app/cross-build accessibility
+      try {
+        final downloadsDir = await FileSaverUtil.getDownloadsDirectoryPath();
+        final publicBackupFile = File(join(downloadsDir.path, backupName));
+        await targetFile.copy(publicBackupFile.path);
+        AppLogger.info('Public backup copied to Downloads: ${publicBackupFile.path}');
+      } catch (pubErr) {
+        AppLogger.warning('Could not write backup to public Downloads folder: $pubErr');
+      }
+
       AppLogger.info('Backup created successfully at: ${targetFile.path}');
       return true;
     } catch (e, stackTrace) {
@@ -53,7 +80,16 @@ class BackupService {
   Future<bool> restoreBackup() async {
     try {
       final backupDir = await getApplicationDocumentsDirectory();
-      final backupFile = File(join(backupDir.path, backupName));
+      File backupFile = File(join(backupDir.path, backupName));
+
+      // Fallback: check public Downloads folder if local internal backup missing or outdated
+      if (!await backupFile.exists()) {
+        final downloadsDir = await FileSaverUtil.getDownloadsDirectoryPath();
+        final publicFile = File(join(downloadsDir.path, backupName));
+        if (await publicFile.exists()) {
+          backupFile = publicFile;
+        }
+      }
 
       if (!await backupFile.exists()) {
         AppLogger.warning('No backup file found at: ${backupFile.path}');

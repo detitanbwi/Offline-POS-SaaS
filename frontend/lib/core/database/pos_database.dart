@@ -77,10 +77,29 @@ class PosDatabase {
       try {
         db = await openWithParams(pwd: encryptionKey);
       } catch (e) {
-        debugPrint('[PosDatabase] Encrypted open failed: $e. Trying fallback...');
+        debugPrint('[PosDatabase] Encrypted open failed: $e. Attempting fallback unencrypted open + rekey...');
         try {
-          db = await openWithParams();
+          if (isDesktop) {
+            db = await databaseFactoryFfi.openDatabase(
+              path,
+              options: OpenDatabaseOptions(
+                version: 13,
+                onCreate: _createDB,
+                onUpgrade: _upgradeDB,
+                onConfigure: _onConfigure,
+              ),
+            );
+          } else {
+            db = await openDatabase(
+              path,
+              version: 13,
+              onCreate: _createDB,
+              onUpgrade: _upgradeDB,
+              onConfigure: _onConfigure,
+            );
+          }
           await db.execute("PRAGMA rekey = '$encryptionKey'");
+          debugPrint('[PosDatabase] Successfully converted unencrypted backup DB to encrypted SQLCipher!');
         } catch (innerErr) {
           debugPrint('[PosDatabase] Fallback failed ($innerErr). Re-creating fresh database...');
           try {
