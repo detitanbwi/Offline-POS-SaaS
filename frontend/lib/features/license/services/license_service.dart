@@ -25,11 +25,7 @@ class LicenseService {
 
       final response = await http.post(
         Uri.parse('$apiBaseUrl/api/activate'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $onlineToken',
-        },
+        headers: getApiHeaders(bearerToken: onlineToken),
         body: jsonEncode({
           'token_key': licenseKey,
           'license_key': licenseKey,
@@ -41,7 +37,12 @@ class LicenseService {
         }),
       ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-      final data = jsonDecode(response.body);
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        return {'success': false, 'message': 'Gagal memproses respons server (${response.statusCode})'};
+      }
 
       if (response.statusCode == 200 && data['success'] == true) {
         final offlineToken = data['offline_token'] ?? '';
@@ -78,11 +79,7 @@ class LicenseService {
 
       final response = await http.post(
         Uri.parse('$apiBaseUrl/api/validate-license'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $onlineToken',
-        },
+        headers: getApiHeaders(bearerToken: onlineToken),
         body: jsonEncode({
           'token_key': licenseKey,
           'license_key': licenseKey,
@@ -90,7 +87,12 @@ class LicenseService {
         }),
       ).timeout(Duration(seconds: customTimeout ?? apiTimeoutSeconds));
 
-      final data = jsonDecode(response.body);
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        return {'success': false, 'message': 'Gagal memproses respons server (${response.statusCode})'};
+      }
 
       if (response.statusCode == 200 && data['success'] == true) {
         await _storage.saveLastValidation(DateTime.now().toIso8601String());
@@ -116,14 +118,15 @@ class LicenseService {
 
       final response = await http.get(
         Uri.parse('$apiBaseUrl/api/license-info'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $onlineToken',
-        },
+        headers: getApiHeaders(bearerToken: onlineToken),
       ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-      final data = jsonDecode(response.body);
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        return {'success': false, 'message': 'Gagal memproses respons server (${response.statusCode})'};
+      }
       if (response.statusCode == 200 && data['success'] == true) {
         if (data['tenant'] != null) {
           final tenant = data['tenant'];
@@ -167,11 +170,7 @@ class LicenseService {
 
         final response = await http.post(
           Uri.parse('$apiBaseUrl/api/auth/request-device-reset-otp'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $onlineToken',
-          },
+          headers: getApiHeaders(bearerToken: onlineToken),
           body: jsonEncode({
             'email': email,
             'password': password,
@@ -179,7 +178,12 @@ class LicenseService {
           }),
         ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-        final data = jsonDecode(response.body);
+        Map<String, dynamic> data;
+        try {
+          data = jsonDecode(response.body);
+        } catch (_) {
+          return {'success': false, 'message': 'Gagal memproses respons server (${response.statusCode})'};
+        }
         return {
           'success': response.statusCode == 200 && data['success'] == true,
           'message': data['message'] ?? 'Permintaan OTP gagal',
@@ -202,11 +206,7 @@ class LicenseService {
 
         final response = await http.post(
           Uri.parse('$apiBaseUrl/api/auth/verify-device-reset-otp'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $onlineToken',
-          },
+          headers: getApiHeaders(bearerToken: onlineToken),
           body: jsonEncode({
             'email': email,
             'token_key': tokenKey,
@@ -214,7 +214,12 @@ class LicenseService {
           }),
         ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-        final data = jsonDecode(response.body);
+        Map<String, dynamic> data;
+        try {
+          data = jsonDecode(response.body);
+        } catch (_) {
+          return {'success': false, 'message': 'Gagal memproses respons server (${response.statusCode})'};
+        }
         return {
           'success': response.statusCode == 200 && data['success'] == true,
           'message': data['message'] ?? 'Verifikasi OTP gagal',
