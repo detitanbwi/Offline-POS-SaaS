@@ -111,7 +111,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final db = await _db.database;
     final searchPattern = '$dateStr%';
 
-    String whereClause = 'created_at LIKE ?';
+    // Exclude voided transactions from revenue, tax, and sales calculations
+    String whereClause = "(status IS NULL OR status != 'voided') AND created_at LIKE ?";
     List<Object?> whereArgs = [searchPattern];
 
     if (cashierId != null) {
@@ -134,6 +135,28 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final totalTransactions = summaryResult.first['total_transactions'] as int;
     final totalSales = (summaryResult.first['total_sales'] as num).toDouble();
     final totalTax = (summaryResult.first['total_tax'] as num).toDouble();
+
+    // Calculate voided transactions count and amount separately
+    String voidWhereClause = "status = 'voided' AND created_at LIKE ?";
+    List<Object?> voidWhereArgs = [searchPattern];
+    if (cashierId != null) {
+      voidWhereClause += ' AND cashier_id = ?';
+      voidWhereArgs.add(cashierId);
+    }
+
+    final List<Map<String, dynamic>> voidResult = await db.rawQuery(
+      '''
+      SELECT 
+        COUNT(*) as total_void_count, 
+        COALESCE(SUM(grand_total), 0) as total_void_amount 
+      FROM transactions 
+      WHERE $voidWhereClause
+      ''',
+      voidWhereArgs,
+    );
+
+    final totalVoidCount = voidResult.first['total_void_count'] as int;
+    final totalVoidAmount = (voidResult.first['total_void_amount'] as num).toDouble();
 
     final List<Map<String, dynamic>> paymentResult = await db.rawQuery(
       '''
@@ -177,6 +200,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       'total_sales': totalSales,
       'total_transactions': totalTransactions,
       'total_tax': totalTax,
+      'total_void_count': totalVoidCount,
+      'total_void_amount': totalVoidAmount,
       'payment_breakdown': paymentBreakdown,
       'top_products': topProducts,
     };

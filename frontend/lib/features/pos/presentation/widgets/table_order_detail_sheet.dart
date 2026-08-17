@@ -410,9 +410,11 @@ class TableOrderDetailSheet {
               ],
             ],
           ),
-            ],
-          ),
-        );
+        ],
+      ),
+    );
+  },
+);
       },
     );
   }

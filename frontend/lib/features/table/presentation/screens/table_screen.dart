@@ -22,6 +22,8 @@ import '../../../pos/application/order_notifier.dart';
 import '../../../pos/domain/models/order_item.dart';
 import '../../../pos/presentation/screens/cashier_screen.dart';
 import '../../../pos/presentation/screens/payment_screen.dart';
+import '../../../security/presentation/providers/security_providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 
 class TableScreen extends ConsumerStatefulWidget {
   const TableScreen({super.key});
@@ -743,71 +745,172 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final pinController = TextEditingController();
     final isBatch = batchId != null;
 
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: isBatch ? 'Batalkan Batch' : 'Batalkan $itemName',
-      confirmText: 'Batalkan',
-      cancelText: 'Tutup',
-      isDestructive: true,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Alasan Pembatalan:'),
-          SizedBox(height: 8),
-          TextField(
-            controller: reasonController,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-          ),
-          SizedBox(height: 16),
-          Text('Otorisasi Owner (PIN):'),
-          SizedBox(height: 8),
-          TextField(
-            controller: pinController,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-          ),
-        ],
-      ),
-      onConfirm: () async {
-        final reason = reasonController.text.trim();
-        final pin = pinController.text.trim();
+      builder: (dialogContext) {
+        String? dialogErrorMessage;
+        bool isSubmitting = false;
 
-        if (reason.isEmpty || pin.length != 6) {
-          AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
-          return;
-        }
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+              title: Text(
+                isBatch ? 'Batalkan Batch' : 'Batalkan $itemName',
+                style: AppTypography.titleLarge.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Alasan Pembatalan:', style: AppTypography.labelLarge),
+                    SizedBox(height: 8.h),
+                    TextField(
+                      controller: reasonController,
+                      decoration: const InputDecoration(
+                        hintText: 'Masukkan alasan pembatalan...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    SizedBox(height: 16.h),
+                    Text('Otorisasi Owner (PIN):', style: AppTypography.labelLarge),
+                    SizedBox(height: 8.h),
+                    TextField(
+                      controller: pinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      decoration: const InputDecoration(
+                        hintText: '6 Digit PIN Owner',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    if (dialogErrorMessage != null) ...[
+                      SizedBox(height: 8.h),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Text(
+                          dialogErrorMessage!,
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: Text('Tutup', style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final reason = reasonController.text.trim();
+                          final pin = pinController.text.trim();
 
-        const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
-        var bytes = utf8.encode(pin + salt);
-        var digest = sha256.convert(bytes);
-        final hashedPin = digest.toString();
+                          if (reason.isEmpty) {
+                            setDialogState(() => dialogErrorMessage = 'Harap isi alasan pembatalan.');
+                            return;
+                          }
+                          if (pin.length != 6) {
+                            setDialogState(() => dialogErrorMessage = 'Harap isi 6 digit PIN Owner.');
+                            return;
+                          }
 
-        final cashierRepo = ref.read(cashierRepositoryProvider);
-        final cashier = await cashierRepo.getCashierByPin(hashedPin);
+                          setDialogState(() {
+                            isSubmitting = true;
+                            dialogErrorMessage = null;
+                          });
 
-        if (!context.mounted) return;
+                          try {
+                            const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+                            var bytes = utf8.encode(pin + salt);
+                            final hashedPin = sha256.convert(bytes).toString();
 
-        if (cashier == null || cashier.isOwner != 1) {
-          AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
-          return;
-        }
+                            // 1. Cek Local PIN (PIN Owner saat setup/login)
+                            final storage = ref.read(secureStorageServiceProvider);
+                            final savedLocalPin = await storage.getLocalPIN();
+                            bool isAuthorized = savedLocalPin != null && (savedLocalPin == hashedPin || savedLocalPin == pin);
 
-        Navigator.pop(context); // Close dialog
+                            // 2. Cek Master PIN Keamanan jika belum authorized
+                            if (!isAuthorized) {
+                              try {
+                                isAuthorized = await ref.read(securityRepositoryProvider).validateMasterPin(pin);
+                              } catch (_) {}
+                            }
 
-        if (isBatch) {
-          await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
-        } else if (itemId != null) {
-          await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
-        }
+                            // 3. Cek Kasir bertipe Owner jika belum authorized
+                            if (!isAuthorized) {
+                              try {
+                                final cashierRepo = ref.read(cashierRepositoryProvider);
+                                final cashier = await cashierRepo.getCashierByPin(hashedPin);
+                                if (cashier != null && cashier.isOwner == 1) {
+                                  isAuthorized = true;
+                                }
+                              } catch (_) {}
+                            }
 
-        if (context.mounted) {
-          AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
-          ref.read(tableNotifierProvider.notifier).loadTables();
-          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        }
+                            // 4. Cek jika sesi aktif adalah Owner
+                            if (!isAuthorized) {
+                              final authUser = ref.read(authSessionProvider);
+                              if (authUser != null && authUser.isOwner) {
+                                isAuthorized = true;
+                              }
+                            }
+
+                            if (!isAuthorized) {
+                              setDialogState(() {
+                                isSubmitting = false;
+                                dialogErrorMessage = 'Otorisasi gagal! PIN salah atau bukan Owner.';
+                              });
+                              return;
+                            }
+
+                            // Otorisasi Sukses -> Tutup Dialog & Proses Pembatalan
+                            Navigator.pop(dialogContext);
+
+                            if (isBatch) {
+                              await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
+                            } else if (itemId != null) {
+                              await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
+                            }
+
+                            if (context.mounted) {
+                              AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
+                              ref.read(tableNotifierProvider.notifier).loadTables();
+                              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isSubmitting = false;
+                              dialogErrorMessage = 'Gagal memproses pembatalan: $e';
+                            });
+                          }
+                        },
+                  child: isSubmitting
+                      ? SizedBox(
+                          width: 16.r,
+                          height: 16.r,
+                          child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Batalkan'),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }

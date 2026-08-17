@@ -55,6 +55,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    if (_isLoading) return;
+
     FocusScope.of(context).unfocus(); // Dismiss keyboard to prevent IME freeze
 
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {

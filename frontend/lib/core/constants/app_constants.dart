@@ -9,8 +9,8 @@ library;
 const String apiBaseUrl = 'https://demo2.rce-eastjava.org';
 
 /// Application metadata
-const String appVersion = '0.1.36';
-const String appBuildNumber = '136';
+const String appVersion = '0.1.37';
+const String appBuildNumber = '137';
 const String appName = 'SaaS POS Offline';
 
 /// Order Type constants
@@ -69,3 +69,14 @@ const int pinMaxLength = 6;
 
 /// API timeout in seconds
 const int apiTimeoutSeconds = 10;
+
+/// Standard HTTP Headers for all API requests to prevent bot false-positives (Imunify360/WAF)
+Map<String, String> getApiHeaders({String? bearerToken}) {
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 SaaSPOS/$appVersion',
+    if (bearerToken != null && bearerToken.isNotEmpty)
+      'Authorization': 'Bearer $bearerToken',
+  };
+}

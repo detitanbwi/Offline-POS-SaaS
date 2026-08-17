@@ -608,12 +608,25 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                     children: [
                                       Padding(
                                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-                                        child: Text(
-                                          '---- $catName',
-                                          style: AppTypography.titleMedium.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
-                                          ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 4,
+                                              height: 16,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary,
+                                                borderRadius: BorderRadius.circular(2),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              catName,
+                                              style: AppTypography.titleMedium.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                       ...products.map((product) {
@@ -658,12 +671,25 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                         children: [
                                           Padding(
                                             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-                                            child: Text(
-                                              '---- $catName',
-                                              style: AppTypography.titleMedium.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.primary,
-                                              ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 4,
+                                                  height: 16,
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primary,
+                                                    borderRadius: BorderRadius.circular(2),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  catName,
+                                                  style: AppTypography.titleMedium.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.textPrimary,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           LayoutBuilder(

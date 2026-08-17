@@ -16,7 +16,7 @@ class SecurityDatabase {
   SecurityDatabase._init();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDB('pos_security_core.db');
     return _database!;
   }
@@ -38,77 +38,67 @@ class SecurityDatabase {
 
     final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
 
-    if (!shouldEncrypt) {
-      try {
-        if (isDesktop) {
-          return await databaseFactoryFfi.openDatabase(
-            path,
-            options: OpenDatabaseOptions(
-              version: 1,
-              onCreate: _createDB,
-              onUpgrade: _upgradeDB,
-              onConfigure: _onConfigure,
-            ),
-          );
-        } else {
-          return await openDatabase(
-            path,
+    Future<Database> openWithParams({String? pwd}) async {
+      if (isDesktop) {
+        return await databaseFactoryFfi.openDatabase(
+          path,
+          options: OpenDatabaseOptions(
             version: 1,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
-          );
-        }
-      } catch (e) {
-        // Fallback: Delete and recreate if corrupted or previously encrypted
-        if (isDesktop) {
-          await databaseFactoryFfi.deleteDatabase(path);
-          return await databaseFactoryFfi.openDatabase(
-            path,
-            options: OpenDatabaseOptions(
-              version: 1,
-              onCreate: _createDB,
-              onUpgrade: _upgradeDB,
-              onConfigure: _onConfigure,
-            ),
-          );
-        } else {
-          await deleteDatabase(path);
-          return await openDatabase(
-            path,
-            version: 1,
-            onCreate: _createDB,
-            onUpgrade: _upgradeDB,
-            onConfigure: _onConfigure,
-          );
-        }
+          ),
+        );
+      } else {
+        return await openDatabase(
+          path,
+          version: 1,
+          password: pwd,
+          onCreate: _createDB,
+          onUpgrade: _upgradeDB,
+          onConfigure: _onConfigure,
+        );
       }
     }
 
-    Database? db;
-    try {
-      db = await openDatabase(
-        path,
-        version: 1,
-        password: encryptionKey,
-        onCreate: _createDB,
-        onUpgrade: _upgradeDB,
-        onConfigure: _onConfigure,
-      );
-    } catch (e) {
-      // Fallback: Delete and recreate if encryption key changed or DB corrupted
-      await deleteDatabase(path);
-      db = await openDatabase(
-        path,
-        version: 1,
-        password: encryptionKey,
-        onCreate: _createDB,
-        onUpgrade: _upgradeDB,
-        onConfigure: _onConfigure,
-      );
+    if (!shouldEncrypt) {
+      try {
+        return await openWithParams();
+      } catch (e) {
+        debugPrint('[SecurityDatabase] Unencrypted open failed: $e. Re-creating DB...');
+        try {
+          if (isDesktop) {
+            await databaseFactoryFfi.deleteDatabase(path);
+          } else {
+            await deleteDatabase(path);
+          }
+        } catch (_) {}
+        return await openWithParams();
+      }
     }
 
-    return db;
+    try {
+      return await openWithParams(pwd: encryptionKey);
+    } catch (e) {
+      debugPrint('[SecurityDatabase] Encrypted open failed with key: $e. Trying fallback...');
+      try {
+        // Fallback 1: Coba buka tanpa password dan rekey jika sebelumnya belum terenkripsi
+        final unencryptedDb = await openWithParams();
+        await unencryptedDb.execute("PRAGMA rekey = '$encryptionKey'");
+        return unencryptedDb;
+      } catch (innerErr) {
+        debugPrint('[SecurityDatabase] Fallback failed ($innerErr). Re-creating fresh database...');
+        // Fallback 2: Jika terenkripsi oleh key akun lama / corrupt -> hapus file lama & buat baru
+        try {
+          if (isDesktop) {
+            await databaseFactoryFfi.deleteDatabase(path);
+          } else {
+            await deleteDatabase(path);
+          }
+        } catch (_) {}
+        return await openWithParams(pwd: encryptionKey);
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -142,8 +132,26 @@ class SecurityDatabase {
   Future<void> close() async {
     final db = _database;
     if (db != null) {
-      await db.close();
+      try {
+        await db.close();
+      } catch (_) {}
       _database = null;
     }
+  }
+
+  Future<void> deleteDatabaseFile() async {
+    await close();
+    final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+    final dbPath = isDesktop 
+        ? await databaseFactoryFfi.getDatabasesPath()
+        : await getDatabasesPath();
+    final path = join(dbPath, 'pos_security_core.db');
+    try {
+      if (isDesktop) {
+        await databaseFactoryFfi.deleteDatabase(path);
+      } else {
+        await deleteDatabase(path);
+      }
+    } catch (_) {}
   }
 }

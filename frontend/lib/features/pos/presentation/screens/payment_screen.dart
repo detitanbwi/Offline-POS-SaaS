@@ -47,10 +47,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   PaymentMethod? _selectedMethod;
   bool _isProcessing = false;
   String _orderNumber = '';
-  
-  List<Map<String, dynamic>> _orderBatches = [];
-  String? _selectedBatchId;
-  bool _isLoadingBatches = true;
 
   @override
   void initState() {
@@ -79,23 +75,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         if (orderState.onlinePlatformTotal == null) {
           ref.read(orderNotifierProvider.notifier).setOnlinePlatformTotal(total);
         }
-      }
-      
-      final activeOrder = orderState.activeOrder;
-      if (activeOrder != null) {
-        final repo = ref.read(orderRepositoryProvider);
-        final batches = await repo.getPrintBatchesWithItems(activeOrder.id);
-        setState(() {
-          _orderBatches = batches.where((b) {
-            final items = b['items'] as List;
-            return items.isNotEmpty;
-          }).toList();
-          _isLoadingBatches = false;
-        });
-      } else {
-        setState(() {
-          _isLoadingBatches = false;
-        });
       }
     });
   }
@@ -257,24 +236,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final orderState = ref.read(orderNotifierProvider);
       final notes = _notesController.text.trim();
 
-      final isBatchSelected = _selectedBatchId != null && _selectedBatchId != 'all';
-
       // 1. Simpan draft pesanan (upsert pesanan & order_items, print struk dapur, dan set status meja = 1 Terisi/Billed)
-      // JIKA membayar per batch, kita TIDAK perlu menyimpan draft lagi karena batch sudah tersimpan (items tidak berubah).
-      if (!isBatchSelected) {
-        await ref.read(orderNotifierProvider.notifier).saveCurrentOrderDraft(
-              cartState.items,
-              subtotal,
-              taxRate,
-              taxAmount,
-              grandTotal,
-              notes: notes.isNotEmpty ? notes : null,
-              cashierId: activeUser?.id,
-              cashierNama: activeUser?.nama,
-            );
-        // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
-        ref.read(tableNotifierProvider.notifier).loadTables();
-      }
+      await ref.read(orderNotifierProvider.notifier).saveCurrentOrderDraft(
+            cartState.items,
+            subtotal,
+            taxRate,
+            taxAmount,
+            grandTotal,
+            notes: notes.isNotEmpty ? notes : null,
+            cashierId: activeUser?.id,
+            cashierNama: activeUser?.nama,
+          );
+      // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
+      ref.read(tableNotifierProvider.notifier).loadTables();
 
       TransactionHeader? savedHeader;
       List<TransactionItem>? savedItems;
@@ -308,35 +282,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           cashierNama: activeUser?.nama,
         );
 
-        if (isBatchSelected) {
-          final selectedBatchMap = _orderBatches.firstWhere((b) => (b['batch'] as PrintBatchModel).id == _selectedBatchId);
-          final items = selectedBatchMap['items'] as List<OrderItemModel>;
-          savedItems = items.map((item) {
-            return TransactionItem(
-              id: _uuid.v4(),
-              transactionId: txId,
-              produkId: item.produkId,
-              produkNama: item.produkNama,
-              produkHarga: item.produkHarga,
-              qty: item.qty,
-              subtotal: item.subtotal,
-              catatan: item.catatan,
-            );
-          }).toList();
-        } else {
-          savedItems = cartState.items.map((item) {
-            return TransactionItem(
-              id: _uuid.v4(),
-              transactionId: txId,
-              produkId: item.product.id,
-              produkNama: item.product.nama,
-              produkHarga: item.product.harga,
-              qty: item.qty,
-              subtotal: item.subtotal,
-              catatan: item.catatan,
-            );
-          }).toList();
-        }
+        savedItems = cartState.items.map((item) {
+          return TransactionItem(
+            id: _uuid.v4(),
+            transactionId: txId,
+            produkId: item.product.id,
+            produkNama: item.product.nama,
+            produkHarga: item.product.harga,
+            qty: item.qty,
+            subtotal: item.subtotal,
+            catatan: item.catatan,
+          );
+        }).toList();
 
         await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
@@ -344,27 +301,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         final currentOrderState = ref.read(orderNotifierProvider);
         final activeOrder = currentOrderState.activeOrder;
         if (activeOrder != null) {
-          if (isBatchSelected) {
-            await ref.read(orderRepositoryProvider).updatePrintBatchPaymentStatus(_selectedBatchId!, 'paid');
-            // Check if all batches are paid
-            final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);
-            final allPaid = allBatches.every((b) => b['payment_status'] == 'paid');
-            if (allPaid) {
-              await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
-              await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-            } else {
-              await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'partially_paid');
-            }
-          } else {
-            // Full payment
-            await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
-            await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
-            
-            // Mark all batches as paid since we're paying the full order
-            final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);
-            for (var b in allBatches) {
-              await ref.read(orderRepositoryProvider).updatePrintBatchPaymentStatus(b['id'], 'paid');
-            }
+          // Full payment
+          await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
+          await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
+          
+          // Mark all batches as paid since we're paying the full order
+          final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);
+          for (var b in allBatches) {
+            await ref.read(orderRepositoryProvider).updatePrintBatchPaymentStatus(b['id'], 'paid');
           }
         }
 
@@ -623,23 +567,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final activeMethods = pmState.allMethods.where((p) => p.isActive).toList();
 
     final isCash = _selectedMethod?.id == 'pm-tunai';
-    double storeSubtotal = cartState.subtotal;
-    double storeTaxAmount = cartState.taxAmount;
-    double storeGrandTotal = cartState.grandTotal;
-
-    if (_selectedBatchId != null && _selectedBatchId != 'all') {
-      final selectedBatchMap = _orderBatches.firstWhere((b) => (b['batch'] as PrintBatchModel).id == _selectedBatchId);
-      final items = selectedBatchMap['items'] as List<OrderItemModel>;
-      storeSubtotal = items.fold(0, (sum, item) => sum + item.subtotal);
-      
-      // Calculate tax for this batch if tax is enabled
-      final taxRate = cartState.taxRate;
-      storeTaxAmount = storeSubtotal * (taxRate / 100);
-      storeGrandTotal = storeSubtotal + storeTaxAmount;
-    }
+    final storeSubtotal = cartState.subtotal;
+    final storeTaxAmount = cartState.taxAmount;
+    final storeGrandTotal = cartState.grandTotal;
 
     final double? onlineTotal = (orderState.isOnlineFood && orderState.onlinePlatformTotal != null && orderState.onlinePlatformTotal! > 0)
-        ? (_selectedBatchId != null && _selectedBatchId != 'all' ? null : orderState.onlinePlatformTotal)
+        ? orderState.onlinePlatformTotal
         : null;
 
     final grandTotal = storeGrandTotal;
@@ -737,43 +670,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-          if (_isLoadingBatches)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16.0),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_orderBatches.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Pilih Batch Pembayaran',
-                  border: OutlineInputBorder(),
-                ),
-                value: _selectedBatchId,
-                items: [
-                  const DropdownMenuItem(
-                    value: 'all',
-                    child: Text('Bayar Semua (Full)'),
-                  ),
-                  ..._orderBatches.map((b) {
-                    final batch = b['batch'] as PrintBatchModel;
-                    final isPaid = batch.paymentStatus == 'paid';
-                    return DropdownMenuItem(
-                      value: batch.id,
-                      enabled: !isPaid,
-                      child: Text('Batch ${batch.createdAt.hour}:${batch.createdAt.minute.toString().padLeft(2, '0')} ${isPaid ? "(Lunas)" : ""}'),
-                    );
-                  }),
-                ],
-                onChanged: (val) {
-                  setState(() {
-                    _selectedBatchId = val;
-                  });
-                },
-              ),
-            ),
-          
           // Invoice summary header card
           AppCard(
             padding: const EdgeInsets.all(AppSpacing.l),
