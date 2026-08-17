@@ -39,24 +39,49 @@ class SecurityDatabase {
     final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
 
     if (!shouldEncrypt) {
-      if (isDesktop) {
-        return await databaseFactoryFfi.openDatabase(
-          path,
-          options: OpenDatabaseOptions(
+      try {
+        if (isDesktop) {
+          return await databaseFactoryFfi.openDatabase(
+            path,
+            options: OpenDatabaseOptions(
+              version: 1,
+              onCreate: _createDB,
+              onUpgrade: _upgradeDB,
+              onConfigure: _onConfigure,
+            ),
+          );
+        } else {
+          return await openDatabase(
+            path,
             version: 1,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
-          ),
-        );
-      } else {
-        return await openDatabase(
-          path,
-          version: 1,
-          onCreate: _createDB,
-          onUpgrade: _upgradeDB,
-          onConfigure: _onConfigure,
-        );
+          );
+        }
+      } catch (e) {
+        // Fallback: Delete and recreate if corrupted or previously encrypted
+        if (isDesktop) {
+          await databaseFactoryFfi.deleteDatabase(path);
+          return await databaseFactoryFfi.openDatabase(
+            path,
+            options: OpenDatabaseOptions(
+              version: 1,
+              onCreate: _createDB,
+              onUpgrade: _upgradeDB,
+              onConfigure: _onConfigure,
+            ),
+          );
+        } else {
+          await deleteDatabase(path);
+          return await openDatabase(
+            path,
+            version: 1,
+            onCreate: _createDB,
+            onUpgrade: _upgradeDB,
+            onConfigure: _onConfigure,
+          );
+        }
       }
     }
 
@@ -71,7 +96,16 @@ class SecurityDatabase {
         onConfigure: _onConfigure,
       );
     } catch (e) {
-      rethrow;
+      // Fallback: Delete and recreate if encryption key changed or DB corrupted
+      await deleteDatabase(path);
+      db = await openDatabase(
+        path,
+        version: 1,
+        password: encryptionKey,
+        onCreate: _createDB,
+        onUpgrade: _upgradeDB,
+        onConfigure: _onConfigure,
+      );
     }
 
     return db;

@@ -71,6 +71,21 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 
   Future<void> _triggerBackgroundValidation() async {
+    final storage = ref.read(secureStorageServiceProvider);
+    
+    // Check if 7 days have passed since the last online validation
+    final lastValidationStr = await storage.getLastValidation();
+    if (lastValidationStr != null && lastValidationStr.isNotEmpty) {
+      try {
+        final lastValidation = DateTime.parse(lastValidationStr);
+        if (DateTime.now().difference(lastValidation).inDays < 7) {
+          return; // Skip validation if within the 7-day window
+        }
+      } catch (_) {
+        // Continue if parsing fails
+      }
+    }
+
     final licenseService = ref.read(licenseServiceProvider);
     
     // Gunakan timeout 10 detik agar tidak terlalu sensitif terhadap koneksi lemot
