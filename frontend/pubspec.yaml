@@ -57,6 +57,7 @@ dependencies:
   flutter_screenutil: ^5.9.3
   device_preview: ^1.2.0
   airplane_mode_checker: ^3.3.0
+  dart_jsonwebtoken: ^3.4.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

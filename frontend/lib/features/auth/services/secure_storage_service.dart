@@ -16,6 +16,7 @@ class SecureStorageService {
   static const String _keyLastValidation = 'last_validation_time';
   static const String _keyLicenseExpiry = 'license_expiry';
   static const String _keyFingerprintHash = 'fingerprint_hash';
+  static const String _keyPublicKey = 'public_key';
 
   static const String _keyStoreName = 'store_name';
   static const String _keyStoreAddress = 'store_address';
@@ -134,6 +135,14 @@ class SecureStorageService {
 
   Future<void> saveLastValidation(String timeStr) async {
     await _storage.write(key: _keyLastValidation, value: timeStr);
+  }
+
+  Future<void> savePublicKey(String publicKey) async {
+    await _storage.write(key: _keyPublicKey, value: publicKey);
+  }
+
+  Future<String?> getPublicKey() async {
+    return await _storage.read(key: _keyPublicKey);
   }
 
   Future<void> clearAll() async {

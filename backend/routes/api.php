@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:60,1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/license-public-key', [ActivationController::class, 'getPublicKey']);
 
     // Password Recovery Routes
     Route::post('/password/forgot', [\App\Http\Controllers\PasswordRecoveryController::class, 'requestOtp']);

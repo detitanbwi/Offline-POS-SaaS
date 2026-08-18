@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -59,6 +60,20 @@ class LicenseService {
           fingerprintHash: fingerprint,
           expiryDateStr: data['expires_at'],
         );
+
+        // Fetch Public Key
+        try {
+          final pkResponse = await http.get(
+            Uri.parse('$apiBaseUrl/api/license-public-key'),
+            headers: getApiHeaders(bearerToken: onlineToken),
+          ).timeout(const Duration(seconds: apiTimeoutSeconds));
+          if (pkResponse.statusCode == 200) {
+            final pkData = jsonDecode(pkResponse.body);
+            if (pkData['success'] == true && pkData['public_key'] != null) {
+              await _storage.savePublicKey(pkData['public_key']);
+            }
+          }
+        } catch (_) {}
 
         return {'success': true};
       } else {
@@ -255,8 +270,10 @@ class LicenseService {
   }
 
     Future<bool> checkLicenseOffline() async {
-      final expiryStr = await _storage.getLicenseExpiry();
-      if (expiryStr == null || expiryStr.isEmpty) return false;
+      final activationToken = await _storage.getActivationToken();
+      final publicKeyPem = await _storage.getPublicKey();
+      
+      if (activationToken == null || activationToken.isEmpty) return false;
 
       final lastValidationStr = await _storage.getLastValidation();
 
@@ -268,7 +285,30 @@ class LicenseService {
           }
         }
 
-        final expiryDate = DateTime.parse(expiryStr);
+        DateTime? expiryDate;
+        
+        // Verifikasi dengan JWT Public Key jika tersedia
+        if (publicKeyPem != null && publicKeyPem.isNotEmpty) {
+          try {
+            final publicKey = RSAPublicKey(publicKeyPem);
+            final jwt = JWT.verify(activationToken, publicKey);
+            if (jwt.payload['exp'] != null) {
+               // JWT exp is in seconds
+               expiryDate = DateTime.fromMillisecondsSinceEpoch((jwt.payload['exp'] as int) * 1000);
+            }
+          } catch (e) {
+            // Signature tidak valid atau token ditamper
+            return false;
+          }
+        }
+
+        // Fallback (untuk kompatibilitas jika token format lama / belum terunduh public key)
+        if (expiryDate == null) {
+           final expiryStr = await _storage.getLicenseExpiry();
+           if (expiryStr == null || expiryStr.isEmpty) return false;
+           expiryDate = DateTime.parse(expiryStr);
+        }
+
         return DateTime.now().isBefore(expiryDate);
       } catch (e) {
         return false;

@@ -152,4 +152,14 @@ class ActivationController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], $status);
         }
     }
+
+    public function getPublicKey(): JsonResponse
+    {
+        $path = storage_path('license-public.key');
+        if (!file_exists($path)) {
+            return response()->json(['success' => false, 'message' => 'Public key not found on server'], 404);
+        }
+        $publicKey = file_get_contents($path);
+        return response()->json(['success' => true, 'public_key' => $publicKey]);
+    }
 }

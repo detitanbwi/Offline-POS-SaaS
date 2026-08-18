@@ -272,7 +272,7 @@ class LicenseService
     }
 
     /**
-     * Generate offline JWT token untuk Flutter client.
+     * Generate offline JWT token untuk Flutter client using RS256.
      */
     private function generateOfflineToken(LicenseToken $token, Device $device): string
     {
@@ -281,7 +281,7 @@ class LicenseService
         };
 
         $header = json_encode([
-            'alg' => 'HS256',
+            'alg' => 'RS256',
             'typ' => 'JWT',
         ]);
 
@@ -299,14 +299,20 @@ class LicenseService
         $base64UrlHeader = $base64UrlEncode($header);
         $base64UrlPayload = $base64UrlEncode($payload);
 
-        $secretKey = config('app.jwt_secret');
-        if (empty($secretKey)) {
-            throw new \RuntimeException('JWT_SECRET is not configured. Set JWT_SECRET in your .env file.');
+        $privateKeyPath = storage_path('license-private.key');
+        if (!file_exists($privateKeyPath)) {
+            throw new \RuntimeException('RSA Private Key not found. Please run php artisan license:keys');
         }
 
-        $signature = hash_hmac('sha256', $base64UrlHeader.'.'.$base64UrlPayload, $secretKey, true);
+        $privateKey = file_get_contents($privateKeyPath);
+        $dataToSign = $base64UrlHeader . '.' . $base64UrlPayload;
+
+        if (!openssl_sign($dataToSign, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+            throw new \RuntimeException('Failed to sign JWT with RSA Private Key');
+        }
+
         $base64UrlSignature = $base64UrlEncode($signature);
 
-        return $base64UrlHeader.'.'.$base64UrlPayload.'.'.$base64UrlSignature;
+        return $base64UrlHeader . '.' . $base64UrlPayload . '.' . $base64UrlSignature;
     }
 }
