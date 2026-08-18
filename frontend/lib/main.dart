@@ -53,15 +53,10 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
     
-    // Start a strict periodic background validation every 7 days (Production)
-    _periodicValidationTimer = Timer.periodic(const Duration(days: 7), (_) {
+    // Start a periodic background validation check every 1 hour
+    _periodicValidationTimer = Timer.periodic(const Duration(hours: 1), (_) {
       _triggerBackgroundValidation();
     });
-
-    // // Start a strict periodic background validation every 3 minutes (Testing)
-    // _periodicValidationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
-    //   _triggerBackgroundValidation();
-    // });
   }
 
   @override
@@ -71,26 +66,12 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 
   Future<void> _triggerBackgroundValidation() async {
-    final storage = ref.read(secureStorageServiceProvider);
-    
-    // Check if 7 days have passed since the last online validation
-    final lastValidationStr = await storage.getLastValidation();
-    if (lastValidationStr != null && lastValidationStr.isNotEmpty) {
-      try {
-        final lastValidation = DateTime.parse(lastValidationStr);
-        if (DateTime.now().difference(lastValidation).inDays < 7) {
-          return; // Skip validation if within the 7-day window
-        }
-      } catch (_) {
-        // Continue if parsing fails
-      }
-    }
-
     final licenseService = ref.read(licenseServiceProvider);
     
-    // Gunakan timeout 10 detik agar tidak terlalu sensitif terhadap koneksi lemot
-    final result = await licenseService.validateLicenseOnline(customTimeout: 10);
-    if (result['success'] == false) {
+    // Pengecekan 12-jam akan ditangani di dalam performPeriodicCheck
+    final result = await licenseService.performPeriodicCheck();
+    
+    if (result != null && result['success'] == false) {
       if (result['is_offline'] == true) {
         // Jika offline, fallback ke cek lisensi lokal (offline)
         final isLicenseValid = await licenseService.checkLicenseOffline();
@@ -117,6 +98,12 @@ class _MyAppState extends ConsumerState<MyApp> {
         } else {
           ref.read(licenseExpiredProvider.notifier).state = true;
         }
+      }
+    } else if (result == null) {
+      // Jika tidak ada pengecekan online (belum 12 jam), fallback cek lokal
+      final isLicenseValid = await licenseService.checkLicenseOffline();
+      if (!isLicenseValid) {
+        ref.read(licenseExpiredProvider.notifier).state = true;
       }
     }
   }

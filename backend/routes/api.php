@@ -29,4 +29,5 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/license-info', [ActivationController::class, 'getLicenseInfo']);
     Route::post('/activate', [ActivationController::class, 'activate']);
     Route::post('/validate-license', [ActivationController::class, 'validateLicense']);
+    Route::post('/license-logs/sync', [\App\Http\Controllers\LicenseLogController::class, 'sync']);
 });

@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 13,
+            version: 14,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,11 +49,11 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-          version: 13,
-          password: pwd,
-          onCreate: _createDB,
-          onUpgrade: _upgradeDB,
-          onConfigure: _onConfigure,
+            version: 14,
+            password: pwd,
+            onCreate: _createDB,
+            onUpgrade: _upgradeDB,
+            onConfigure: _onConfigure,
         );
       }
     }
@@ -83,7 +83,7 @@ class PosDatabase {
             db = await databaseFactoryFfi.openDatabase(
               path,
               options: OpenDatabaseOptions(
-                version: 13,
+                version: 14,
                 onCreate: _createDB,
                 onUpgrade: _upgradeDB,
                 onConfigure: _onConfigure,
@@ -92,7 +92,7 @@ class PosDatabase {
           } else {
             db = await openDatabase(
               path,
-              version: 13,
+              version: 14,
               onCreate: _createDB,
               onUpgrade: _upgradeDB,
               onConfigure: _onConfigure,
@@ -470,6 +470,18 @@ class PosDatabase {
       )
     ''');
 
+    // 20. License Logs
+    await db.execute('''
+      CREATE TABLE license_logs (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        trigger_type TEXT NOT NULL,
+        remaining_time_seconds INTEGER NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
     // Indexes for performance
     await _createIndexes(db);
 
@@ -478,7 +490,7 @@ class PosDatabase {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 13) {
+    if (oldVersion < 14) {
       // TAHAP PENGEMBANGAN: Hapus semua tabel dan buat ulang dari awal untuk memastikan schema bersih
       bool droppedAll = false;
       while (!droppedAll) {

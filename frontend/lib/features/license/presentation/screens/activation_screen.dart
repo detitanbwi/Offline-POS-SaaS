@@ -64,6 +64,8 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   }
 
   Future<void> _handleActivation() async {
+    if (_isLoading) return;
+    
     final key = _licenseController.text.trim();
     if (key.isEmpty) {
       AppSnackbar.showWarning(context, 'Lisensi Key harus diisi!');
@@ -149,6 +151,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                       AppSnackbar.showWarning(context, 'Email dan password harus diisi');
                       return;
                     }
+                    if (isRequesting) return;
                     setStateDialog(() => isRequesting = true);
                     final licenseService = ref.read(licenseServiceProvider);
                     final result = await licenseService.requestDeviceResetOtp(
@@ -223,6 +226,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                       AppSnackbar.showWarning(context, 'Kode OTP harus 6 digit');
                       return;
                     }
+                    if (isVerifying) return;
                     setStateDialog(() => isVerifying = true);
                     final licenseService = ref.read(licenseServiceProvider);
                     final result = await licenseService.verifyDeviceResetOtp(

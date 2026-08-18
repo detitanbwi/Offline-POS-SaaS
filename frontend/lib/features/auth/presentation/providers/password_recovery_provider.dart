@@ -40,6 +40,7 @@ class PasswordRecoveryNotifier extends StateNotifier<PasswordRecoveryState> {
   PasswordRecoveryNotifier(this._service) : super(const PasswordRecoveryState());
 
   Future<bool> requestOtp(String email) async {
+    if (state.isLoading) return false;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _service.requestOtp(email);
@@ -52,6 +53,7 @@ class PasswordRecoveryNotifier extends StateNotifier<PasswordRecoveryState> {
   }
 
   Future<bool> verifyOtp(String email, String otp) async {
+    if (state.isLoading) return false;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final token = await _service.verifyOtp(email, otp);
@@ -75,6 +77,7 @@ class PasswordRecoveryNotifier extends StateNotifier<PasswordRecoveryState> {
       return false;
     }
 
+    if (state.isLoading) return false;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _service.resetPassword(

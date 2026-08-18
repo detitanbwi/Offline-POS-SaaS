@@ -21,6 +21,7 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
   bool _isLoading = false;
 
   Future<void> _handleSync() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
     
