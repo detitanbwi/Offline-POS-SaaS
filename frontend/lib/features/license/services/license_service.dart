@@ -125,13 +125,15 @@ class LicenseService {
   }
 
   Future<Map<String, dynamic>?> performPeriodicCheck() async {
-    const secureStorage = FlutterSecureStorage();
-    final lastValidationStr = await secureStorage.read(key: 'last_validation_time');
+    final lastValidationStr = await _storage.getLastValidation();
     
     bool shouldCheck = true;
     if (lastValidationStr != null) {
       try {
         final lastValidation = DateTime.parse(lastValidationStr);
+        if (DateTime.now().isBefore(lastValidation)) {
+          return {'success': false, 'message': 'Terdeteksi manipulasi waktu sistem. Harap perbarui waktu OS atau online.', 'is_offline': false};
+        }
         if (DateTime.now().difference(lastValidation).inHours < 12) {
           shouldCheck = false;
         }
@@ -256,7 +258,16 @@ class LicenseService {
       final expiryStr = await _storage.getLicenseExpiry();
       if (expiryStr == null || expiryStr.isEmpty) return false;
 
+      final lastValidationStr = await _storage.getLastValidation();
+
       try {
+        if (lastValidationStr != null) {
+          final lastValidation = DateTime.parse(lastValidationStr);
+          if (DateTime.now().isBefore(lastValidation)) {
+            return false; // Indikasi manipulasi waktu (dimundurkan)
+          }
+        }
+
         final expiryDate = DateTime.parse(expiryStr);
         return DateTime.now().isBefore(expiryDate);
       } catch (e) {
