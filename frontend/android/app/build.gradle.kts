@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.wirodev.saaspos"
+    namespace = "com.wirodev.kasirpro"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.wirodev.saaspos"
+        applicationId = "com.wirodev.kasirpro"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = 1

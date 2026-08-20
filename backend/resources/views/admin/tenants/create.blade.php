@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Tambah Tenant Baru — POS SaaS')
+@section('title', 'Tambah Tenant Baru — Kasir Pro Admin')
 @section('header_title', 'Tambah Tenant Baru')
 
 @section('content')

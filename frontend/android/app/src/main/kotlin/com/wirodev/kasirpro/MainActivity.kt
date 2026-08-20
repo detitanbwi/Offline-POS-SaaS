@@ -1,4 +1,4 @@
-package com.wirodev.saaspos
+package com.wirodev.kasirpro
 
 import android.media.MediaDrm
 import android.os.Build
@@ -9,7 +9,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.util.UUID
 
 class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.wirodev.saaspos/device_id"
+    private val CHANNEL = "com.wirodev.kasirpro/device_id"
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

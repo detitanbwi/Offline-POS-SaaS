@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Subscription ' . $subscription->package_name . ' - POS SaaS Admin')
+@section('title', 'Subscription ' . $subscription->package_name . ' - Kasir Pro Admin')
 @section('header_title', 'Detail Subscription')
 
 @section('content')

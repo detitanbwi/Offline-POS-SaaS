@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Invoice ' . $invoice->invoice_number . ' - POS SaaS Admin')
+@section('title', 'Invoice ' . $invoice->invoice_number . ' - Kasir Pro Admin')
 @section('header_title', 'Invoice ' . $invoice->invoice_number)
 
 @section('content')

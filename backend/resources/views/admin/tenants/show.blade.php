@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Tenant ' . $tenant->name . ' - POS SaaS Admin')
+@section('title', 'Tenant ' . $tenant->name . ' - Kasir Pro Admin')
 @section('header_title', $tenant->name)
 
 @section('content')

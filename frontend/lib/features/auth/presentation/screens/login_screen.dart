@@ -124,14 +124,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
-                      Icons.storefront_rounded,
-                      size: 56,
-                      color: AppColors.primary,
+                    Center(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        height: 56.h,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      "SaaS POS Offline",
+                      "Kasir Pro",
                       textAlign: TextAlign.center,
                       style: AppTypography.headlineLarge.copyWith(
                         color: AppColors.primary,

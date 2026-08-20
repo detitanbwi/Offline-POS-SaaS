@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Buat Invoice - POS SaaS Admin')
+@section('title', 'Buat Invoice - Kasir Pro Admin')
 @section('header_title', 'Buat Invoice Baru')
 
 @section('content')

@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Edit Paket — POS SaaS Admin')
+@section('title', 'Edit Paket — Kasir Pro Admin')
 @section('header_title', 'Edit Paket')
 
 @section('content')

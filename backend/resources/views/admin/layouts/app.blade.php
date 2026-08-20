@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'SaaS POS Admin Panel')</title>
+    <title>@yield('title', 'Kasir Pro Admin')</title>
+    <link rel="icon" type="image/png" href="{{ asset('icon.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -247,12 +248,8 @@
     <div class="wrapper">
         <aside class="sidebar">
             <a href="{{ route('admin.dashboard') }}" class="sidebar-brand">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                </svg>
-                <span>POS SaaS Admin</span>
+                <img src="{{ asset('icon.png') }}" alt="Kasir Pro" style="width: 28px; height: 28px; object-fit: contain; border-radius: 6px;">
+                <span>App Kasir Pro</span>
             </a>
 
             <ul class="sidebar-menu">

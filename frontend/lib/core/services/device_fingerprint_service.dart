@@ -25,7 +25,7 @@ class DeviceFingerprintService {
   Future<String> getHardwareId() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        const platform = MethodChannel('com.wirodev.saaspos/device_id');
+        const platform = MethodChannel('com.wirodev.kasirpro/device_id');
         final String? widevineId = await platform.invokeMethod('getWidevineId');
         if (widevineId != null && widevineId.isNotEmpty) {
           return widevineId;

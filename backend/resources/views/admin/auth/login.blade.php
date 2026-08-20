@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Administrator - POS SaaS</title>
+    <title>Login Administrator - Kasir Pro</title>
+    <link rel="icon" type="image/png" href="{{ asset('icon.png') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -49,7 +50,6 @@
             display: flex;
             justify-content: center;
             margin-bottom: 24px;
-            color: var(--primary);
         }
 
         .login-title {
@@ -128,14 +128,10 @@
 <body>
     <div class="login-card">
         <div class="login-logo">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/>
-                <path opacity="0.5" d="M2 17L12 22L22 17" fill="currentColor"/>
-                <path opacity="0.8" d="M2 12L12 17L22 12" fill="currentColor"/>
-            </svg>
+            <img src="{{ asset('icon.png') }}" alt="Kasir Pro" style="width: 56px; height: 56px; object-fit: contain; border-radius: 12px;">
         </div>
         <h1 class="login-title">Administrator</h1>
-        <p class="login-subtitle">SaaS Offline POS Management Portal</p>
+        <p class="login-subtitle">Kasir Pro Management Portal</p>
 
         @if($errors->any())
             <div class="error-alert">

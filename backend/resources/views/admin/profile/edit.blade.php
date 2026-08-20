@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Edit Profil & Data Login - POS SaaS Admin')
+@section('title', 'Edit Profil & Data Login - Kasir Pro Admin')
 @section('header_title', 'Edit Profil & Data Login Administrator')
 
 @section('content')

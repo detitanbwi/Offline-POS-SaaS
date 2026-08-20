@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Kelola Lisensi - POS SaaS')
+@section('title', 'Kelola Lisensi - Kasir Pro Admin')
 @section('header_title', 'Daftar Lisensi Perangkat')
 
 @section('content')

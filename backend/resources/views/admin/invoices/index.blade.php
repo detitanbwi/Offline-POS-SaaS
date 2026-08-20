@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title', 'Invoice - POS SaaS Admin')
+@section('title', 'Invoice - Kasir Pro Admin')
 @section('header_title', 'Kelola Invoice')
 
 @section('content')

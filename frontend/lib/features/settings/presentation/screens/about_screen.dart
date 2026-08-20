@@ -27,18 +27,15 @@ class AboutScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(height: 24),
-              // App Logo / Icon Placeholder
+              // App Logo / Icon
               Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.point_of_sale_rounded,
-                    color: AppColors.primary,
-                    size: 64,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -165,7 +162,7 @@ class AboutScreen extends ConsumerWidget {
               ),
               SizedBox(height: 48),
               Text(
-                '© 2026 Wirodev SaaS POS. All rights reserved.',
+                '© 2026 Kasir Pro. All rights reserved.',
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
