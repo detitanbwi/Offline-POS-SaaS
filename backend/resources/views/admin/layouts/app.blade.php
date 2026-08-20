@@ -53,9 +53,23 @@
         }
 
         .sidebar-brand {
-            font-size: 20px; font-weight: 700; margin-bottom: 32px;
-            display: flex; align-items: center; gap: 12px;
-            color: white; text-decoration: none;
+            font-size: 17px; font-weight: 700; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 10px;
+            color: var(--primary); text-decoration: none;
+            background-color: #FFFFFF;
+            padding: 10px 14px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .sidebar-brand:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+        .sidebar-brand span {
+            color: var(--primary);
+            font-weight: 700;
+            letter-spacing: -0.2px;
         }
 
         .sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 4px; flex-grow: 1; }
