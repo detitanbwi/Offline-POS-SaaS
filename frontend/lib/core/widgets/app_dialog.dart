@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_radius.dart';
@@ -11,7 +12,7 @@ class AppDialog extends StatelessWidget {
   final Widget? content;
   final String confirmText;
   final String cancelText;
-  final VoidCallback onConfirm;
+  final FutureOr<void> Function() onConfirm;
   final VoidCallback? onCancel;
   final bool isDestructive;
   final bool isLoading;
@@ -36,7 +37,7 @@ class AppDialog extends StatelessWidget {
     Widget? content,
     String confirmText = 'Simpan',
     String cancelText = 'Batal',
-    required VoidCallback onConfirm,
+    required FutureOr<void> Function() onConfirm,
     VoidCallback? onCancel,
     bool isDestructive = false,
     bool isLoading = false,
@@ -44,17 +45,38 @@ class AppDialog extends StatelessWidget {
     return showDialog(
       context: context,
       barrierDismissible: !isLoading,
-      builder: (context) => AppDialog(
-        title: title,
-        message: message,
-        content: content,
-        confirmText: confirmText,
-        cancelText: cancelText,
-        onConfirm: onConfirm,
-        onCancel: onCancel,
-        isDestructive: isDestructive,
-        isLoading: isLoading,
-      ),
+      builder: (context) {
+        bool internalIsLoading = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: title,
+              message: message,
+              content: content,
+              confirmText: confirmText,
+              cancelText: cancelText,
+              onConfirm: () async {
+                if (isLoading || internalIsLoading) return;
+                
+                final result = onConfirm();
+                if (result is Future) {
+                  setState(() => internalIsLoading = true);
+                  try {
+                    await result;
+                  } finally {
+                    if (context.mounted) {
+                      setState(() => internalIsLoading = false);
+                    }
+                  }
+                }
+              },
+              onCancel: onCancel,
+              isDestructive: isDestructive,
+              isLoading: isLoading || internalIsLoading,
+            );
+          },
+        );
+      },
     );
   }
 
@@ -62,17 +84,39 @@ class AppDialog extends StatelessWidget {
     required BuildContext context,
     required String title,
     required String itemName,
-    required VoidCallback onDelete,
+    required FutureOr<void> Function() onDelete,
   }) {
     return showDialog(
       context: context,
-      builder: (context) => AppDialog(
-        title: title,
-        message: 'Apakah Anda yakin ingin menghapus "$itemName"? Tindakan ini tidak dapat dibatalkan.',
-        confirmText: 'Hapus',
-        isDestructive: true,
-        onConfirm: onDelete,
-      ),
+      barrierDismissible: false, // Prevent dismissing while deleting
+      builder: (context) {
+        bool internalIsLoading = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: title,
+              message: 'Apakah Anda yakin ingin menghapus "$itemName"? Tindakan ini tidak dapat dibatalkan.',
+              confirmText: 'Hapus',
+              isDestructive: true,
+              isLoading: internalIsLoading,
+              onConfirm: () async {
+                if (internalIsLoading) return;
+                final result = onDelete();
+                if (result is Future) {
+                  setState(() => internalIsLoading = true);
+                  try {
+                    await result;
+                  } finally {
+                    if (context.mounted) {
+                      setState(() => internalIsLoading = false);
+                    }
+                  }
+                }
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -108,29 +152,27 @@ class AppDialog extends StatelessWidget {
                 )
               : null),
       actions: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Flexible(
-              child: TextButton(
-                onPressed: isLoading ? null : (onCancel ?? () => Navigator.pop(context)),
-                child: Text(
-                  cancelText, 
-                  style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: AppButton(
-                text: confirmText,
-                isLoading: isLoading,
-                type: isDestructive ? AppButtonType.destructive : AppButtonType.primary,
-                onPressed: onConfirm,
-              ),
-            ),
-          ],
+        TextButton(
+          onPressed: isLoading ? null : (onCancel ?? () => Navigator.pop(context)),
+          child: Text(
+            cancelText, 
+            style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        AppButton(
+          text: confirmText,
+          isLoading: isLoading,
+          type: isDestructive ? AppButtonType.destructive : AppButtonType.primary,
+          onPressed: () {
+            final result = onConfirm();
+            // Note: Since AppDialog is stateless, the Future handling for 
+            // AppButton's internal state must be passed down, but AppButton takes 
+            // VoidCallback. However, the isLoading is passed from the StatefulBuilder
+            // above, so we can just fire it. The StatefulBuilder will rebuild 
+            // and set isLoading to true.
+            // But wait, AppButton's onPressed is VoidCallback. 
+          },
         ),
       ],
     );

@@ -5,8 +5,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PinRecoveryController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('throttle:10,1')->group(function () {
+Route::middleware('throttle:60,1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/license-public-key', [ActivationController::class, 'getPublicKey']);
 
     // Password Recovery Routes
     Route::post('/password/forgot', [\App\Http\Controllers\PasswordRecoveryController::class, 'requestOtp']);
@@ -25,8 +26,9 @@ Route::middleware('throttle:10,1')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/license-info', [ActivationController::class, 'getLicenseInfo']);
     Route::post('/activate', [ActivationController::class, 'activate']);
     Route::post('/validate-license', [ActivationController::class, 'validateLicense']);
+    Route::post('/license-logs/sync', [\App\Http\Controllers\LicenseLogController::class, 'sync']);
 });

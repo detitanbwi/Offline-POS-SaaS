@@ -5,6 +5,19 @@ import '../../domain/entities/security_credential.dart';
 import '../../domain/repositories/security_repository.dart';
 import '../datasources/security_database.dart';
 import '../../../../features/auth/services/secure_storage_service.dart';
+import 'package:flutter/foundation.dart';
+
+String _computeHashSecret(String rawSecret) {
+  const salt = 'OfflinePOS_SecurityDomain_Salt_2026';
+  var bytes = utf8.encode(rawSecret + salt);
+  var hmac = Hmac(sha256, utf8.encode(salt));
+  var digest = hmac.convert(bytes);
+
+  for (int i = 0; i < 5000; i++) {
+    digest = hmac.convert(digest.bytes);
+  }
+  return digest.toString();
+}
 
 class SecurityRepositoryImpl implements SecurityRepository {
   final SecurityDatabase _database;
@@ -12,16 +25,8 @@ class SecurityRepositoryImpl implements SecurityRepository {
 
   SecurityRepositoryImpl(this._database, this._secureStorage);
 
-  String _hashSecret(String rawSecret) {
-    const salt = 'OfflinePOS_SecurityDomain_Salt_2026';
-    var bytes = utf8.encode(rawSecret + salt);
-    var hmac = Hmac(sha256, utf8.encode(salt));
-    var digest = hmac.convert(bytes);
-
-    for (int i = 0; i < 5000; i++) {
-      digest = hmac.convert(digest.bytes);
-    }
-    return digest.toString();
+  Future<String> _hashSecretAsync(String rawSecret) async {
+    return await compute(_computeHashSecret, rawSecret);
   }
 
   String _oldHash(String pin) {
@@ -68,7 +73,7 @@ class SecurityRepositoryImpl implements SecurityRepository {
       final credential = await getSecurityCredential();
       if (credential == null) return false;
       final normalized = candidateRecoveryCode.replaceAll('-', '').replaceAll(' ', '').trim().toUpperCase();
-      final candidateHash = _hashSecret(normalized);
+      final candidateHash = await _hashSecretAsync(normalized);
       return credential.recoveryCodeHash == candidateHash;
     } catch (_) {
       return false;
@@ -78,7 +83,7 @@ class SecurityRepositoryImpl implements SecurityRepository {
   @override
   Future<bool> validateMasterPin(String candidatePin) async {
     try {
-      final candidateHash = _hashSecret(candidatePin);
+      final candidateHash = await _hashSecretAsync(candidatePin);
       final candidateOldHash = _oldHash(candidatePin);
 
       final credential = await getSecurityCredential();

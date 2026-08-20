@@ -45,6 +45,7 @@ class PaymentMethodNotifier extends StateNotifier<PaymentMethodState> {
   }
 
   Future<void> loadPaymentMethods() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final methods = await _repository.getAllPaymentMethods();

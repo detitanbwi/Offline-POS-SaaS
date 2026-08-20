@@ -1,5 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../security/data/datasources/security_database.dart';
+import '../../../../core/database/pos_database.dart';
+
 class SecureStorageService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -13,6 +16,7 @@ class SecureStorageService {
   static const String _keyLastValidation = 'last_validation_time';
   static const String _keyLicenseExpiry = 'license_expiry';
   static const String _keyFingerprintHash = 'fingerprint_hash';
+  static const String _keyPublicKey = 'public_key';
 
   static const String _keyStoreName = 'store_name';
   static const String _keyStoreAddress = 'store_address';
@@ -133,7 +137,21 @@ class SecureStorageService {
     await _storage.write(key: _keyLastValidation, value: timeStr);
   }
 
+  Future<void> savePublicKey(String publicKey) async {
+    await _storage.write(key: _keyPublicKey, value: publicKey);
+  }
+
+  Future<String?> getPublicKey() async {
+    return await _storage.read(key: _keyPublicKey);
+  }
+
   Future<void> clearAll() async {
     await _storage.deleteAll();
+    try {
+      await SecurityDatabase.instance.deleteDatabaseFile();
+    } catch (_) {}
+    try {
+      await PosDatabase.instance.deleteDatabaseFile();
+    } catch (_) {}
   }
 }

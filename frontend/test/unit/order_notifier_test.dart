@@ -73,6 +73,13 @@ class OrderRepositoryMock implements OrderRepository {
   }
 
   @override
+  Future<void> updatePaymentStatus(String orderId, String status) async {
+    if (mockActiveOrder != null && mockActiveOrder!.id == orderId) {
+      mockActiveOrder = mockActiveOrder!.copyWith(paymentStatus: status);
+    }
+  }
+
+  @override
   Future<void> cancelOrder(String orderId, String tableId) async {
     cancelOrderCalled = true;
     mockActiveOrder = null;
@@ -98,6 +105,12 @@ class OrderRepositoryMock implements OrderRepository {
   Future<List<Map<String, dynamic>>> getPrintBatches(String orderId) async {
     return [];
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPrintBatchesWithItems(String orderId) async => [];
+
+  @override
+  Future<void> updatePrintBatchPaymentStatus(String batchId, String status) async {}
 
   @override
   Future<String> recordPrintBatch(String orderId) async {
@@ -146,9 +159,10 @@ class OrderRepositoryMock implements OrderRepository {
   Future<void> markTableBillPrinted(String tableId) async {}
 
   @override
-  Future<OrderModel?> getOrderById(String orderId) async {
-    return mockActiveOrder;
-  }
+  Future<void> markOrderBillPrinted(String orderId) async {}
+
+  @override
+  Future<OrderModel?> getOrderById(String orderId) async => mockActiveOrder;
 }
 
 void main() {

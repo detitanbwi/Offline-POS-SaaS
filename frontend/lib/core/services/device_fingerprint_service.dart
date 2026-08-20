@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:android_id/android_id.dart';
+import 'package:flutter/services.dart';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -9,7 +9,6 @@ import 'package:uuid/uuid.dart';
 
 class DeviceFingerprintService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  final _androidIdPlugin = const AndroidId();
   final _deviceInfo = DeviceInfoPlugin();
 
   static const String _keyInstallationId = 'installation_id';
@@ -23,16 +22,20 @@ class DeviceFingerprintService {
     return id;
   }
 
-  Future<String> getAndroidId() async {
+  Future<String> getHardwareId() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        final androidId = await _androidIdPlugin.getId();
-        return androidId ?? 'unknown_android_id';
+        const platform = MethodChannel('com.wirodev.saaspos/device_id');
+        final String? widevineId = await platform.invokeMethod('getWidevineId');
+        if (widevineId != null && widevineId.isNotEmpty) {
+          return widevineId;
+        }
       } catch (e) {
-        return 'unknown_android_id_error';
+        // Fallback to installation id if widevine fails
       }
+      return await getInstallationId();
     }
-    return 'simulator_android_id';
+    return await getInstallationId();
   }
 
   Future<Map<String, String>> getDeviceInfo() async {
@@ -63,13 +66,13 @@ class DeviceFingerprintService {
   }
 
   Future<String> generateFingerprint() async {
-    final androidId = await getAndroidId();
+    final hardwareId = await getHardwareId();
     final info = await getDeviceInfo();
     final manufacturer = info['manufacturer'] ?? 'unknown';
     final brand = info['device_brand'] ?? 'unknown';
     final model = info['device_model'] ?? 'unknown';
 
-    final rawString = '$androidId$manufacturer$brand$model';
+    final rawString = '$hardwareId$manufacturer$brand$model';
     final bytes = utf8.encode(rawString);
     final digest = sha256.convert(bytes);
     return digest.toString();

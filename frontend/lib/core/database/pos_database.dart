@@ -13,7 +13,7 @@ class PosDatabase {
   PosDatabase._init();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDB('pos_database.db');
     return _database!;
   }
@@ -35,49 +35,81 @@ class PosDatabase {
 
     final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
 
-    Database db;
-    if (!shouldEncrypt) {
+    Future<Database> openWithParams({String? pwd}) async {
       if (isDesktop) {
-        db = await databaseFactoryFfi.openDatabase(
+        return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 12,
+            version: 14,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
           ),
         );
       } else {
-        db = await openDatabase(
+        return await openDatabase(
           path,
-          version: 12,
-          onCreate: _createDB,
-          onUpgrade: _upgradeDB,
-          onConfigure: _onConfigure,
-        );
-      }
-    } else {
-      try {
-        db = await openDatabase(
-          path,
-          version: 12,
-          password: encryptionKey,
-          onCreate: _createDB,
-          onUpgrade: _upgradeDB,
-          onConfigure: _onConfigure,
-        );
-      } catch (e) {
-        try {
-          db = await openDatabase(
-            path,
-            version: 12,
+            version: 14,
+            password: pwd,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
-          );
+        );
+      }
+    }
+
+    Database db;
+    if (!shouldEncrypt) {
+      try {
+        db = await openWithParams();
+      } catch (e) {
+        debugPrint('[PosDatabase] Unencrypted open failed: $e. Re-creating DB...');
+        try {
+          if (isDesktop) {
+            await databaseFactoryFfi.deleteDatabase(path);
+          } else {
+            await deleteDatabase(path);
+          }
+        } catch (_) {}
+        db = await openWithParams();
+      }
+    } else {
+      try {
+        db = await openWithParams(pwd: encryptionKey);
+      } catch (e) {
+        debugPrint('[PosDatabase] Encrypted open failed: $e. Attempting fallback unencrypted open + rekey...');
+        try {
+          if (isDesktop) {
+            db = await databaseFactoryFfi.openDatabase(
+              path,
+              options: OpenDatabaseOptions(
+                version: 14,
+                onCreate: _createDB,
+                onUpgrade: _upgradeDB,
+                onConfigure: _onConfigure,
+              ),
+            );
+          } else {
+            db = await openDatabase(
+              path,
+              version: 14,
+              onCreate: _createDB,
+              onUpgrade: _upgradeDB,
+              onConfigure: _onConfigure,
+            );
+          }
           await db.execute("PRAGMA rekey = '$encryptionKey'");
+          debugPrint('[PosDatabase] Successfully converted unencrypted backup DB to encrypted SQLCipher!');
         } catch (innerErr) {
-          rethrow;
+          debugPrint('[PosDatabase] Fallback failed ($innerErr). Re-creating fresh database...');
+          try {
+            if (isDesktop) {
+              await databaseFactoryFfi.deleteDatabase(path);
+            } else {
+              await deleteDatabase(path);
+            }
+          } catch (_) {}
+          db = await openWithParams(pwd: encryptionKey);
         }
       }
     }
@@ -87,19 +119,20 @@ class PosDatabase {
   }
 
   Future<void> _ensureNewColumnsExist(Database db) async {
-    final alterColumns = [
-      "ALTER TABLE orders ADD COLUMN online_platform_total REAL",
-      "ALTER TABLE orders ADD COLUMN platform_difference REAL",
-      "ALTER TABLE transactions ADD COLUMN online_platform_total REAL",
-      "ALTER TABLE transactions ADD COLUMN platform_difference REAL",
-      "ALTER TABLE transactions ADD COLUMN online_platform TEXT",
-    ];
-    for (final sql in alterColumns) {
-      try {
-        await db.execute(sql);
-      } catch (_) {
-        // Column already exists
-      }
+    await _addColumnIfNotExists(db, 'orders', 'online_platform_total', 'REAL');
+    await _addColumnIfNotExists(db, 'orders', 'platform_difference', 'REAL');
+    await _addColumnIfNotExists(db, 'orders', 'is_bill_printed', 'INTEGER NOT NULL DEFAULT 0');
+    await _addColumnIfNotExists(db, 'orders', 'bill_printed_at', 'TEXT');
+    await _addColumnIfNotExists(db, 'transactions', 'online_platform_total', 'REAL');
+    await _addColumnIfNotExists(db, 'transactions', 'platform_difference', 'REAL');
+    await _addColumnIfNotExists(db, 'transactions', 'online_platform', 'TEXT');
+  }
+
+  Future<void> _addColumnIfNotExists(Database db, String table, String column, String type) async {
+    final result = await db.rawQuery("PRAGMA table_info($table)");
+    final hasColumn = result.any((row) => row['name'] == column);
+    if (!hasColumn) {
+      await db.execute("ALTER TABLE $table ADD COLUMN $column $type");
     }
   }
 
@@ -297,6 +330,7 @@ class PosDatabase {
       CREATE TABLE print_batches (
         id TEXT PRIMARY KEY,
         order_id TEXT NOT NULL,
+        payment_status TEXT NOT NULL DEFAULT 'unpaid',
         created_at TEXT NOT NULL,
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
       )
@@ -382,6 +416,7 @@ class PosDatabase {
         master_order_id TEXT NOT NULL,
         batch_number INTEGER NOT NULL,
         created_by_cashier_id TEXT,
+        payment_status TEXT NOT NULL DEFAULT 'unpaid',
         created_at TEXT NOT NULL,
         FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE,
         UNIQUE(master_order_id, batch_number)
@@ -435,6 +470,18 @@ class PosDatabase {
       )
     ''');
 
+    // 20. License Logs
+    await db.execute('''
+      CREATE TABLE license_logs (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        trigger_type TEXT NOT NULL,
+        remaining_time_seconds INTEGER NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
     // Indexes for performance
     await _createIndexes(db);
 
@@ -443,6 +490,33 @@ class PosDatabase {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 14) {
+      // TAHAP PENGEMBANGAN: Hapus semua tabel dan buat ulang dari awal untuk memastikan schema bersih
+      bool droppedAll = false;
+      while (!droppedAll) {
+        final tables = await db.rawQuery('SELECT name FROM sqlite_master WHERE type="table" AND name NOT LIKE "sqlite_%"');
+        if (tables.isEmpty) {
+          droppedAll = true;
+          break;
+        }
+        int droppedCount = 0;
+        for (final table in tables) {
+          final tableName = table['name'];
+          try {
+            await db.execute('DROP TABLE IF EXISTS $tableName');
+            droppedCount++;
+          } catch (e) {
+            // Ignore foreign key constraint errors and retry in next pass
+          }
+        }
+        if (droppedCount == 0) {
+          break; // Avoid infinite loop if a table cannot be dropped for other reasons
+        }
+      }
+      await _createDB(db, newVersion);
+      return; // Skip migrasi versi lama karena database sudah di-reset
+    }
+
     if (oldVersion < 2) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS tables (
@@ -495,6 +569,7 @@ class PosDatabase {
         CREATE TABLE IF NOT EXISTS print_batches (
           id TEXT PRIMARY KEY,
           order_id TEXT NOT NULL,
+          payment_status TEXT NOT NULL DEFAULT 'unpaid',
           created_at TEXT NOT NULL,
           FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
         )
@@ -678,6 +753,7 @@ class PosDatabase {
           master_order_id TEXT NOT NULL,
           batch_number INTEGER NOT NULL,
           created_by_cashier_id TEXT,
+          payment_status TEXT NOT NULL DEFAULT 'unpaid',
           created_at TEXT NOT NULL,
           FOREIGN KEY (master_order_id) REFERENCES master_orders(id) ON DELETE CASCADE,
           UNIQUE(master_order_id, batch_number)
@@ -847,5 +923,31 @@ class PosDatabase {
     for (var table in defaultTables) {
       await db.insert('tables', table, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
+  }
+
+  Future<void> close() async {
+    final db = _database;
+    if (db != null) {
+      try {
+        await db.close();
+      } catch (_) {}
+      _database = null;
+    }
+  }
+
+  Future<void> deleteDatabaseFile() async {
+    await close();
+    final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+    final dbPath = isDesktop 
+        ? await databaseFactoryFfi.getDatabasesPath()
+        : await getDatabasesPath();
+    final path = join(dbPath, 'pos_database.db');
+    try {
+      if (isDesktop) {
+        await databaseFactoryFfi.deleteDatabase(path);
+      } else {
+        await deleteDatabase(path);
+      }
+    } catch (_) {}
   }
 }

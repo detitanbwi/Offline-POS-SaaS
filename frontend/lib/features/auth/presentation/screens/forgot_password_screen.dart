@@ -91,6 +91,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     hintText: 'contoh: admin@toko.com',
                     prefixIcon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
+                    enableSuggestions: false,
+                    autocorrect: false,
                   ),
                   SizedBox(height: 32.h),
                   AppButton(

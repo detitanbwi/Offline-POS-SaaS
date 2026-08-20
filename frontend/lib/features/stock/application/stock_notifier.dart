@@ -47,6 +47,7 @@ class StockNotifier extends StateNotifier<StockState> {
   }
 
   Future<void> loadStockIn() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final logs = await _repository.getAllStockIn();

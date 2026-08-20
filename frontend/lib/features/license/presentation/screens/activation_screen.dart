@@ -28,11 +28,14 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLicenseInfo();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchLicenseInfo();
+    });
   }
 
   Future<void> _fetchLicenseInfo() async {
     setState(() => _isFetchingToken = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
     final licenseService = ref.read(licenseServiceProvider);
     final result = await licenseService.getLicenseInfo();
     if (!mounted) return;
@@ -61,6 +64,8 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   }
 
   Future<void> _handleActivation() async {
+    if (_isLoading) return;
+    
     final key = _licenseController.text.trim();
     if (key.isEmpty) {
       AppSnackbar.showWarning(context, 'Lisensi Key harus diisi!');
@@ -68,6 +73,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     }
 
     setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
 
     final licenseService = ref.read(licenseServiceProvider);
     final result = await licenseService.activate(key);
@@ -145,6 +151,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                       AppSnackbar.showWarning(context, 'Email dan password harus diisi');
                       return;
                     }
+                    if (isRequesting) return;
                     setStateDialog(() => isRequesting = true);
                     final licenseService = ref.read(licenseServiceProvider);
                     final result = await licenseService.requestDeviceResetOtp(
@@ -219,6 +226,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                       AppSnackbar.showWarning(context, 'Kode OTP harus 6 digit');
                       return;
                     }
+                    if (isVerifying) return;
                     setStateDialog(() => isVerifying = true);
                     final licenseService = ref.read(licenseServiceProvider);
                     final result = await licenseService.verifyDeviceResetOtp(

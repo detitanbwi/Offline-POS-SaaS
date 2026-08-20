@@ -185,13 +185,17 @@ class ReceiptGenerator {
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     // Metadata
+    bytes += generator.text('No. Order : ${order.nomorOrder}', styles: const PosStyles(align: PosAlign.left, bold: true));
     if (order.isTakeAway) {
-      bytes += generator.text('Order     : TAKE AWAY', styles: const PosStyles(align: PosAlign.left, bold: true));
+      final platformSuffix = (order.onlinePlatform != null && order.onlinePlatform!.trim().isNotEmpty)
+          ? ' (${order.onlinePlatform!.trim()})'
+          : '';
+      bytes += generator.text('Order     : TAKE AWAY$platformSuffix', styles: const PosStyles(align: PosAlign.left, bold: true));
     } else {
-      bytes += generator.text('Meja      : ${order.tableNama ?? '-'}', styles: const PosStyles(align: PosAlign.left));
+      bytes += generator.text('Meja      : ${order.tableNama ?? '-'}', styles: const PosStyles(align: PosAlign.left, bold: true));
     }
-    if (order.customerName != null && order.customerName!.isNotEmpty) {
-      bytes += generator.text('Nama      : ${order.customerName}', styles: const PosStyles(align: PosAlign.left, bold: true));
+    if (order.customerName != null && order.customerName!.trim().isNotEmpty) {
+      bytes += generator.text('Nama      : ${order.customerName!.trim()}', styles: const PosStyles(align: PosAlign.left, bold: true));
     }
     bytes += generator.text('Batch : ${waveInfo ?? '#1 (Baru)'}', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Waktu     : $nowStr', styles: const PosStyles(align: PosAlign.left));
@@ -564,8 +568,14 @@ class ReceiptGenerator {
     buffer.writeln(eqLine);
     buffer.writeln('Tgl   : $nowStr');
     buffer.writeln('Kasir : $cashier');
-    if (order.tableNama != null && order.tableNama!.isNotEmpty) {
+    if (order.isTakeAway) {
+      final pName = order.onlinePlatform != null && order.onlinePlatform!.isNotEmpty ? ' (${order.onlinePlatform})' : '';
+      buffer.writeln('Order : TAKE AWAY$pName');
+    } else if (order.tableNama != null && order.tableNama!.isNotEmpty) {
       buffer.writeln('Meja  : ${order.tableNama}');
+    }
+    if (order.customerName != null && order.customerName!.isNotEmpty) {
+      buffer.writeln('Nama  : ${order.customerName}');
     }
     buffer.writeln('Status: BELUM DIBAYAR');
     buffer.writeln(dashLine);
@@ -624,7 +634,18 @@ class ReceiptGenerator {
     buffer.writeln(eqLine);
     buffer.writeln(centerText('PESANAN DAPUR', width: charsPerLine));
     buffer.writeln(eqLine);
-    buffer.writeln('Meja      : ${order.tableNama ?? '04'}');
+    buffer.writeln('No. Order : ${order.nomorOrder}');
+    if (order.isTakeAway) {
+      final platformSuffix = (order.onlinePlatform != null && order.onlinePlatform!.trim().isNotEmpty)
+          ? ' (${order.onlinePlatform!.trim()})'
+          : '';
+      buffer.writeln('Order     : TAKE AWAY$platformSuffix');
+    } else {
+      buffer.writeln('Meja      : ${order.tableNama ?? '-'}');
+    }
+    if (order.customerName != null && order.customerName!.trim().isNotEmpty) {
+      buffer.writeln('Nama      : ${order.customerName!.trim()}');
+    }
     buffer.writeln('Batch : ${waveInfo ?? '#1 (Baru)'}');
     buffer.writeln('Waktu     : $nowStr');
     buffer.writeln('Kasir     : $cashier');
@@ -678,6 +699,9 @@ class ReceiptGenerator {
       buffer.writeln('Order : TAKE AWAY$pName');
     } else if (tableName != null && tableName.isNotEmpty) {
       buffer.writeln('Meja  : $tableName');
+    }
+    if (transaction.customerName != null && transaction.customerName!.isNotEmpty) {
+      buffer.writeln('Nama  : ${transaction.customerName}');
     }
     buffer.writeln(dashLine);
     for (var item in items) {

@@ -22,6 +22,8 @@ import '../../../pos/application/order_notifier.dart';
 import '../../../pos/domain/models/order_item.dart';
 import '../../../pos/presentation/screens/cashier_screen.dart';
 import '../../../pos/presentation/screens/payment_screen.dart';
+import '../../../security/presentation/providers/security_providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 
 class TableScreen extends ConsumerStatefulWidget {
   const TableScreen({super.key});
@@ -33,6 +35,7 @@ class TableScreen extends ConsumerStatefulWidget {
 class _TableScreenState extends ConsumerState<TableScreen> {
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
+  String? _loadingTableId;
 
   @override
   void initState() {
@@ -45,40 +48,57 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _confirmBulkDelete(BuildContext context) {
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: 'Hapus Masal Meja',
-      message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} meja terpilih? Meja yang sedang terisi tidak akan dapat dihapus.',
-      confirmText: 'Hapus All',
-      isDestructive: true,
-      onConfirm: () async {
-        final notifier = ref.read(tableNotifierProvider.notifier);
-        int successCount = 0;
-        List<String> failedTables = [];
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: 'Hapus Masal Meja',
+              message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} meja terpilih? Meja yang sedang terisi tidak akan dapat dihapus.',
+              confirmText: 'Hapus All',
+              isDestructive: true,
+              isLoading: isDeleting,
+              onConfirm: () async {
+                if (isDeleting) return;
+                setState(() => isDeleting = true);
+                await Future.delayed(const Duration(milliseconds: 300));
+                
+                final notifier = ref.read(tableNotifierProvider.notifier);
+                int successCount = 0;
+                List<String> failedTables = [];
 
-        for (final id in _selectedIds) {
-          final res = await notifier.deleteTable(id);
-          if (res) {
-            successCount++;
-          } else {
-            failedTables.add(id);
-          }
-        }
+                for (final id in _selectedIds) {
+                  final res = await notifier.deleteTable(id);
+                  if (res) {
+                    successCount++;
+                  } else {
+                    failedTables.add(id);
+                  }
+                }
 
-        if (!context.mounted) return;
-        setState(() {
-          _isSelectionMode = false;
-          _selectedIds.clear();
-        });
+                if (!context.mounted) return;
+                Navigator.pop(context);
 
-        if (failedTables.isEmpty) {
-          AppSnackbar.showSuccess(context, '$successCount meja berhasil dihapus.');
-        } else {
-          AppSnackbar.showWarning(
-            context,
-            'Berhasil menghapus $successCount meja. ${failedTables.length} meja gagal dihapus (mungkin sedang terisi pesanan).',
-          );
-        }
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
+                });
+
+                if (failedTables.isEmpty) {
+                  AppSnackbar.showSuccess(context, '$successCount meja berhasil dihapus.');
+                } else {
+                  AppSnackbar.showWarning(
+                    context,
+                    'Berhasil menghapus $successCount meja. ${failedTables.length} meja gagal dihapus (mungkin sedang terisi pesanan).',
+                  );
+                }
+              },
+            );
+          },
+        );
       },
     );
   }
@@ -91,14 +111,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
+        bool isSaving = false;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AppDialog(
               title: isEdit ? 'Ubah Data Meja' : 'Tambah Meja Baru',
               confirmText: 'Simpan',
+              isLoading: isSaving,
               onConfirm: () async {
+                if (isSaving) return;
                 if (formKey.currentState!.validate()) {
+                  FocusScope.of(context).unfocus();
+                  setDialogState(() => isSaving = true);
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  
                   final name = nameController.text.trim();
                   final number = numberController.text.trim();
 
@@ -125,6 +153,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       isEdit ? 'Data meja berhasil diperbarui.' : 'Meja baru berhasil ditambahkan.',
                     );
                   } else {
+                    setDialogState(() => isSaving = false);
                     final err = ref.read(tableNotifierProvider).errorMessage;
                     if (err != null) {
                       AppSnackbar.showError(context, err);
@@ -165,22 +194,37 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _showDeleteDialog(BuildContext context, TableModel table) {
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: 'Hapus Meja',
-      message: 'Apakah Anda yakin ingin menghapus "${table.nama}"? Tindakan ini tidak dapat dibatalkan.',
-      confirmText: 'Hapus',
-      isDestructive: true,
-      onConfirm: () async {
-        final success = await ref.read(tableNotifierProvider.notifier).deleteTable(table.id);
-        if (!context.mounted) return;
-        Navigator.pop(context);
-        if (success) {
-          AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dihapus.');
-        } else {
-          final err = ref.read(tableNotifierProvider).errorMessage;
-          AppSnackbar.showError(context, err ?? 'Gagal menghapus meja.');
-        }
+      barrierDismissible: false,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: 'Hapus Meja',
+              message: 'Apakah Anda yakin ingin menghapus "${table.nama}"? Tindakan ini tidak dapat dibatalkan.',
+              confirmText: 'Hapus',
+              isDestructive: true,
+              isLoading: isDeleting,
+              onConfirm: () async {
+                if (isDeleting) return;
+                setState(() => isDeleting = true);
+                await Future.delayed(const Duration(milliseconds: 300));
+
+                final success = await ref.read(tableNotifierProvider.notifier).deleteTable(table.id);
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (success) {
+                  AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dihapus.');
+                } else {
+                  final err = ref.read(tableNotifierProvider).errorMessage;
+                  AppSnackbar.showError(context, err ?? 'Gagal menghapus meja.');
+                }
+              },
+            );
+          },
+        );
       },
     );
   }
@@ -191,53 +235,66 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
-        return AppDialog(
-          title: 'Generate Meja Otomatis',
-          confirmText: 'Generate',
-          onConfirm: () async {
-            if (formKey.currentState!.validate()) {
-              final count = int.tryParse(countController.text.trim()) ?? 0;
-              if (count <= 0 || count > 50) {
-                AppSnackbar.showWarning(context, 'Jumlah meja harus antara 1 dan 50.');
-                return;
-              }
+        bool isGenerating = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AppDialog(
+              title: 'Generate Meja Otomatis',
+              confirmText: 'Generate',
+              isLoading: isGenerating,
+              onConfirm: () async {
+                if (isGenerating) return;
+                if (formKey.currentState!.validate()) {
+                  final count = int.tryParse(countController.text.trim()) ?? 0;
+                  if (count <= 0 || count > 50) {
+                    AppSnackbar.showWarning(context, 'Jumlah meja harus antara 1 dan 50.');
+                    return;
+                  }
 
-              final success = await ref.read(tableNotifierProvider.notifier).generateMultipleTables(count);
-              if (!context.mounted) return;
-              if (success) {
-                Navigator.pop(context);
-                AppSnackbar.showSuccess(context, 'Berhasil menambahkan $count meja otomatis.');
-              } else {
-                final err = ref.read(tableNotifierProvider).errorMessage;
-                if (err != null) {
-                  AppSnackbar.showError(context, err);
+                  FocusScope.of(context).unfocus();
+                  setDialogState(() => isGenerating = true);
+                  await Future.delayed(const Duration(milliseconds: 300));
+
+                  final success = await ref.read(tableNotifierProvider.notifier).generateMultipleTables(count);
+                  if (!context.mounted) return;
+                  if (success) {
+                    Navigator.pop(context);
+                    AppSnackbar.showSuccess(context, 'Berhasil menambahkan $count meja otomatis.');
+                  } else {
+                    setDialogState(() => isGenerating = false);
+                    final err = ref.read(tableNotifierProvider).errorMessage;
+                    if (err != null) {
+                      AppSnackbar.showError(context, err);
+                    }
+                  }
                 }
-              }
-            }
+              },
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Sistem akan otomatis membuatkan nama & nomor meja secara berurutan (misal: Meja 01, Meja 02, dst).',
+                      style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
+                    ),
+                    SizedBox(height: 16),
+                    AppTextField(
+                      controller: countController,
+                      labelText: 'Jumlah Meja yang Ingin Dibuat',
+                      hintText: 'Contoh: 10',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: Icons.add_moderator_rounded,
+                      validator: (v) => Validators.required(v, 'Jumlah Meja'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           },
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Sistem akan otomatis membuatkan nama & nomor meja secara berurutan (misal: Meja 01, Meja 02, dst).',
-                  style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
-                ),
-                SizedBox(height: 16),
-                AppTextField(
-                  controller: countController,
-                  labelText: 'Jumlah Meja yang Ingin Dibuat',
-                  hintText: 'Contoh: 10',
-                  keyboardType: TextInputType.number,
-                  prefixIcon: Icons.add_moderator_rounded,
-                  validator: (v) => Validators.required(v, 'Jumlah Meja'),
-                ),
-              ],
-            ),
-          ),
         );
       },
     );
@@ -266,7 +323,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final orderState = ref.read(orderNotifierProvider);
 
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }
@@ -296,7 +353,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final orderState = ref.read(orderNotifierProvider);
 
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }
@@ -355,10 +412,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
+        bool isClearingTable = false;
+        Set<String> expandedBatches = {};
+        return StatefulBuilder(
+          builder: (sheetContextInner, setSheetState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.m),
             child: Column(
@@ -453,41 +514,62 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    batchTitle,
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
+                            InkWell(
+                              onTap: () {
+                                setSheetState(() {
+                                  if (expandedBatches.contains(batchTitle)) {
+                                    expandedBatches.remove(batchTitle);
+                                  } else {
+                                    expandedBatches.add(batchTitle);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.vertical(
+                                    top: const Radius.circular(9),
+                                    bottom: Radius.circular(expandedBatches.contains(batchTitle) ? 0 : 9),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    '${batchItemList.length} Menu',
-                                    style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                                  ),
-                                  SizedBox(width: 8),
-                                  if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
-                                    InkWell(
-                                      onTap: () {
-                                        Navigator.pop(sheetContext);
-                                        _showCancelDialog(context, table, activeOrder, batchId: batchItemList.first.printBatchId);
-                                      },
-                                      child: Padding(
-                                        padding: EdgeInsets.all(6),
-                                        child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
-                                      ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      batchTitle,
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: AppColors.primary),
                                     ),
-                                ],
+                                    const Spacer(),
+                                    Text(
+                                      '${batchItemList.length} Menu',
+                                      style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                                    ),
+                                    SizedBox(width: 8),
+                                    if (hasActiveItemsInBatch && batchItemList.first.printBatchId != null)
+                                      InkWell(
+                                        onTap: () {
+                                          Navigator.pop(sheetContext);
+                                          _showCancelDialog(context, table, activeOrder, batchId: batchItemList.first.printBatchId);
+                                        },
+                                        child: Padding(
+                                          padding: EdgeInsets.all(6),
+                                          child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
+                                        ),
+                                      ),
+                                    SizedBox(width: 4),
+                                    Icon(
+                                      expandedBatches.contains(batchTitle) ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                      size: 20,
+                                      color: AppColors.primary,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            ...batchItemList.map((item) => Padding(
+                            if (expandedBatches.contains(batchTitle))
+                              ...batchItemList.map((item) => Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,7 +684,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           ),
                         ),
                       ),
-                      if (activeOrder != null) ...[
+                      if (activeOrder != null && !activeOrder.isPaid) ...[
                         SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton.icon(
@@ -651,6 +733,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             ],
           ),
           ),
+            );
+          },
         );
       },
     );
@@ -663,79 +747,169 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(isBatch ? 'Batalkan Batch' : 'Batalkan $itemName'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Alasan Pembatalan:'),
-              SizedBox(height: 8),
-              TextField(
-                controller: reasonController,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+      builder: (dialogContext) {
+        String? dialogErrorMessage;
+        bool isSubmitting = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+              title: Text(
+                isBatch ? 'Batalkan Batch' : 'Batalkan $itemName',
+                style: AppTypography.titleLarge.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 16),
-              Text('Otorisasi Owner (PIN):'),
-              SizedBox(height: 8),
-              TextField(
-                controller: pinController,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Alasan Pembatalan:', style: AppTypography.labelLarge),
+                    SizedBox(height: 8.h),
+                    TextField(enableSuggestions: false, autocorrect: false, 
+                      controller: reasonController,
+                      decoration: const InputDecoration(
+                        hintText: 'Masukkan alasan pembatalan...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    SizedBox(height: 16.h),
+                    Text('Otorisasi Owner (PIN):', style: AppTypography.labelLarge),
+                    SizedBox(height: 8.h),
+                    TextField(enableSuggestions: false, autocorrect: false, 
+                      controller: pinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      decoration: const InputDecoration(
+                        hintText: '6 Digit PIN Owner',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    if (dialogErrorMessage != null) ...[
+                      SizedBox(height: 8.h),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Text(
+                          dialogErrorMessage!,
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Tutup'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              onPressed: () async {
-                final reason = reasonController.text.trim();
-                final pin = pinController.text.trim();
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: Text('Tutup', style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final reason = reasonController.text.trim();
+                          final pin = pinController.text.trim();
 
-                if (reason.isEmpty || pin.length != 6) {
-                  AppSnackbar.showWarning(context, 'Harap isi alasan dan PIN (6 digit).');
-                  return;
-                }
+                          if (reason.isEmpty) {
+                            setDialogState(() => dialogErrorMessage = 'Harap isi alasan pembatalan.');
+                            return;
+                          }
+                          if (pin.length != 6) {
+                            setDialogState(() => dialogErrorMessage = 'Harap isi 6 digit PIN Owner.');
+                            return;
+                          }
 
-                const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
-                var bytes = utf8.encode(pin + salt);
-                var digest = sha256.convert(bytes);
-                final hashedPin = digest.toString();
+                          setDialogState(() {
+                            isSubmitting = true;
+                            dialogErrorMessage = null;
+                          });
 
-                final cashierRepo = ref.read(cashierRepositoryProvider);
-                final cashier = await cashierRepo.getCashierByPin(hashedPin);
+                          try {
+                            const salt = 'OfflinePOSSecureSalt_Sprint4_2026';
+                            var bytes = utf8.encode(pin + salt);
+                            final hashedPin = sha256.convert(bytes).toString();
 
-                if (!context.mounted) return;
+                            // 1. Cek Local PIN (PIN Owner saat setup/login)
+                            final storage = ref.read(secureStorageServiceProvider);
+                            final savedLocalPin = await storage.getLocalPIN();
+                            bool isAuthorized = savedLocalPin != null && (savedLocalPin == hashedPin || savedLocalPin == pin);
 
-                if (cashier == null || cashier.isOwner != 1) {
-                  AppSnackbar.showError(context, 'Otorisasi gagal! PIN salah atau bukan Owner.');
-                  return;
-                }
+                            // 2. Cek Master PIN Keamanan jika belum authorized
+                            if (!isAuthorized) {
+                              try {
+                                isAuthorized = await ref.read(securityRepositoryProvider).validateMasterPin(pin);
+                              } catch (_) {}
+                            }
 
-                Navigator.pop(context); // Close dialog
+                            // 3. Cek Kasir bertipe Owner jika belum authorized
+                            if (!isAuthorized) {
+                              try {
+                                final cashierRepo = ref.read(cashierRepositoryProvider);
+                                final cashier = await cashierRepo.getCashierByPin(hashedPin);
+                                if (cashier != null && cashier.isOwner == 1) {
+                                  isAuthorized = true;
+                                }
+                              } catch (_) {}
+                            }
 
-                if (isBatch) {
-                  await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
-                } else if (itemId != null) {
-                  await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
-                }
+                            // 4. Cek jika sesi aktif adalah Owner
+                            if (!isAuthorized) {
+                              final authUser = ref.read(authSessionProvider);
+                              if (authUser != null && authUser.isOwner) {
+                                isAuthorized = true;
+                              }
+                            }
 
-                if (context.mounted) {
-                  AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
-                  ref.read(tableNotifierProvider.notifier).loadTables();
-                  ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                }
-              },
-              child: Text('Batalkan'),
-            ),
-          ],
+                            if (!isAuthorized) {
+                              setDialogState(() {
+                                isSubmitting = false;
+                                dialogErrorMessage = 'Otorisasi gagal! PIN salah atau bukan Owner.';
+                              });
+                              return;
+                            }
+
+                            // Otorisasi Sukses -> Tutup Dialog & Proses Pembatalan
+                            Navigator.pop(dialogContext);
+
+                            if (isBatch) {
+                              await ref.read(orderNotifierProvider.notifier).cancelOrderBatch(batchId, reason);
+                            } else if (itemId != null) {
+                              await ref.read(orderNotifierProvider.notifier).cancelOrderItem(itemId, reason);
+                            }
+
+                            if (context.mounted) {
+                              AppSnackbar.showSuccess(context, 'Pembatalan berhasil.');
+                              ref.read(tableNotifierProvider.notifier).loadTables();
+                              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isSubmitting = false;
+                              dialogErrorMessage = 'Gagal memproses pembatalan: $e';
+                            });
+                          }
+                        },
+                  child: isSubmitting
+                      ? SizedBox(
+                          width: 16.r,
+                          height: 16.r,
+                          child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Batalkan'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -1042,7 +1216,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         }
                       });
                     }
-                  : () => _handleTableClick(table),
+                  : (_loadingTableId != null ? null : () async {
+                      setState(() => _loadingTableId = table.id);
+                      await Future.delayed(const Duration(milliseconds: 50));
+                      await _handleTableClick(table);
+                      if (mounted) setState(() => _loadingTableId = null);
+                    }),
               child: Stack(
                 children: [
                   // Top Accent Line
@@ -1096,6 +1275,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                     });
                                   },
                                 ),
+                              )
+                            else if (_loadingTableId == table.id)
+                              SizedBox(
+                                width: 16.sp,
+                                height: 16.sp,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
                               )
                             else if (isFilled)
                               Icon(Icons.people_alt_rounded, size: 16.sp, color: primaryColor)

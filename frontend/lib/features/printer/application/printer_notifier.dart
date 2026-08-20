@@ -56,6 +56,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   }
 
   Future<void> loadPrinters() async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, loadingType: () => null, errorMessage: null);
     try {
       final list = await _repository.getPrintersConfig();

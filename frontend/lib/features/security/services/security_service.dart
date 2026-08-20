@@ -6,10 +6,25 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/utils/file_saver_util.dart';
 import '../domain/entities/security_credential.dart';
 import '../domain/repositories/security_repository.dart';
 import '../domain/value_objects/master_pin.dart';
 import '../domain/value_objects/recovery_code.dart';
+import 'package:flutter/foundation.dart';
+
+String _computeHashSecret(String rawSecret) {
+  const salt = 'OfflinePOS_SecurityDomain_Salt_2026';
+  var bytes = utf8.encode(rawSecret + salt);
+  var hmac = Hmac(sha256, utf8.encode(salt));
+  var digest = hmac.convert(bytes);
+
+  // Iterative strengthening
+  for (int i = 0; i < 5000; i++) {
+    digest = hmac.convert(digest.bytes);
+  }
+  return digest.toString();
+}
 
 /// Backend Service / Use Case logic for Master PIN creation, strong hashing,
 /// Recovery Code generation, self-recovery validation, and mandatory PDF export.
@@ -20,17 +35,8 @@ class SecurityService {
 
   /// Strong one-way hashing using PBKDF2 / HMAC-SHA256 with 5000 iterations.
   /// Generates a cryptographically strong hash suitable for offline credential verification.
-  String hashSecret(String rawSecret) {
-    const salt = 'OfflinePOS_SecurityDomain_Salt_2026';
-    var bytes = utf8.encode(rawSecret + salt);
-    var hmac = Hmac(sha256, utf8.encode(salt));
-    var digest = hmac.convert(bytes);
-
-    // Iterative strengthening
-    for (int i = 0; i < 5000; i++) {
-      digest = hmac.convert(digest.bytes);
-    }
-    return digest.toString();
+  Future<String> hashSecret(String rawSecret) async {
+    return await compute(_computeHashSecret, rawSecret);
   }
 
   /// Extracts the last 6 characters of the license key (case-insensitive uppercase).
@@ -54,8 +60,8 @@ class SecurityService {
     final recoveryCode = RecoveryCode.generate();
 
     // 3. Hash both Master PIN and Recovery Code
-    final masterPinHash = hashSecret(masterPin);
-    final recoveryCodeHash = hashSecret(recoveryCode.normalized);
+    final masterPinHash = await hashSecret(masterPin);
+    final recoveryCodeHash = await hashSecret(recoveryCode.normalized);
     final licenseLast6 = extractLastSixLicense(licenseKey);
 
     final now = DateTime.now();
@@ -91,7 +97,7 @@ class SecurityService {
 
     // Match Recovery Code against stored hash
     final normalizedCode = RecoveryCode.normalize(recoveryCode);
-    final hashedCode = hashSecret(normalizedCode);
+    final hashedCode = await hashSecret(normalizedCode);
     return hashedCode == credential.recoveryCodeHash;
   }
 
@@ -103,9 +109,11 @@ class SecurityService {
   }) async {
     MasterPin(newMasterPin);
 
-    final newMasterPinHash = hashSecret(newMasterPin);
+    // Hash credentials yang baru
+    final newMasterPinHash = await hashSecret(newMasterPin);
     final newRecoveryCode = RecoveryCode.generate();
-    final newRecoveryCodeHash = hashSecret(newRecoveryCode.normalized);
+    // Kita normalkan Recovery Code sebelum di-hash agar konsisten
+    final newRecoveryCodeHash = await hashSecret(newRecoveryCode.normalized);
 
     // Burn old recovery code hash and rotate to new hashes
     await _repository.rotateMasterPinAndRecoveryCode(
@@ -134,7 +142,7 @@ class SecurityService {
     MasterPin(newMasterPin);
 
     // 3. Hash and update new Master PIN hash without rotating Recovery Code
-    final newMasterPinHash = hashSecret(newMasterPin);
+    final newMasterPinHash = await hashSecret(newMasterPin);
     await _repository.updateMasterPinHash(newMasterPinHash);
     return true;
   }
@@ -259,16 +267,13 @@ class SecurityService {
     return doc.save();
   }
 
-  /// Automatically exports the .pdf file to the local machine and triggers layout/share dialog.
+  /// Automatically exports the .pdf file to the local Downloads folder and triggers layout/share dialog.
   Future<String?> exportRecoveryPdfToLocalMachine({
     required Uint8List pdfBytes,
     String fileName = 'Kode_Pemulihan_POS.pdf',
   }) async {
     try {
-      // Try saving to application documents directory
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$fileName');
-      await file.writeAsBytes(pdfBytes, flush: true);
+      final file = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
 
       // Trigger system print/save dialog so user can visually save or print
       await Printing.layoutPdf(

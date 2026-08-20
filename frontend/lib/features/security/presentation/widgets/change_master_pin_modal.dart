@@ -137,7 +137,7 @@ class _ChangeMasterPinModalState extends ConsumerState<ChangeMasterPinModal> {
                 style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
               ),
               SizedBox(height: 20.h),
-              TextField(
+              TextField(enableSuggestions: false, autocorrect: false, 
                 controller: _oldPinController,
                 obscureText: _obscureOld,
                 keyboardType: TextInputType.number,
@@ -153,7 +153,7 @@ class _ChangeMasterPinModalState extends ConsumerState<ChangeMasterPinModal> {
                 ),
               ),
               SizedBox(height: 12.h),
-              TextField(
+              TextField(enableSuggestions: false, autocorrect: false, 
                 controller: _newPinController,
                 obscureText: _obscureNew,
                 keyboardType: TextInputType.number,
@@ -169,7 +169,7 @@ class _ChangeMasterPinModalState extends ConsumerState<ChangeMasterPinModal> {
                 ),
               ),
               SizedBox(height: 12.h),
-              TextField(
+              TextField(enableSuggestions: false, autocorrect: false, 
                 controller: _confirmPinController,
                 obscureText: _obscureConfirm,
                 keyboardType: TextInputType.number,

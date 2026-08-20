@@ -80,44 +80,61 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   void _showAddEditDialog(BuildContext context, [Category? category]) {
     final formKey = GlobalKey<CategoryFormState>();
     
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: category == null ? 'Tambah Kategori' : 'Ubah Kategori',
-      confirmText: 'Simpan',
-      content: SizedBox(
-        width: 420,
-        child: CategoryForm(
-          key: formKey,
-          category: category,
-          onSubmit: (names, status, image) async {
-            Navigator.pop(context); // close dialog
-            
-            bool success;
-            if (category == null) {
-              if (names.length == 1) {
-                success = await ref.read(categoryNotifierProvider.notifier).addCategory(names.first, image: image);
-              } else {
-                success = await ref.read(categoryNotifierProvider.notifier).addCategories(names);
-              }
-            } else {
-              success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status, image: image);
-            }
+      barrierDismissible: false,
+      builder: (context) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: category == null ? 'Tambah Kategori' : 'Ubah Kategori',
+              confirmText: 'Simpan',
+              isLoading: isSaving,
+              content: SizedBox(
+                width: 420,
+                child: CategoryForm(
+                  key: formKey,
+                  category: category,
+                  onSubmit: (names, status, image) async {
+                    if (isSaving) return;
+                    
+                    FocusScope.of(context).unfocus();
+                    setState(() => isSaving = true);
+                    await Future.delayed(const Duration(milliseconds: 300));
+                    
+                    bool success;
+                    if (category == null) {
+                      if (names.length == 1) {
+                        success = await ref.read(categoryNotifierProvider.notifier).addCategory(names.first, image: image);
+                      } else {
+                        success = await ref.read(categoryNotifierProvider.notifier).addCategories(names);
+                      }
+                    } else {
+                      success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status, image: image);
+                    }
 
-            if (!context.mounted) return;
-            final state = ref.read(categoryNotifierProvider);
-            if (success) {
-              AppSnackbar.showSuccess(
-                context,
-                category == null ? 'Kategori berhasil ditambahkan!' : 'Kategori berhasil diperbarui!',
-              );
-            } else if (state.errorMessage != null) {
-              AppSnackbar.showError(context, state.errorMessage!);
-            }
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+
+                    final state = ref.read(categoryNotifierProvider);
+                    if (success) {
+                      AppSnackbar.showSuccess(
+                        context,
+                        category == null ? 'Kategori berhasil ditambahkan!' : 'Kategori berhasil diperbarui!',
+                      );
+                    } else if (state.errorMessage != null) {
+                      AppSnackbar.showError(context, state.errorMessage!);
+                    }
+                  },
+                ),
+              ),
+              onConfirm: () {
+                formKey.currentState?.submit();
+              },
+            );
           },
-        ),
-      ),
-      onConfirm: () {
-        formKey.currentState?.submit();
+        );
       },
     );
   }
@@ -296,6 +313,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             labelText: 'Cari Kategori',
                             prefixIcon: Icons.search,
                             onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                           ),
                         ),
                         SizedBox(width: 12),
@@ -327,6 +345,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       labelText: 'Cari Kategori',
                       prefixIcon: Icons.search,
                       onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                     ),
                     SizedBox(height: 12),
                     Row(
@@ -542,14 +561,12 @@ class _CategoryItem extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
-      } else if (Validators.isValidLocalFile(category.image!)) {
+      } else {
         imageWidget = Image.file(
           File(category.image!),
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
-      } else {
-        imageWidget = Icon(Icons.folder_open_rounded, color: AppColors.primary);
       }
     } else {
       imageWidget = Icon(

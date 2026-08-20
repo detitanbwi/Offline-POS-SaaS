@@ -28,6 +28,8 @@ import '../../application/order_notifier.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../domain/models/transaction.dart';
+import '../../domain/models/print_batch.dart';
+import '../../domain/models/order_item.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({super.key});
@@ -192,6 +194,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       return;
     }
 
+    final orderState = ref.read(orderNotifierProvider);
+    final activeOrder = orderState.activeOrder;
+    if (activeOrder != null) {
+      final freshOrder = await ref.read(orderRepositoryProvider).getOrderById(activeOrder.id);
+      if (freshOrder != null && freshOrder.isCompleted) {
+        AppSnackbar.showWarning(context, 'Pesanan ini sudah selesai / dibayar sebelumnya.');
+        return;
+      }
+    }
+
     double amountPaid = 0;
     double change = 0;
 
@@ -217,6 +229,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     setState(() => _isProcessing = true);
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
 
     try {
       final activeUser = ref.read(authSessionProvider);
@@ -234,7 +247,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             cashierId: activeUser?.id,
             cashierNama: activeUser?.nama,
           );
-
       // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
       ref.read(tableNotifierProvider.notifier).loadTables();
 
@@ -285,10 +297,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
         await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
-        // Jika transaksi dari order aktif (dine-in/meja), tandai order 'completed' & bebaskan meja (status 0)
-        final activeOrder = orderState.activeOrder;
+        // Jika transaksi dari order aktif, tandai order 'paid' dan bebaskan meja jika sudah lunas semua
+        final currentOrderState = ref.read(orderNotifierProvider);
+        final activeOrder = currentOrderState.activeOrder;
         if (activeOrder != null) {
+          // Full payment
+          await ref.read(orderRepositoryProvider).updatePaymentStatus(activeOrder.id, 'paid');
           await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: activeOrder.tableId);
+          
+          // Mark all batches as paid since we're paying the full order
+          final allBatches = await ref.read(orderRepositoryProvider).getPrintBatches(activeOrder.id);
+          for (var b in allBatches) {
+            await ref.read(orderRepositoryProvider).updatePrintBatchPaymentStatus(b['id'], 'paid');
+          }
         }
 
         // Refresh list meja & active orders map
@@ -301,17 +322,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
           final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
 
-          final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
-            transaction: savedHeader,
-            items: savedItems,
-            tableName: orderState.selectedTable?.nama,
-            paperSize: cashierPrinter?.escPosPaperSize ?? PaperSize.mm58,
-            charsPerLine: cashierPrinter?.effectiveCharsPerLine ?? 32,
-            autoCut: cashierPrinter?.autoCut ?? false,
-          );
-
           if (cashierPrinter != null) {
-            await ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes);
+            if (cashierPrinter.isConnected) {
+              final receiptBytes = await ReceiptGenerator.generateCashierReceipt(
+                transaction: savedHeader,
+                items: savedItems,
+                tableName: orderState.selectedTable?.nama,
+                paperSize: cashierPrinter.escPosPaperSize ?? PaperSize.mm58,
+                charsPerLine: cashierPrinter.effectiveCharsPerLine ?? 32,
+                autoCut: cashierPrinter.autoCut ?? false,
+              );
+
+              // Fire and forget so we don't freeze the payment flow
+              ref.read(printerNotifierProvider.notifier).printBytes(cashierPrinter, receiptBytes).then((success) {
+                if (!success && mounted) {
+                  AppSnackbar.showWarning(context, 'Cetak otomatis dilewati: Printer kasir tidak merespons.');
+                }
+              });
+            } else {
+              AppSnackbar.showWarning(context, 'Cetak otomatis dilewati: Printer kasir belum terhubung.');
+            }
           }
         } catch (_) {}
       }
@@ -508,13 +538,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   void _finishAndResetTransaction() {
-    ref.read(cartNotifierProvider.notifier).clear();
-    ref.read(orderNotifierProvider.notifier).resetOrder();
-    ref.read(tableNotifierProvider.notifier).loadTables();
-    ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final tableNotifier = ref.read(tableNotifierProvider.notifier);
+
     if (mounted) {
+      FocusManager.instance.primaryFocus?.unfocus();
       Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
     }
+
+    // Beri jeda waktu agar animasi pop screen selesai sebelum mereset state,
+    // mencegah freeze akibat re-build masif pada screen yang sedang dianimasikan keluar.
+    Future.delayed(const Duration(milliseconds: 300), () {
+      cartNotifier.clear();
+      orderNotifier.resetOrder();
+      tableNotifier.loadTables();
+      orderNotifier.loadActiveOrdersMap();
+    });
   }
 
 
@@ -527,7 +567,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final activeMethods = pmState.allMethods.where((p) => p.isActive).toList();
 
     final isCash = _selectedMethod?.id == 'pm-tunai';
-    final double storeGrandTotal = cartState.grandTotal;
+    final storeSubtotal = cartState.subtotal;
+    final storeTaxAmount = cartState.taxAmount;
+    final storeGrandTotal = cartState.grandTotal;
+
     final double? onlineTotal = (orderState.isOnlineFood && orderState.onlinePlatformTotal != null && orderState.onlinePlatformTotal! > 0)
         ? orderState.onlinePlatformTotal
         : null;
@@ -543,9 +586,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final change = amountPaid - grandTotal;
     final isPayDisabled = isCash && amountPaid < grandTotal;
 
-    return PopScope(
-      canPop: true,
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
           toolbarHeight: ResponsiveLayout.isMobileLandscape(context) ? 42 : null,
@@ -559,9 +600,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           ),
         ),
         body: SafeArea(
-          child: _isProcessing
-              ? const AppLoading(message: 'Menyimpan transaksi offline...')
-            : LayoutBuilder(
+          child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 600;
                   final isMobileLandscape = ResponsiveLayout.isMobileLandscape(context);
@@ -569,6 +608,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   
                   final billingPanel = _buildBillingPanel(
                     cartState, pmState, activeMethods, isCash, grandTotal,
+                    storeSubtotal, storeTaxAmount,
                     onlineTotal: onlineTotal,
                     onlinePlatform: orderState.onlinePlatform,
                   );
@@ -612,17 +652,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   }
                 },
               ),
-      ),
-    ),
-  );
-}
+        ),
+      );
+  }
 
   Widget _buildBillingPanel(
     CartState cartState,
     dynamic pmState,
     List<PaymentMethod> activeMethods,
     bool isCash,
-    double grandTotal, {
+    double grandTotal,
+    double storeSubtotal,
+    double storeTaxAmount, {
     double? onlineTotal,
     String? onlinePlatform,
   }) {
@@ -648,7 +689,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Subtotal', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                    Text(CurrencyFormatter.format(cartState.subtotal), style: AppTypography.bodyMedium),
+                    Text(CurrencyFormatter.format(storeSubtotal), style: AppTypography.bodyMedium),
                   ],
                 ),
                 if (cartState.taxRate > 0) ...[
@@ -658,7 +699,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     children: [
                       Text('Pajak (PPN ${cartState.taxRate.toStringAsFixed(0)}%)',
                           style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                      Text(CurrencyFormatter.format(cartState.taxAmount), style: AppTypography.bodyMedium),
+                      Text(CurrencyFormatter.format(storeTaxAmount), style: AppTypography.bodyMedium),
                     ],
                   ),
                 ],
@@ -715,7 +756,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ],
                   ),
                   SizedBox(height: 6),
-                  TextField(
+                  TextField(enableSuggestions: false, autocorrect: false, 
                     controller: _appTotalController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
@@ -977,7 +1018,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             child: AppButton(
               text: 'Bayar Sekarang',
               type: AppButtonType.primary,
-              onPressed: isPayDisabled
+              isLoading: _isProcessing,
+              onPressed: isPayDisabled || _isProcessing
                   ? null
                   : () => _handlePayment(
                         grandTotal,

@@ -12,6 +12,7 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
+import '../../../../core/utils/file_saver_util.dart';
 import '../../../../core/widgets/app_receipt_preview_modal.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -74,7 +75,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           children: [
             Text('Expected Kas (Sistem): ${CurrencyFormatter.format(expectedCash)}', style: AppTypography.bodyMedium),
             SizedBox(height: 12),
-            TextField(
+            TextField(enableSuggestions: false, autocorrect: false, 
               controller: actualCashController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -298,13 +299,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
 
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}/Laporan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
-      final file = File(path);
-      await file.writeAsBytes(await pdf.save());
+      final pdfBytes = await pdf.save();
+      final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
+      final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
       
       if (!mounted) return;
-      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan: $path');
+      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan di folder Downloads:\n${savedFile.path}');
     } catch (e) {
       if (!mounted) return;
       AppSnackbar.showError(context, 'Gagal membuat file PDF: $e');
@@ -436,6 +436,34 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ),
           ],
         ),
+        if ((report['total_void_count'] as int? ?? 0) > 0) ...[
+          SizedBox(height: 12),
+          AppCard(
+            color: AppColors.error.withValues(alpha: 0.08),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Transaksi Dibatalkan (Void)', style: AppTypography.bodyMedium.copyWith(color: AppColors.error, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 2),
+                    Text('${report['total_void_count']} transaksi void (stok dikembalikan)', style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
+                  ],
+                ),
+                Text(
+                  CurrencyFormatter.format((report['total_void_amount'] as num?)?.toDouble() ?? 0.0),
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.error,
+                    fontSize: 15.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         SizedBox(height: 20),
         AppCard(
           padding: const EdgeInsets.all(16),

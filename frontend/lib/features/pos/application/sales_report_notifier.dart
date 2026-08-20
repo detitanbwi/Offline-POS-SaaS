@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
+import '../../auth/domain/models/auth_user.dart';
+import '../../auth/presentation/providers/auth_providers.dart';
 import '../domain/repositories/transaction_repository.dart';
 
 class SalesReportState {
@@ -29,14 +31,22 @@ class SalesReportState {
 
 class SalesReportNotifier extends StateNotifier<SalesReportState> {
   final TransactionRepository _repository;
+  final AuthUser? _authUser;
 
-  SalesReportNotifier(this._repository) : super(SalesReportState());
+  SalesReportNotifier(this._repository, this._authUser) : super(SalesReportState());
 
   Future<void> loadDailyReport(DateTime date) async {
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final data = await _repository.getDailySalesReport(dateStr);
+      
+      String? cashierId;
+      if (_authUser != null && _authUser!.isCashier) {
+        cashierId = _authUser!.id;
+      }
+
+      final data = await _repository.getDailySalesReport(dateStr, cashierId: cashierId);
       state = state.copyWith(reportData: data, isLoading: false);
     } catch (e) {
       state = state.copyWith(
@@ -49,5 +59,6 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
 
 final salesReportNotifierProvider = StateNotifierProvider<SalesReportNotifier, SalesReportState>((ref) {
   final repo = ref.watch(transactionRepositoryProvider);
-  return SalesReportNotifier(repo);
+  final authUser = ref.watch(authSessionProvider);
+  return SalesReportNotifier(repo, authUser);
 });

@@ -6,6 +6,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/providers.dart';
+import 'license_log_screen.dart';
 
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
@@ -88,37 +89,77 @@ class AboutScreen extends ConsumerWidget {
                 future: storage.getLicenseKey(),
                 builder: (context, snapshot) {
                   final licenseKey = snapshot.data ?? 'Tidak Aktif';
-                  return FutureBuilder<String?>(
-                    future: storage.getLicenseExpiry(),
-                    builder: (context, expirySnapshot) {
-                      final expiry = expirySnapshot.data != null
-                          ? expirySnapshot.data!.split('T').first
-                          : '-';
-                      return Card(
-                        elevation: 0,
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: const BorderSide(color: AppColors.divider),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.l),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Status Lisensi',
-                                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                  return StreamBuilder<DateTime>(
+                    stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()),
+                    builder: (context, timerSnapshot) {
+                      return FutureBuilder<String?>(
+                        future: storage.getLicenseExpiry(),
+                        builder: (context, expirySnapshot) {
+                          String countdown = '-';
+                          String expiryDate = '-';
+                          
+                          if (expirySnapshot.data != null && expirySnapshot.data!.isNotEmpty) {
+                            try {
+                              final expiry = DateTime.parse(expirySnapshot.data!);
+                              expiryDate = expiry.toLocal().toString().split('.')[0];
+                              
+                              final now = DateTime.now();
+                              final difference = expiry.difference(now);
+                              
+                              if (difference.isNegative) {
+                                countdown = 'Kadaluwarsa';
+                              } else {
+                                final days = difference.inDays;
+                                final hours = difference.inHours % 24;
+                                final minutes = difference.inMinutes % 60;
+                                final seconds = difference.inSeconds % 60;
+                                countdown = '${days}h ${hours}j ${minutes}m ${seconds}d';
+                              }
+                            } catch (_) {}
+                          }
+
+                          return Card(
+                            elevation: 0,
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: const BorderSide(color: AppColors.divider),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.l),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Status Lisensi',
+                                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.history_rounded, color: AppColors.primary),
+                                        tooltip: 'Log Aktivitas Lisensi',
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (_) => const LicenseLogScreen()),
+                                          );
+                                        },
+                                      )
+                                    ],
+                                  ),
+                                  const Divider(height: 16),
+                                  _buildInfoRow('License Key', licenseKey),
+                                  _buildInfoRow('Sisa Waktu', countdown),
+                                  _buildInfoRow('Kedaluwarsa', expiryDate),
+                                ],
                               ),
-                              const Divider(height: 24),
-                              _buildInfoRow('License Key', licenseKey),
-                              _buildInfoRow('Kedaluwarsa', expiry),
-                              _buildInfoRow('Status Validasi', 'Terverifikasi Offline'),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       );
-                    },
+                    }
                   );
                 },
               ),

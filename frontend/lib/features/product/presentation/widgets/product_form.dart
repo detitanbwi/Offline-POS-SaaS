@@ -111,8 +111,8 @@ class ProductFormState extends State<ProductForm> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SafeArea(
-        child: Container(
+      useSafeArea: true,
+      builder: (context) => Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
@@ -169,7 +169,6 @@ class ProductFormState extends State<ProductForm> {
               ],
             ),
           ),
-        ),
       ),
     );
   }
@@ -260,16 +259,12 @@ class ProductFormState extends State<ProductForm> {
                       Positioned.fill(
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Validators.isValidLocalFile(_imagePath!)
-                              ? Image.file(
+                        child: Image.file(
                                   File(_imagePath!),
                                   fit: BoxFit.contain,
                                   errorBuilder: (_, _, _) => Center(
-                                    child: Icon(Icons.broken_image_outlined, size: 40, color: AppColors.error),
+                                    child: Icon(Icons.image_outlined, size: 40, color: AppColors.disabled),
                                   ),
-                                )
-                              : Center(
-                                  child: Icon(Icons.image_outlined, size: 40, color: AppColors.disabled),
                                 ),
                         ),
                       ),

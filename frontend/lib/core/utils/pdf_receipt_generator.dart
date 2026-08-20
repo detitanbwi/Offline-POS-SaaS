@@ -161,7 +161,13 @@ class PdfReceiptGenerator {
               pw.Center(child: pw.Text('PESANAN DAPUR', style: pw.TextStyle(font: fontBold, fontSize: 10))),
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
 
-              pw.Text('Meja      : ${order.tableNama ?? '04'}', style: pw.TextStyle(font: font, fontSize: 8)),
+              pw.Text('No. Order : ${order.nomorOrder}', style: pw.TextStyle(font: fontBold, fontSize: 8)),
+              if (order.isTakeAway)
+                pw.Text('Order     : TAKE AWAY${order.onlinePlatform != null && order.onlinePlatform!.trim().isNotEmpty ? " (${order.onlinePlatform!.trim()})" : ""}', style: pw.TextStyle(font: fontBold, fontSize: 8))
+              else
+                pw.Text('Meja      : ${order.tableNama ?? '-'}', style: pw.TextStyle(font: font, fontSize: 8)),
+              if (order.customerName != null && order.customerName!.trim().isNotEmpty)
+                pw.Text('Nama      : ${order.customerName!.trim()}', style: pw.TextStyle(font: fontBold, fontSize: 8)),
               pw.Text('Batch : ${waveInfo ?? '#1 (Baru)'}', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Waktu     : $nowStr', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Kasir     : $cashier', style: pw.TextStyle(font: font, fontSize: 8)),

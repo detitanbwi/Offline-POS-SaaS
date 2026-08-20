@@ -20,14 +20,21 @@ class PinRecoveryService {
     try {
       final response = await _client.post(
         Uri.parse('$apiBaseUrl/api/auth/request-otp'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: getApiHeaders(),
         body: jsonEncode({'email': email}),
       ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-      final data = jsonDecode(response.body);
+      if (response.statusCode == 429) {
+        throw PinRecoveryException('Terlalu banyak percobaan. Silakan tunggu 1 menit lalu coba lagi.');
+      }
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        throw PinRecoveryException('Gagal memproses respons server (${response.statusCode})');
+      }
+
       if (response.statusCode != 200 || data['success'] != true) {
         throw PinRecoveryException(
           data['message'] ?? 'Gagal mengirim kode OTP ke email.',
@@ -47,14 +54,21 @@ class PinRecoveryService {
     try {
       final response = await _client.post(
         Uri.parse('$apiBaseUrl/api/auth/verify-otp'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: getApiHeaders(),
         body: jsonEncode({'email': email, 'otp': otp}),
       ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-      final data = jsonDecode(response.body);
+      if (response.statusCode == 429) {
+        throw PinRecoveryException('Terlalu banyak percobaan. Silakan tunggu 1 menit lalu coba lagi.');
+      }
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        throw PinRecoveryException('Gagal memproses respons server (${response.statusCode})');
+      }
+
       if (response.statusCode != 200 || data['success'] != true) {
         throw PinRecoveryException(
           data['message'] ?? 'Kode OTP tidak valid.',
@@ -80,10 +94,7 @@ class PinRecoveryService {
     try {
       final response = await _client.post(
         Uri.parse('$apiBaseUrl/api/auth/reset-pin'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: getApiHeaders(),
         body: jsonEncode({
           'email': email,
           'reset_token': resetToken,
@@ -92,7 +103,17 @@ class PinRecoveryService {
         }),
       ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-      final data = jsonDecode(response.body);
+      if (response.statusCode == 429) {
+        throw PinRecoveryException('Terlalu banyak percobaan. Silakan tunggu 1 menit lalu coba lagi.');
+      }
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        throw PinRecoveryException('Gagal memproses respons server (${response.statusCode})');
+      }
+
       if (response.statusCode != 200 || data['success'] != true) {
         throw PinRecoveryException(
           data['message'] ?? 'Gagal mengatur ulang PIN.',

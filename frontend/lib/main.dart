@@ -53,15 +53,10 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
     
-    // Start a strict periodic background validation every 7 days (Production)
-    _periodicValidationTimer = Timer.periodic(const Duration(days: 7), (_) {
+    // Start a periodic background validation check every 1 hour
+    _periodicValidationTimer = Timer.periodic(const Duration(hours: 1), (_) {
       _triggerBackgroundValidation();
     });
-
-    // // Start a strict periodic background validation every 3 minutes (Testing)
-    // _periodicValidationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
-    //   _triggerBackgroundValidation();
-    // });
   }
 
   @override
@@ -73,9 +68,10 @@ class _MyAppState extends ConsumerState<MyApp> {
   Future<void> _triggerBackgroundValidation() async {
     final licenseService = ref.read(licenseServiceProvider);
     
-    // Gunakan timeout 10 detik agar tidak terlalu sensitif terhadap koneksi lemot
-    final result = await licenseService.validateLicenseOnline(customTimeout: 10);
-    if (result['success'] == false) {
+    // Pengecekan 12-jam akan ditangani di dalam performPeriodicCheck
+    final result = await licenseService.performPeriodicCheck();
+    
+    if (result != null && result['success'] == false) {
       if (result['is_offline'] == true) {
         // Jika offline, fallback ke cek lisensi lokal (offline)
         final isLicenseValid = await licenseService.checkLicenseOffline();
@@ -84,7 +80,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
       } else {
         // Jika gagal karena ditolak oleh server
-        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || result['message'] == 'Perangkat tidak terdaftar';
+        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || 
+                            result['message'] == 'Perangkat tidak terdaftar' ||
+                            result['message'] == 'Unauthenticated.' ||
+                            result['message'] == 'Unauthenticated';
         if (isAuthError) {
           final storage = ref.read(secureStorageServiceProvider);
           await storage.clearAll();
@@ -99,6 +98,12 @@ class _MyAppState extends ConsumerState<MyApp> {
         } else {
           ref.read(licenseExpiredProvider.notifier).state = true;
         }
+      }
+    } else if (result == null) {
+      // Jika tidak ada pengecekan online (belum 12 jam), fallback cek lokal
+      final isLicenseValid = await licenseService.checkLicenseOffline();
+      if (!isLicenseValid) {
+        ref.read(licenseExpiredProvider.notifier).state = true;
       }
     }
   }
@@ -132,7 +137,15 @@ class _MyAppState extends ConsumerState<MyApp> {
     // 4. Background validation (triggered asynchronously)
     _triggerBackgroundValidation();
 
-    // 5. Normal PIN routing
+    // 5. Pre-warm POS Database agar siap saat PinScreen memuat daftar akun
+    try {
+      final db = ref.read(posDatabaseProvider);
+      await db.database;
+    } catch (_) {
+      // Database init gagal saat pre-warm, PinScreen akan retry sendiri
+    }
+
+    // 6. Normal PIN routing
     final savedPin = await storage.getLocalPIN();
     if (savedPin != null && savedPin.isNotEmpty) {
       return const PinScreen(isSetup: false);
@@ -182,13 +195,7 @@ class _MyAppState extends ConsumerState<MyApp> {
             if (isExpired) {
               child = const LicenseLockScreen();
             }
-            child = GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
-              child: child,
-            );
+            // Removed global GestureDetector for unfocus to prevent tap swallowing
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(
                 textScaler: TextScaler.linear(fontSizeScale),

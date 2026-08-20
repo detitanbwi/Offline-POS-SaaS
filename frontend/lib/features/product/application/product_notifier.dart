@@ -53,10 +53,17 @@ class ProductNotifier extends StateNotifier<ProductState> {
   final _uuid = const Uuid();
 
   ProductNotifier(this._repository) : super(ProductState()) {
-    loadProducts();
+    _initLoad();
+  }
+
+  Future<void> _initLoad() async {
+    await loadProducts();
   }
 
   Future<void> loadProducts() async {
+    // Memberi jeda 300ms agar animasi transisi layar (atau penutupan keyboard) 
+    // selesai sebelum Main Thread diblokir oleh proses parsing data dari SQLite.
+    await Future.delayed(const Duration(milliseconds: 300));
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final products = await _repository.getAllProducts();

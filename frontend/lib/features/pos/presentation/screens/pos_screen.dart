@@ -52,6 +52,34 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
   bool _isOrderAscending = false;
   String _orderFilter = 'all'; // 'all', 'dine_in', 'take_away'
 
+  Color _getOrderStatusColor(String status) {
+    switch (status) {
+      case 'processing':
+        return Colors.blue;
+      case 'served':
+        return Colors.orange;
+      case 'completed':
+        return AppColors.success;
+      case 'draft':
+      default:
+        return Colors.grey.shade600;
+    }
+  }
+
+  Color _getPaymentStatusColor(String status) {
+    switch (status) {
+      case 'billed':
+        return Colors.purple;
+      case 'partially_paid':
+        return Colors.yellow.shade800;
+      case 'paid':
+        return AppColors.success;
+      case 'unpaid':
+      default:
+        return AppColors.error;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -63,7 +91,12 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       }
     });
     // Pre-load products, categories, tables, and active orders map
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Tunggu animasi transisi layar dan penutupan keyboard selesai
+      // agar UI tidak freeze saat memuat banyak data secara bersamaan.
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+
       ref.read(productNotifierProvider.notifier).loadProducts();
       ref.read(categoryNotifierProvider.notifier).loadCategories();
       ref.read(tableNotifierProvider.notifier).loadTables();
@@ -227,20 +260,23 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
   }
 
   Future<bool> _showExitConfirmation(BuildContext context) async {
-    bool result = false;
-    await AppDialog.show(
+    final result = await showDialog<bool>(
       context: context,
-      title: 'Keluar Transaksi POS',
-      message: 'Apakah Anda yakin ingin keluar?',
-      confirmText: 'Keluar',
-      cancelText: 'Batal',
-      isDestructive: true,
-      onConfirm: () {
-        result = true;
-        Navigator.pop(context);
-      },
+      builder: (dialogContext) => AppDialog(
+        title: 'Keluar Transaksi POS',
+        message: 'Apakah Anda yakin ingin keluar?',
+        confirmText: 'Keluar',
+        cancelText: 'Batal',
+        isDestructive: true,
+        onConfirm: () {
+          Navigator.pop(dialogContext, true);
+        },
+        onCancel: () {
+          Navigator.pop(dialogContext, false);
+        },
+      ),
     );
-    return result;
+    return result ?? false;
   }
 
   Future<bool> _ensureTableSelected() async {
@@ -821,6 +857,46 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  // Order Status Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getOrderStatusColor(order.status).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: _getOrderStatusColor(order.status).withValues(alpha: 0.5)),
+                                    ),
+                                    child: Text(
+                                      order.status.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: _getOrderStatusColor(order.status),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  // Payment Status Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getPaymentStatusColor(order.paymentStatus).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: _getPaymentStatusColor(order.paymentStatus).withValues(alpha: 0.5)),
+                                    ),
+                                    child: Text(
+                                      order.paymentStatus.replaceAll('_', ' ').toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: _getPaymentStatusColor(order.paymentStatus),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -851,7 +927,8 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                     // 2. Load item ke cart
                     final items = await ref.read(orderRepositoryProvider).getOrderItems(order.id);
                     final products = ref.read(productNotifierProvider).allProducts;
-                    ref.read(cartNotifierProvider.notifier).loadDraftItems(items, products);
+                    final batches = ref.read(orderNotifierProvider).activePrintBatches;
+                    ref.read(cartNotifierProvider.notifier).loadDraftItems(items, products, batches);
 
                     // 3. Pindah ke segmen Kasir
                     _posTabController.animateTo(0);
@@ -881,6 +958,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
 
   void _openCartBottomSheet(BuildContext parentContext) {
     debugPrint('[DEBUG_BAYAR] Inside _openCartBottomSheet function');
+    bool isSaving = false;
     showModalBottomSheet(
       context: parentContext,
       isScrollControlled: true,
@@ -890,7 +968,8 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
         initialChildSize: 0.85,
         maxChildSize: 0.95,
         minChildSize: 0.5,
-        builder: (sheetContext2, scrollController) => Container(
+        builder: (sheetContext2, scrollController) => StatefulBuilder(
+          builder: (context, setStateSheet) => Container(
           decoration: const BoxDecoration(
             color: AppColors.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -957,11 +1036,15 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: cState.items.isEmpty
+                            child: AppButton(
+                              type: AppButtonType.outlined,
+                              isLoading: isSaving,
+                              onPressed: cState.items.isEmpty || isSaving
                                   ? null
                                   : () async {
-                                      Navigator.of(sheetContext).pop(); // Pop sheet dulu
+                                      setStateSheet(() => isSaving = true);
+                                      await Future.delayed(const Duration(milliseconds: 100)); // Allow UI update
+
                                       if (await _ensureTableSelected()) {
                                         final authUser = ref.read(authSessionProvider);
                                         final savedItems = await orderNotifier.saveCurrentOrderDraft(
@@ -972,52 +1055,76 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                           cState.grandTotal,
                                           cashierId: authUser?.id,
                                           cashierNama: authUser?.nama,
+                                          printToKitchen: true,
                                         );
+
+                                        if (!mounted) return;
+                                        Navigator.of(sheetContext).pop(); // Pop sheet AFTER done
+                                        
                                         if (savedItems != null) {
                                           cNotifier.clear();
                                           orderNotifier.resetForNewTransaction();
-                                          if (!mounted) return;
                                           AppSnackbar.showSuccess(parentContext, 'Pesanan terkirim ke Dapur & disimpan (Bayar Nanti).');
                                         } else {
                                           final err = ref.read(orderNotifierProvider).errorMessage;
-                                          if (!mounted) return;
                                           AppSnackbar.showError(parentContext, err ?? 'Gagal menyimpan pesanan.');
                                         }
+                                      } else {
+                                        if (mounted) setStateSheet(() => isSaving = false);
                                       }
                                     },
-                              icon: const Icon(Icons.soup_kitchen_rounded, size: 18, color: AppColors.primary),
-                              label: const Text('Kirim ke Dapur', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
+                              icon: Icons.soup_kitchen_rounded,
+                              text: 'Kirim ke Dapur',
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: cState.items.isEmpty
-                                  ? null
-                                  : () async {
-                                      if (await _ensureTableSelected()) {
-                                        Navigator.of(sheetContext).pop();
-                                        if (!mounted) return;
-                                        await Navigator.of(context, rootNavigator: true).push(
-                                          MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                                        );
-                                        if (!mounted) return;
-                                        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-                                      }
+                            child: (orderState.activeOrder?.isPaid ?? false)
+                                ? AppButton(
+                                    type: AppButtonType.primary,
+                                    isLoading: isSaving,
+                                    onPressed: isSaving ? null : () async {
+                                      setStateSheet(() => isSaving = true);
+                                      await Future.delayed(const Duration(milliseconds: 100));
+
+                                      final orderId = orderState.activeOrder!.id;
+                                      final tableId = orderState.activeOrder!.tableId;
+                                      await ref.read(orderRepositoryProvider).completeOrder(orderId, tableId: tableId);
+                                      cNotifier.clear();
+                                      orderNotifier.resetForNewTransaction();
+                                      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                      ref.read(tableNotifierProvider.notifier).loadTables();
+                                      
+                                      if (!mounted) return;
+                                      Navigator.of(sheetContext).pop();
+                                      AppSnackbar.showSuccess(context, 'Meja dibersihkan dan pesanan diselesaikan.');
                                     },
-                              icon: const Icon(Icons.payments_rounded, size: 18),
-                              label: const Text('Bayar Now', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.success,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
+                                    icon: Icons.cleaning_services_rounded,
+                                    text: 'Bersihkan Meja',
+                                  )
+                                : AppButton(
+                                    type: AppButtonType.primary,
+                                    isLoading: isSaving,
+                                    onPressed: cState.items.isEmpty || isSaving
+                                        ? null
+                                        : () async {
+                                            setStateSheet(() => isSaving = true);
+                                            
+                                            if (await _ensureTableSelected()) {
+                                              if (!mounted) return;
+                                              Navigator.of(sheetContext).pop();
+                                              await Navigator.of(context, rootNavigator: true).push(
+                                                MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                                              );
+                                              if (!mounted) return;
+                                              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+                                            } else {
+                                              if (mounted) setStateSheet(() => isSaving = false);
+                                            }
+                                          },
+                                    icon: Icons.payments_rounded,
+                                    text: 'Bayar Now',
+                                  ),
                           ),
                         ],
                       ),
@@ -1055,6 +1162,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                 ),
               );
             },
+          ),
           ),
         ),
       ),
@@ -1225,20 +1333,18 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                             ? Image.network(
                                 product.image!,
                                 fit: BoxFit.contain,
+                                cacheWidth: 300,
                                 errorBuilder: (_, _, _) => const Center(
                                   child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                 ),
                               )
-                            : Validators.isValidLocalFile(product.image!)
-                                ? Image.file(
+                            : Image.file(
                                     File(product.image!),
                                     fit: BoxFit.contain,
+                                    cacheWidth: 300,
                                     errorBuilder: (_, _, _) => const Center(
                                       child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ),
-                                  )
-                                : const Center(
-                                    child: Icon(Icons.fastfood_rounded, color: AppColors.textSecondary, size: 36),
                                   ))
                         : const Center(
                             child: Icon(Icons.fastfood_rounded, color: AppColors.textSecondary, size: 36),
@@ -1483,17 +1589,12 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
         ],
         const SizedBox(height: 8),
         // Atas Nama (Customer Name) Field
-        TextField(
+        AppTextField(
           controller: _customerNameController,
           onChanged: (val) => orderNotifier.setCustomerName(val),
-          style: const TextStyle(fontSize: 13),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: 'Atas Nama / Nama Customer (Opsional)',
-            prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
+          debounceDuration: const Duration(milliseconds: 500),
+          labelText: 'Atas Nama / Nama Customer (Opsional)',
+          prefixIcon: Icons.person_outline_rounded,
         ),
       ],
     );
@@ -1810,8 +1911,6 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       ),
     );
   }
-
-  }
 }
 
 class _CartItemRow extends StatelessWidget {
@@ -1839,6 +1938,24 @@ class _CartItemRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (item.batchName != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: item.isBilled ? Colors.grey.shade300 : AppColors.primaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          item.isBilled ? '${item.batchName} (Billed)' : item.batchName!,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: item.isBilled ? Colors.grey.shade700 : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
                       item.product.nama,
                       style: AppTypography.titleMedium.copyWith(fontSize: 15.sp),

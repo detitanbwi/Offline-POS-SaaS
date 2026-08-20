@@ -33,9 +33,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _checkAirplaneMode();
     _airplaneModeSub = AirplaneModeChecker.instance.listenAirplaneMode().listen((status) {
       if (mounted) {
-        setState(() {
-          _isAirplaneModeOn = status == AirplaneModeStatus.on;
-        });
+        final isOn = status == AirplaneModeStatus.on;
+        if (_isAirplaneModeOn != isOn) {
+          setState(() {
+            _isAirplaneModeOn = isOn;
+          });
+        }
       }
     });
   }
@@ -52,12 +55,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    if (_isLoading) return;
+
+    FocusScope.of(context).unfocus(); // Dismiss keyboard to prevent IME freeze
+
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       AppSnackbar.showWarning(context, 'Email dan Password harus diisi!');
       return;
     }
 
     setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 300)); // Allow UI to render loading state and keyboard to hide completely
 
     final authService = ref.read(authServiceProvider);
     final result = await authService.login(
@@ -65,10 +73,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _passwordController.text,
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success']) {
-      if (!mounted) return;
       AppSnackbar.showSuccess(context, 'Login Berhasil!');
       
       final storage = ref.read(secureStorageServiceProvider);
@@ -87,7 +95,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } else {
-      if (!mounted) return;
       AppSnackbar.showError(context, result['message']);
     }
   }
@@ -170,6 +177,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       hintText: 'contoh: test@example.com',
                       prefixIcon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
+                      enableSuggestions: false,
+                      autocorrect: false,
                     ),
                     SizedBox(height: 12.h),
                     AppTextField(

@@ -69,13 +69,24 @@ class MainMenuScreen extends ConsumerWidget {
                   ),
                   icon: Icon(Icons.lock_outline_rounded),
                   label: Text('Kunci Layar / Ganti User'),
-                  onPressed: () {
-                    ref.read(authSessionProvider.notifier).state = null;
+                  onPressed: () async {
+                    // 1. Tutup bottom sheet terlebih dahulu agar rute bersih
                     Navigator.pop(sheetContext);
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
-                    );
+                    
+                    // 2. Beri sedikit jeda (async gap) agar framework selesai memproses pop()
+                    // Ini mencegah crash "scope != null" atau freeze karena tabrakan transisi rute
+                    await Future.delayed(const Duration(milliseconds: 100));
+
+                    // 3. Ubah state (akan memicu rebuild sementara jika dibutuhkan)
+                    ref.read(authSessionProvider.notifier).state = null;
+
+                    // 4. Lakukan navigasi bersih ke PinScreen
+                    if (context.mounted) {
+                      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
+                        (route) => false,
+                      );
+                    }
                   },
                 ),
                 SizedBox(height: 12),
@@ -130,8 +141,8 @@ class MainMenuScreen extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => SafeArea(
-        child: Container(
+      useSafeArea: true,
+      builder: (context) => Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
@@ -228,7 +239,6 @@ class MainMenuScreen extends ConsumerWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

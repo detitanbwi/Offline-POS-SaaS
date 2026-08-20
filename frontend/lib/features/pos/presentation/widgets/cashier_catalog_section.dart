@@ -69,7 +69,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Search bar
-        TextField(
+        TextField(enableSuggestions: false, autocorrect: false, 
           controller: _searchController,
           onChanged: _onSearchChanged,
           decoration: InputDecoration(
@@ -197,6 +197,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                                       fit: BoxFit.cover,
                                                       width: double.infinity,
                                                       height: double.infinity,
+                                                      cacheWidth: 300,
                                                       errorBuilder: (context, error, stackTrace) => Icon(
                                                         Icons.fastfood_rounded,
                                                         size: 36,
@@ -205,12 +206,12 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                                             : AppColors.primary,
                                                       ),
                                                     )
-                                                  : Validators.isValidLocalFile(product.image!)
-                                                      ? Image.file(
+                                                  : Image.file(
                                                           File(product.image!),
                                                           fit: BoxFit.cover,
                                                           width: double.infinity,
                                                           height: double.infinity,
+                                                          cacheWidth: 300,
                                                           errorBuilder: (context, error, stackTrace) => Icon(
                                                             Icons.fastfood_rounded,
                                                             size: 36,
@@ -218,13 +219,6 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                                                                 ? AppColors.textSecondary.withValues(alpha: 0.4)
                                                                 : AppColors.primary,
                                                           ),
-                                                        )
-                                                      : Icon(
-                                                          Icons.fastfood_rounded,
-                                                          size: 36,
-                                                          color: isOutOfStock
-                                                              ? AppColors.textSecondary.withValues(alpha: 0.4)
-                                                              : AppColors.primary,
                                                         ))
                                               : Icon(
                                                   Icons.fastfood_rounded,

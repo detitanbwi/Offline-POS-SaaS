@@ -6,6 +6,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/di/providers.dart';
@@ -28,6 +29,7 @@ class TableOrderDetailSheet {
   ) async {
     final hasOrder = activeOrder != null;
     final isDraft = hasOrder && (activeOrder as OrderModel).isDraft;
+    final isPaid = hasOrder && (activeOrder as OrderModel).isPaid;
     final repo = ref.read(orderRepositoryProvider);
 
     List<OrderItemModel> items = [];
@@ -68,15 +70,22 @@ class TableOrderDetailSheet {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
-          padding: const EdgeInsets.all(AppSpacing.m),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      builder: (sheetContext) {
+        bool isProcessing = false;
+        Set<String> expandedBatches = {};
+        return StatefulBuilder(
+          builder: (context, setStateSheet) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
+              padding: const EdgeInsets.all(AppSpacing.m),
+              child: isProcessing ? const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: AppLoading(message: 'Memproses...'),
+              ) : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -191,29 +200,50 @@ class TableOrderDetailSheet {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryContainer.withValues(alpha: 0.6),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    batchTitle,
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp, color: AppColors.primary),
+                            InkWell(
+                              onTap: () {
+                                setStateSheet(() {
+                                  if (expandedBatches.contains(batchTitle)) {
+                                    expandedBatches.remove(batchTitle);
+                                  } else {
+                                    expandedBatches.add(batchTitle);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.vertical(
+                                    top: const Radius.circular(9),
+                                    bottom: Radius.circular(expandedBatches.contains(batchTitle) ? 0 : 9),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    '${batchItemList.length} Menu',
-                                    style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-                                  ),
-                                ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.soup_kitchen_rounded, size: 16, color: AppColors.primary),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      batchTitle,
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp, color: AppColors.primary),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${batchItemList.length} Menu',
+                                      style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(
+                                      expandedBatches.contains(batchTitle) ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                      size: 18,
+                                      color: AppColors.primary,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            ...batchItemList.map((item) => Padding(
+                            if (expandedBatches.contains(batchTitle))
+                              ...batchItemList.map((item) => Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -269,8 +299,10 @@ class TableOrderDetailSheet {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
+                          onPressed: isProcessing ? null : () async {
+                            setStateSheet(() => isProcessing = true);
+                            await Future.delayed(const Duration(milliseconds: 100));
+                            if (context.mounted) Navigator.pop(context);
                             navigateToPos(context, ref, table);
                           },
                           icon: Icon(Icons.shopping_cart_outlined, size: 18),
@@ -286,14 +318,16 @@ class TableOrderDetailSheet {
                     ],
                   ),
                   if (hasOrder) ...[
-                    if (isDraft) ...[
+                    if (isDraft && !isPaid) ...[
                       SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(context);
+                              onPressed: isProcessing ? null : () async {
+                                setStateSheet(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (context.mounted) Navigator.pop(context);
                                 navigateToPayment(context, ref, table, activeOrder);
                               },
                               icon: Icon(Icons.payments_outlined, size: 18),
@@ -308,14 +342,40 @@ class TableOrderDetailSheet {
                           ),
                         ],
                       ),
+                    ] else if (isPaid) ...[
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: isProcessing ? null : () async {
+                                setStateSheet(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (context.mounted) Navigator.pop(context);
+                                handleClearTable(context, ref, table, activeOrder);
+                              },
+                              icon: Icon(Icons.cleaning_services_rounded, size: 18),
+                              label: Text('Bersihkan Meja'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.error,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                     SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
+                            onPressed: isProcessing ? null : () async {
+                              setStateSheet(() => isProcessing = true);
+                              await Future.delayed(const Duration(milliseconds: 100));
+                              if (context.mounted) Navigator.pop(context);
                               handleMoveTable(context, ref, table, activeOrder);
                             },
                             icon: Icon(Icons.move_up_rounded, size: 18),
@@ -350,9 +410,11 @@ class TableOrderDetailSheet {
               ],
             ],
           ),
-            ],
-          ),
-        );
+        ],
+      ),
+    );
+  },
+);
       },
     );
   }
@@ -369,7 +431,7 @@ class TableOrderDetailSheet {
       final orderState = ref.read(orderNotifierProvider);
       
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }
@@ -399,7 +461,7 @@ class TableOrderDetailSheet {
       final orderState = ref.read(orderNotifierProvider);
       
       if (orderState.activeOrder != null) {
-        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts);
+        cartNotifier.loadDraftItems(orderState.activeOrderItems, productState.allProducts, orderState.activePrintBatches);
       } else {
         cartNotifier.clear();
       }
@@ -428,6 +490,20 @@ class TableOrderDetailSheet {
       AppSnackbar.showSuccess(context, 'Tiket dapur (Reprint) berhasil dicetak dengan watermark JANGAN DIMASAK ULANG.');
     } else {
       AppSnackbar.showError(context, 'Gagal mencetak ulang tiket dapur.');
+    }
+  }
+
+  static Future<void> handleClearTable(BuildContext context, WidgetRef ref, TableModel table, dynamic activeOrder) async {
+    if (activeOrder == null) return;
+    try {
+      await ref.read(orderRepositoryProvider).completeOrder(activeOrder.id, tableId: table.id);
+      if (!context.mounted) return;
+      AppSnackbar.showSuccess(context, 'Meja ${table.nama} berhasil dibersihkan.');
+      ref.read(tableNotifierProvider.notifier).loadTables();
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    } catch (e) {
+      if (!context.mounted) return;
+      AppSnackbar.showError(context, 'Gagal membersihkan meja: $e');
     }
   }
 

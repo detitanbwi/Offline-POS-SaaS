@@ -74,7 +74,7 @@ class _NewPinSetupScreenState extends ConsumerState<NewPinSetupScreen> {
       // kita harus memperbarui masterPinHash lokal dengan hash dari PIN yang baru.
       try {
         final securityService = ref.read(securityServiceProvider);
-        final newMasterPinHash = securityService.hashSecret(pin);
+        final newMasterPinHash = await securityService.hashSecret(pin);
         await ref.read(securityRepositoryProvider).updateMasterPinHash(newMasterPinHash);
       } catch (e) {
         debugPrint('Gagal memperbarui PIN lokal SQLite: $e');
@@ -130,6 +130,8 @@ class _NewPinSetupScreenState extends ConsumerState<NewPinSetupScreen> {
                     controller: _pinController,
                     keyboardType: TextInputType.number,
                     obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
                     maxLength: 6,
                     decoration: const InputDecoration(
                       labelText: 'PIN Baru (6 Digit)',
@@ -142,6 +144,8 @@ class _NewPinSetupScreenState extends ConsumerState<NewPinSetupScreen> {
                     controller: _confirmPinController,
                     keyboardType: TextInputType.number,
                     obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
                     maxLength: 6,
                     decoration: const InputDecoration(
                       labelText: 'Konfirmasi PIN Baru',

@@ -10,10 +10,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
   TransactionRepositoryImpl(this._db);
 
   @override
-  Future<List<TransactionHeader>> getAllTransactions() async {
+  Future<List<TransactionHeader>> getAllTransactions({String? cashierId}) async {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
+      where: cashierId != null ? 'cashier_id = ?' : null,
+      whereArgs: cashierId != null ? [cashierId] : null,
       orderBy: 'created_at DESC',
     );
     return List.generate(maps.length, (i) => TransactionHeader.fromMap(maps[i]));
@@ -105,9 +107,18 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> getDailySalesReport(String dateStr) async {
+  Future<Map<String, dynamic>> getDailySalesReport(String dateStr, {String? cashierId}) async {
     final db = await _db.database;
     final searchPattern = '$dateStr%';
+
+    // Exclude voided transactions from revenue, tax, and sales calculations
+    String whereClause = "(status IS NULL OR status != 'voided') AND created_at LIKE ?";
+    List<Object?> whereArgs = [searchPattern];
+
+    if (cashierId != null) {
+      whereClause += ' AND cashier_id = ?';
+      whereArgs.add(cashierId);
+    }
 
     final List<Map<String, dynamic>> summaryResult = await db.rawQuery(
       '''
@@ -116,23 +127,45 @@ class TransactionRepositoryImpl implements TransactionRepository {
         COALESCE(SUM(grand_total), 0) as total_sales, 
         COALESCE(SUM(tax_amount), 0) as total_tax 
       FROM transactions 
-      WHERE created_at LIKE ?
+      WHERE $whereClause
       ''',
-      [searchPattern],
+      whereArgs,
     );
 
     final totalTransactions = summaryResult.first['total_transactions'] as int;
     final totalSales = (summaryResult.first['total_sales'] as num).toDouble();
     final totalTax = (summaryResult.first['total_tax'] as num).toDouble();
 
+    // Calculate voided transactions count and amount separately
+    String voidWhereClause = "status = 'voided' AND created_at LIKE ?";
+    List<Object?> voidWhereArgs = [searchPattern];
+    if (cashierId != null) {
+      voidWhereClause += ' AND cashier_id = ?';
+      voidWhereArgs.add(cashierId);
+    }
+
+    final List<Map<String, dynamic>> voidResult = await db.rawQuery(
+      '''
+      SELECT 
+        COUNT(*) as total_void_count, 
+        COALESCE(SUM(grand_total), 0) as total_void_amount 
+      FROM transactions 
+      WHERE $voidWhereClause
+      ''',
+      voidWhereArgs,
+    );
+
+    final totalVoidCount = voidResult.first['total_void_count'] as int;
+    final totalVoidAmount = (voidResult.first['total_void_amount'] as num).toDouble();
+
     final List<Map<String, dynamic>> paymentResult = await db.rawQuery(
       '''
       SELECT payment_method_nama, COALESCE(SUM(grand_total), 0) as total 
       FROM transactions 
-      WHERE created_at LIKE ? 
+      WHERE $whereClause 
       GROUP BY payment_method_nama
       ''',
-      [searchPattern],
+      whereArgs,
     );
 
     final Map<String, double> paymentBreakdown = {};
@@ -146,12 +179,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
       '''
       SELECT produk_nama as nama, SUM(qty) as qty, SUM(subtotal) as total 
       FROM transaction_items 
-      WHERE transaction_id IN (SELECT id FROM transactions WHERE created_at LIKE ?) 
+      WHERE transaction_id IN (SELECT id FROM transactions WHERE $whereClause) 
       GROUP BY produk_id 
       ORDER BY qty DESC 
       LIMIT 5
       ''',
-      [searchPattern],
+      whereArgs,
     );
 
     final List<Map<String, dynamic>> topProducts = productResult.map((row) {
@@ -167,6 +200,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       'total_sales': totalSales,
       'total_transactions': totalTransactions,
       'total_tax': totalTax,
+      'total_void_count': totalVoidCount,
+      'total_void_amount': totalVoidAmount,
       'payment_breakdown': paymentBreakdown,
       'top_products': topProducts,
     };

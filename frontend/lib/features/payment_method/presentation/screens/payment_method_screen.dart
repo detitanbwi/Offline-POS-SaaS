@@ -41,8 +41,6 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
         key: formKey,
         method: method,
         onSubmit: (name, status) async {
-          Navigator.pop(context); // close dialog
-
           bool success;
           if (method == null) {
             success = await ref.read(paymentMethodNotifierProvider.notifier).addPaymentMethod(name);
@@ -51,6 +49,8 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
           }
 
           if (!context.mounted) return;
+          Navigator.pop(context); // close dialog
+
           final state = ref.read(paymentMethodNotifierProvider);
           if (success) {
             AppSnackbar.showSuccess(
@@ -62,8 +62,12 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
           }
         },
       ),
-      onConfirm: () {
-        formKey.currentState?.submit();
+      onConfirm: () async {
+        // AppDialog's onConfirm automatically handles the loading state 
+        // if we return a Future. We trigger submit which invokes the async onSubmit.
+        // Wait, formKey.currentState?.submit() returns bool synchronously but triggers an async callback. 
+        // Let's modify submit() to return a Future and await it here!
+        await formKey.currentState?.submitAsync();
       },
     );
   }
@@ -121,6 +125,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                 labelText: 'Cari Metode Pembayaran',
                 prefixIcon: Icons.search,
                 onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
               ),
             ),
             const Divider(),
@@ -322,5 +327,12 @@ class _PaymentMethodFormState extends State<_PaymentMethodForm> {
       return true;
     }
     return false;
+  }
+
+  Future<void> submitAsync() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      // The callback is async so we await it
+      await widget.onSubmit(_nameController.text.trim(), _status);
+    }
   }
 }

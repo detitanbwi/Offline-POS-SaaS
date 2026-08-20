@@ -7,6 +7,7 @@ import '../constants/app_spacing.dart';
 import '../constants/app_typography.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_snackbar.dart';
+import '../utils/file_saver_util.dart';
 import '../../features/printer/application/printer_notifier.dart';
 import '../../features/printer/domain/models/printer_config.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -53,13 +54,6 @@ class AppReceiptPreviewModal extends ConsumerWidget {
     final printerState = ref.read(printerNotifierProvider);
     final hasPrinter = printerState.configuredPrinters.isNotEmpty;
 
-    if (!hasPrinter) {
-      AppSnackbar.showWarning(
-        context,
-        'Belum ada printer Bluetooth terkonfigurasi. Menggunakan pratinjau simulator.',
-      );
-    }
-
     final bytes = await onGenerateEscPosBytes();
 
     if (hasPrinter) {
@@ -91,9 +85,16 @@ class AppReceiptPreviewModal extends ConsumerWidget {
   Future<void> _handleOpenPdf(BuildContext context) async {
     try {
       final pdfBytes = await onGeneratePdf();
+      final fileName = '${title.replaceAll(' ', '_')}.pdf';
+      final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
+
+      if (context.mounted) {
+        AppSnackbar.showSuccess(context, 'PDF tersimpan di folder Downloads:\n${savedFile.path}');
+      }
+
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
-        name: '${title.replaceAll(' ', '_')}.pdf',
+        name: fileName,
       );
     } catch (e) {
       if (context.mounted) {

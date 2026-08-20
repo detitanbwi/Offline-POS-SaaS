@@ -4,12 +4,41 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
+import '../../domain/models/print_batch.dart';
 import '../../domain/repositories/order_repository.dart';
 
 class OrderRepositoryImpl implements OrderRepository {
   final PosDatabase _db;
+  bool _paymentStatusColumnChecked = false;
 
   OrderRepositoryImpl(this._db);
+
+  Future<void> _ensurePaymentStatusColumn(DatabaseExecutor txn) async {
+    if (_paymentStatusColumnChecked) return;
+    try {
+      final res = await txn.rawQuery("PRAGMA table_info(orders)");
+      bool hasPaymentStatus = res.any((col) => col['name'] == 'payment_status');
+      if (!hasPaymentStatus) {
+        await txn.execute("ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'unpaid'");
+      }
+
+      final resPrint = await txn.rawQuery("PRAGMA table_info(print_batches)");
+      bool hasPrintPaymentStatus = resPrint.any((col) => col['name'] == 'payment_status');
+      if (!hasPrintPaymentStatus) {
+        await txn.execute("ALTER TABLE print_batches ADD COLUMN payment_status TEXT DEFAULT 'unpaid'");
+      }
+
+      final resOrder = await txn.rawQuery("PRAGMA table_info(order_batches)");
+      bool hasOrderPaymentStatus = resOrder.any((col) => col['name'] == 'payment_status');
+      if (!hasOrderPaymentStatus) {
+        await txn.execute("ALTER TABLE order_batches ADD COLUMN payment_status TEXT DEFAULT 'unpaid'");
+      }
+
+      _paymentStatusColumnChecked = true;
+    } catch (e) {
+      _paymentStatusColumnChecked = true;
+    }
+  }
 
   @override
   Future<int> getBatchCount(String orderId) async {
@@ -36,6 +65,32 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getPrintBatchesWithItems(String orderId) async {
+    final db = await _db.database;
+    final batches = await db.query(
+      'print_batches',
+      where: 'order_id = ?',
+      whereArgs: [orderId],
+      orderBy: 'created_at ASC',
+    );
+    
+    List<Map<String, dynamic>> result = [];
+    for (var batchRow in batches) {
+      final itemsMap = await db.query(
+        'order_items',
+        where: 'print_batch_id = ?',
+        whereArgs: [batchRow['id']],
+      );
+      final items = itemsMap.map((m) => OrderItemModel.fromMap(m)).toList();
+      result.add({
+        'batch': PrintBatchModel.fromMap(batchRow),
+        'items': items,
+      });
+    }
+    return result;
+  }
+
+  @override
   Future<String> recordPrintBatch(String orderId) async {
     final db = await _db.database;
     final batchId = const Uuid().v4();
@@ -58,12 +113,43 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<void> updatePaymentStatus(String orderId, String status) async {
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      await _ensurePaymentStatusColumn(txn);
+      await txn.update(
+        'orders',
+        {
+          'payment_status': status,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+    });
+  }
+
+  @override
+  Future<void> updatePrintBatchPaymentStatus(String batchId, String status) async {
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      await _ensurePaymentStatusColumn(txn);
+      await txn.update(
+        'print_batches',
+        {'payment_status': status},
+        where: 'id = ?',
+        whereArgs: [batchId],
+      );
+    });
+  }
+
+  @override
   Future<OrderModel?> getActiveOrderForTable(String tableId) async {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'orders',
-      where: 'table_id = ? AND status = ?',
-      whereArgs: [tableId, 'draft'],
+      where: 'table_id = ? AND status NOT IN (?, ?)',
+      whereArgs: [tableId, 'completed', 'cancelled'],
       limit: 1,
     );
     if (maps.isEmpty) return null;
@@ -98,6 +184,7 @@ class OrderRepositoryImpl implements OrderRepository {
   Future<void> saveOrder(OrderModel order, List<OrderItemModel> items, {bool markAsPrinted = false}) async {
     final db = await _db.database;
     await db.transaction((txn) async {
+      await _ensurePaymentStatusColumn(txn);
       final orderMap = order.toMap();
       // Ensure table_id is NEVER null to satisfy SQLite NOT NULL constraints on legacy/current schemas,
       // and ensure 'TABLE_TAKE_AWAY' sentinel exists in tables table to satisfy FOREIGN KEY constraints.
@@ -137,7 +224,7 @@ class OrderRepositoryImpl implements OrderRepository {
       // Verify cashier_id foreign key reference if provided
       if (orderMap['cashier_id'] != null) {
         try {
-          final uCheck = await txn.query('users', where: 'id = ?', whereArgs: [orderMap['cashier_id']]);
+          final uCheck = await txn.query('cashiers', where: 'id = ?', whereArgs: [orderMap['cashier_id']]);
           if (uCheck.isEmpty) {
             orderMap['cashier_id'] = null;
           }
@@ -239,8 +326,8 @@ class OrderRepositoryImpl implements OrderRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'orders',
-      where: 'status = ?',
-      whereArgs: ['draft'],
+      where: 'status NOT IN (?, ?)',
+      whereArgs: ['completed', 'cancelled'],
     );
     final Map<String, OrderModel> result = {};
     for (var m in maps) {
@@ -257,8 +344,8 @@ class OrderRepositoryImpl implements OrderRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'orders',
-      where: 'status = ?',
-      whereArgs: ['draft'],
+      where: 'status NOT IN (?, ?)',
+      whereArgs: ['completed', 'cancelled'],
       orderBy: 'updated_at DESC',
     );
     return maps.map((m) => OrderModel.fromMap(m)).toList();
@@ -444,7 +531,7 @@ class OrderRepositoryImpl implements OrderRepository {
         );
       }
 
-      // 3. Tandai semua order draft lain pada meja ini sebagai cleared
+      // 3. Tandai semua order aktif lain pada meja ini sebagai cleared
       if (tableId.isNotEmpty) {
         await txn.update(
           'orders',
@@ -453,8 +540,8 @@ class OrderRepositoryImpl implements OrderRepository {
             'clear_table_reason': reason,
             'updated_at': DateTime.now().toIso8601String(),
           },
-          where: 'table_id = ? AND status = ?',
-          whereArgs: [tableId, 'draft'],
+          where: 'table_id = ? AND status NOT IN (?, ?)',
+          whereArgs: [tableId, 'completed', 'cancelled'],
         );
       }
     });
@@ -471,6 +558,21 @@ class OrderRepositoryImpl implements OrderRepository {
       },
       where: 'id = ?',
       whereArgs: [tableId],
+    );
+  }
+
+  @override
+  Future<void> markOrderBillPrinted(String orderId) async {
+    final db = await _db.database;
+    await db.update(
+      'orders',
+      {
+        'is_bill_printed': 1,
+        'bill_printed_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [orderId],
     );
   }
 }

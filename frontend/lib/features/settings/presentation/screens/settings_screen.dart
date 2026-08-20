@@ -17,6 +17,12 @@ import '../../../../core/theme/font_size_provider.dart';
 import 'about_screen.dart';
 import 'store_profile_screen.dart';
 
+import '../../../product/application/product_notifier.dart';
+import '../../../category/application/category_notifier.dart';
+import '../../../cashier/application/cashier_notifier.dart';
+import '../../../table/application/table_notifier.dart';
+import '../../../pos/application/order_notifier.dart';
+
 class SettingsScreen extends ConsumerStatefulWidget {
 
   const SettingsScreen({super.key});
@@ -74,8 +80,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         Navigator.pop(context); // Close dialog
         if (success) {
           AppSnackbar.showSuccess(context, 'Database berhasil dipulihkan!');
-          // Refresh products to reload catalog state
-          ref.read(productRepositoryProvider); 
+          // Reload catalog and application state from restored database
+          ref.read(productNotifierProvider.notifier).loadProducts();
+          ref.read(cashierNotifierProvider.notifier).loadCashiers();
+          ref.read(categoryNotifierProvider.notifier).loadCategories();
+          ref.read(tableNotifierProvider.notifier).loadTables();
+          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
         } else {
           AppSnackbar.showError(context, 'Gagal memulihkan cadangan database.');
         }

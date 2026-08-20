@@ -12,17 +12,37 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse('$apiBaseUrl/api/login'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: getApiHeaders(),
         body: jsonEncode({
           'email': email,
           'password': password,
         }),
       ).timeout(const Duration(seconds: apiTimeoutSeconds));
 
-      final data = jsonDecode(response.body);
+      if (response.statusCode == 429) {
+        return {
+          'success': false,
+          'message': 'Terlalu banyak percobaan login. Harap tunggu 1 menit lalu coba lagi.',
+        };
+      }
+
+      if (response.statusCode == 403 &&
+          (response.body.contains('Imunify360') || response.body.contains('bot-protection'))) {
+        return {
+          'success': false,
+          'message': 'Koneksi diblokir sementara oleh proteksi server (Imunify360). Silakan coba beberapa saat lagi.',
+        };
+      }
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'Gagal memproses respons server (${response.statusCode})',
+        };
+      }
 
       if (response.statusCode == 200 && data['success'] == true) {
         await _storage.saveTokens(

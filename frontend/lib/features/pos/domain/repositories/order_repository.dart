@@ -19,13 +19,19 @@ abstract class OrderRepository {
   Future<List<OrderModel>> getAllDraftOrders();
   Future<int> getBatchCount(String orderId);
   Future<List<Map<String, dynamic>>> getPrintBatches(String orderId);
+  Future<List<Map<String, dynamic>>> getPrintBatchesWithItems(String orderId);
   Future<String> recordPrintBatch(String orderId);
   Future<void> markItemsAsPrinted(String orderId, String batchId);
+
+  // Payment Status Management
+  Future<void> updatePaymentStatus(String orderId, String status);
+  Future<void> updatePrintBatchPaymentStatus(String batchId, String status);
 
   // New features
   Future<void> cancelOrderItem(String itemId, String reason);
   Future<void> cancelOrderBatch(String batchId, String reason);
   Future<void> clearTableOnly(String orderId, String tableId, String reason);
   Future<void> markTableBillPrinted(String tableId);
+  Future<void> markOrderBillPrinted(String orderId);
   Future<OrderModel?> getOrderById(String orderId);
 }

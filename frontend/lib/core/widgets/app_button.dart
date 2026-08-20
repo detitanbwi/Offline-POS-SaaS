@@ -32,6 +32,18 @@ class AppButton extends StatelessWidget {
     final double scale = MediaQuery.textScalerOf(context).scale(1);
 
     Color getBgColor() {
+      if (isLoading) {
+        switch (type) {
+          case AppButtonType.primary:
+            return AppColors.primary.withValues(alpha: 0.7);
+          case AppButtonType.secondary:
+            return AppColors.secondary.withValues(alpha: 0.7);
+          case AppButtonType.destructive:
+            return AppColors.error.withValues(alpha: 0.7);
+          case AppButtonType.outlined:
+            return Colors.transparent;
+        }
+      }
       if (isButtonDisabled) return AppColors.disabled.withValues(alpha: 0.3);
 
       switch (type) {
@@ -47,6 +59,16 @@ class AppButton extends StatelessWidget {
     }
 
     Color getTextColor() {
+      if (isLoading) {
+        switch (type) {
+          case AppButtonType.primary:
+          case AppButtonType.secondary:
+          case AppButtonType.destructive:
+            return Colors.white;
+          case AppButtonType.outlined:
+            return AppColors.primary;
+        }
+      }
       if (isButtonDisabled) return AppColors.disabled;
       switch (type) {
         case AppButtonType.primary:

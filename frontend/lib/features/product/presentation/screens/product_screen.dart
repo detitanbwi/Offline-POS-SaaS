@@ -91,63 +91,87 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
 
     final formKey = GlobalKey<ProductFormState>();
 
-    AppDialog.show(
+    showDialog(
       context: context,
-      title: product == null ? 'Tambah Produk' : 'Ubah Produk',
-      confirmText: 'Simpan',
-      content: SizedBox(
-        width: 420,
-        child: ProductForm(
-          key: formKey,
-          product: product,
-          categories: categoryState.allCategories,
-          onSubmit: ({
-            required String nama,
-            required String kategoriId,
-            required double harga,
-            required int stok,
-            required int status,
-            String? image,
-          }) async {
-            Navigator.pop(context); // close dialog
+      barrierDismissible: false,
+      builder: (context) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AppDialog(
+              title: product == null ? 'Tambah Produk' : 'Ubah Produk',
+              confirmText: 'Simpan',
+              isLoading: isSaving,
+              content: SizedBox(
+                width: 420,
+                child: ProductForm(
+                  key: formKey,
+                  product: product,
+                  categories: categoryState.allCategories,
+                  onSubmit: ({
+                    required String nama,
+                    required String kategoriId,
+                    required double harga,
+                    required int stok,
+                    required int status,
+                    String? image,
+                  }) async {
+                    if (isSaving) return;
+                    
+                    // Unfocus keyboard to start hiding animation smoothly
+                    FocusScope.of(context).unfocus();
+                    
+                    setState(() => isSaving = true);
+                    
+                    // Yield control to the event loop so the UI can render the loading indicator
+                    // and keyboard hide animation can complete without dropping frames.
+                    await Future.delayed(const Duration(milliseconds: 300));
 
-            bool success;
-            if (product == null) {
-              success = await ref.read(productNotifierProvider.notifier).addProduct(
-                    nama: nama,
-                    kategoriId: kategoriId,
-                    harga: harga,
-                    stok: stok,
-                    status: status,
-                    image: image,
-                  );
-            } else {
-              success = await ref.read(productNotifierProvider.notifier).updateProduct(
-                    id: product.id,
-                    nama: nama,
-                    kategoriId: kategoriId,
-                    harga: harga,
-                    stok: stok,
-                    status: status,
-                    image: image,
-                  );
-            }
+                    bool success;
+                    if (product == null) {
+                      success = await ref.read(productNotifierProvider.notifier).addProduct(
+                            nama: nama,
+                            kategoriId: kategoriId,
+                            harga: harga,
+                            stok: stok,
+                            status: status,
+                            image: image,
+                          );
+                    } else {
+                      success = await ref.read(productNotifierProvider.notifier).updateProduct(
+                            id: product.id,
+                            nama: nama,
+                            kategoriId: kategoriId,
+                            harga: harga,
+                            stok: stok,
+                            status: status,
+                            image: image,
+                          );
+                    }
 
-            if (!context.mounted) return;
-            final state = ref.read(productNotifierProvider);
-            if (success) {
-              AppSnackbar.showSuccess(
-                context,
-                product == null ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!',
-              );
-            } else if (state.errorMessage != null) {
-              AppSnackbar.showError(context, state.errorMessage!);
-            }
+                    if (!context.mounted) return;
+                    
+                    // Close the dialog only after processing is done
+                    Navigator.pop(context);
+
+                    final state = ref.read(productNotifierProvider);
+                    if (success) {
+                      AppSnackbar.showSuccess(
+                        context,
+                        product == null ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!',
+                      );
+                    } else if (state.errorMessage != null) {
+                      AppSnackbar.showError(context, state.errorMessage!);
+                    }
+                  },
+                ),
+              ),
+              onConfirm: () {
+                formKey.currentState?.submit();
+              },
+            );
           },
-        ),
-      ),
-      onConfirm: () {
-        formKey.currentState?.submit();
+        );
       },
     );
   }
@@ -372,6 +396,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             labelText: 'Cari Produk',
                             prefixIcon: Icons.search,
                             onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                           ),
                         ),
                         SizedBox(width: 12),
@@ -405,6 +430,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       labelText: 'Cari Produk',
                       prefixIcon: Icons.search,
                       onChanged: (val) => notifier.setSearchQuery(val),
+                            debounceDuration: const Duration(milliseconds: 500),
                     ),
                     SizedBox(height: 12),
                     // Categories chips scrollable filter
@@ -582,12 +608,25 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                     children: [
                                       Padding(
                                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-                                        child: Text(
-                                          '---- $catName',
-                                          style: AppTypography.titleMedium.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
-                                          ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 4,
+                                              height: 16,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary,
+                                                borderRadius: BorderRadius.circular(2),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              catName,
+                                              style: AppTypography.titleMedium.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                       ...products.map((product) {
@@ -632,12 +671,25 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                         children: [
                                           Padding(
                                             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-                                            child: Text(
-                                              '---- $catName',
-                                              style: AppTypography.titleMedium.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.primary,
-                                              ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 4,
+                                                  height: 16,
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primary,
+                                                    borderRadius: BorderRadius.circular(2),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  catName,
+                                                  style: AppTypography.titleMedium.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.textPrimary,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           LayoutBuilder(
@@ -785,15 +837,15 @@ class _ProductItemRow extends StatelessWidget {
                           ? Image.network(
                               product.image!,
                               fit: BoxFit.cover,
+                              cacheWidth: 300,
                               errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
                             )
-                          : Validators.isValidLocalFile(product.image!)
-                              ? Image.file(
+                          : Image.file(
                                   File(product.image!),
                                   fit: BoxFit.cover,
+                                  cacheWidth: 300,
                                   errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
-                                )
-                              : Icon(Icons.broken_image_outlined, color: AppColors.textSecondary))
+                                ))
                       : Icon(
                           Icons.inventory_2_outlined,
                           color: product.isActive ? AppColors.primary.withValues(alpha: 0.5) : AppColors.disabled.withValues(alpha: 0.5),
@@ -957,16 +1009,12 @@ class _ProductItemCard extends StatelessWidget {
                                     child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                   ),
                                 )
-                              : Validators.isValidLocalFile(product.image!)
-                                  ? Image.file(
+                              : Image.file(
                                       File(product.image!),
                                       fit: BoxFit.contain,
                                       errorBuilder: (_, _, _) => Center(
                                         child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                       ),
-                                    )
-                                  : Center(
-                                      child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ))
                           : Center(
                               child: Icon(

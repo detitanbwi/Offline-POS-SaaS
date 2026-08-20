@@ -47,9 +47,9 @@ void main() {
       expect(hash.length, 64);
     });
 
-    test('getAndroidId returns non-empty value', () async {
-      final androidId = await service.getAndroidId();
-      expect(androidId, isNotEmpty);
+    test('getHardwareId returns non-empty value', () async {
+      final hardwareId = await service.getHardwareId();
+      expect(hardwareId, isNotEmpty);
     });
 
     test('getDeviceInfo contains expected properties', () async {
