@@ -11,6 +11,13 @@ use Illuminate\Console\Command;
 class GenerateLicenseKeys extends Command
 {
     /**
+     * The console command name aliases.
+     *
+     * @var array
+     */
+    protected $aliases = ['license:generate-keys'];
+
+    /**
      * Execute the console command.
      */
     public function handle()
@@ -25,8 +32,12 @@ class GenerateLicenseKeys extends Command
 
         // Try to find openssl.cnf for Windows XAMPP environments
         $possibleCnfPaths = [
+            'D:\\xampp\\php\\extras\\ssl\\openssl.cnf',
+            'D:\\xampp\\apache\\conf\\openssl.cnf',
             'C:\\xampp\\php\\extras\\ssl\\openssl.cnf',
             'C:\\xampp\\apache\\conf\\openssl.cnf',
+            'E:\\xampp\\php\\extras\\ssl\\openssl.cnf',
+            'E:\\xampp\\apache\\conf\\openssl.cnf',
         ];
         
         foreach ($possibleCnfPaths as $path) {
