@@ -561,14 +561,12 @@ class _CategoryItem extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
-      } else if (Validators.isValidLocalFile(category.image!)) {
+      } else {
         imageWidget = Image.file(
           File(category.image!),
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => Icon(Icons.folder_open_rounded, color: AppColors.primary),
         );
-      } else {
-        imageWidget = Icon(Icons.folder_open_rounded, color: AppColors.primary);
       }
     } else {
       imageWidget = Icon(

@@ -1236,7 +1236,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   children: [
                     Text('Alasan Pembatalan:', style: AppTypography.labelLarge),
                     SizedBox(height: 8.h),
-                    TextField(
+                    TextField(enableSuggestions: false, autocorrect: false, 
                       controller: reasonController,
                       decoration: const InputDecoration(
                         hintText: 'Masukkan alasan pembatalan...',
@@ -1246,7 +1246,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                     SizedBox(height: 16.h),
                     Text('Otorisasi Owner (PIN):', style: AppTypography.labelLarge),
                     SizedBox(height: 8.h),
-                    TextField(
+                    TextField(enableSuggestions: false, autocorrect: false, 
                       controller: pinController,
                       obscureText: true,
                       keyboardType: TextInputType.number,

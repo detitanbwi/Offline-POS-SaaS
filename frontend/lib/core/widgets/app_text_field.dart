@@ -44,8 +44,8 @@ class AppTextField extends StatefulWidget {
     this.maxLength,
     this.prefixText,
     this.debounceDuration,
-    this.enableSuggestions = true,
-    this.autocorrect = true,
+    this.enableSuggestions = false,
+    this.autocorrect = false,
   });
 
   @override

@@ -756,7 +756,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ],
                   ),
                   SizedBox(height: 6),
-                  TextField(
+                  TextField(enableSuggestions: false, autocorrect: false, 
                     controller: _appTotalController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(

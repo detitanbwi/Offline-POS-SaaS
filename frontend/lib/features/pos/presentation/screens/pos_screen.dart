@@ -1338,17 +1338,13 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                   child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                 ),
                               )
-                            : Validators.isValidLocalFile(product.image!)
-                                ? Image.file(
+                            : Image.file(
                                     File(product.image!),
                                     fit: BoxFit.contain,
                                     cacheWidth: 300,
                                     errorBuilder: (_, _, _) => const Center(
                                       child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ),
-                                  )
-                                : const Center(
-                                    child: Icon(Icons.fastfood_rounded, color: AppColors.textSecondary, size: 36),
                                   ))
                         : const Center(
                             child: Icon(Icons.fastfood_rounded, color: AppColors.textSecondary, size: 36),

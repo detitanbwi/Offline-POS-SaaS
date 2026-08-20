@@ -160,7 +160,7 @@ class _PasswordOtpVerificationScreenState extends ConsumerState<PasswordOtpVerif
                       return SizedBox(
                         width: 48.w,
                         height: 56.h,
-                        child: TextField(
+                        child: TextField(enableSuggestions: false, autocorrect: false, 
                           controller: _controllers[index],
                           focusNode: _focusNodes[index],
                           keyboardType: TextInputType.number,

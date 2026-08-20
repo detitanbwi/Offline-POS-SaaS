@@ -78,7 +78,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               'Bill sudah tercetak. Masukkan PIN Owner/Manager untuk membuka kunci pesanan ini.',
             ),
             SizedBox(height: 16),
-            TextField(
+            TextField(enableSuggestions: false, autocorrect: false, 
               controller: pinController,
               decoration: const InputDecoration(
                 labelText: 'PIN (6 Digit)',
@@ -161,7 +161,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Catatan Item'),
-          content: TextField(
+          content: TextField(enableSuggestions: false, autocorrect: false, 
             controller: noteController,
             decoration: const InputDecoration(
               hintText: 'Masukkan catatan (opsional)',
@@ -812,7 +812,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
           ),
         ),
         SizedBox(height: 8),
-        TextField(
+        TextField(enableSuggestions: false, autocorrect: false, 
           controller: _customerNameController,
           decoration: InputDecoration(
             hintText: 'Nama Pembeli (Opsional)',

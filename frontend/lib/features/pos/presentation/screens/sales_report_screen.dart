@@ -75,7 +75,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           children: [
             Text('Expected Kas (Sistem): ${CurrencyFormatter.format(expectedCash)}', style: AppTypography.bodyMedium),
             SizedBox(height: 12),
-            TextField(
+            TextField(enableSuggestions: false, autocorrect: false, 
               controller: actualCashController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(

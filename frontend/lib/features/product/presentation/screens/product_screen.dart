@@ -840,14 +840,12 @@ class _ProductItemRow extends StatelessWidget {
                               cacheWidth: 300,
                               errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
                             )
-                          : Validators.isValidLocalFile(product.image!)
-                              ? Image.file(
+                          : Image.file(
                                   File(product.image!),
                                   fit: BoxFit.cover,
                                   cacheWidth: 300,
                                   errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
-                                )
-                              : Icon(Icons.broken_image_outlined, color: AppColors.textSecondary))
+                                ))
                       : Icon(
                           Icons.inventory_2_outlined,
                           color: product.isActive ? AppColors.primary.withValues(alpha: 0.5) : AppColors.disabled.withValues(alpha: 0.5),
@@ -1011,16 +1009,12 @@ class _ProductItemCard extends StatelessWidget {
                                     child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                   ),
                                 )
-                              : Validators.isValidLocalFile(product.image!)
-                                  ? Image.file(
+                              : Image.file(
                                       File(product.image!),
                                       fit: BoxFit.contain,
                                       errorBuilder: (_, _, _) => Center(
                                         child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                       ),
-                                    )
-                                  : Center(
-                                      child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary, size: 28),
                                     ))
                           : Center(
                               child: Icon(
