@@ -4,7 +4,8 @@ library;
 
 /// API base URL for the SaaS backend server.
 /// In production, this should be configured via environment or build config.
-const String apiBaseUrl = 'https://demo2.wirodev.com';
+const String apiBaseUrl = 'https://aplikasi.appkasirpro.com';
+// const String apiBaseUrl = 'https://demo2.wirodev.com';
 // const String apiBaseUrl = 'http://192.168.100.243:8000';
 // const String apiBaseUrl = 'https://demo2.rce-eastjava.org';
 
