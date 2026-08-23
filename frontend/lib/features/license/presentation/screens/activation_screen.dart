@@ -273,7 +273,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
           icon: const Icon(Icons.arrow_back_rounded, color: AppColors.primary),
           onPressed: () async {
             final storage = ref.read(secureStorageServiceProvider);
-            await storage.clearAll();
+            await storage.clearAuthSession();
             if (!context.mounted) return;
             Navigator.pushReplacement(
               context,

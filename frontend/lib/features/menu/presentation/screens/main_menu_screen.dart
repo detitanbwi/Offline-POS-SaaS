@@ -116,7 +116,7 @@ class MainMenuScreen extends ConsumerWidget {
     AppDialog.show(
       context: context,
       title: 'Logout SaaS',
-      message: 'Apakah Anda yakin ingin keluar dari akun SaaS? Token aktivasi online akan dihapus.',
+      message: 'Apakah Anda yakin ingin keluar dari akun SaaS? Sesi login online akan dihapus.',
       confirmText: 'Logout',
       isDestructive: true,
       onConfirm: () async {
@@ -124,7 +124,7 @@ class MainMenuScreen extends ConsumerWidget {
         Navigator.of(context, rootNavigator: true).pop();
 
         final storage = ref.read(secureStorageServiceProvider);
-        await storage.clearAll();
+        await storage.clearAuthSession();
         ref.read(authSessionProvider.notifier).state = null;
 
         if (!context.mounted) return;

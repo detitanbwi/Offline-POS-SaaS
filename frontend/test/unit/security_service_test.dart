@@ -28,7 +28,7 @@ class FakeSecurityRepository implements SecurityRepository {
     if (_credential == null) return false;
     // For test verification we use raw hash comparison from service
     final service = SecurityService(this);
-    final candidateHash = service.hashSecret(candidatePin);
+    final candidateHash = await service.hashSecret(candidatePin);
     return _credential!.masterPinHash == candidateHash ||
            _credential!.masterPinHash == candidatePin ||
            _localPin == candidateHash;

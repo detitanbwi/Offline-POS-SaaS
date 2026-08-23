@@ -145,7 +145,18 @@ class SecureStorageService {
     return await _storage.read(key: _keyPublicKey);
   }
 
+  /// Menghapus sesi autentikasi online (Logout) tanpa merusak database offline & lisensi
+  Future<void> clearAuthSession() async {
+    await _storage.delete(key: _keyOnlineToken);
+  }
+
+  /// Menghapus semua data key-value di secure storage tanpa menghapus file database SQLite
   Future<void> clearAll() async {
+    await _storage.deleteAll();
+  }
+
+  /// Menghapus seluruh data lokal & file database SQLite (Factory Reset / Wipe Data)
+  Future<void> wipeAllData() async {
     await _storage.deleteAll();
     try {
       await SecurityDatabase.instance.deleteDatabaseFile();
@@ -155,3 +166,4 @@ class SecureStorageService {
     } catch (_) {}
   }
 }
+

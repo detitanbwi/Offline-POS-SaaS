@@ -86,7 +86,7 @@ class _MyAppState extends ConsumerState<MyApp> {
                             result['message'] == 'Unauthenticated';
         if (isAuthError) {
           final storage = ref.read(secureStorageServiceProvider);
-          await storage.clearAll();
+          await storage.clearAuthSession();
           
           if (appNavigatorKey.currentContext != null) {
             Navigator.pushAndRemoveUntil(

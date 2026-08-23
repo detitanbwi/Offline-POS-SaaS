@@ -44,7 +44,7 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
         
         if (isAuthError) {
           final storage = ref.read(secureStorageServiceProvider);
-          await storage.clearAll();
+          await storage.clearAuthSession();
           
           if (mounted) {
             // Buka blokir UI
