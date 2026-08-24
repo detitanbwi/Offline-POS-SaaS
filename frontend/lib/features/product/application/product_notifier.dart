@@ -161,6 +161,8 @@ class ProductNotifier extends StateNotifier<ProductState> {
     required double harga,
     required int stok,
     required int status,
+    bool isPackage = false,
+    List<PackageItem> packageItems = const [],
     String? image,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -175,12 +177,19 @@ class ProductNotifier extends StateNotifier<ProductState> {
       }
 
       final now = DateTime.now();
+      final newId = _uuid.v4();
+      final updatedPackageItems = packageItems.map((item) {
+        return item.copyWith(packageId: newId);
+      }).toList();
+
       final product = Product(
-        id: _uuid.v4(),
+        id: newId,
         kategoriId: kategoriId,
         nama: nama.trim(),
         harga: harga,
-        stok: stok,
+        stok: isPackage ? 0 : stok,
+        isPackage: isPackage,
+        packageItems: updatedPackageItems,
         status: status,
         image: image,
         createdAt: now,
@@ -207,6 +216,8 @@ class ProductNotifier extends StateNotifier<ProductState> {
     required double harga,
     required int status,
     int? stok,
+    bool? isPackage,
+    List<PackageItem>? packageItems,
     String? image,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -226,13 +237,19 @@ class ProductNotifier extends StateNotifier<ProductState> {
         return false;
       }
 
+      final updatedPackageItems = packageItems?.map((item) {
+        return item.copyWith(packageId: id);
+      }).toList();
+
       final updated = current.copyWith(
         nama: nama.trim(),
         kategoriId: kategoriId,
         harga: harga,
-        stok: stok ?? current.stok,
+        stok: isPackage == true ? 0 : (stok ?? current.stok),
+        isPackage: isPackage ?? current.isPackage,
+        packageItems: updatedPackageItems ?? current.packageItems,
         status: status,
-        image: image,
+        image: image ?? current.image,
         updatedAt: DateTime.now(),
       );
 

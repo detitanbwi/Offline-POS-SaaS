@@ -282,19 +282,62 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           cashierNama: activeUser?.nama,
         );
 
-        savedItems = cartState.items.map((item) {
-          return TransactionItem(
-            id: _uuid.v4(),
-            transactionId: txId,
-            produkId: item.product.id,
-            produkNama: item.product.nama,
-            produkHarga: item.product.harga,
-            qty: item.qty,
-            subtotal: item.subtotal,
-            catatan: item.catatan,
-          );
-        }).toList();
+        final List<TransactionItem> consolidatedTxItems = [];
+        final Map<String, int> regularIndexMap = {};
 
+        for (var item in cartState.items) {
+          if (item.product.isPackage) {
+            // Packages are kept separate per batch
+            consolidatedTxItems.add(TransactionItem(
+              id: _uuid.v4(),
+              transactionId: txId,
+              produkId: item.product.id,
+              produkNama: item.product.nama,
+              produkHarga: item.product.harga,
+              qty: item.qty,
+              subtotal: item.subtotal,
+              catatan: item.catatan.isNotEmpty ? item.catatan : null,
+            ));
+          } else {
+            final key = '${item.product.id}_${item.product.harga}';
+            if (regularIndexMap.containsKey(key)) {
+              final idx = regularIndexMap[key]!;
+              final existing = consolidatedTxItems[idx];
+              String? mergedNotes = existing.catatan;
+              if (item.catatan.isNotEmpty) {
+                if (mergedNotes == null || mergedNotes.isEmpty) {
+                  mergedNotes = item.catatan;
+                } else if (!mergedNotes.contains(item.catatan)) {
+                  mergedNotes = '$mergedNotes, ${item.catatan}';
+                }
+              }
+              consolidatedTxItems[idx] = TransactionItem(
+                id: existing.id,
+                transactionId: txId,
+                produkId: existing.produkId,
+                produkNama: existing.produkNama,
+                produkHarga: existing.produkHarga,
+                qty: existing.qty + item.qty,
+                subtotal: existing.subtotal + item.subtotal,
+                catatan: mergedNotes,
+              );
+            } else {
+              regularIndexMap[key] = consolidatedTxItems.length;
+              consolidatedTxItems.add(TransactionItem(
+                id: _uuid.v4(),
+                transactionId: txId,
+                produkId: item.product.id,
+                produkNama: item.product.nama,
+                produkHarga: item.product.harga,
+                qty: item.qty,
+                subtotal: item.subtotal,
+                catatan: item.catatan.isNotEmpty ? item.catatan : null,
+              ));
+            }
+          }
+        }
+
+        savedItems = consolidatedTxItems;
         await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
         // Jika transaksi dari order aktif, tandai order 'paid' dan bebaskan meja jika sudah lunas semua
@@ -315,6 +358,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         // Refresh list meja & active orders map
         ref.read(tableNotifierProvider.notifier).loadTables();
         await ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+
+        // Buka laci kasir (Cash Drawer Kick) saat tombol bayar ditekan
+        try {
+          ref.read(printerNotifierProvider.notifier).openCashDrawer();
+        } catch (_) {}
 
         // Opsi otomatis cetak ke thermal kasir jika terhubung
         try {

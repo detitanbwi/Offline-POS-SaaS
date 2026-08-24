@@ -14,7 +14,6 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../product/application/product_notifier.dart';
 import '../../../table/application/table_notifier.dart';
@@ -31,7 +30,6 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../../../core/utils/pdf_receipt_generator.dart';
 import '../../../../core/widgets/app_receipt_preview_modal.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../printer/application/printer_notifier.dart';
 
 import 'table_selector_screen.dart';
@@ -469,16 +467,38 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
       builder: (sheetContext) {
         bool isProcessing = false;
         Set<String> expandedBatches = {};
-        bool isBillPrinted = initialIsBillPrinted;
+        bool localBillPrinted = initialIsBillPrinted;
         
-        return StatefulBuilder(
-          builder: (context, setStateSheet) {
-            final statusLabel = isBillPrinted
-                ? 'Bill Dicetak'
-                : (table != null
-                      ? table.statusLabel
-                      : (order.isDraft ? 'Open Bill' : 'Selesai'));
-            final statusColor = isBillPrinted ? AppColors.warning : AppColors.success;
+        return Consumer(
+          builder: (consumerContext, consumerRef, _) {
+            final tableState = consumerRef.watch(tableNotifierProvider);
+            final orderState = consumerRef.watch(orderNotifierProvider);
+
+            final currentTable = isDineIn && order.tableId != null
+                ? tableState.allTables.firstWhere(
+                    (t) => t.id == order.tableId,
+                    orElse: () => table ?? TableModel(
+                      id: order.tableId!,
+                      nomor: order.tableNomor ?? '0',
+                      nama: 'Meja ${order.tableNomor ?? ''}',
+                      status: 0,
+                      createdAt: DateTime.now(),
+                      updatedAt: DateTime.now(),
+                    ),
+                  )
+                : null;
+
+            final currentOrder = orderState.activeOrdersMap[order.id] ?? order;
+            final isBillPrinted = localBillPrinted || currentOrder.isBillPrinted || (currentTable?.isBillPrinted ?? false);
+
+            return StatefulBuilder(
+              builder: (context, setStateSheet) {
+                final statusLabel = isBillPrinted
+                    ? 'Bill Dicetak'
+                    : (currentTable != null
+                          ? currentTable.statusLabel
+                          : (currentOrder.isDraft ? 'Open Bill' : 'Selesai'));
+                final statusColor = isBillPrinted ? AppColors.warning : AppColors.success;
             return Container(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.9,
@@ -1027,7 +1047,7 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
 
                                             // Update local state so UI refreshes immediately
                                             setStateSheet(() {
-                                              isBillPrinted = true;
+                                              localBillPrinted = true;
                                             });
 
                                             ref
@@ -1036,6 +1056,12 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                       .notifier,
                                                 )
                                                 .loadActiveOrdersMap();
+                                            ref
+                                                .read(
+                                                  tableNotifierProvider
+                                                      .notifier,
+                                                )
+                                                .loadTables();
 
                                             final activeUser = ref.read(
                                               authSessionProvider,
@@ -1193,6 +1219,8 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                       ),
                     ),
             );
+          },
+        );
           },
         );
       },

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
+import '../database/pos_database.dart';
 import '../../features/pos/domain/models/order.dart';
 import '../../features/pos/domain/models/order_item.dart';
 import '../../features/pos/domain/models/transaction.dart';
@@ -16,6 +17,113 @@ class PdfReceiptGenerator {
       return cashierNama.trim();
     }
     return 'Kasir';
+  }
+
+  static Future<Map<String, List<Map<String, dynamic>>>> _getPackageComponents(List<String> productIds) async {
+    if (productIds.isEmpty) return {};
+    try {
+      final db = await PosDatabase.instance.database;
+      final placeholders = List.filled(productIds.length, '?').join(',');
+      final rows = await db.rawQuery('''
+        SELECT pi.package_id, pi.qty, p.nama as product_nama
+        FROM package_items pi
+        JOIN products p ON pi.product_id = p.id
+        WHERE pi.package_id IN ($placeholders)
+        ORDER BY pi.created_at ASC
+      ''', productIds);
+
+      final Map<String, List<Map<String, dynamic>>> result = {};
+      for (var row in rows) {
+        final pkgId = row['package_id'] as String;
+        result.putIfAbsent(pkgId, () => []).add(row);
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static List<OrderItemModel> _consolidateOrderItems(
+    List<OrderItemModel> items,
+    Map<String, List<Map<String, dynamic>>> packageComponents,
+  ) {
+    final List<OrderItemModel> result = [];
+    final Map<String, int> regularIndexMap = {};
+
+    for (var item in items) {
+      final isPkg = packageComponents.containsKey(item.produkId) && packageComponents[item.produkId]!.isNotEmpty;
+      if (isPkg) {
+        // Packages are NOT consolidated ("kecuali paket/beda paket")
+        result.add(item);
+      } else {
+        final key = '${item.produkId}_${item.produkHarga}';
+        if (regularIndexMap.containsKey(key)) {
+          final idx = regularIndexMap[key]!;
+          final existing = result[idx];
+          String? mergedNotes = existing.catatan;
+          if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
+            if (mergedNotes == null || mergedNotes.trim().isEmpty) {
+              mergedNotes = item.catatan!.trim();
+            } else if (!mergedNotes.contains(item.catatan!.trim())) {
+              mergedNotes = '$mergedNotes, ${item.catatan!.trim()}';
+            }
+          }
+          result[idx] = existing.copyWith(
+            qty: existing.qty + item.qty,
+            subtotal: existing.subtotal + item.subtotal,
+            catatan: mergedNotes,
+          );
+        } else {
+          regularIndexMap[key] = result.length;
+          result.add(item);
+        }
+      }
+    }
+    return result;
+  }
+
+  static List<TransactionItem> _consolidateTransactionItems(
+    List<TransactionItem> items,
+    Map<String, List<Map<String, dynamic>>> packageComponents,
+  ) {
+    final List<TransactionItem> result = [];
+    final Map<String, int> regularIndexMap = {};
+
+    for (var item in items) {
+      final isPkg = packageComponents.containsKey(item.produkId) && packageComponents[item.produkId]!.isNotEmpty;
+      if (isPkg) {
+        // Packages are NOT consolidated
+        result.add(item);
+      } else {
+        final key = '${item.produkId}_${item.produkHarga}';
+        if (regularIndexMap.containsKey(key)) {
+          final idx = regularIndexMap[key]!;
+          final existing = result[idx];
+          String? mergedNotes = existing.catatan;
+          if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
+            if (mergedNotes == null || mergedNotes.trim().isEmpty) {
+              mergedNotes = item.catatan!.trim();
+            } else if (!mergedNotes.contains(item.catatan!.trim())) {
+              mergedNotes = '$mergedNotes, ${item.catatan!.trim()}';
+            }
+          }
+          result[idx] = TransactionItem(
+            id: existing.id,
+            transactionId: existing.transactionId,
+            produkId: existing.produkId,
+            produkNama: existing.produkNama,
+            produkHarga: existing.produkHarga,
+            qty: existing.qty + item.qty,
+            subtotal: existing.subtotal + item.subtotal,
+            catatan: mergedNotes,
+          );
+        } else {
+          regularIndexMap[key] = result.length;
+          result.add(item);
+        }
+      }
+    }
+    return result;
   }
 
   // --------------------------------------------------------------------------
@@ -33,6 +141,10 @@ class PdfReceiptGenerator {
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final cashier = await _resolveCashierName(cashierNama ?? order.cashierNama);
+
+    final productIds = activeItems.map((i) => i.produkId).toList();
+    final packageComponents = await _getPackageComponents(productIds);
+    final displayItems = _consolidateOrderItems(activeItems, packageComponents);
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -68,13 +180,16 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
               // Items
-              for (var item in activeItems) ...[
+              for (var item in displayItems) ...[
                 pw.Text('${item.qty}x ${item.produkNama}', style: pw.TextStyle(font: font, fontSize: 8)),
                 _buildRowPdf(
                   font,
                   '  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}',
                   CurrencyFormatter.formatNumber(item.subtotal),
                 ),
+                if (packageComponents.containsKey(item.produkId))
+                  for (var comp in packageComponents[item.produkId]!)
+                    pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],
@@ -149,6 +264,8 @@ class PdfReceiptGenerator {
     final fontBold = pw.Font.courierBold();
     final nowStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final cashier = await _resolveCashierName(cashierNama);
+    final productIds = itemsToPrint.map((i) => i.produkId).toList();
+    final packageComponents = await _getPackageComponents(productIds);
 
     pdf.addPage(
       pw.Page(
@@ -180,6 +297,9 @@ class PdfReceiptGenerator {
                   '${item.qty.toString().padLeft(2)}   ${item.produkNama}',
                   style: pw.TextStyle(font: fontBold, fontSize: 9),
                 ),
+                if (packageComponents.containsKey(item.produkId))
+                  for (var comp in packageComponents[item.produkId]!)
+                    pw.Text('     • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey800)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],
@@ -208,6 +328,10 @@ class PdfReceiptGenerator {
     final storePhone = await storage.getStorePhone() ?? '0812345678';
     final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(transaction.createdAt);
     final cashier = await _resolveCashierName(transaction.cashierNama);
+
+    final txProductIds = items.map((i) => i.produkId).toList();
+    final txPackageComponents = await _getPackageComponents(txProductIds);
+    final displayItems = _consolidateTransactionItems(items, txPackageComponents);
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -238,13 +362,16 @@ class PdfReceiptGenerator {
                 pw.Text('Nama  : ${transaction.customerName}', style: pw.TextStyle(font: fontBold, fontSize: 8)),
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
-              for (var item in items) ...[
+              for (var item in displayItems) ...[
                 pw.Text('${item.qty}x ${item.produkNama}', style: pw.TextStyle(font: font, fontSize: 8)),
                 _buildRowPdf(
                   font,
                   '  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}',
                   CurrencyFormatter.formatNumber(item.subtotal),
                 ),
+                if (txPackageComponents.containsKey(item.produkId))
+                  for (var comp in txPackageComponents[item.produkId]!)
+                    pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],

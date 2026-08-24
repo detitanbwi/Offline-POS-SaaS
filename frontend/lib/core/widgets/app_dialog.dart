@@ -16,6 +16,7 @@ class AppDialog extends StatelessWidget {
   final VoidCallback? onCancel;
   final bool isDestructive;
   final bool isLoading;
+  final bool scrollable;
 
   const AppDialog({
     super.key,
@@ -28,6 +29,7 @@ class AppDialog extends StatelessWidget {
     this.onCancel,
     this.isDestructive = false,
     this.isLoading = false,
+    this.scrollable = true,
   });
 
   static Future<void> show({
@@ -41,6 +43,7 @@ class AppDialog extends StatelessWidget {
     VoidCallback? onCancel,
     bool isDestructive = false,
     bool isLoading = false,
+    bool scrollable = true,
   }) {
     return showDialog(
       context: context,
@@ -55,6 +58,7 @@ class AppDialog extends StatelessWidget {
               content: content,
               confirmText: confirmText,
               cancelText: cancelText,
+              scrollable: scrollable,
               onConfirm: () async {
                 if (isLoading || internalIsLoading) return;
                 
@@ -122,8 +126,12 @@ class AppDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = screenWidth < 500 ? 12.0 : 32.0;
+
     return AlertDialog(
-      scrollable: true,
+      scrollable: scrollable,
+      insetPadding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
       shape: const RoundedRectangleBorder(
         borderRadius: AppRadius.radius24,
       ),

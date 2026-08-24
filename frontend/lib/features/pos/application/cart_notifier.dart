@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../product/domain/models/product.dart';
+import '../../product/application/product_notifier.dart';
 import '../domain/models/cart_item.dart';
 import '../domain/models/order_item.dart';
 import '../domain/models/print_batch.dart';
@@ -77,43 +78,134 @@ class CartNotifier extends StateNotifier<CartState> {
     );
   }
 
+  String? _checkStockLimit(Product product, int targetQty, {String? targetBatchId, bool isBatchBaru = false}) {
+    final productState = _ref.read(productNotifierProvider);
+    final allProducts = productState.allProducts;
+    final productMap = {for (var p in allProducts) p.id: p};
+
+    final realProduct = productMap[product.id] ?? product;
+
+    if (!realProduct.isPackage) {
+      if (realProduct.stok == -1) return null; // Unlimited physical stock
+      int totalNeeded = targetQty;
+
+      // Add consumption by other cart items (both regular items in other batches and packages)
+      for (var item in state.items) {
+        if (isBatchBaru) {
+          if (item.product.id == realProduct.id && item.batchId == null) continue;
+        } else {
+          if (item.product.id == realProduct.id && item.batchId == targetBatchId) continue;
+        }
+
+        if (!item.product.isPackage) {
+          if (item.product.id == realProduct.id) {
+            totalNeeded += item.qty;
+          }
+        } else {
+          for (var comp in item.product.packageItems) {
+            if (comp.productId == realProduct.id) {
+              totalNeeded += comp.qty * item.qty;
+            }
+          }
+        }
+      }
+
+      if (totalNeeded > realProduct.stok) {
+        return 'Stok "${realProduct.nama}" tidak mencukupi (Sisa fisik: ${realProduct.stok})';
+      }
+      return null;
+    }
+
+    // It's a package
+    if (realProduct.packageItems.isEmpty) {
+      return 'Menu paket "${realProduct.nama}" belum memiliki item komponen!';
+    }
+
+    for (var comp in realProduct.packageItems) {
+      final compProduct = productMap[comp.productId];
+      final compPhysicalStock = compProduct?.stok ?? comp.productStok ?? -1;
+
+      if (compPhysicalStock == -1) continue; // Non-stock component
+
+      int totalCompNeeded = comp.qty * targetQty;
+
+      // Add consumption by all other items in cart
+      for (var item in state.items) {
+        if (isBatchBaru) {
+          if (item.product.id == realProduct.id && item.batchId == null) continue;
+        } else {
+          if (item.product.id == realProduct.id && item.batchId == targetBatchId) continue;
+        }
+
+        if (!item.product.isPackage) {
+          if (item.product.id == comp.productId) {
+            totalCompNeeded += item.qty;
+          }
+        } else {
+          for (var innerComp in item.product.packageItems) {
+            if (innerComp.productId == comp.productId) {
+              totalCompNeeded += innerComp.qty * item.qty;
+            }
+          }
+        }
+      }
+
+      if (totalCompNeeded > compPhysicalStock) {
+        final compName = compProduct?.nama ?? comp.productNama ?? 'Komponen';
+        return 'Stok "$compName" tidak mencukupi untuk paket "${realProduct.nama}" (Tersisa: $compPhysicalStock)';
+      }
+    }
+
+    return null;
+  }
+
   bool addItem(Product product) {
-    if (!product.isActive) {
+    final productState = _ref.read(productNotifierProvider);
+    final freshProduct = productState.allProducts.firstWhere(
+      (p) => p.id == product.id,
+      orElse: () => product,
+    );
+
+    if (!freshProduct.isActive) {
       state = state.copyWith(errorMessage: 'Produk tidak aktif');
       return false;
     }
-    if (product.stok != -1 && product.stok <= 0) {
-      state = state.copyWith(errorMessage: 'Stok "${product.nama}" habis!');
+
+    // Always target uncommitted item (batchId == null)
+    final existingIndex = state.items.indexWhere((item) => item.product.id == freshProduct.id && item.batchId == null);
+    final targetQty = existingIndex != -1 ? state.items[existingIndex].qty + 1 : 1;
+
+    final stockError = _checkStockLimit(freshProduct, targetQty, isBatchBaru: true);
+    if (stockError != null) {
+      state = state.copyWith(errorMessage: stockError);
       return false;
     }
 
-    final existingIndex = state.items.indexWhere((item) => item.product.id == product.id);
     List<CartItem> updatedItems = List.from(state.items);
 
     if (existingIndex != -1) {
-      final currentQty = state.items[existingIndex].qty;
-      if (product.stok != -1 && currentQty >= product.stok) {
-        state = state.copyWith(errorMessage: 'Stok "${product.nama}" tidak mencukupi!');
-        return false;
-      }
       updatedItems[existingIndex] = state.items[existingIndex].copyWith(
-        qty: currentQty + 1,
+        qty: targetQty,
       );
     } else {
-      updatedItems.add(CartItem(product: product, qty: 1));
+      updatedItems.add(CartItem(product: freshProduct, qty: 1));
     }
 
     _recalculate(currentItems: updatedItems);
     return true;
   }
 
-  void removeItem(String productId) {
-    final updatedItems = state.items.where((item) => item.product.id != productId).toList();
+  void removeItem(String productId, {String? batchId}) {
+    final updatedItems = state.items.where(
+      (item) => !(item.product.id == productId && item.batchId == batchId),
+    ).toList();
     _recalculate(currentItems: updatedItems);
   }
 
-  bool updateQuantity(String productId, int newQty) {
-    final index = state.items.indexWhere((item) => item.product.id == productId);
+  bool updateQuantity(String productId, int newQty, {String? batchId}) {
+    final index = state.items.indexWhere(
+      (item) => item.product.id == productId && item.batchId == batchId,
+    );
     if (index == -1) return false;
 
     final cartItem = state.items[index];
@@ -125,13 +217,13 @@ class CartNotifier extends StateNotifier<CartState> {
     }
 
     if (newQty <= 0) {
-      removeItem(productId);
+      removeItem(productId, batchId: batchId);
       return true;
     }
 
-    final product = cartItem.product;
-    if (product.stok != -1 && newQty > product.stok) {
-      state = state.copyWith(errorMessage: 'Stok "${product.nama}" tidak mencukupi (Maks: ${product.stok})');
+    final stockError = _checkStockLimit(cartItem.product, newQty, targetBatchId: batchId, isBatchBaru: batchId == null);
+    if (stockError != null) {
+      state = state.copyWith(errorMessage: stockError);
       return false;
     }
 
@@ -142,8 +234,10 @@ class CartNotifier extends StateNotifier<CartState> {
     return true;
   }
 
-  void updateCatatan(String productId, String catatan) {
-    final index = state.items.indexWhere((item) => item.product.id == productId);
+  void updateCatatan(String productId, String catatan, {String? batchId}) {
+    final index = state.items.indexWhere(
+      (item) => item.product.id == productId && item.batchId == batchId,
+    );
     if (index == -1) return;
 
     List<CartItem> updatedItems = List.from(state.items);

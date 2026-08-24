@@ -179,7 +179,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               onPressed: () {
                 ref
                     .read(cartNotifierProvider.notifier)
-                    .updateCatatan(item.product.id, noteController.text);
+                    .updateCatatan(item.product.id, noteController.text, batchId: item.batchId);
                 Navigator.pop(context);
               },
               child: const Text('Simpan'),
@@ -1026,7 +1026,6 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                   Row(
                                                     children: [
                                                       Expanded(
-                                                        flex: 3,
                                                         child: Column(
                                                           crossAxisAlignment:
                                                               CrossAxisAlignment
@@ -1062,6 +1061,30 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                         .textSecondary,
                                                                   ),
                                                             ),
+                                                            if (item.product.isPackage && item.product.packageItems.isNotEmpty) ...[
+                                                              const SizedBox(height: 4),
+                                                              ...item.product.packageItems.map((comp) => Padding(
+                                                                padding: const EdgeInsets.only(bottom: 2),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Icon(Icons.subdirectory_arrow_right_rounded, size: 13, color: AppColors.primary),
+                                                                    const SizedBox(width: 4),
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        '${comp.qty * item.qty}x ${comp.productNama ?? "Item"}',
+                                                                        style: TextStyle(
+                                                                          fontSize: 11.sp,
+                                                                          color: AppColors.textSecondary,
+                                                                          fontWeight: FontWeight.w500,
+                                                                        ),
+                                                                        maxLines: 1,
+                                                                        overflow: TextOverflow.ellipsis,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              )),
+                                                            ],
                                                           ],
                                                         ),
                                                       ),
@@ -1096,6 +1119,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                             .id,
                                                                         item.qty -
                                                                             1,
+                                                                        batchId: item.batchId,
                                                                       );
                                                                     },
                                                             )
@@ -1141,6 +1165,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                           .id,
                                                                       item.qty +
                                                                           1,
+                                                                      batchId: item.batchId,
                                                                     );
                                                                   },
                                                           ),

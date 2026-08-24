@@ -53,10 +53,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
           conflictAlgorithm: ConflictAlgorithm.fail,
         );
 
-        // 3. Deduct product stock
+        // 3. Deduct product stock (supports MultiStock for Package Bundles)
         final List<Map<String, dynamic>> productResult = await txn.query(
           'products',
-          columns: ['stok', 'nama'],
+          columns: ['stok', 'nama', 'is_package'],
           where: 'id = ?',
           whereArgs: [item.produkId],
           limit: 1,
@@ -66,24 +66,62 @@ class TransactionRepositoryImpl implements TransactionRepository {
           throw Exception('Produk "${item.produkNama}" tidak ditemukan.');
         }
 
-        final currentStock = productResult.first['stok'] as int;
-        if (currentStock != -1) {
-          final productName = productResult.first['nama'] as String;
-          final newStock = currentStock - item.qty;
+        final isPackage = (productResult.first['is_package'] as int? ?? 0) == 1;
 
-          if (newStock < 0) {
-            throw Exception('Gagal menyimpan transaksi: Stok untuk produk "$productName" tidak mencukupi.');
+        if (isPackage) {
+          // Fetch package components and deduct stock from each physical component
+          final List<Map<String, dynamic>> compRows = await txn.rawQuery('''
+            SELECT pi.qty as comp_qty, p.id as comp_id, p.nama as comp_nama, p.stok as comp_stok
+            FROM package_items pi
+            JOIN products p ON pi.product_id = p.id
+            WHERE pi.package_id = ?
+          ''', [item.produkId]);
+
+          for (var comp in compRows) {
+            final compStock = comp['comp_stok'] as int;
+            if (compStock != -1) {
+              final compQty = comp['comp_qty'] as int;
+              final totalDeduct = compQty * item.qty;
+              final newCompStock = compStock - totalDeduct;
+
+              if (newCompStock < 0) {
+                throw Exception(
+                  'Gagal menyimpan transaksi: Stok komponen "${comp['comp_nama']}" untuk paket "${item.produkNama}" tidak mencukupi (Sisa: $compStock, Dibutuhkan: $totalDeduct).',
+                );
+              }
+
+              await txn.update(
+                'products',
+                {
+                  'stok': newCompStock,
+                  'updated_at': DateTime.now().toIso8601String(),
+                },
+                where: 'id = ?',
+                whereArgs: [comp['comp_id']],
+              );
+            }
           }
+        } else {
+          // Standard single product stock deduction
+          final currentStock = productResult.first['stok'] as int;
+          if (currentStock != -1) {
+            final productName = productResult.first['nama'] as String;
+            final newStock = currentStock - item.qty;
 
-          await txn.update(
-            'products',
-            {
-              'stok': newStock,
-              'updated_at': DateTime.now().toIso8601String(),
-            },
-            where: 'id = ?',
-            whereArgs: [item.produkId],
-          );
+            if (newStock < 0) {
+              throw Exception('Gagal menyimpan transaksi: Stok untuk produk "$productName" tidak mencukupi.');
+            }
+
+            await txn.update(
+              'products',
+              {
+                'stok': newStock,
+                'updated_at': DateTime.now().toIso8601String(),
+              },
+              where: 'id = ?',
+              whereArgs: [item.produkId],
+            );
+          }
         }
       }
     });
@@ -223,18 +261,40 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
         final List<Map<String, dynamic>> productResult = await txn.query(
           'products',
-          columns: ['stok'],
+          columns: ['stok', 'is_package'],
           where: 'id = ?',
           whereArgs: [productId],
           limit: 1,
         );
         if (productResult.isNotEmpty) {
-          final currentStock = productResult.first['stok'] as int;
-          if (currentStock != -1) {
-            await txn.rawUpdate(
-              'UPDATE products SET stok = stok + ?, updated_at = ? WHERE id = ?',
-              [qty, DateTime.now().toIso8601String(), productId],
-            );
+          final isPackage = (productResult.first['is_package'] as int? ?? 0) == 1;
+          if (isPackage) {
+            final List<Map<String, dynamic>> compRows = await txn.rawQuery('''
+              SELECT pi.qty as comp_qty, p.id as comp_id, p.stok as comp_stok
+              FROM package_items pi
+              JOIN products p ON pi.product_id = p.id
+              WHERE pi.package_id = ?
+            ''', [productId]);
+
+            for (var comp in compRows) {
+              final compStock = comp['comp_stok'] as int;
+              if (compStock != -1) {
+                final compQty = comp['comp_qty'] as int;
+                final totalRestore = compQty * qty;
+                await txn.rawUpdate(
+                  'UPDATE products SET stok = stok + ?, updated_at = ? WHERE id = ?',
+                  [totalRestore, DateTime.now().toIso8601String(), comp['comp_id']],
+                );
+              }
+            }
+          } else {
+            final currentStock = productResult.first['stok'] as int;
+            if (currentStock != -1) {
+              await txn.rawUpdate(
+                'UPDATE products SET stok = stok + ?, updated_at = ? WHERE id = ?',
+                [qty, DateTime.now().toIso8601String(), productId],
+              );
+            }
           }
         }
       }

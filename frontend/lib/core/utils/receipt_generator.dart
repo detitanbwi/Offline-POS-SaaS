@@ -1,5 +1,6 @@
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
+import '../database/pos_database.dart';
 import '../../features/pos/domain/models/order.dart';
 import '../../features/pos/domain/models/order_item.dart';
 import '../../features/pos/domain/models/transaction.dart';
@@ -23,6 +24,113 @@ class ReceiptGenerator {
 
   static String _equalsDivider(int width) => '=' * width;
   static String _dashDivider(int width) => '-' * width;
+
+  static Future<Map<String, List<Map<String, dynamic>>>> _getPackageComponents(List<String> productIds) async {
+    if (productIds.isEmpty) return {};
+    try {
+      final db = await PosDatabase.instance.database;
+      final placeholders = List.filled(productIds.length, '?').join(',');
+      final rows = await db.rawQuery('''
+        SELECT pi.package_id, pi.qty, p.nama as product_nama
+        FROM package_items pi
+        JOIN products p ON pi.product_id = p.id
+        WHERE pi.package_id IN ($placeholders)
+        ORDER BY pi.created_at ASC
+      ''', productIds);
+
+      final Map<String, List<Map<String, dynamic>>> result = {};
+      for (var row in rows) {
+        final pkgId = row['package_id'] as String;
+        result.putIfAbsent(pkgId, () => []).add(row);
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static List<OrderItemModel> _consolidateOrderItems(
+    List<OrderItemModel> items,
+    Map<String, List<Map<String, dynamic>>> packageComponents,
+  ) {
+    final List<OrderItemModel> result = [];
+    final Map<String, int> regularIndexMap = {};
+
+    for (var item in items) {
+      final isPkg = packageComponents.containsKey(item.produkId) && packageComponents[item.produkId]!.isNotEmpty;
+      if (isPkg) {
+        // Packages are NOT consolidated ("kecuali paket/beda paket")
+        result.add(item);
+      } else {
+        final key = '${item.produkId}_${item.produkHarga}';
+        if (regularIndexMap.containsKey(key)) {
+          final idx = regularIndexMap[key]!;
+          final existing = result[idx];
+          String? mergedNotes = existing.catatan;
+          if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
+            if (mergedNotes == null || mergedNotes.trim().isEmpty) {
+              mergedNotes = item.catatan!.trim();
+            } else if (!mergedNotes.contains(item.catatan!.trim())) {
+              mergedNotes = '$mergedNotes, ${item.catatan!.trim()}';
+            }
+          }
+          result[idx] = existing.copyWith(
+            qty: existing.qty + item.qty,
+            subtotal: existing.subtotal + item.subtotal,
+            catatan: mergedNotes,
+          );
+        } else {
+          regularIndexMap[key] = result.length;
+          result.add(item);
+        }
+      }
+    }
+    return result;
+  }
+
+  static List<TransactionItem> _consolidateTransactionItems(
+    List<TransactionItem> items,
+    Map<String, List<Map<String, dynamic>>> packageComponents,
+  ) {
+    final List<TransactionItem> result = [];
+    final Map<String, int> regularIndexMap = {};
+
+    for (var item in items) {
+      final isPkg = packageComponents.containsKey(item.produkId) && packageComponents[item.produkId]!.isNotEmpty;
+      if (isPkg) {
+        // Packages are NOT consolidated
+        result.add(item);
+      } else {
+        final key = '${item.produkId}_${item.produkHarga}';
+        if (regularIndexMap.containsKey(key)) {
+          final idx = regularIndexMap[key]!;
+          final existing = result[idx];
+          String? mergedNotes = existing.catatan;
+          if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
+            if (mergedNotes == null || mergedNotes.trim().isEmpty) {
+              mergedNotes = item.catatan!.trim();
+            } else if (!mergedNotes.contains(item.catatan!.trim())) {
+              mergedNotes = '$mergedNotes, ${item.catatan!.trim()}';
+            }
+          }
+          result[idx] = TransactionItem(
+            id: existing.id,
+            transactionId: existing.transactionId,
+            produkId: existing.produkId,
+            produkNama: existing.produkNama,
+            produkHarga: existing.produkHarga,
+            qty: existing.qty + item.qty,
+            subtotal: existing.subtotal + item.subtotal,
+            catatan: mergedNotes,
+          );
+        } else {
+          regularIndexMap[key] = result.length;
+          result.add(item);
+        }
+      }
+    }
+    return result;
+  }
 
   // --------------------------------------------------------------------------
   // 1. TAGIHAN SEMENTARA (Temporary Bill)
@@ -76,13 +184,25 @@ class ReceiptGenerator {
     bytes += generator.text('Status: BELUM DIBAYAR', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
+    final productIds = activeItems.map((i) => i.produkId).toList();
+    final packageComponents = await _getPackageComponents(productIds);
+    final displayItems = _consolidateOrderItems(activeItems, packageComponents);
+
     // Items Listing
-    for (var item in activeItems) {
+    for (var item in displayItems) {
       bytes += generator.text('${item.qty}x ${item.produkNama}', styles: const PosStyles(align: PosAlign.left));
       final unitPrice = CurrencyFormatter.formatNumber(item.produkHarga);
       final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
       final qtyPrice = '  @ $unitPrice';
       bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
+
+      // Package sub-items bullet
+      final comps = packageComponents[item.produkId] ?? [];
+      for (var comp in comps) {
+        final compQty = (comp['qty'] as int) * item.qty;
+        final compNama = comp['product_nama'] as String;
+        bytes += generator.text('   • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
+      }
 
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
@@ -204,10 +324,22 @@ class ReceiptGenerator {
     bytes += generator.text('QTY  ITEM', styles: const PosStyles(align: PosAlign.left, bold: true));
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
+    final productIds = itemsToPrint.map((i) => i.produkId).toList();
+    final packageComponents = await _getPackageComponents(productIds);
+
     // Items List
     for (var item in itemsToPrint) {
       final qtyStr = item.qty.toString().padLeft(2);
       bytes += generator.text('$qtyStr   ${item.produkNama}', styles: const PosStyles(align: PosAlign.left, bold: true));
+      
+      // Package sub-items bullet for kitchen
+      final comps = packageComponents[item.produkId] ?? [];
+      for (var comp in comps) {
+        final compQty = (comp['qty'] as int) * item.qty;
+        final compNama = comp['product_nama'] as String;
+        bytes += generator.text('     • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
+      }
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
         for (var noteLine in wrappedNotes) {
@@ -275,13 +407,25 @@ class ReceiptGenerator {
     }
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
 
+    final txProductIds = items.map((i) => i.produkId).toList();
+    final txPackageComponents = await _getPackageComponents(txProductIds);
+    final displayItems = _consolidateTransactionItems(items, txPackageComponents);
+
     // Items List
-    for (var item in items) {
+    for (var item in displayItems) {
       bytes += generator.text('${item.qty}x ${item.produkNama}', styles: const PosStyles(align: PosAlign.left));
       final unitPrice = CurrencyFormatter.formatNumber(item.produkHarga);
       final subtotal = CurrencyFormatter.formatNumber(item.subtotal);
       final qtyPrice = '  @ $unitPrice';
       bytes += _renderRow(generator, qtyPrice, subtotal, totalWidth: charsPerLine);
+
+      // Package sub-items bullet
+      final comps = txPackageComponents[item.produkId] ?? [];
+      for (var comp in comps) {
+        final compQty = (comp['qty'] as int) * item.qty;
+        final compNama = comp['product_nama'] as String;
+        bytes += generator.text('   • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
+      }
     }
 
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
@@ -579,9 +723,22 @@ class ReceiptGenerator {
     }
     buffer.writeln('Status: BELUM DIBAYAR');
     buffer.writeln(dashLine);
-    for (var item in activeItems) {
+
+    final productIds = activeItems.map((i) => i.produkId).toList();
+    final packageComponents = await _getPackageComponents(productIds);
+    final displayItems = _consolidateOrderItems(activeItems, packageComponents);
+
+    for (var item in displayItems) {
       buffer.writeln('${item.qty}x ${item.produkNama}');
       buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
+      
+      final comps = packageComponents[item.produkId] ?? [];
+      for (var comp in comps) {
+        final compQty = (comp['qty'] as int) * item.qty;
+        final compNama = comp['product_nama'] as String;
+        buffer.writeln('   • ${compQty}x $compNama');
+      }
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
         for (var noteLine in wrappedNotes) {
@@ -652,9 +809,21 @@ class ReceiptGenerator {
     buffer.writeln(dashLine);
     buffer.writeln('QTY  ITEM');
     buffer.writeln(dashLine);
+
+    final productIds = itemsToPrint.map((i) => i.produkId).toList();
+    final packageComponents = await _getPackageComponents(productIds);
+
     for (var item in itemsToPrint) {
       final qtyStr = item.qty.toString().padLeft(2);
       buffer.writeln('$qtyStr   ${item.produkNama}');
+
+      final comps = packageComponents[item.produkId] ?? [];
+      for (var comp in comps) {
+        final compQty = (comp['qty'] as int) * item.qty;
+        final compNama = comp['product_nama'] as String;
+        buffer.writeln('     • ${compQty}x $compNama');
+      }
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
         for (var noteLine in wrappedNotes) {
@@ -704,9 +873,21 @@ class ReceiptGenerator {
       buffer.writeln('Nama  : ${transaction.customerName}');
     }
     buffer.writeln(dashLine);
-    for (var item in items) {
+
+    final txProductIds = items.map((i) => i.produkId).toList();
+    final txPackageComponents = await _getPackageComponents(txProductIds);
+    final displayItems = _consolidateTransactionItems(items, txPackageComponents);
+
+    for (var item in displayItems) {
       buffer.writeln('${item.qty}x ${item.produkNama}');
       buffer.writeln(formatTextRow('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', CurrencyFormatter.formatNumber(item.subtotal), width: charsPerLine));
+
+      final comps = txPackageComponents[item.produkId] ?? [];
+      for (var comp in comps) {
+        final compQty = (comp['qty'] as int) * item.qty;
+        final compNama = comp['product_nama'] as String;
+        buffer.writeln('   • ${compQty}x $compNama');
+      }
     }
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal), width: charsPerLine));

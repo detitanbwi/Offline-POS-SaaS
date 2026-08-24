@@ -240,6 +240,22 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
       return false;
     }
   }
+
+  Future<bool> openCashDrawer({String? targetAddress}) async {
+    try {
+      final cashierPrinterList = state.configuredPrinters.where((p) => p.isCashier).toList();
+      final cashier = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+      final addr = targetAddress ?? cashier?.address;
+      if (addr == null || addr.isEmpty) {
+        debugPrint('No cashier printer configured for cash drawer kick.');
+        return false;
+      }
+      return await _printerService.openCashDrawer(targetAddress: addr);
+    } catch (e) {
+      debugPrint('Error triggering cash drawer: $e');
+      return false;
+    }
+  }
 }
 
 final printerNotifierProvider = StateNotifierProvider<PrinterNotifier, PrinterState>((ref) {

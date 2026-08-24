@@ -285,4 +285,26 @@ class PrinterService {
       return false;
     }
   }
+
+  Future<bool> openCashDrawer({String? targetAddress}) async {
+    final address = targetAddress ?? _connectedCashierAddress;
+    if (address == null || address.isEmpty) {
+      debugPrint('Cannot open cash drawer: cashier printer address is empty');
+      return false;
+    }
+
+    if (!Platform.isAndroid) {
+      debugPrint('--- SIMULASI CASH DRAWER TERBUKA DI $address ---');
+      return true;
+    }
+
+    // Standard ESC/POS pulse command for cash drawer kick:
+    // ESC p 0 25 250 (Pin 2) and ESC p 1 25 250 (Pin 5)
+    final List<int> drawerPulseBytes = [
+      27, 112, 0, 25, 250,
+      27, 112, 1, 25, 250,
+    ];
+
+    return await printBytes(drawerPulseBytes, address);
+  }
 }

@@ -133,7 +133,7 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
         prefixIcon: Icons.edit_note_rounded,
       ),
       onConfirm: () {
-        ref.read(cartNotifierProvider.notifier).updateCatatan(item.product.id, noteController.text);
+        ref.read(cartNotifierProvider.notifier).updateCatatan(item.product.id, noteController.text, batchId: item.batchId);
         Navigator.pop(context);
         AppSnackbar.showSuccess(context, 'Catatan item berhasil diperbarui.');
       },
@@ -1310,7 +1310,8 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       itemCount: products.length,
       itemBuilder: (context, index) {
         final product = products[index];
-        final isOutOfStock = product.stok != -1 && product.stok <= 0;
+        final effectiveStock = product.getEffectiveStock(allProducts: products);
+        final isOutOfStock = effectiveStock != -1 && effectiveStock <= 0;
 
         return AppCard(
           borderSide: const BorderSide(color: AppColors.divider),
@@ -1400,7 +1401,11 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              isOutOfStock ? 'Habis' : (product.stok == -1 ? 'Stok: ∞' : 'Stok: ${product.stok}'),
+                              isOutOfStock
+                                  ? 'Habis'
+                                  : (product.isPackage
+                                      ? (effectiveStock == -1 ? 'Paket' : 'Pkt: $effectiveStock')
+                                      : (effectiveStock == -1 ? 'Stok: ∞' : 'Stok: $effectiveStock')),
                               style: TextStyle(
                                 color: isOutOfStock ? AppColors.error : AppColors.success,
                                 fontSize: 8.5,
@@ -1967,6 +1972,30 @@ class _CartItemRow extends StatelessWidget {
                       CurrencyFormatter.format(item.product.harga),
                       style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
                     ),
+                    if (item.product.isPackage && item.product.packageItems.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...item.product.packageItems.map((comp) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.subdirectory_arrow_right_rounded, size: 13, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                '${comp.qty * item.qty}x ${comp.productNama ?? "Item"}',
+                                style: TextStyle(
+                                  fontSize: 11.sp,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
                     if (item.catatan.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Container(
@@ -2028,7 +2057,7 @@ class _CartItemRow extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
-                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty - 1),
+                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty - 1, batchId: item.batchId),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -2041,7 +2070,7 @@ class _CartItemRow extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
-                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty + 1),
+                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty + 1, batchId: item.batchId),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),

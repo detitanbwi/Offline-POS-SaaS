@@ -102,18 +102,26 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               title: product == null ? 'Tambah Produk' : 'Ubah Produk',
               confirmText: 'Simpan',
               isLoading: isSaving,
-              content: SizedBox(
-                width: 420,
+              scrollable: false,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 480,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+                  minWidth: MediaQuery.sizeOf(context).width < 500 ? (MediaQuery.sizeOf(context).width - 64) : 460,
+                ),
                 child: ProductForm(
                   key: formKey,
                   product: product,
                   categories: categoryState.allCategories,
+                  allProducts: ref.read(productNotifierProvider).allProducts,
                   onSubmit: ({
                     required String nama,
                     required String kategoriId,
                     required double harga,
                     required int stok,
                     required int status,
+                    required bool isPackage,
+                    required List<PackageItem> packageItems,
                     String? image,
                   }) async {
                     if (isSaving) return;
@@ -135,6 +143,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             harga: harga,
                             stok: stok,
                             status: status,
+                            isPackage: isPackage,
+                            packageItems: packageItems,
                             image: image,
                           );
                     } else {
@@ -145,6 +155,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             harga: harga,
                             stok: stok,
                             status: status,
+                            isPackage: isPackage,
+                            packageItems: packageItems,
                             image: image,
                           );
                     }
@@ -635,6 +647,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                           padding: const EdgeInsets.only(bottom: 8.0),
                                           child: _ProductItemRow(
                                             product: product,
+                                            allProducts: state.allProducts,
                                             isSelectionMode: _isSelectionMode,
                                             isSelected: isSelected,
                                             onSelectedChanged: (selected) {
@@ -704,6 +717,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                                     width: itemWidth - 0.01,
                                                     child: _ProductItemCard(
                                                       product: product,
+                                                      allProducts: state.allProducts,
                                                       isSelectionMode: _isSelectionMode,
                                                       isSelected: isSelected,
                                                       onSelectedChanged: (selected) {
@@ -780,6 +794,7 @@ class _FilterChip extends StatelessWidget {
 
 class _ProductItemRow extends StatelessWidget {
   final Product product;
+  final List<Product>? allProducts;
   final bool isSelectionMode;
   final bool isSelected;
   final ValueChanged<bool?>? onSelectedChanged;
@@ -788,6 +803,7 @@ class _ProductItemRow extends StatelessWidget {
 
   const _ProductItemRow({
     required this.product,
+    this.allProducts,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectedChanged,
@@ -797,7 +813,8 @@ class _ProductItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isOutOfStock = product.stok == 0;
+    final effectiveStock = product.getEffectiveStock(allProducts: allProducts);
+    final bool isOutOfStock = effectiveStock == 0;
     
     return AppCard(
       onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
@@ -862,6 +879,24 @@ class _ProductItemRow extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        if (product.isPackage)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              'PAKET',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         Expanded(
                           child: Text(
                             product.nama,
@@ -889,7 +924,9 @@ class _ProductItemRow extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
+                      product.isPackage
+                          ? '${product.kategoriNama ?? 'Tanpa Kategori'} • Komposisi: ${product.packageItems.length} item • Pkt: ${effectiveStock == -1 ? '∞' : effectiveStock}'
+                          : '${product.kategoriNama ?? 'Tanpa Kategori'} • Stok: ${product.stok == -1 ? '∞' : product.stok}',
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.textSecondary,
                         fontSize: 12.sp,
@@ -959,6 +996,7 @@ class _ProductItemRow extends StatelessWidget {
 
 class _ProductItemCard extends StatelessWidget {
   final Product product;
+  final List<Product>? allProducts;
   final bool isSelectionMode;
   final bool isSelected;
   final ValueChanged<bool?>? onSelectedChanged;
@@ -967,6 +1005,7 @@ class _ProductItemCard extends StatelessWidget {
 
   const _ProductItemCard({
     required this.product,
+    this.allProducts,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectedChanged,
@@ -976,7 +1015,8 @@ class _ProductItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isOutOfStock = product.stok == 0;
+    final effectiveStock = product.getEffectiveStock(allProducts: allProducts);
+    final bool isOutOfStock = effectiveStock == 0;
     
     return AppCard(
       onTap: isSelectionMode ? () => onSelectedChanged?.call(!isSelected) : null,
@@ -1034,21 +1074,40 @@ class _ProductItemCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: (product.stok == -1 || product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Stok: ${product.stok == -1 ? '∞' : product.stok}',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.bold,
+                      if (product.isPackage)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isOutOfStock ? AppColors.error : AppColors.primary.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isOutOfStock
+                                ? 'Paket (Habis)'
+                                : 'Pkt: ${effectiveStock == -1 ? "∞" : effectiveStock}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (product.stok == -1 || product.stok > 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Stok: ${product.stok == -1 ? '∞' : product.stok}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
                       if (!product.isActive) ...[
                         SizedBox(height: 4),
                         Container(

@@ -696,6 +696,25 @@ class _PrinterSettingScreenState extends ConsumerState<PrinterSettingScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     ),
                   ),
+                  if (type == 'cashier')
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.point_of_sale_rounded, size: 14, color: AppColors.secondary),
+                      label: Text('Buka Drawer', style: TextStyle(color: AppColors.secondary, fontSize: 12.sp)),
+                      onPressed: () async {
+                        final success = await ref.read(printerNotifierProvider.notifier).openCashDrawer(targetAddress: printer.address);
+                        if (mounted) {
+                          if (success) {
+                            AppSnackbar.showSuccess(context, 'Perintah pembuka laci kasir berhasil dikirim.');
+                          } else {
+                            AppSnackbar.showWarning(context, 'Gagal membuka laci kasir. Pastikan printer kasir terhubung.');
+                          }
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        side: const BorderSide(color: AppColors.secondary),
+                      ),
+                    ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.link_off_rounded, size: 14, color: AppColors.error),
                     label: Text('Putuskan', style: TextStyle(color: AppColors.error, fontSize: 12.sp)),

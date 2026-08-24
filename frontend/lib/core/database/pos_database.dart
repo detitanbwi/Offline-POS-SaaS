@@ -126,6 +126,24 @@ class PosDatabase {
     await _addColumnIfNotExists(db, 'transactions', 'online_platform_total', 'REAL');
     await _addColumnIfNotExists(db, 'transactions', 'platform_difference', 'REAL');
     await _addColumnIfNotExists(db, 'transactions', 'online_platform', 'TEXT');
+    await _addColumnIfNotExists(db, 'products', 'is_package', 'INTEGER NOT NULL DEFAULT 0');
+    await _addColumnIfNotExists(db, 'order_items', 'package_details', 'TEXT');
+    await _addColumnIfNotExists(db, 'transaction_items', 'package_details', 'TEXT');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS package_items (
+        id TEXT PRIMARY KEY,
+        package_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        qty INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (package_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_package_items_pkg ON package_items(package_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_package_items_prod ON package_items(product_id)');
   }
 
   Future<void> _addColumnIfNotExists(Database db, String table, String column, String type) async {
@@ -163,6 +181,7 @@ class PosDatabase {
         nama TEXT NOT NULL UNIQUE,
         harga REAL NOT NULL DEFAULT 0,
         stok INTEGER NOT NULL DEFAULT 0,
+        is_package INTEGER NOT NULL DEFAULT 0,
         status INTEGER NOT NULL DEFAULT 1,
         image TEXT,
         is_deleted INTEGER NOT NULL DEFAULT 0,
@@ -170,6 +189,20 @@ class PosDatabase {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (kategori_id) REFERENCES categories(id) ON DELETE RESTRICT
+      )
+    ''');
+
+    // 2b. Package Items
+    await db.execute('''
+      CREATE TABLE package_items (
+        id TEXT PRIMARY KEY,
+        package_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        qty INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (package_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
       )
     ''');
 
@@ -248,6 +281,7 @@ class PosDatabase {
         produk_harga REAL NOT NULL,
         qty INTEGER NOT NULL,
         subtotal REAL NOT NULL,
+        package_details TEXT,
         catatan TEXT,
         FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
         FOREIGN KEY (produk_id) REFERENCES products(id) ON DELETE RESTRICT
@@ -312,6 +346,7 @@ class PosDatabase {
         qty_ordered INTEGER NOT NULL DEFAULT 1,
         qty_paid INTEGER NOT NULL DEFAULT 0,
         subtotal REAL NOT NULL,
+        package_details TEXT,
         catatan TEXT,
         status_cetak INTEGER NOT NULL DEFAULT 0,
         is_cancelled INTEGER NOT NULL DEFAULT 0,
