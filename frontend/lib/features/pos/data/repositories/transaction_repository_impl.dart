@@ -163,6 +163,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       SELECT 
         COUNT(*) as total_transactions, 
         COALESCE(SUM(grand_total), 0) as total_sales, 
+        COALESCE(SUM(subtotal), 0) as total_subtotal, 
+        COALESCE(SUM(service_charge_amount), 0) as total_service_charge, 
         COALESCE(SUM(tax_amount), 0) as total_tax 
       FROM transactions 
       WHERE $whereClause
@@ -172,6 +174,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     final totalTransactions = summaryResult.first['total_transactions'] as int;
     final totalSales = (summaryResult.first['total_sales'] as num).toDouble();
+    final totalSubtotal = (summaryResult.first['total_subtotal'] as num).toDouble();
+    final totalServiceCharge = (summaryResult.first['total_service_charge'] as num).toDouble();
     final totalTax = (summaryResult.first['total_tax'] as num).toDouble();
 
     // Calculate voided transactions count and amount separately
@@ -237,6 +241,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       'date': dateStr,
       'total_sales': totalSales,
       'total_transactions': totalTransactions,
+      'total_subtotal': totalSubtotal,
+      'total_service_charge': totalServiceCharge,
       'total_tax': totalTax,
       'total_void_count': totalVoidCount,
       'total_void_amount': totalVoidAmount,

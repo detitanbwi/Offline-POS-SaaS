@@ -569,6 +569,7 @@ class ReceiptGenerator {
     required double totalSales,
     required int totalTransactions,
     required double totalTax,
+    double? totalServiceCharge,
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
     String? cashierNama,
@@ -611,6 +612,12 @@ class ReceiptGenerator {
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Transaksi : $totalTransactions', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Item      : $itemsCount', styles: const PosStyles(align: PosAlign.left));
+    if (totalServiceCharge != null && totalServiceCharge > 0) {
+      bytes += _renderRow(generator, 'Total Service', CurrencyFormatter.formatNumber(totalServiceCharge), totalWidth: charsPerLine);
+    }
+    if (totalTax > 0) {
+      bytes += _renderRow(generator, 'Total Pajak', CurrencyFormatter.formatNumber(totalTax), totalWidth: charsPerLine);
+    }
     bytes += generator.text('', styles: const PosStyles(align: PosAlign.left));
 
     // Payment Methods Breakdown
@@ -986,6 +993,7 @@ class ReceiptGenerator {
     required double totalSales,
     required int totalTransactions,
     required double totalTax,
+    double? totalServiceCharge,
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
     String? cashierNama,
@@ -1022,6 +1030,12 @@ class ReceiptGenerator {
     buffer.writeln(dashLine);
     buffer.writeln('Total Transaksi : $totalTransactions');
     buffer.writeln('Total Item      : $itemsCount');
+    if (totalServiceCharge != null && totalServiceCharge > 0) {
+      buffer.writeln(formatTextRow('Total Service', CurrencyFormatter.formatNumber(totalServiceCharge), width: charsPerLine));
+    }
+    if (totalTax > 0) {
+      buffer.writeln(formatTextRow('Total Pajak', CurrencyFormatter.formatNumber(totalTax), width: charsPerLine));
+    }
     buffer.writeln('');
     paymentBreakdown.forEach((method, total) {
       if (total >= 0) {

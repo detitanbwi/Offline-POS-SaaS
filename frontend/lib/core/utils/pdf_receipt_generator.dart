@@ -500,6 +500,7 @@ class PdfReceiptGenerator {
     required double totalSales,
     required int totalTransactions,
     required double totalTax,
+    double? totalServiceCharge,
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
     String? cashierNama,
@@ -544,6 +545,10 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Total Transaksi : $totalTransactions', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Total Item      : $itemsCount', style: pw.TextStyle(font: font, fontSize: 8)),
+              if (totalServiceCharge != null && totalServiceCharge > 0)
+                _buildRowPdf(font, 'Total Service', CurrencyFormatter.formatNumber(totalServiceCharge)),
+              if (totalTax > 0)
+                _buildRowPdf(font, 'Total Pajak', CurrencyFormatter.formatNumber(totalTax)),
               pw.SizedBox(height: 4),
 
               for (var entry in paymentBreakdown.entries)

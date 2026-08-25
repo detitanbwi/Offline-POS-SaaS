@@ -113,11 +113,14 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
     final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
 
+    final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
+
     final textPreview = await ReceiptGenerator.formatReportTextPreview(
       dateStr: dateStr,
       totalSales: report['total_sales'] as double,
       totalTransactions: report['total_transactions'] as int,
       totalTax: report['total_tax'] as double,
+      totalServiceCharge: totalServiceCharge,
       paymentBreakdown: paymentBreakdown,
       topProducts: topProducts,
       cashierNama: activeUser?.nama,
@@ -137,6 +140,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalSales: report['total_sales'] as double,
         totalTransactions: report['total_transactions'] as int,
         totalTax: report['total_tax'] as double,
+        totalServiceCharge: totalServiceCharge,
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
         cashierNama: activeUser?.nama,
@@ -149,6 +153,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalSales: report['total_sales'] as double,
         totalTransactions: report['total_transactions'] as int,
         totalTax: report['total_tax'] as double,
+        totalServiceCharge: totalServiceCharge,
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
         cashierNama: activeUser?.nama,
@@ -172,6 +177,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     
     final totalSales = report['total_sales'] as double;
     final totalTransactions = report['total_transactions'] as int;
+    final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
     final totalTax = report['total_tax'] as double;
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
@@ -227,6 +233,13 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(CurrencyFormatter.format(totalSales))),
                       ]
                     ),
+                    if (totalServiceCharge > 0)
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Total Service Charge')),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(CurrencyFormatter.format(totalServiceCharge))),
+                        ]
+                      ),
                     pw.TableRow(
                       children: [
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Total Pajak (PPN)')),
@@ -369,6 +382,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   Widget _buildReportContent(BuildContext context, Map<String, dynamic> report) {
     final totalSales = report['total_sales'] as double;
     final totalTransactions = report['total_transactions'] as int;
+    final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
     final totalTax = report['total_tax'] as double;
     final paymentBreakdown = report['payment_breakdown'] as Map<String, double>;
     final topProducts = report['top_products'] as List<Map<String, dynamic>>;
@@ -417,6 +431,25 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                 ),
               ),
             ),
+            if (totalServiceCharge > 0) ...[
+              SizedBox(width: 12),
+              Expanded(
+                child: AppCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Service Charge', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                      SizedBox(height: 4),
+                      Text(
+                        CurrencyFormatter.format(totalServiceCharge),
+                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 18.sp),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             SizedBox(width: 12),
             Expanded(
               child: AppCard(
