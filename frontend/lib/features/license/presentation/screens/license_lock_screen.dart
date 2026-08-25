@@ -6,6 +6,7 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/utils/url_helper.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
@@ -120,6 +121,17 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                       isLoading: _isLoading,
                       onPressed: _handleSync,
                       width: double.infinity,
+                    ),
+                    SizedBox(height: 10.h),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.support_agent_rounded, size: 20),
+                      label: const Text('Bantuan & Hubungi CS'),
+                      onPressed: () => UrlHelper.openHelpCenter(context),
                     ),
                   ],
                 ),

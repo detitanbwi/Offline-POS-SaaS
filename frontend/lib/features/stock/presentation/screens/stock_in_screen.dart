@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -9,10 +10,10 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../../../core/widgets/app_text_field.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../application/stock_notifier.dart';
 import '../widgets/stock_in_form.dart';
+import '../widgets/stock_date_range_modal.dart';
 
 class StockInScreen extends ConsumerStatefulWidget {
   const StockInScreen({super.key});
@@ -22,20 +23,17 @@ class StockInScreen extends ConsumerStatefulWidget {
 }
 
 class _StockInScreenState extends ConsumerState<StockInScreen> {
-  final _searchController = TextEditingController();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   void _showAddDialog(BuildContext context) {
     final productState = ref.read(productNotifierProvider);
-    final activeProducts = productState.allProducts.where((p) => p.isActive).toList();
+    final stockableProducts = productState.allProducts
+        .where((p) => p.isActive && !p.isPackage && p.stok != -1)
+        .toList();
 
-    if (activeProducts.isEmpty) {
-      AppSnackbar.showWarning(context, 'Tidak ada Produk Aktif. Silakan tambah produk terlebih dahulu!');
+    if (stockableProducts.isEmpty) {
+      AppSnackbar.showWarning(
+        context,
+        'Tidak ada produk dengan manajemen stok. Tambahkan atau aktifkan stok produk terlebih dahulu!',
+      );
       return;
     }
 
@@ -81,57 +79,154 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
     );
   }
 
+  void _openDateRangePicker(BuildContext context, StockState state) {
+    StockDateRangeModal.show(
+      context,
+      initialStartDate: state.startDate,
+      initialEndDate: state.endDate,
+      onApply: (start, end) {
+        ref.read(stockNotifierProvider.notifier).setDateRange(start, end);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(stockNotifierProvider);
     final notifier = ref.read(stockNotifierProvider.notifier);
+    final dateFormat = DateFormat('dd MMM yyyy', 'id_ID');
+
+    final bool hasDateFilter = state.startDate != null;
+    String dateRangeLabel = 'Semua Rentang Tanggal';
+    if (state.startDate != null && state.endDate != null) {
+      if (state.startDate == state.endDate) {
+        dateRangeLabel = dateFormat.format(state.startDate!);
+      } else {
+        dateRangeLabel = '${dateFormat.format(state.startDate!)} - ${dateFormat.format(state.endDate!)}';
+      }
+    } else if (state.startDate != null) {
+      dateRangeLabel = 'Mulai ${dateFormat.format(state.startDate!)}';
+    }
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text('Manajemen Stok (In & Out)'),
+        title: const Text('Mutasi Stok'),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        icon: Icon(Icons.swap_vert_rounded),
-        label: Text('Catat Stok'),
+        icon: const Icon(Icons.swap_vert_rounded),
+        label: const Text('Catat Stok'),
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Search Input Header
+            // Date Range Filter Bar (Replacing search bar)
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.all(AppSpacing.m),
-              child: AppTextField(
-                controller: _searchController,
-                labelText: 'Cari Riwayat Mutasi Stok',
-                prefixIcon: Icons.search,
-                onChanged: (val) => notifier.setSearchQuery(val),
-                            debounceDuration: const Duration(milliseconds: 500),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 12),
+              child: InkWell(
+                onTap: () => _openDateRangePicker(context, state),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: hasDateFilter ? AppColors.primary.withValues(alpha: 0.08) : AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: hasDateFilter ? AppColors.primary : AppColors.divider,
+                      width: hasDateFilter ? 1.2 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: (hasDateFilter ? AppColors.primary : AppColors.textSecondary).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.calendar_month_rounded,
+                          color: hasDateFilter ? AppColors.primary : AppColors.textSecondary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Rentang Tanggal Mutasi',
+                              style: AppTypography.labelSmall.copyWith(
+                                color: hasDateFilter ? AppColors.primary : AppColors.textSecondary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10.sp,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              dateRangeLabel,
+                              style: AppTypography.bodyMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: hasDateFilter ? AppColors.primary : AppColors.textPrimary,
+                                fontSize: 13.sp,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (hasDateFilter)
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+                          onPressed: () => notifier.clearDateRange(),
+                          tooltip: 'Reset Filter Tanggal',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        )
+                      else
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.textSecondary,
+                          size: 22,
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const Divider(height: 1),
-            // Content
+            const Divider(height: 1, color: AppColors.divider),
+            
+            // Content List
             Expanded(
               child: state.isLoading
                   ? const AppLoading(message: 'Memuat data riwayat stok...')
                   : state.filteredStockIn.isEmpty
                       ? AppEmptyState(
                           title: 'Riwayat Mutasi Stok Kosong',
-                          description: _searchController.text.isNotEmpty
-                              ? 'Tidak ada riwayat stok yang cocok dengan pencarian Anda.'
+                          description: hasDateFilter
+                              ? 'Tidak ada riwayat mutasi stok pada rentang tanggal terpilih.'
                               : 'Belum ada pencatatan stok masuk atau keluar.',
                           icon: Icons.assignment_outlined,
-                          actionText: _searchController.text.isNotEmpty ? null : 'Catat Stok',
-                          onActionPressed: () => _showAddDialog(context),
+                          actionText: hasDateFilter ? 'Reset Filter Tanggal' : 'Catat Stok',
+                          onActionPressed: () {
+                            if (hasDateFilter) {
+                              notifier.clearDateRange();
+                            } else {
+                              _showAddDialog(context);
+                            }
+                          },
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.all(AppSpacing.m).copyWith(bottom: 100),
                           itemCount: state.filteredStockIn.length,
-                          separatorBuilder: (context, index) => SizedBox(height: 8),
+                          separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final log = state.filteredStockIn[index];
                             final isOut = log.isOut;
@@ -159,7 +254,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                       size: 24,
                                     ),
                                   ),
-                                  SizedBox(width: 16),
+                                  const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +269,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                             ),
                                           ],
                                         ),
-                                        SizedBox(height: 4),
+                                        const SizedBox(height: 4),
                                         if (log.catatan != null && log.catatan!.isNotEmpty) ...[
                                           Text(
                                             log.catatan!,
@@ -184,7 +279,7 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                               fontWeight: isOut ? FontWeight.w500 : FontWeight.normal,
                                             ),
                                           ),
-                                          SizedBox(height: 4),
+                                          const SizedBox(height: 4),
                                         ],
                                         Text(
                                           'Tanggal: ${log.tanggal}',
@@ -196,16 +291,16 @@ class _StockInScreenState extends ConsumerState<StockInScreen> {
                                       ],
                                     ),
                                   ),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 12),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: badgeBg,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      '$signPrefix${log.qty.abs()}',
-                                      style: TextStyle(
+                                      '$signPrefix${log.qty.abs()} pcs',
+                                      style: AppTypography.labelLarge.copyWith(
                                         color: badgeTextColor,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14.sp,

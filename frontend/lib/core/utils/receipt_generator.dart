@@ -22,6 +22,44 @@ class ReceiptGenerator {
     return 'Kasir';
   }
 
+  static (double amount, double percentage) _resolveOrderServiceCharge(OrderModel order) {
+    if (order.serviceChargeAmount > 0) {
+      final rate = order.serviceChargePercentage > 0
+          ? order.serviceChargePercentage
+          : (order.subtotal > 0 ? ((order.serviceChargeAmount / order.subtotal) * 100).roundToDouble() : 0.0);
+      return (order.serviceChargeAmount, rate);
+    }
+    if (order.serviceChargePercentage > 0) {
+      final amt = (order.subtotal * (order.serviceChargePercentage / 100)).ceilToDouble();
+      return (amt, order.serviceChargePercentage);
+    }
+    final diff = order.grandTotal - (order.subtotal + order.taxAmount);
+    if (diff > 0 && order.subtotal > 0) {
+      final rate = ((diff / order.subtotal) * 100).roundToDouble();
+      return (diff, rate);
+    }
+    return (0.0, 0.0);
+  }
+
+  static (double amount, double percentage) _resolveTxServiceCharge(TransactionHeader tx) {
+    if (tx.serviceChargeAmount > 0) {
+      final rate = tx.serviceChargePercentage > 0
+          ? tx.serviceChargePercentage
+          : (tx.subtotal > 0 ? ((tx.serviceChargeAmount / tx.subtotal) * 100).roundToDouble() : 0.0);
+      return (tx.serviceChargeAmount, rate);
+    }
+    if (tx.serviceChargePercentage > 0) {
+      final amt = (tx.subtotal * (tx.serviceChargePercentage / 100)).ceilToDouble();
+      return (amt, tx.serviceChargePercentage);
+    }
+    final diff = tx.grandTotal - (tx.subtotal + tx.taxAmount);
+    if (diff > 0 && tx.subtotal > 0) {
+      final rate = ((diff / tx.subtotal) * 100).roundToDouble();
+      return (diff, rate);
+    }
+    return (0.0, 0.0);
+  }
+
   static String _equalsDivider(int width) => '=' * width;
   static String _dashDivider(int width) => '-' * width;
 
@@ -221,6 +259,15 @@ class ReceiptGenerator {
       CurrencyFormatter.formatNumber(order.subtotal),
       totalWidth: charsPerLine,
     );
+    final (scAmount, scRate) = _resolveOrderServiceCharge(order);
+    if (scAmount > 0) {
+      bytes += _renderRow(
+        generator,
+        'Service (${scRate.toStringAsFixed(0)}%)',
+        CurrencyFormatter.formatNumber(scAmount),
+        totalWidth: charsPerLine,
+      );
+    }
     if (order.taxAmount > 0) {
       bytes += _renderRow(
         generator,
@@ -229,7 +276,7 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
-    final storeTotal = order.subtotal + order.taxAmount;
+    final storeTotal = order.subtotal + scAmount + order.taxAmount;
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += _renderRow(
       generator,
@@ -437,6 +484,15 @@ class ReceiptGenerator {
       CurrencyFormatter.formatNumber(transaction.subtotal),
       totalWidth: charsPerLine,
     );
+    final (txScAmount, txScRate) = _resolveTxServiceCharge(transaction);
+    if (txScAmount > 0) {
+      bytes += _renderRow(
+        generator,
+        'Service (${txScRate.toStringAsFixed(0)}%)',
+        CurrencyFormatter.formatNumber(txScAmount),
+        totalWidth: charsPerLine,
+      );
+    }
     if (transaction.taxAmount > 0) {
       bytes += _renderRow(
         generator,
@@ -445,7 +501,7 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
-    final storeTotal = transaction.subtotal + transaction.taxAmount;
+    final storeTotal = transaction.subtotal + txScAmount + transaction.taxAmount;
     bytes += _renderRow(
       generator,
       'TOTAL',
@@ -748,10 +804,14 @@ class ReceiptGenerator {
     }
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(order.subtotal), width: charsPerLine));
+    final (previewScAmount, previewScRate) = _resolveOrderServiceCharge(order);
+    if (previewScAmount > 0) {
+      buffer.writeln(formatTextRow('Service (${previewScRate.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(previewScAmount), width: charsPerLine));
+    }
     if (order.taxAmount > 0) {
       buffer.writeln(formatTextRow('Pajak (${order.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(order.taxAmount), width: charsPerLine));
     }
-    final storeTotal = order.subtotal + order.taxAmount;
+    final storeTotal = order.subtotal + previewScAmount + order.taxAmount;
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0 ? storeTotal : order.grandTotal), width: charsPerLine));
     buffer.writeln(dashLine);
@@ -891,11 +951,15 @@ class ReceiptGenerator {
     }
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal), width: charsPerLine));
+    final (txPreviewScAmount, txPreviewScRate) = _resolveTxServiceCharge(transaction);
+    if (txPreviewScAmount > 0) {
+      buffer.writeln(formatTextRow('Service (${txPreviewScRate.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(txPreviewScAmount), width: charsPerLine));
+    }
     if (transaction.taxAmount > 0) {
       buffer.writeln(formatTextRow('Pajak (${transaction.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(transaction.taxAmount), width: charsPerLine));
     }
     buffer.writeln(dashLine);
-    final storeTotal = transaction.subtotal + transaction.taxAmount;
+    final storeTotal = transaction.subtotal + txPreviewScAmount + transaction.taxAmount;
     buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal != null ? storeTotal : transaction.grandTotal), width: charsPerLine));
     buffer.writeln(eqLine);
     if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) {

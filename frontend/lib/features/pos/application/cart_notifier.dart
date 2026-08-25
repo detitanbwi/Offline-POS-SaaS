@@ -11,6 +11,9 @@ class CartState {
   final double subtotal;
   final double taxRate;
   final double taxAmount;
+  final double serviceChargeRate;
+  final double serviceChargeAmount;
+  final bool serviceChargeAfterTax;
   final double grandTotal;
   final String? errorMessage;
 
@@ -19,6 +22,9 @@ class CartState {
     this.subtotal = 0.0,
     this.taxRate = 0.0,
     this.taxAmount = 0.0,
+    this.serviceChargeRate = 0.0,
+    this.serviceChargeAmount = 0.0,
+    this.serviceChargeAfterTax = false,
     this.grandTotal = 0.0,
     this.errorMessage,
   });
@@ -28,6 +34,9 @@ class CartState {
     double? subtotal,
     double? taxRate,
     double? taxAmount,
+    double? serviceChargeRate,
+    double? serviceChargeAmount,
+    bool? serviceChargeAfterTax,
     double? grandTotal,
     String? errorMessage,
   }) {
@@ -36,6 +45,9 @@ class CartState {
       subtotal: subtotal ?? this.subtotal,
       taxRate: taxRate ?? this.taxRate,
       taxAmount: taxAmount ?? this.taxAmount,
+      serviceChargeRate: serviceChargeRate ?? this.serviceChargeRate,
+      serviceChargeAmount: serviceChargeAmount ?? this.serviceChargeAmount,
+      serviceChargeAfterTax: serviceChargeAfterTax ?? this.serviceChargeAfterTax,
       grandTotal: grandTotal ?? this.grandTotal,
       errorMessage: errorMessage,
     );
@@ -60,19 +72,47 @@ class CartNotifier extends StateNotifier<CartState> {
     }
 
     final taxState = _ref.read(taxNotifierProvider);
-    double rate = 0.0;
-    if (taxState.taxSetting != null && taxState.taxSetting!.isEnabled) {
-      rate = taxState.taxSetting!.percentage;
+    final setting = taxState.taxSetting;
+
+    double taxRate = 0.0;
+    if (setting != null && setting.isEnabled) {
+      taxRate = setting.percentage;
     }
 
-    double tax = sub * (rate / 100);
-    double grand = sub + tax;
+    double serviceRate = 0.0;
+    bool isAfterTax = false;
+    if (setting != null && setting.isServiceChargeEnabled) {
+      serviceRate = setting.serviceChargePercentage;
+      isAfterTax = setting.isServiceChargeAfterTax;
+    }
+
+    double serviceAmount = 0.0;
+    double taxAmount = 0.0;
+
+    if (isAfterTax) {
+      // Mode Setelah Pajak:
+      // Pajak dihitung dari Subtotal
+      taxAmount = (sub * (taxRate / 100)).ceilToDouble();
+      // Service Charge dihitung dari (Subtotal + Pajak)
+      serviceAmount = ((sub + taxAmount) * (serviceRate / 100)).ceilToDouble();
+    } else {
+      // Mode Sebelum Pajak:
+      // Service Charge dihitung dari Subtotal
+      serviceAmount = (sub * (serviceRate / 100)).ceilToDouble();
+      // Pajak dihitung dari (Subtotal + Service Charge)
+      taxAmount = ((sub + serviceAmount) * (taxRate / 100)).ceilToDouble();
+    }
+
+    double grand = sub + serviceAmount + taxAmount;
 
     state = state.copyWith(
       items: activeItems,
       subtotal: sub,
-      taxRate: rate,
-      taxAmount: tax,
+      taxRate: taxRate,
+      taxAmount: taxAmount,
+      serviceChargeRate: serviceRate,
+      serviceChargeAmount: serviceAmount,
+      serviceChargeAfterTax: isAfterTax,
       grandTotal: grand,
       errorMessage: null,
     );

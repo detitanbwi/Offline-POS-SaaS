@@ -971,44 +971,124 @@ class ProductFormState extends State<ProductForm> {
             // Only show physical stock selection if NOT a package
             if (!_isPackage) ...[
               Text(
-                'Apakah produk selalu tersedia?',
+                'Jenis Inventori Produk',
                 style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
-              SizedBox(height: 4),
-              RadioGroup<bool>(
-                groupValue: _isAlwaysAvailable,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _isAlwaysAvailable = val;
-                      if (val) {
-                        _stockController.text = '';
-                      } else {
-                        _stockController.text = '0';
-                      }
-                    });
-                  }
-                },
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.divider),
+                ),
+                padding: const EdgeInsets.all(4),
                 child: Row(
                   children: [
                     Expanded(
-                      child: RadioListTile<bool>(
-                        title: Text('Ya (Selalu Ada)', style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary)),
-                        value: true,
-                        contentPadding: EdgeInsets.zero,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isAlwaysAvailable = false;
+                            if (_stockController.text.trim().isEmpty) {
+                              _stockController.text = '0';
+                            }
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: !_isAlwaysAvailable ? AppColors.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: !_isAlwaysAvailable
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.inventory_2_outlined,
+                                size: 18,
+                                color: !_isAlwaysAvailable ? Colors.white : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Stock',
+                                style: TextStyle(
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: !_isAlwaysAvailable ? Colors.white : AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     Expanded(
-                      child: RadioListTile<bool>(
-                        title: Text('Tidak (Pakai Stok)', style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary)),
-                        value: false,
-                        contentPadding: EdgeInsets.zero,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isAlwaysAvailable = true;
+                            _stockController.text = '';
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _isAlwaysAvailable ? AppColors.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: _isAlwaysAvailable
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.all_inclusive_rounded,
+                                size: 18,
+                                color: _isAlwaysAvailable ? Colors.white : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Non Stock',
+                                style: TextStyle(
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isAlwaysAvailable ? Colors.white : AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 6),
+              Text(
+                !_isAlwaysAvailable
+                    ? '• Produk memiliki kuantitas fisik dan stok akan terpotong setiap transaksi.'
+                    : '• Produk selalu tersedia (makanan/jasa) tanpa batasan kuantitas fisik.',
+                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
+              ),
+              const SizedBox(height: 14),
               if (!_isAlwaysAvailable) ...[
                 AppTextField(
                   controller: _stockController,
@@ -1022,7 +1102,7 @@ class ProductFormState extends State<ProductForm> {
                     return Validators.integer(v, 'Stok');
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
               ],
             ],
 

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/di/providers.dart';
 import '../../product/application/product_notifier.dart';
@@ -8,14 +9,16 @@ import '../domain/repositories/stock_repository.dart';
 class StockState {
   final List<StockIn> allStockIn;
   final List<StockIn> filteredStockIn;
-  final String searchQuery;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final bool isLoading;
   final String? errorMessage;
 
   StockState({
     this.allStockIn = const [],
     this.filteredStockIn = const [],
-    this.searchQuery = '',
+    this.startDate,
+    this.endDate,
     this.isLoading = false,
     this.errorMessage,
   });
@@ -23,14 +26,16 @@ class StockState {
   StockState copyWith({
     List<StockIn>? allStockIn,
     List<StockIn>? filteredStockIn,
-    String? searchQuery,
+    DateTime? Function()? startDate,
+    DateTime? Function()? endDate,
     bool? isLoading,
     String? errorMessage,
   }) {
     return StockState(
       allStockIn: allStockIn ?? this.allStockIn,
       filteredStockIn: filteredStockIn ?? this.filteredStockIn,
-      searchQuery: searchQuery ?? this.searchQuery,
+      startDate: startDate != null ? startDate() : this.startDate,
+      endDate: endDate != null ? endDate() : this.endDate,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );
@@ -48,15 +53,18 @@ class StockNotifier extends StateNotifier<StockState> {
 
   Future<void> loadStockIn() async {
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final logs = await _repository.getAllStockIn();
+      if (!mounted) return;
       state = state.copyWith(
         allStockIn: logs,
         isLoading: false,
       );
       _applyFilter();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Gagal memuat riwayat stok: $e',
@@ -64,18 +72,33 @@ class StockNotifier extends StateNotifier<StockState> {
     }
   }
 
-  void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query);
+  void setDateRange(DateTime? start, DateTime? end) {
+    state = state.copyWith(
+      startDate: () => start,
+      endDate: () => end,
+    );
+    _applyFilter();
+  }
+
+  void clearDateRange() {
+    state = state.copyWith(
+      startDate: () => null,
+      endDate: () => null,
+    );
     _applyFilter();
   }
 
   void _applyFilter() {
     List<StockIn> filtered = List.from(state.allStockIn);
-    if (state.searchQuery.isNotEmpty) {
-      final query = state.searchQuery.toLowerCase();
-      filtered = filtered
-          .where((s) => (s.produkNama?.toLowerCase().contains(query) ?? false) || (s.catatan?.toLowerCase().contains(query) ?? false))
-          .toList();
+    if (state.startDate != null && state.endDate != null) {
+      final startStr = DateFormat('yyyy-MM-dd').format(state.startDate!);
+      final endStr = DateFormat('yyyy-MM-dd').format(state.endDate!);
+      filtered = filtered.where((s) {
+        return s.tanggal.compareTo(startStr) >= 0 && s.tanggal.compareTo(endStr) <= 0;
+      }).toList();
+    } else if (state.startDate != null) {
+      final startStr = DateFormat('yyyy-MM-dd').format(state.startDate!);
+      filtered = filtered.where((s) => s.tanggal.compareTo(startStr) >= 0).toList();
     }
     state = state.copyWith(filteredStockIn: filtered);
   }

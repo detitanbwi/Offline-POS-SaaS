@@ -64,15 +64,18 @@ class ProductNotifier extends StateNotifier<ProductState> {
     // Memberi jeda 300ms agar animasi transisi layar (atau penutupan keyboard) 
     // selesai sebelum Main Thread diblokir oleh proses parsing data dari SQLite.
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final products = await _repository.getAllProducts();
+      if (!mounted) return;
       state = state.copyWith(
         allProducts: products,
         isLoading: false,
       );
       _applyFilterAndSort();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Gagal memuat produk: $e',

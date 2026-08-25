@@ -8,10 +8,10 @@ class CurrencyFormatter {
   );
 
   static String format(double value) {
-    return _rupiahFormat.format(value);
+    return _rupiahFormat.format(value.ceilToDouble());
   }
 
   static String formatNumber(num value) {
-    return NumberFormat.decimalPattern('id_ID').format(value);
+    return NumberFormat.decimalPattern('id_ID').format(value.ceil());
   }
 }

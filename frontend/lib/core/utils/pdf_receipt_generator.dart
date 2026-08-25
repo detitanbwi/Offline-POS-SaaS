@@ -19,6 +19,44 @@ class PdfReceiptGenerator {
     return 'Kasir';
   }
 
+  static (double amount, double percentage) _resolveOrderServiceCharge(OrderModel order) {
+    if (order.serviceChargeAmount > 0) {
+      final rate = order.serviceChargePercentage > 0
+          ? order.serviceChargePercentage
+          : (order.subtotal > 0 ? ((order.serviceChargeAmount / order.subtotal) * 100).roundToDouble() : 0.0);
+      return (order.serviceChargeAmount, rate);
+    }
+    if (order.serviceChargePercentage > 0) {
+      final amt = (order.subtotal * (order.serviceChargePercentage / 100)).ceilToDouble();
+      return (amt, order.serviceChargePercentage);
+    }
+    final diff = order.grandTotal - (order.subtotal + order.taxAmount);
+    if (diff > 0 && order.subtotal > 0) {
+      final rate = ((diff / order.subtotal) * 100).roundToDouble();
+      return (diff, rate);
+    }
+    return (0.0, 0.0);
+  }
+
+  static (double amount, double percentage) _resolveTxServiceCharge(TransactionHeader tx) {
+    if (tx.serviceChargeAmount > 0) {
+      final rate = tx.serviceChargePercentage > 0
+          ? tx.serviceChargePercentage
+          : (tx.subtotal > 0 ? ((tx.serviceChargeAmount / tx.subtotal) * 100).roundToDouble() : 0.0);
+      return (tx.serviceChargeAmount, rate);
+    }
+    if (tx.serviceChargePercentage > 0) {
+      final amt = (tx.subtotal * (tx.serviceChargePercentage / 100)).ceilToDouble();
+      return (amt, tx.serviceChargePercentage);
+    }
+    final diff = tx.grandTotal - (tx.subtotal + tx.taxAmount);
+    if (diff > 0 && tx.subtotal > 0) {
+      final rate = ((diff / tx.subtotal) * 100).roundToDouble();
+      return (diff, rate);
+    }
+    return (0.0, 0.0);
+  }
+
   static Future<Map<String, List<Map<String, dynamic>>>> _getPackageComponents(List<String> productIds) async {
     if (productIds.isEmpty) return {};
     try {
@@ -154,7 +192,8 @@ class PdfReceiptGenerator {
       pw.Page(
         pageFormat: PdfPageFormat(_rollWidth, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (pw.Context context) {
-          final storeTotal = order.subtotal + order.taxAmount;
+          final (scAmount, scRate) = _resolveOrderServiceCharge(order);
+          final storeTotal = order.subtotal + scAmount + order.taxAmount;
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
@@ -198,6 +237,12 @@ class PdfReceiptGenerator {
 
               // Totals
               _buildRowPdf(font, 'Subtotal', CurrencyFormatter.formatNumber(order.subtotal)),
+              if (scAmount > 0)
+                _buildRowPdf(
+                  font,
+                  'Service (${scRate.toStringAsFixed(0)}%)',
+                  CurrencyFormatter.formatNumber(scAmount),
+                ),
               if (order.taxAmount > 0)
                 _buildRowPdf(
                   font,
@@ -341,6 +386,8 @@ class PdfReceiptGenerator {
       pw.Page(
         pageFormat: PdfPageFormat(_rollWidth, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (pw.Context context) {
+          final (txScAmount, txScRate) = _resolveTxServiceCharge(transaction);
+          final storeTotal = transaction.subtotal + txScAmount + transaction.taxAmount;
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
@@ -379,6 +426,12 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
               _buildRowPdf(font, 'Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal)),
+              if (txScAmount > 0)
+                _buildRowPdf(
+                  font,
+                  'Service (${txScRate.toStringAsFixed(0)}%)',
+                  CurrencyFormatter.formatNumber(txScAmount),
+                ),
               if (transaction.taxAmount > 0)
                 _buildRowPdf(
                   font,
@@ -389,7 +442,7 @@ class PdfReceiptGenerator {
               _buildRowPdf(
                 fontBold,
                 'TOTAL',
-                CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal != null ? (transaction.subtotal + transaction.taxAmount) : transaction.grandTotal),
+                CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal != null ? storeTotal : transaction.grandTotal),
                 isBold: true,
               ),
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),

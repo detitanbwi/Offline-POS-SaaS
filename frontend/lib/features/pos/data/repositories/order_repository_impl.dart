@@ -384,6 +384,8 @@ class OrderRepositoryImpl implements OrderRepository {
     if (orderMap.isEmpty) return;
 
     final taxPercentage = (orderMap.first['tax_percentage'] as num?)?.toDouble() ?? 0.0;
+    final serviceRate = (orderMap.first['service_charge_percentage'] as num?)?.toDouble() ?? 0.0;
+    final isAfterTax = (orderMap.first['service_charge_after_tax'] as int?) == 1;
 
     final activeItems = await txn.query(
       'order_items',
@@ -396,13 +398,23 @@ class OrderRepositoryImpl implements OrderRepository {
       subtotal += (item['subtotal'] as num).toDouble();
     }
 
-    final taxAmount = subtotal * (taxPercentage / 100);
-    final grandTotal = subtotal + taxAmount;
+    double serviceAmount = 0.0;
+    double taxAmount = 0.0;
+    if (isAfterTax) {
+      taxAmount = (subtotal * (taxPercentage / 100)).ceilToDouble();
+      serviceAmount = ((subtotal + taxAmount) * (serviceRate / 100)).ceilToDouble();
+    } else {
+      serviceAmount = (subtotal * (serviceRate / 100)).ceilToDouble();
+      taxAmount = ((subtotal + serviceAmount) * (taxPercentage / 100)).ceilToDouble();
+    }
+
+    final grandTotal = subtotal + serviceAmount + taxAmount;
 
     await txn.update(
       'orders',
       {
         'subtotal': subtotal,
+        'service_charge_amount': serviceAmount,
         'tax_amount': taxAmount,
         'grand_total': grandTotal,
         'updated_at': DateTime.now().toIso8601String(),

@@ -705,50 +705,54 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
       final kitchenPrinters = printerState.configuredPrinters
           .where((p) => p.isKitchen)
           .toList();
-      final targetPrinter = kitchenPrinters.isNotEmpty
-          ? kitchenPrinters.first
-          : (printerState.configuredPrinters.isNotEmpty
-                ? printerState.configuredPrinters.first
-                : null);
+
+      if (!mounted) return;
+
+      if (kitchenPrinters.isEmpty) {
+        AppSnackbar.showWarning(context, 'Printer dapur belum dikonfigurasi.');
+        return;
+      }
+
+      final targetPrinter = kitchenPrinters.first;
+      if (!targetPrinter.isConnected) {
+        AppSnackbar.showWarning(
+          context,
+          'Printer dapur (${targetPrinter.name}) sedang tidak terhubung.',
+        );
+        return;
+      }
 
       final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
         order: order,
         itemsToPrint: itemsToPrint,
         waveInfo: waveInfo,
-        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-        autoCut: targetPrinter?.autoCut ?? false,
+        paperSize: targetPrinter.escPosPaperSize,
+        charsPerLine: targetPrinter.effectiveCharsPerLine,
+        autoCut: targetPrinter.autoCut,
       );
 
       if (!mounted) return;
 
-      if (targetPrinter != null) {
-        await ref
-            .read(printerNotifierProvider.notifier)
-            .printBytes(targetPrinter, receiptBytes);
-        if (mounted) {
+      final success = await ref
+          .read(printerNotifierProvider.notifier)
+          .printBytes(targetPrinter, receiptBytes);
+      if (mounted) {
+        if (success) {
           AppSnackbar.showSuccess(
             context,
             'Struk Dapur $waveInfo berhasil dicetak.',
           );
-          Navigator.pushAndRemoveUntil(
+        } else {
+          AppSnackbar.showError(
             context,
-            MaterialPageRoute(builder: (_) => const OrderHubScreen()),
-            (route) => route.isFirst,
+            'Gagal mencetak ke printer dapur (${targetPrinter.name}).',
           );
         }
-      } else {
-        if (mounted) {
-          AppSnackbar.showSuccess(
-            context,
-            'Simulasi Struk Dapur $waveInfo (Printer tidak terhubung).',
-          );
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const OrderHubScreen()),
-            (route) => route.isFirst,
-          );
-        }
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const OrderHubScreen()),
+          (route) => route.isFirst,
+        );
       }
     } catch (e) {
       if (mounted) {

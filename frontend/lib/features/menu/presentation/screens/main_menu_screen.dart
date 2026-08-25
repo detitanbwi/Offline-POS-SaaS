@@ -24,6 +24,7 @@ import '../../../../core/di/providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
 import '../../../cashier/presentation/screens/cashier_management_screen.dart';
+import '../../../../core/utils/url_helper.dart';
 
 class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
@@ -194,9 +195,9 @@ class MainMenuScreen extends ConsumerWidget {
                 SizedBox(height: 12),
                 _buildSubmenuItem(
                   context,
-                  title: 'Stok Masuk (Stock In)',
-                  description: 'Catat penambahan stok produk',
-                  icon: Icons.add_business_outlined,
+                  title: 'Mutasi Stok',
+                  description: 'Kelola riwayat mutasi stok masuk dan keluar',
+                  icon: Icons.swap_vert_circle_outlined,
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const StockInScreen()));
@@ -216,8 +217,8 @@ class MainMenuScreen extends ConsumerWidget {
                 SizedBox(height: 12),
                 _buildSubmenuItem(
                   context,
-                  title: 'Pengaturan Pajak',
-                  description: 'Atur aktifasi dan persentase pajak (PPN)',
+                  title: 'Pengaturan Pajak & Service',
+                  description: 'Atur aktifasi pajak (PPN) & service charge',
                   icon: Icons.percent_outlined,
                   onTap: () {
                     Navigator.pop(context);
@@ -302,7 +303,12 @@ class MainMenuScreen extends ConsumerWidget {
         title: Text(isOwner ? 'Dashboard Pemilik POS' : 'Dashboard Kasir POS'),
         actions: [
           IconButton(
-            icon: Icon(Icons.lock_rounded),
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Pusat Bantuan',
+            onPressed: () => UrlHelper.openHelpCenter(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.lock_rounded),
             tooltip: 'Kunci Sesi / Logout',
             onPressed: () => _handleLogout(context, ref),
           ),

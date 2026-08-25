@@ -4,6 +4,9 @@ class TransactionHeader {
   final double subtotal;
   final double taxPercentage;
   final double taxAmount;
+  final double serviceChargePercentage;
+  final double serviceChargeAmount;
+  final int serviceChargeAfterTax; // 1 = compound after tax, 0 = before tax
   final double grandTotal;
   final double? onlinePlatformTotal;
   final double? platformDifference;
@@ -26,6 +29,9 @@ class TransactionHeader {
     required this.subtotal,
     required this.taxPercentage,
     required this.taxAmount,
+    this.serviceChargePercentage = 0.0,
+    this.serviceChargeAmount = 0.0,
+    this.serviceChargeAfterTax = 0,
     required this.grandTotal,
     this.onlinePlatformTotal,
     this.platformDifference,
@@ -50,6 +56,9 @@ class TransactionHeader {
       'subtotal': subtotal,
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
+      'service_charge_percentage': serviceChargePercentage,
+      'service_charge_amount': serviceChargeAmount,
+      'service_charge_after_tax': serviceChargeAfterTax,
       'grand_total': grandTotal,
       'online_platform_total': onlinePlatformTotal,
       'platform_difference': platformDifference,
@@ -73,8 +82,11 @@ class TransactionHeader {
       id: map['id'] as String,
       nomorTransaksi: map['nomor_transaksi'] as String,
       subtotal: (map['subtotal'] as num).toDouble(),
-      taxPercentage: (map['tax_percentage'] as num).toDouble(),
-      taxAmount: (map['tax_amount'] as num).toDouble(),
+      taxPercentage: ((map['tax_percentage'] as num?) ?? 0.0).toDouble(),
+      taxAmount: ((map['tax_amount'] as num?) ?? 0.0).toDouble(),
+      serviceChargePercentage: ((map['service_charge_percentage'] as num?) ?? 0.0).toDouble(),
+      serviceChargeAmount: ((map['service_charge_amount'] as num?) ?? 0.0).toDouble(),
+      serviceChargeAfterTax: (map['service_charge_after_tax'] as int?) ?? 0,
       grandTotal: (map['grand_total'] as num).toDouble(),
       onlinePlatformTotal: (map['online_platform_total'] as num?)?.toDouble(),
       platformDifference: (map['platform_difference'] as num?)?.toDouble(),

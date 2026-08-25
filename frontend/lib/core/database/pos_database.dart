@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 14,
+            version: 15,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-            version: 14,
+            version: 15,
             password: pwd,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
@@ -83,7 +83,7 @@ class PosDatabase {
             db = await databaseFactoryFfi.openDatabase(
               path,
               options: OpenDatabaseOptions(
-                version: 14,
+                version: 15,
                 onCreate: _createDB,
                 onUpgrade: _upgradeDB,
                 onConfigure: _onConfigure,
@@ -92,7 +92,7 @@ class PosDatabase {
           } else {
             db = await openDatabase(
               path,
-              version: 14,
+              version: 15,
               onCreate: _createDB,
               onUpgrade: _upgradeDB,
               onConfigure: _onConfigure,
@@ -129,6 +129,26 @@ class PosDatabase {
     await _addColumnIfNotExists(db, 'products', 'is_package', 'INTEGER NOT NULL DEFAULT 0');
     await _addColumnIfNotExists(db, 'order_items', 'package_details', 'TEXT');
     await _addColumnIfNotExists(db, 'transaction_items', 'package_details', 'TEXT');
+
+    // Tax Settings Service Charge
+    await _addColumnIfNotExists(db, 'tax_settings', 'service_charge_enable', 'INTEGER NOT NULL DEFAULT 0');
+    await _addColumnIfNotExists(db, 'tax_settings', 'service_charge_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'tax_settings', 'service_charge_after_tax', 'INTEGER NOT NULL DEFAULT 0');
+
+    // Transactions Service Charge
+    await _addColumnIfNotExists(db, 'transactions', 'service_charge_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'transactions', 'service_charge_amount', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'transactions', 'service_charge_after_tax', 'INTEGER NOT NULL DEFAULT 0');
+
+    // Orders Service Charge
+    await _addColumnIfNotExists(db, 'orders', 'service_charge_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'orders', 'service_charge_amount', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'orders', 'service_charge_after_tax', 'INTEGER NOT NULL DEFAULT 0');
+
+    // Master Orders Service Charge
+    await _addColumnIfNotExists(db, 'master_orders', 'service_charge_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'master_orders', 'service_charge_amount', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'master_orders', 'service_charge_after_tax', 'INTEGER NOT NULL DEFAULT 0');
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS package_items (
@@ -238,6 +258,9 @@ class PosDatabase {
         id INTEGER PRIMARY KEY DEFAULT 1,
         enable INTEGER NOT NULL DEFAULT 0,
         percentage REAL NOT NULL DEFAULT 0,
+        service_charge_enable INTEGER NOT NULL DEFAULT 0,
+        service_charge_percentage REAL NOT NULL DEFAULT 0,
+        service_charge_after_tax INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL
       )
     ''');
@@ -251,6 +274,9 @@ class PosDatabase {
         subtotal REAL NOT NULL,
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
+        service_charge_percentage REAL NOT NULL DEFAULT 0,
+        service_charge_amount REAL NOT NULL DEFAULT 0,
+        service_charge_after_tax INTEGER NOT NULL DEFAULT 0,
         grand_total REAL NOT NULL,
         online_platform_total REAL,
         platform_difference REAL,
@@ -318,6 +344,9 @@ class PosDatabase {
         subtotal REAL NOT NULL DEFAULT 0,
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
+        service_charge_percentage REAL NOT NULL DEFAULT 0,
+        service_charge_amount REAL NOT NULL DEFAULT 0,
+        service_charge_after_tax INTEGER NOT NULL DEFAULT 0,
         grand_total REAL NOT NULL DEFAULT 0,
         online_platform_total REAL,
         platform_difference REAL,
@@ -769,6 +798,9 @@ class PosDatabase {
           subtotal REAL NOT NULL DEFAULT 0,
           tax_percentage REAL NOT NULL DEFAULT 0,
           tax_amount REAL NOT NULL DEFAULT 0,
+          service_charge_percentage REAL NOT NULL DEFAULT 0,
+          service_charge_amount REAL NOT NULL DEFAULT 0,
+          service_charge_after_tax INTEGER NOT NULL DEFAULT 0,
           grand_total REAL NOT NULL DEFAULT 0,
           total_paid REAL NOT NULL DEFAULT 0,
           session_status TEXT NOT NULL DEFAULT 'open',
@@ -866,6 +898,27 @@ class PosDatabase {
         await db.execute("ALTER TABLE cashiers ADD COLUMN username TEXT;");
         await db.execute("UPDATE cashiers SET username = LOWER(REPLACE(nama, ' ', '_')) WHERE username IS NULL OR username = '';");
       } catch (_) {}
+    }
+
+    if (oldVersion < 15) {
+      for (final stmt in [
+        "ALTER TABLE tax_settings ADD COLUMN service_charge_enable INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE tax_settings ADD COLUMN service_charge_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE tax_settings ADD COLUMN service_charge_after_tax INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE transactions ADD COLUMN service_charge_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE transactions ADD COLUMN service_charge_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE transactions ADD COLUMN service_charge_after_tax INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN service_charge_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN service_charge_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN service_charge_after_tax INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE master_orders ADD COLUMN service_charge_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE master_orders ADD COLUMN service_charge_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE master_orders ADD COLUMN service_charge_after_tax INTEGER NOT NULL DEFAULT 0",
+      ]) {
+        try {
+          await db.execute(stmt);
+        } catch (_) {}
+      }
     }
   }
 

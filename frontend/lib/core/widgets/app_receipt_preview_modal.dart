@@ -60,20 +60,30 @@ class AppReceiptPreviewModal extends ConsumerWidget {
       final List<PrinterConfigModel> targetList;
       if (printerType == 'kitchen') {
         targetList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
+        if (targetList.isEmpty) {
+          if (!context.mounted) return;
+          AppSnackbar.showWarning(context, 'Printer dapur belum dikonfigurasi.');
+          return;
+        }
       } else if (printerType == 'cashier') {
         targetList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
+        if (targetList.isEmpty) {
+          if (!context.mounted) return;
+          AppSnackbar.showWarning(context, 'Printer kasir belum dikonfigurasi.');
+          return;
+        }
       } else {
         targetList = printerState.configuredPrinters;
       }
 
-      final targetPrinter = targetList.isNotEmpty ? targetList.first : printerState.configuredPrinters.first;
+      final targetPrinter = targetList.first;
       final success = await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, bytes);
       if (!context.mounted) return;
       if (success) {
         AppSnackbar.showSuccess(context, 'Berhasil mencetak ke printer thermal (${targetPrinter.name}).');
         Navigator.pop(context);
       } else {
-        AppSnackbar.showError(context, 'Gagal mencetak ke printer Bluetooth.');
+        AppSnackbar.showError(context, 'Gagal mencetak ke printer ${targetPrinter.name}. Periksa koneksi Bluetooth.');
       }
     } else {
       if (!context.mounted) return;

@@ -243,6 +243,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             taxRate,
             taxAmount,
             grandTotal,
+            serviceChargeRate: cartState.serviceChargeRate,
+            serviceChargeAmount: cartState.serviceChargeAmount,
+            serviceChargeAfterTax: cartState.serviceChargeAfterTax ? 1 : 0,
             notes: notes.isNotEmpty ? notes : null,
             cashierId: activeUser?.id,
             cashierNama: activeUser?.nama,
@@ -256,7 +259,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // 2. Jika Bayar Sekarang (lunas di awal), catat transaksi ke database transactions
       if (!isPayLater && _selectedMethod != null) {
         final txId = _uuid.v4();
-        final double storeTotal = subtotal + taxAmount;
+        final double storeTotal = subtotal + cartState.serviceChargeAmount + taxAmount;
         final double? platformTotal = orderState.onlinePlatformTotal ?? orderState.activeOrder?.onlinePlatformTotal;
         final double? platformDiff = platformTotal != null ? (platformTotal - storeTotal) : null;
 
@@ -266,6 +269,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           subtotal: subtotal,
           taxPercentage: taxRate,
           taxAmount: taxAmount,
+          serviceChargePercentage: cartState.serviceChargeRate,
+          serviceChargeAmount: cartState.serviceChargeAmount,
+          serviceChargeAfterTax: cartState.serviceChargeAfterTax ? 1 : 0,
           grandTotal: grandTotal,
           onlinePlatformTotal: platformTotal,
           platformDifference: platformDiff,
@@ -740,6 +746,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     Text(CurrencyFormatter.format(storeSubtotal), style: AppTypography.bodyMedium),
                   ],
                 ),
+                if (cartState.serviceChargeRate > 0) ...[
+                  SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Service (${cartState.serviceChargeRate.toStringAsFixed(0)}%)',
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                      Text(CurrencyFormatter.format(cartState.serviceChargeAmount), style: AppTypography.bodyMedium),
+                    ],
+                  ),
+                ],
                 if (cartState.taxRate > 0) ...[
                   SizedBox(height: 6),
                   Row(

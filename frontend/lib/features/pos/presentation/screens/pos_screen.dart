@@ -1053,6 +1053,9 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
                                           cState.taxRate,
                                           cState.taxAmount,
                                           cState.grandTotal,
+                                          serviceChargeRate: cState.serviceChargeRate,
+                                          serviceChargeAmount: cState.serviceChargeAmount,
+                                          serviceChargeAfterTax: cState.serviceChargeAfterTax ? 1 : 0,
                                           cashierId: authUser?.id,
                                           cashierNama: authUser?.nama,
                                           printToKitchen: true,
@@ -1258,24 +1261,32 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
       await ref.read(printerNotifierProvider.notifier).loadPrinters();
       final printerState = ref.read(printerNotifierProvider);
       final kitchenPrinters = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-      final targetPrinter = kitchenPrinters.isNotEmpty
-          ? kitchenPrinters.first
-          : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
+
+      if (kitchenPrinters.isEmpty) {
+        AppSnackbar.showWarning(ctx, 'Printer dapur belum dikonfigurasi. Hubungkan printer dapur di Pengaturan Printer.');
+        return;
+      }
+
+      final targetPrinter = kitchenPrinters.first;
+      if (!targetPrinter.isConnected) {
+        AppSnackbar.showWarning(ctx, 'Printer dapur (${targetPrinter.name}) sedang tidak terhubung.');
+        return;
+      }
 
       final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
         order: order,
         itemsToPrint: itemsToPrint,
         waveInfo: waveInfo,
-        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-        autoCut: targetPrinter?.autoCut ?? false,
+        paperSize: targetPrinter.escPosPaperSize,
+        charsPerLine: targetPrinter.effectiveCharsPerLine,
+        autoCut: targetPrinter.autoCut,
       );
 
-      if (targetPrinter != null) {
-        await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+      final success = await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+      if (success) {
         AppSnackbar.showSuccess(ctx, 'Struk Dapur $waveInfo berhasil dicetak.');
       } else {
-        AppSnackbar.showSuccess(ctx, 'Simulasi Struk Dapur $waveInfo (Printer tidak terhubung).');
+        AppSnackbar.showError(ctx, 'Gagal mencetak ke printer dapur (${targetPrinter.name}). Periksa koneksi Bluetooth.');
       }
     } catch (e) {
       AppSnackbar.showError(ctx, 'Gagal mencetak ulang dapur: $e');
@@ -1752,6 +1763,24 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
             ),
           ],
         ),
+        if (state.serviceChargeRate > 0) ...[
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Service Charge (${state.serviceChargeRate.toStringAsFixed(0)}%)',
+                  style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(CurrencyFormatter.format(state.serviceChargeAmount), style: AppTypography.bodyLarge),
+                ),
+              ),
+            ],
+          ),
+        ],
         if (state.taxRate > 0) ...[
           const SizedBox(height: 6),
           Row(

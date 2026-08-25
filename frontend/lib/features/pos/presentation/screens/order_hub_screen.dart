@@ -2436,42 +2436,55 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
       final kitchenPrinters = printerState.configuredPrinters
           .where((p) => p.isKitchen)
           .toList();
-      final targetPrinter = kitchenPrinters.isNotEmpty
-          ? kitchenPrinters.first
-          : (printerState.configuredPrinters.isNotEmpty
-                ? printerState.configuredPrinters.first
-                : null);
+
+      if (!mounted) return;
+
+      if (kitchenPrinters.isEmpty) {
+        AppSnackbar.showWarning(
+          context,
+          'Pesanan dikirim ke dapur (Printer dapur belum dikonfigurasi).',
+        );
+        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+        return;
+      }
+
+      final targetPrinter = kitchenPrinters.first;
+      if (!targetPrinter.isConnected) {
+        AppSnackbar.showWarning(
+          context,
+          'Pesanan dikirim ke dapur (Printer dapur ${targetPrinter.name} tidak terhubung).',
+        );
+        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+        return;
+      }
 
       final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
         order: order,
         itemsToPrint: unprintedItems,
         waveInfo: waveInfo,
-        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-        autoCut: targetPrinter?.autoCut ?? false,
+        paperSize: targetPrinter.escPosPaperSize,
+        charsPerLine: targetPrinter.effectiveCharsPerLine,
+        autoCut: targetPrinter.autoCut,
       );
 
       if (!mounted) return;
 
-      if (targetPrinter != null) {
-        await ref
-            .read(printerNotifierProvider.notifier)
-            .printBytes(targetPrinter, receiptBytes);
-        if (mounted) {
+      final success = await ref
+          .read(printerNotifierProvider.notifier)
+          .printBytes(targetPrinter, receiptBytes);
+      if (mounted) {
+        if (success) {
           AppSnackbar.showSuccess(
             context,
             'Struk Dapur $waveInfo berhasil dicetak.',
           );
-          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        }
-      } else {
-        if (mounted) {
-          AppSnackbar.showSuccess(
+        } else {
+          AppSnackbar.showWarning(
             context,
-            'Simulasi Struk Dapur $waveInfo (Printer tidak terhubung).',
+            'Pesanan dikirim, namun gagal mencetak ke printer dapur (${targetPrinter.name}).',
           );
-          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
         }
+        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
       }
     } catch (e) {
       if (mounted)
@@ -2518,41 +2531,49 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
       final kitchenPrinters = printerState.configuredPrinters
           .where((p) => p.isKitchen)
           .toList();
-      final targetPrinter = kitchenPrinters.isNotEmpty
-          ? kitchenPrinters.first
-          : (printerState.configuredPrinters.isNotEmpty
-                ? printerState.configuredPrinters.first
-                : null);
+
+      if (!mounted) return;
+
+      if (kitchenPrinters.isEmpty) {
+        AppSnackbar.showWarning(context, 'Printer dapur belum dikonfigurasi.');
+        return;
+      }
+
+      final targetPrinter = kitchenPrinters.first;
+      if (!targetPrinter.isConnected) {
+        AppSnackbar.showWarning(
+          context,
+          'Printer dapur (${targetPrinter.name}) sedang tidak terhubung.',
+        );
+        return;
+      }
 
       final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
         order: order,
         itemsToPrint: itemsToPrint,
         waveInfo: waveInfo,
-        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-        autoCut: targetPrinter?.autoCut ?? false,
+        paperSize: targetPrinter.escPosPaperSize,
+        charsPerLine: targetPrinter.effectiveCharsPerLine,
+        autoCut: targetPrinter.autoCut,
       );
 
       if (!mounted) return;
 
-      if (targetPrinter != null) {
-        await ref
-            .read(printerNotifierProvider.notifier)
-            .printBytes(targetPrinter, receiptBytes);
-        if (mounted) {
+      final success = await ref
+          .read(printerNotifierProvider.notifier)
+          .printBytes(targetPrinter, receiptBytes);
+      if (mounted) {
+        if (success) {
           AppSnackbar.showSuccess(
             context,
-            'Struk Dapur $waveInfo berhasil dicetak.',
+            'Struk Dapur $waveInfo berhasil dicetak ulang.',
           );
           Navigator.pop(context);
-        }
-      } else {
-        if (mounted) {
-          AppSnackbar.showSuccess(
+        } else {
+          AppSnackbar.showError(
             context,
-            'Simulasi Struk Dapur $waveInfo (Printer tidak terhubung).',
+            'Gagal mencetak ulang ke printer dapur (${targetPrinter.name}).',
           );
-          Navigator.pop(context);
         }
       }
     } catch (e) {

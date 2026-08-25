@@ -12,6 +12,9 @@ class OrderModel {
   final double subtotal;
   final double taxPercentage;
   final double taxAmount;
+  final double serviceChargePercentage;
+  final double serviceChargeAmount;
+  final int serviceChargeAfterTax; // 1 = compound after tax, 0 = before tax
   final double grandTotal;
   final double? onlinePlatformTotal;
   final double? platformDifference;
@@ -39,6 +42,9 @@ class OrderModel {
     this.subtotal = 0.0,
     this.taxPercentage = 0.0,
     this.taxAmount = 0.0,
+    this.serviceChargePercentage = 0.0,
+    this.serviceChargeAmount = 0.0,
+    this.serviceChargeAfterTax = 0,
     this.grandTotal = 0.0,
     this.onlinePlatformTotal,
     this.platformDifference,
@@ -77,6 +83,9 @@ class OrderModel {
     double? subtotal,
     double? taxPercentage,
     double? taxAmount,
+    double? serviceChargePercentage,
+    double? serviceChargeAmount,
+    int? serviceChargeAfterTax,
     double? grandTotal,
     double? onlinePlatformTotal,
     double? platformDifference,
@@ -104,6 +113,9 @@ class OrderModel {
       subtotal: subtotal ?? this.subtotal,
       taxPercentage: taxPercentage ?? this.taxPercentage,
       taxAmount: taxAmount ?? this.taxAmount,
+      serviceChargePercentage: serviceChargePercentage ?? this.serviceChargePercentage,
+      serviceChargeAmount: serviceChargeAmount ?? this.serviceChargeAmount,
+      serviceChargeAfterTax: serviceChargeAfterTax ?? this.serviceChargeAfterTax,
       grandTotal: grandTotal ?? this.grandTotal,
       onlinePlatformTotal: onlinePlatformTotal ?? this.onlinePlatformTotal,
       platformDifference: platformDifference ?? this.platformDifference,
@@ -134,6 +146,9 @@ class OrderModel {
       'subtotal': subtotal,
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
+      'service_charge_percentage': serviceChargePercentage,
+      'service_charge_amount': serviceChargeAmount,
+      'service_charge_after_tax': serviceChargeAfterTax,
       'grand_total': grandTotal,
       'online_platform_total': onlinePlatformTotal,
       'platform_difference': platformDifference,
@@ -164,8 +179,11 @@ class OrderModel {
       onlinePlatform: map['online_platform'] as String?,
       clearTableReason: map['clear_table_reason'] as String?,
       subtotal: (map['subtotal'] as num).toDouble(),
-      taxPercentage: (map['tax_percentage'] as num).toDouble(),
-      taxAmount: (map['tax_amount'] as num).toDouble(),
+      taxPercentage: ((map['tax_percentage'] as num?) ?? 0.0).toDouble(),
+      taxAmount: ((map['tax_amount'] as num?) ?? 0.0).toDouble(),
+      serviceChargePercentage: ((map['service_charge_percentage'] as num?) ?? 0.0).toDouble(),
+      serviceChargeAmount: ((map['service_charge_amount'] as num?) ?? 0.0).toDouble(),
+      serviceChargeAfterTax: (map['service_charge_after_tax'] as int?) ?? 0,
       grandTotal: (map['grand_total'] as num).toDouble(),
       onlinePlatformTotal: (map['online_platform_total'] as num?)?.toDouble(),
       platformDifference: (map['platform_difference'] as num?)?.toDouble(),

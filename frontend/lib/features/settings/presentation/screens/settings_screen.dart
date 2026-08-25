@@ -16,6 +16,7 @@ import '../../../security/presentation/widgets/change_master_pin_modal.dart';
 import '../../../../core/theme/font_size_provider.dart';
 import 'about_screen.dart';
 import 'store_profile_screen.dart';
+import '../../../../core/utils/url_helper.dart';
 
 import '../../../product/application/product_notifier.dart';
 import '../../../category/application/category_notifier.dart';
@@ -325,6 +326,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: 'Lihat catatan sistem, printer bluetooth, dan debug logs',
               icon: Icons.developer_board_rounded,
               onTap: _showLogsDialog,
+            ),
+            SizedBox(height: 12),
+
+            // Help Center Option
+            _buildSettingsTile(
+              context,
+              title: 'Pusat Bantuan & Layanan CS',
+              subtitle: 'Buka pusat bantuan resmi di alatkasirpro.com/hubungi',
+              icon: Icons.help_outline_rounded,
+              onTap: () => UrlHelper.openHelpCenter(context),
             ),
             SizedBox(height: 12),
 

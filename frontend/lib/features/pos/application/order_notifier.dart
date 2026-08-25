@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/di/providers.dart';
 import '../../auth/presentation/providers/auth_providers.dart';
@@ -232,6 +231,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
     double taxRate,
     double taxAmount,
     double grandTotal, {
+    double serviceChargeRate = 0.0,
+    double serviceChargeAmount = 0.0,
+    int serviceChargeAfterTax = 0,
     String? notes,
     String? customerName,
     String? cashierId,
@@ -300,11 +302,15 @@ class OrderNotifier extends StateNotifier<OrderState> {
             produkId: prodId,
             produkNama: cartItem.product.nama,
             produkHarga: cartItem.product.harga,
+            basePrice: cartItem.product.harga,
+            effectivePrice: cartItem.product.harga,
             qty: unprintedQty,
+            qtyOrdered: unprintedQty,
+            qtyPaid: 0,
             subtotal: cartItem.product.harga * unprintedQty,
             catatan: cartItem.catatan,
             statusCetak: 0,
-            printBatchId: null,
+            printBatchId: null, // to be populated when batch is saved
           );
           allOrderItems.add(orderItem);
           itemsToPrint.add(orderItem);
@@ -312,12 +318,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
       }
 
       String updatedPaymentStatus = state.activeOrder?.paymentStatus ?? 'unpaid';
-      if (itemsToPrint.isNotEmpty) {
-        if (updatedPaymentStatus == 'paid' || updatedPaymentStatus == 'partially_paid') {
-          updatedPaymentStatus = 'partially_paid';
-        } else if (updatedPaymentStatus == 'billed') {
-          updatedPaymentStatus = 'unpaid';
-        }
+      if (itemsToPrint.isNotEmpty && updatedPaymentStatus == 'billed') {
+        updatedPaymentStatus = 'unpaid';
       }
 
       final orderHeader = OrderModel(
@@ -333,10 +335,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
         subtotal: subtotal,
         taxPercentage: taxRate,
         taxAmount: taxAmount,
+        serviceChargePercentage: serviceChargeRate,
+        serviceChargeAmount: serviceChargeAmount,
+        serviceChargeAfterTax: serviceChargeAfterTax,
         grandTotal: grandTotal,
         onlinePlatformTotal: state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal,
         platformDifference: (state.onlinePlatformTotal ?? state.activeOrder?.onlinePlatformTotal) != null
-            ? ((state.onlinePlatformTotal ?? state.activeOrder!.onlinePlatformTotal!) - (subtotal + taxAmount))
+            ? ((state.onlinePlatformTotal ?? state.activeOrder!.onlinePlatformTotal!) - (subtotal + serviceChargeAmount + taxAmount))
             : (state.activeOrder?.platformDifference),
         status: state.activeOrder?.status == 'draft' || state.activeOrder?.status == null ? 'processing' : state.activeOrder!.status,
         paymentStatus: updatedPaymentStatus,
@@ -366,33 +371,27 @@ class OrderNotifier extends StateNotifier<OrderState> {
             await _ref.read(printerNotifierProvider.notifier).loadPrinters();
             final printerState = _ref.read(printerNotifierProvider);
             final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-            final targetPrinter = kitchenPrinterList.isNotEmpty
-                ? kitchenPrinterList.first
-                : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
 
-            final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
-              order: orderHeader,
-              itemsToPrint: itemsToPrint,
-              waveInfo: waveInfo,
-              cashierNama: effectiveCashierNama,
-              paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-              charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-              autoCut: targetPrinter?.autoCut ?? false,
-            );
+            if (kitchenPrinterList.isNotEmpty) {
+              final targetPrinter = kitchenPrinterList.first;
+              final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+                order: orderHeader,
+                itemsToPrint: itemsToPrint,
+                waveInfo: waveInfo,
+                cashierNama: effectiveCashierNama,
+                paperSize: targetPrinter.escPosPaperSize,
+                charsPerLine: targetPrinter.effectiveCharsPerLine,
+                autoCut: targetPrinter.autoCut,
+              );
 
-            if (targetPrinter != null) {
               if (targetPrinter.isConnected) {
-                // Fire and forget
+                // Fire and forget to kitchen printer only
                 _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
               } else {
-                debugPrint('Printer dapur belum terhubung. Melewati cetak dapur otomatis.');
+                debugPrint('Printer dapur (${targetPrinter.name}) belum terhubung. Melewati cetak dapur otomatis.');
               }
             } else {
-              if (kDebugMode) {
-                debugPrint('--- PRINT TO KITCHEN SIMULATOR ---');
-                debugPrint('Simulated kitchen ticket receipt: ${receiptBytes.length} bytes generated.');
-                debugPrint('----------------------------------');
-              }
+              debugPrint('Tidak ada printer dapur yang dikonfigurasi. Melewati cetak dapur otomatis.');
             }
           } catch (printErr) {
             debugPrint('Printer not available or unit test environment: $printErr');
@@ -520,25 +519,30 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
       final printerState = _ref.read(printerNotifierProvider);
       final kitchenPrinterList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-      final targetPrinter = kitchenPrinterList.isNotEmpty
-          ? kitchenPrinterList.first
-          : (printerState.configuredPrinters.isNotEmpty ? printerState.configuredPrinters.first : null);
+      if (kitchenPrinterList.isEmpty) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Printer dapur belum dikonfigurasi.');
+        return false;
+      }
+
+      final targetPrinter = kitchenPrinterList.first;
+      if (!targetPrinter.isConnected) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Printer dapur (${targetPrinter.name}) sedang tidak terhubung.');
+        return false;
+      }
 
       final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
         order: order,
         itemsToPrint: items,
         waveInfo: '(REPRINT - JANGAN DIMASAK ULANG)',
-        paperSize: targetPrinter?.escPosPaperSize ?? PaperSize.mm58,
-        charsPerLine: targetPrinter?.effectiveCharsPerLine ?? 32,
-        autoCut: targetPrinter?.autoCut ?? false,
+        paperSize: targetPrinter.escPosPaperSize,
+        charsPerLine: targetPrinter.effectiveCharsPerLine,
+        autoCut: targetPrinter.autoCut,
       );
 
-      if (targetPrinter != null) {
-        if (!targetPrinter.isConnected) {
-          state = state.copyWith(isLoading: false, errorMessage: 'Printer dapur tidak terhubung.');
-          return false;
-        }
-        await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+      final success = await _ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
+      if (!success) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Gagal mengirim cetakan ke printer dapur (${targetPrinter.name}).');
+        return false;
       }
 
       state = state.copyWith(isLoading: false);
