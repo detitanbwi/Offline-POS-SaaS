@@ -11,6 +11,17 @@ import 'license_log_screen.dart';
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
 
+  String _formatDate(DateTime dt) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = months[dt.month - 1];
+    final year = dt.year;
+    return '$day $month $year';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final storage = ref.watch(secureStorageServiceProvider);
@@ -18,7 +29,7 @@ class AboutScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text('Tentang Aplikasi'),
+        title: const Text('Tentang Aplikasi'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -26,7 +37,7 @@ class AboutScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               // App Logo / Icon
               Center(
                 child: ClipRRect(
@@ -39,7 +50,7 @@ class AboutScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               Text(
                 appName,
                 textAlign: TextAlign.center,
@@ -48,13 +59,13 @@ class AboutScreen extends ConsumerWidget {
                   color: AppColors.primary,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 'Versi $appVersion (Build $appBuildNumber)',
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
               // System Info Card
               Card(
                 elevation: 0,
@@ -80,87 +91,84 @@ class AboutScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               // License Status Card
               FutureBuilder<String?>(
                 future: storage.getLicenseKey(),
-                builder: (context, snapshot) {
-                  final licenseKey = snapshot.data ?? 'Tidak Aktif';
-                  return StreamBuilder<DateTime>(
-                    stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()),
-                    builder: (context, timerSnapshot) {
-                      return FutureBuilder<String?>(
-                        future: storage.getLicenseExpiry(),
-                        builder: (context, expirySnapshot) {
-                          String countdown = '-';
-                          String expiryDate = '-';
-                          
-                          if (expirySnapshot.data != null && expirySnapshot.data!.isNotEmpty) {
-                            try {
-                              final expiry = DateTime.parse(expirySnapshot.data!);
-                              expiryDate = expiry.toLocal().toString().split('.')[0];
-                              
-                              final now = DateTime.now();
-                              final difference = expiry.difference(now);
-                              
-                              if (difference.isNegative) {
-                                countdown = 'Kadaluwarsa';
-                              } else {
-                                final days = difference.inDays;
-                                final hours = difference.inHours % 24;
-                                final minutes = difference.inMinutes % 60;
-                                final seconds = difference.inSeconds % 60;
-                                countdown = '${days}h ${hours}j ${minutes}m ${seconds}d';
-                              }
-                            } catch (_) {}
-                          }
+                builder: (context, licenseSnapshot) {
+                  final licenseKey = licenseSnapshot.data ?? 'Tidak Aktif';
+                  return FutureBuilder<String?>(
+                    future: storage.getLicenseExpiry(),
+                    builder: (context, expirySnapshot) {
+                      String packageExpiryStr = '-';
+                      String packageDaysRemaining = '';
+                      bool isExpired = false;
 
-                          return Card(
-                            elevation: 0,
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: const BorderSide(color: AppColors.divider),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(AppSpacing.l),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      final now = DateTime.now();
+                      final expiryRaw = expirySnapshot.data;
+
+                      if (expiryRaw != null && expiryRaw.isNotEmpty) {
+                        try {
+                          final expiry = DateTime.parse(expiryRaw);
+                          packageExpiryStr = _formatDate(expiry);
+                          final diff = expiry.difference(now);
+                          if (diff.isNegative) {
+                            packageDaysRemaining = ' (Kedaluwarsa)';
+                            isExpired = true;
+                          } else {
+                            packageDaysRemaining = ' (${diff.inDays} hari lagi)';
+                          }
+                        } catch (_) {}
+                      }
+
+                      return Card(
+                        elevation: 0,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: AppColors.divider),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.l),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Status Lisensi',
-                                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.history_rounded, color: AppColors.primary),
-                                        tooltip: 'Log Aktivitas Lisensi',
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(builder: (_) => const LicenseLogScreen()),
-                                          );
-                                        },
-                                      )
-                                    ],
+                                  Text(
+                                    'Status Lisensi',
+                                    style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                                   ),
-                                  const Divider(height: 16),
-                                  _buildInfoRow('License Key', licenseKey),
-                                  _buildInfoRow('Sisa Waktu', countdown),
-                                  _buildInfoRow('Kedaluwarsa', expiryDate),
+                                  IconButton(
+                                    icon: const Icon(Icons.history_rounded, color: AppColors.primary),
+                                    tooltip: 'Log Aktivitas Lisensi',
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const LicenseLogScreen()),
+                                      );
+                                    },
+                                  )
                                 ],
                               ),
-                            ),
-                          );
-                        },
+                              const Divider(height: 16),
+                              _buildInfoRow('License Key', licenseKey),
+                              _buildInfoRow(
+                                'Status Lisensi', 
+                                isExpired ? 'Kedaluwarsa' : 'Aktif (Offline POS)',
+                                textColor: isExpired ? AppColors.error : AppColors.success,
+                              ),
+                              _buildInfoRow('Kedaluwarsa Paket', '$packageExpiryStr$packageDaysRemaining'),
+                            ],
+                          ),
+                        ),
                       );
-                    }
+                    },
                   );
                 },
               ),
-              SizedBox(height: 48),
+              const SizedBox(height: 48),
               Text(
                 '© 2026 Kasir Pro. All rights reserved.',
                 textAlign: TextAlign.center,
@@ -176,20 +184,21 @@ class AboutScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, {Color? textColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(width: 12),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
               style: AppTypography.bodyMedium.copyWith(
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: textColor ?? AppColors.textPrimary,
               ),
             ),
           ),

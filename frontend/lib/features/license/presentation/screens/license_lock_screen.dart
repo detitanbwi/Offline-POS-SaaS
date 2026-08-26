@@ -129,6 +129,22 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                         side: BorderSide(color: Colors.grey.shade300),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
+                      icon: const Icon(Icons.login_rounded, size: 20),
+                      label: const Text('Ganti Token / Login Akun Lain'),
+                      onPressed: () async {
+                        final storage = ref.read(secureStorageServiceProvider);
+                        await storage.clearAuthSession();
+                        ref.read(licenseExpiredProvider.notifier).state = false;
+                        if (context.mounted) {
+                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                    ),
+                    SizedBox(height: 10.h),
+                    TextButton.icon(
                       icon: const Icon(Icons.support_agent_rounded, size: 20),
                       label: const Text('Bantuan & Hubungi CS'),
                       onPressed: () => UrlHelper.openHelpCenter(context),

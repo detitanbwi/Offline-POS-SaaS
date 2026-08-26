@@ -29,112 +29,14 @@ import '../../../../core/utils/url_helper.dart';
 class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
 
-  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => SafeArea(
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
-          ),
-          decoration: const BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Keluar / Kunci Sesi',
-                  style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Pilih opsi di bawah untuk mengunci aplikasi atau keluar dari akun SaaS.',
-                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 24),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  icon: Icon(Icons.lock_outline_rounded),
-                  label: Text('Kunci Layar / Ganti User'),
-                  onPressed: () async {
-                    // 1. Tutup bottom sheet terlebih dahulu agar rute bersih
-                    Navigator.pop(sheetContext);
-                    
-                    // 2. Beri sedikit jeda (async gap) agar framework selesai memproses pop()
-                    // Ini mencegah crash "scope != null" atau freeze karena tabrakan transisi rute
-                    await Future.delayed(const Duration(milliseconds: 100));
-
-                    // 3. Ubah state (akan memicu rebuild sementara jika dibutuhkan)
-                    ref.read(authSessionProvider.notifier).state = null;
-
-                    // 4. Lakukan navigasi bersih ke PinScreen
-                    if (context.mounted) {
-                      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
-                        (route) => false,
-                      );
-                    }
-                  },
-                ),
-                SizedBox(height: 12),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  icon: Icon(Icons.logout_rounded),
-                  label: Text('Keluar Akun SaaS (Logout)'),
-                  onPressed: () {
-                    Navigator.pop(sheetContext);
-                    _confirmSaaSLogout(context, ref);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _confirmSaaSLogout(BuildContext context, WidgetRef ref) {
-    AppDialog.show(
-      context: context,
-      title: 'Logout SaaS',
-      message: 'Apakah Anda yakin ingin keluar dari akun SaaS? Sesi login online akan dihapus.',
-      confirmText: 'Logout',
-      isDestructive: true,
-      onConfirm: () async {
-        // Tutup dialog terlebih dahulu
-        Navigator.of(context, rootNavigator: true).pop();
-
-        final storage = ref.read(secureStorageServiceProvider);
-        await storage.clearAuthSession();
-        ref.read(authSessionProvider.notifier).state = null;
-
-        if (!context.mounted) return;
-        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      },
-    );
+  Future<void> _handleLockSession(BuildContext context, WidgetRef ref) async {
+    ref.read(authSessionProvider.notifier).state = null;
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const PinScreen(isSetup: false)),
+        (route) => false,
+      );
+    }
   }
 
   void _showMasterDataSubmenu(BuildContext context) {
@@ -308,9 +210,9 @@ class MainMenuScreen extends ConsumerWidget {
             onPressed: () => UrlHelper.openHelpCenter(context),
           ),
           IconButton(
-            icon: const Icon(Icons.lock_rounded),
-            tooltip: 'Kunci Sesi / Logout',
-            onPressed: () => _handleLogout(context, ref),
+            icon: const Icon(Icons.lock_outline_rounded),
+            tooltip: 'Kunci Sesi / Ganti Kasir',
+            onPressed: () => _handleLockSession(context, ref),
           ),
         ],
       ),

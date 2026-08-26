@@ -74,5 +74,51 @@ void main() {
       final isValid = await licenseService.checkLicenseOffline();
       expect(isValid, isFalse);
     });
+
+    test('checkLicenseOffline returns true when subscription is active and not expired', () async {
+      await storage.clearAll();
+      await storage.saveActivationData(
+        activationToken: 'test_token',
+        licenseKey: 'PRO-1234-5678',
+        encryptionKey: 'test_enc_key',
+        fingerprintHash: 'test_fp',
+        expiryDateStr: DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+      );
+      await storage.saveLastValidation(DateTime.now().subtract(const Duration(days: 10)).toIso8601String());
+
+      final isValid = await licenseService.checkLicenseOffline();
+      expect(isValid, isTrue);
+    });
+
+    test('checkLicenseOffline returns false when subscription has expired', () async {
+      await storage.clearAll();
+      await storage.saveActivationData(
+        activationToken: 'test_token',
+        licenseKey: 'PRO-1234-5678',
+        encryptionKey: 'test_enc_key',
+        fingerprintHash: 'test_fp',
+        expiryDateStr: DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      );
+      await storage.saveLastValidation(DateTime.now().subtract(const Duration(days: 2)).toIso8601String());
+
+      final isValid = await licenseService.checkLicenseOffline();
+      expect(isValid, isFalse);
+    });
+
+    test('checkLicenseOffline returns false when system clock is manipulated backwards', () async {
+      await storage.clearAll();
+      await storage.saveActivationData(
+        activationToken: 'test_token',
+        licenseKey: 'PRO-1234-5678',
+        encryptionKey: 'test_enc_key',
+        fingerprintHash: 'test_fp',
+        expiryDateStr: DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+      );
+      // Last validation recorded in the future
+      await storage.saveLastValidation(DateTime.now().add(const Duration(days: 1)).toIso8601String());
+
+      final isValid = await licenseService.checkLicenseOffline();
+      expect(isValid, isFalse);
+    });
   });
 }

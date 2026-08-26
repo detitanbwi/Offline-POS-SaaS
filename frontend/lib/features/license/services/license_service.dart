@@ -139,28 +139,6 @@ class LicenseService {
     }
   }
 
-  Future<Map<String, dynamic>?> performPeriodicCheck() async {
-    final lastValidationStr = await _storage.getLastValidation();
-    
-    bool shouldCheck = true;
-    if (lastValidationStr != null) {
-      try {
-        final lastValidation = DateTime.parse(lastValidationStr);
-        if (DateTime.now().isBefore(lastValidation)) {
-          return {'success': false, 'message': 'Terdeteksi manipulasi waktu sistem. Harap perbarui waktu OS atau online.', 'is_offline': false};
-        }
-        if (DateTime.now().difference(lastValidation).inHours < 12) {
-          shouldCheck = false;
-        }
-      } catch (_) {}
-    }
-
-    if (shouldCheck) {
-      return await validateLicenseOnline(triggerType: 'Automatic 12-Hour Check');
-    }
-    return null;
-  }
-
   Future<void> _logLicenseCheck(String status, String triggerType) async {
     try {
       final expiryStr = await _storage.getLicenseExpiry();
@@ -269,121 +247,49 @@ class LicenseService {
     }
   }
 
-    Future<bool> checkLicenseOffline() async {
-      final activationToken = await _storage.getActivationToken();
-      final publicKeyPem = await _storage.getPublicKey();
+  Future<bool> checkLicenseOffline() async {
+    final activationToken = await _storage.getActivationToken();
+    final publicKeyPem = await _storage.getPublicKey();
+    
+    if (activationToken == null || activationToken.isEmpty) return false;
+
+    final lastValidationStr = await _storage.getLastValidation();
+
+    try {
+      if (lastValidationStr != null && lastValidationStr.isNotEmpty) {
+        final lastValidation = DateTime.parse(lastValidationStr);
+        if (DateTime.now().isBefore(lastValidation)) {
+          return false; // Indikasi manipulasi waktu (dimundurkan)
+        }
+      }
+
+      DateTime? expiryDate;
       
-      if (activationToken == null || activationToken.isEmpty) return false;
-
-      final lastValidationStr = await _storage.getLastValidation();
-
-      try {
-        if (lastValidationStr != null) {
-          final lastValidation = DateTime.parse(lastValidationStr);
-          if (DateTime.now().isBefore(lastValidation)) {
-            return false; // Indikasi manipulasi waktu (dimundurkan)
-          }
-        }
-
-        DateTime? expiryDate;
-        
-        // Verifikasi dengan JWT Public Key jika tersedia
-        if (publicKeyPem != null && publicKeyPem.isNotEmpty) {
-          try {
-            final publicKey = RSAPublicKey(publicKeyPem);
-            final jwt = JWT.verify(activationToken, publicKey);
-            if (jwt.payload['exp'] != null) {
-               // JWT exp is in seconds
-               expiryDate = DateTime.fromMillisecondsSinceEpoch((jwt.payload['exp'] as int) * 1000);
-            }
-          } catch (e) {
-            // Signature tidak valid atau token ditamper
-            return false;
-          }
-        }
-
-        // Fallback (untuk kompatibilitas jika token format lama / belum terunduh public key)
-        if (expiryDate == null) {
-           final expiryStr = await _storage.getLicenseExpiry();
-           if (expiryStr == null || expiryStr.isEmpty) return false;
-           expiryDate = DateTime.parse(expiryStr);
-        }
-
-        return DateTime.now().isBefore(expiryDate);
-      } catch (e) {
-        return false;
-      }
-    }
-
-    Future<Map<String, dynamic>> requestDeviceResetOtp({
-      required String email,
-      required String password,
-      required String tokenKey,
-    }) async {
-      try {
-        final onlineToken = await _storage.getOnlineToken();
-        if (onlineToken == null || onlineToken.isEmpty) {
-          return {'success': false, 'message': 'Token login tidak ditemukan'};
-        }
-
-        final response = await http.post(
-          Uri.parse('$apiBaseUrl/api/auth/request-device-reset-otp'),
-          headers: getApiHeaders(bearerToken: onlineToken),
-          body: jsonEncode({
-            'email': email,
-            'password': password,
-            'token_key': tokenKey,
-          }),
-        ).timeout(const Duration(seconds: apiTimeoutSeconds));
-
-        Map<String, dynamic> data;
+      // Verifikasi dengan JWT Public Key jika tersedia
+      if (publicKeyPem != null && publicKeyPem.isNotEmpty) {
         try {
-          data = jsonDecode(response.body);
-        } catch (_) {
-          return {'success': false, 'message': 'Gagal memproses respons server (${response.statusCode})'};
+          final publicKey = RSAPublicKey(publicKeyPem);
+          final jwt = JWT.verify(activationToken, publicKey);
+          if (jwt.payload['exp'] != null) {
+             // JWT exp is in seconds
+             expiryDate = DateTime.fromMillisecondsSinceEpoch((jwt.payload['exp'] as int) * 1000);
+          }
+        } catch (e) {
+          // Signature tidak valid atau token ditamper
+          return false;
         }
-        return {
-          'success': response.statusCode == 200 && data['success'] == true,
-          'message': data['message'] ?? 'Permintaan OTP gagal',
-        };
-      } catch (e) {
-        return {'success': false, 'message': 'Gagal terhubung ke server'};
       }
-    }
 
-    Future<Map<String, dynamic>> verifyDeviceResetOtp({
-      required String email,
-      required String tokenKey,
-      required String otp,
-    }) async {
-      try {
-        final onlineToken = await _storage.getOnlineToken();
-        if (onlineToken == null || onlineToken.isEmpty) {
-          return {'success': false, 'message': 'Token login tidak ditemukan'};
-        }
-
-        final response = await http.post(
-          Uri.parse('$apiBaseUrl/api/auth/verify-device-reset-otp'),
-          headers: getApiHeaders(bearerToken: onlineToken),
-          body: jsonEncode({
-            'email': email,
-            'token_key': tokenKey,
-            'otp': otp,
-          }),
-        ).timeout(const Duration(seconds: apiTimeoutSeconds));
-
-        Map<String, dynamic> data;
-        try {
-          data = jsonDecode(response.body);
-        } catch (_) {
-          return {'success': false, 'message': 'Gagal memproses respons server (${response.statusCode})'};
-        }
-        return {
-          'success': response.statusCode == 200 && data['success'] == true,
-          'message': data['message'] ?? 'Verifikasi OTP gagal',
-        };
-      } catch (e) {
-        return {'success': false, 'message': 'Gagal terhubung ke server'};
+      // Fallback (untuk kompatibilitas jika token format lama / belum terunduh public key)
+      if (expiryDate == null) {
+         final expiryStr = await _storage.getLicenseExpiry();
+         if (expiryStr == null || expiryStr.isEmpty) return false;
+         expiryDate = DateTime.parse(expiryStr);
       }
+
+      return DateTime.now().isBefore(expiryDate);
+    } catch (e) {
+      return false;
     }
+  }
 }

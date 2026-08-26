@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/screens/login_screen.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
 import '../../../security/presentation/widgets/change_master_pin_modal.dart';
 import '../../../../core/theme/font_size_provider.dart';
@@ -352,9 +353,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 );
               },
             ),
+
+            if (isOwner) ...[
+              const SizedBox(height: 12),
+              // Logout Option for Owner/Admin
+              _buildSettingsTile(
+                context,
+                title: 'Keluar Akun SaaS (Logout)',
+                subtitle: 'Keluar dari sesi akun pemilik pada perangkat kasir ini',
+                icon: Icons.logout_rounded,
+                iconColor: AppColors.error,
+                iconContainerColor: AppColors.error.withAlpha(25),
+                titleColor: AppColors.error,
+                onTap: _handleAdminLogout,
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  void _handleAdminLogout() {
+    AppDialog.show(
+      context: context,
+      title: 'Keluar Akun SaaS',
+      message: 'Apakah Anda yakin ingin keluar dari akun SaaS pemilik pada perangkat ini? Anda harus login kembali menggunakan email dan password untuk masuk.',
+      confirmText: 'Logout',
+      isDestructive: true,
+      onConfirm: () async {
+        Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog
+
+        final storage = ref.read(secureStorageServiceProvider);
+        await storage.clearAuthSession();
+        ref.read(authSessionProvider.notifier).state = null;
+
+        if (!mounted) return;
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      },
     );
   }
 
@@ -364,6 +403,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String subtitle,
     required IconData icon,
     required VoidCallback onTap,
+    Color? iconColor,
+    Color? iconContainerColor,
+    Color? titleColor,
   }) {
     return AppCard(
       onTap: onTap,
@@ -374,23 +416,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.primaryContainer.withAlpha(51),
+              color: iconContainerColor ?? AppColors.primaryContainer.withAlpha(51),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppColors.primary, size: 24),
+            child: Icon(icon, color: iconColor ?? AppColors.primary, size: 24),
           ),
-          SizedBox(width: 16),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTypography.titleMedium.copyWith(fontSize: 15.sp, fontWeight: FontWeight.bold)),
-                SizedBox(height: 2),
+                Text(
+                  title, 
+                  style: AppTypography.titleMedium.copyWith(
+                    fontSize: 15.sp, 
+                    fontWeight: FontWeight.bold,
+                    color: titleColor ?? AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
                 Text(subtitle, style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
         ],
       ),
     );

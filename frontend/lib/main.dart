@@ -46,66 +46,11 @@ final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 class _MyAppState extends ConsumerState<MyApp> {
   late final Future<Widget> _initialRouteFuture;
-  Timer? _periodicValidationTimer;
 
   @override
   void initState() {
     super.initState();
     _initialRouteFuture = _getInitialRoute();
-    
-    // Start a periodic background validation check every 1 hour
-    _periodicValidationTimer = Timer.periodic(const Duration(hours: 1), (_) {
-      _triggerBackgroundValidation();
-    });
-  }
-
-  @override
-  void dispose() {
-    _periodicValidationTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _triggerBackgroundValidation() async {
-    final licenseService = ref.read(licenseServiceProvider);
-    
-    // Pengecekan 12-jam akan ditangani di dalam performPeriodicCheck
-    final result = await licenseService.performPeriodicCheck();
-    
-    if (result != null && result['success'] == false) {
-      if (result['is_offline'] == true) {
-        // Jika offline, fallback ke cek lisensi lokal (offline)
-        final isLicenseValid = await licenseService.checkLicenseOffline();
-        if (!isLicenseValid) {
-          ref.read(licenseExpiredProvider.notifier).state = true;
-        }
-      } else {
-        // Jika gagal karena ditolak oleh server
-        final isAuthError = result['message'] == 'Data aktivasi tidak lengkap' || 
-                            result['message'] == 'Perangkat tidak terdaftar' ||
-                            result['message'] == 'Unauthenticated.' ||
-                            result['message'] == 'Unauthenticated';
-        if (isAuthError) {
-          final storage = ref.read(secureStorageServiceProvider);
-          await storage.clearAuthSession();
-          
-          if (appNavigatorKey.currentContext != null) {
-            Navigator.pushAndRemoveUntil(
-              appNavigatorKey.currentContext!,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-            );
-          }
-        } else {
-          ref.read(licenseExpiredProvider.notifier).state = true;
-        }
-      }
-    } else if (result == null) {
-      // Jika tidak ada pengecekan online (belum 12 jam), fallback cek lokal
-      final isLicenseValid = await licenseService.checkLicenseOffline();
-      if (!isLicenseValid) {
-        ref.read(licenseExpiredProvider.notifier).state = true;
-      }
-    }
   }
 
   Future<Widget> _getInitialRoute() async {
@@ -134,10 +79,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       return const LicenseLockScreen();
     }
 
-    // 4. Background validation (triggered asynchronously)
-    _triggerBackgroundValidation();
-
-    // 5. Pre-warm POS Database agar siap saat PinScreen memuat daftar akun
+    // 4. Pre-warm POS Database agar siap saat PinScreen memuat daftar akun
     try {
       final db = ref.read(posDatabaseProvider);
       await db.database;
