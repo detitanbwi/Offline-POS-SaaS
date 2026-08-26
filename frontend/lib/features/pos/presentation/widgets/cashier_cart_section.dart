@@ -28,6 +28,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../../../product/application/product_notifier.dart';
 import '../screens/order_hub_screen.dart';
+import 'item_discount_modal.dart';
+import 'order_discount_modal.dart';
 
 class CashierCartSection extends ConsumerStatefulWidget {
   final VoidCallback onSaveDraftCompleted;
@@ -155,37 +157,49 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
   }
 
   Future<void> _showNoteDialog(BuildContext context, CartItem item) async {
-    final noteController = TextEditingController(text: item.catatan);
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Catatan Item'),
-          content: TextField(enableSuggestions: false, autocorrect: false, 
-            controller: noteController,
-            decoration: const InputDecoration(
-              hintText: 'Masukkan catatan (opsional)',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 3,
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                ref
-                    .read(cartNotifierProvider.notifier)
-                    .updateCatatan(item.product.id, noteController.text, batchId: item.batchId);
-                Navigator.pop(context);
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
-        );
+    return ItemDiscountModal.show(
+      context,
+      item: item,
+      onApply: ({
+        required String catatan,
+        required String discountType,
+        required double discountValue,
+      }) {
+        ref.read(cartNotifierProvider.notifier).updateCatatan(
+              item.product.id,
+              catatan,
+              batchId: item.batchId,
+            );
+        ref.read(cartNotifierProvider.notifier).setItemDiscount(
+              item.product.id,
+              discountType: discountType,
+              discountValue: discountValue,
+              batchId: item.batchId,
+            );
+      },
+    );
+  }
+
+  void _showOrderDiscountDialog() {
+    final cartState = ref.read(cartNotifierProvider);
+    if (cartState.items.isEmpty) {
+      AppSnackbar.showWarning(context, 'Keranjang masih kosong!');
+      return;
+    }
+    OrderDiscountModal.show(
+      context,
+      itemsSubtotal: cartState.subtotal,
+      currentDiscountRate: cartState.orderDiscountRate,
+      currentDiscountAmount: cartState.orderDiscountAmount,
+      currentDiscountType: cartState.orderDiscountType,
+      onApply: ({
+        required String discountType,
+        required double discountValue,
+      }) {
+        ref.read(cartNotifierProvider.notifier).setOrderDiscount(
+              discountType: discountType,
+              discountValue: discountValue,
+            );
       },
     );
   }
@@ -318,6 +332,11 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
         cartState.taxRate,
         cartState.taxAmount,
         cartState.grandTotal,
+        discountPercentage: cartState.orderDiscountRate,
+        discountAmount: cartState.orderDiscountAmount,
+        serviceChargeRate: cartState.serviceChargeRate,
+        serviceChargeAmount: cartState.serviceChargeAmount,
+        serviceChargeAfterTax: cartState.serviceChargeAfterTax ? 1 : 0,
         cashierId: activeUser?.id,
         cashierNama: activeUser?.nama,
         printToKitchen: printChoice,
@@ -1035,21 +1054,39 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                               CrossAxisAlignment
                                                                   .start,
                                                           children: [
-                                                            Text(
-                                                              item.product.nama,
-                                                              style: AppTypography
-                                                                  .titleMedium
-                                                                  .copyWith(
-                                                                    fontSize:
-                                                                        13.sp,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
+                                                            Row(
+                                                              children: [
+                                                                if (item.isManual) ...[
+                                                                  Container(
+                                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                                    margin: const EdgeInsets.only(right: 6),
+                                                                    decoration: BoxDecoration(
+                                                                      color: Colors.blue.shade50,
+                                                                      borderRadius: BorderRadius.circular(4),
+                                                                      border: Border.all(color: Colors.blue.shade200, width: 0.5),
+                                                                    ),
+                                                                    child: Text(
+                                                                      'NON-STOCK',
+                                                                      style: TextStyle(
+                                                                        fontSize: 9.sp,
+                                                                        fontWeight: FontWeight.bold,
+                                                                        color: Colors.blue.shade700,
+                                                                      ),
+                                                                    ),
                                                                   ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
+                                                                ],
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    item.product.nama,
+                                                                    style: AppTypography.titleMedium.copyWith(
+                                                                      fontSize: 13.sp,
+                                                                      fontWeight: FontWeight.bold,
+                                                                    ),
+                                                                    maxLines: 1,
+                                                                    overflow: TextOverflow.ellipsis,
+                                                                  ),
+                                                                ),
+                                                              ],
                                                             ),
                                                             SizedBox(height: 2),
                                                             Text(
@@ -1202,81 +1239,81 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                       ),
                                                     ],
                                                   ),
-                                                  if (item
-                                                      .catatan
-                                                      .isNotEmpty) ...[
+                                                  if (item.catatan.isNotEmpty) ...[
                                                     const SizedBox(height: 4),
                                                     Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 8,
-                                                            vertical: 4,
-                                                          ),
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 3,
+                                                      ),
                                                       decoration: BoxDecoration(
-                                                        color: AppColors
-                                                            .secondaryContainer,
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
+                                                        color: AppColors.secondaryContainer,
+                                                        borderRadius: BorderRadius.circular(6),
                                                       ),
                                                       child: Text(
                                                         'Catatan: ${item.catatan}',
                                                         style: TextStyle(
-                                                          color: AppColors
-                                                              .secondaryActive,
+                                                          color: AppColors.secondaryActive,
                                                           fontSize: 11.sp,
-                                                          fontStyle:
-                                                              FontStyle.italic,
+                                                          fontStyle: FontStyle.italic,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  if (item.hasDiscount) ...[
+                                                    const SizedBox(height: 3),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 3,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: AppColors.error.withValues(alpha: 0.1),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: Text(
+                                                        'Diskon: -${item.discountType == 'percent' && item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(item.discountPercentage.truncateToDouble() == item.discountPercentage ? 0 : 1)}% ' : ''}(${CurrencyFormatter.format(item.discountAmount)})',
+                                                        style: TextStyle(
+                                                          color: AppColors.error,
+                                                          fontSize: 10.5.sp,
+                                                          fontWeight: FontWeight.bold,
                                                         ),
                                                       ),
                                                     ),
                                                   ],
                                                   const SizedBox(height: 4),
                                                   Align(
-                                                    alignment:
-                                                        Alignment.centerLeft,
+                                                    alignment: Alignment.centerLeft,
                                                     child: TextButton.icon(
                                                       icon: Icon(
-                                                        item.catatan.isEmpty
-                                                            ? Icons
-                                                                  .add_comment_outlined
-                                                            : Icons
-                                                                  .comment_rounded,
+                                                        (item.catatan.isEmpty && !item.hasDiscount)
+                                                            ? Icons.add_comment_outlined
+                                                            : Icons.discount_rounded,
                                                         size: 14,
-                                                        color:
-                                                            AppColors.primary,
+                                                        color: item.hasDiscount ? AppColors.error : AppColors.primary,
                                                       ),
                                                       label: Text(
-                                                        item.catatan.isEmpty
-                                                            ? 'Tambah Catatan'
-                                                            : 'Ubah Catatan',
+                                                        (item.catatan.isEmpty && !item.hasDiscount)
+                                                            ? 'Catatan & Diskon'
+                                                            : 'Ubah Catatan / Diskon',
                                                         style: TextStyle(
                                                           color: item.isBilled
-                                                              ? AppColors
-                                                                    .disabled
-                                                              : AppColors
-                                                                    .primary,
+                                                              ? AppColors.disabled
+                                                              : (item.hasDiscount ? AppColors.error : AppColors.primary),
                                                           fontSize: 11.sp,
+                                                          fontWeight: item.hasDiscount ? FontWeight.w600 : FontWeight.normal,
                                                         ),
                                                       ),
                                                       onPressed: item.isBilled
                                                           ? null
-                                                          : () =>
-                                                                _showNoteDialog(
-                                                                  context,
-                                                                  item,
-                                                                ),
+                                                          : () => _showNoteDialog(
+                                                                context,
+                                                                item,
+                                                              ),
                                                       style: TextButton.styleFrom(
-                                                        padding:
-                                                            EdgeInsets.zero,
-                                                        minimumSize: const Size(
-                                                          60,
-                                                          32,
-                                                        ),
-                                                        tapTargetSize:
-                                                            MaterialTapTargetSize
-                                                                .shrinkWrap,
+                                                        padding: EdgeInsets.zero,
+                                                        minimumSize: const Size(60, 28),
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                       ),
                                                     ),
                                                   ),
@@ -1400,21 +1437,39 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                 CrossAxisAlignment
                                                                     .start,
                                                             children: [
-                                                              Text(
-                                                                item.produkNama,
-                                                                style: AppTypography
-                                                                    .titleMedium
-                                                                    .copyWith(
-                                                                      fontSize:
-                                                                          13.sp,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w600,
+                                                              Row(
+                                                                children: [
+                                                                  if (item.isManual) ...[
+                                                                    Container(
+                                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                                      margin: const EdgeInsets.only(right: 6),
+                                                                      decoration: BoxDecoration(
+                                                                        color: Colors.blue.shade50,
+                                                                        borderRadius: BorderRadius.circular(4),
+                                                                        border: Border.all(color: Colors.blue.shade200, width: 0.5),
+                                                                      ),
+                                                                      child: Text(
+                                                                        'NON-STOCK',
+                                                                        style: TextStyle(
+                                                                          fontSize: 9.sp,
+                                                                          fontWeight: FontWeight.bold,
+                                                                          color: Colors.blue.shade700,
+                                                                        ),
+                                                                      ),
                                                                     ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
+                                                                  ],
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      item.produkNama,
+                                                                      style: AppTypography.titleMedium.copyWith(
+                                                                        fontSize: 13.sp,
+                                                                        fontWeight: FontWeight.bold,
+                                                                      ),
+                                                                      maxLines: 1,
+                                                                      overflow: TextOverflow.ellipsis,
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                               ),
                                                               SizedBox(
                                                                 height: 2,
@@ -1651,14 +1706,14 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Subtotal',
+                    cartState.itemDiscountTotal > 0 ? 'Subtotal (Kotor)' : 'Subtotal',
                     style: TextStyle(
                       fontSize: 11.sp,
                       color: AppColors.textSecondary,
                     ),
                   ),
                   Text(
-                    CurrencyFormatter.format(cartState.subtotal),
+                    CurrencyFormatter.format(cartState.grossSubtotal > 0 ? cartState.grossSubtotal : cartState.subtotal),
                     style: TextStyle(
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w500,
@@ -1666,6 +1721,117 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                   ),
                 ],
               ),
+              if (cartState.itemDiscountTotal > 0) ...[
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Diskon Item',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      '-${CurrencyFormatter.format(cartState.itemDiscountTotal)}',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: AppColors.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 3),
+              InkWell(
+                onTap: _showOrderDiscountDialog,
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.local_offer_outlined,
+                            size: 13,
+                            color: cartState.orderDiscountAmount > 0 ? AppColors.error : AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            cartState.orderDiscountAmount > 0
+                                ? 'Diskon Nota (${cartState.orderDiscountType == 'percent' && cartState.orderDiscountRate > 0 ? '${cartState.orderDiscountRate.toStringAsFixed(cartState.orderDiscountRate.truncateToDouble() == cartState.orderDiscountRate ? 0 : 1)}%' : 'Rp'})'
+                                : '+ Diskon Nota / Promo',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: cartState.orderDiscountAmount > 0 ? AppColors.error : AppColors.primary,
+                              fontWeight: cartState.orderDiscountAmount > 0 ? FontWeight.w600 : FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        cartState.orderDiscountAmount > 0
+                            ? '-${CurrencyFormatter.format(cartState.orderDiscountAmount)}'
+                            : 'Tambah',
+                        style: TextStyle(
+                          fontSize: 11.sp,
+                          color: cartState.orderDiscountAmount > 0 ? AppColors.error : AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (cartState.serviceChargeRate > 0) ...[
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Service (${cartState.serviceChargeRate.toStringAsFixed(0)}%)',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      CurrencyFormatter.format(cartState.serviceChargeAmount),
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (cartState.taxRate > 0) ...[
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Pajak (${cartState.taxRate.toStringAsFixed(0)}%)',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      CurrencyFormatter.format(cartState.taxAmount),
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const Divider(height: 8),
               Builder(
                 builder: (context) {

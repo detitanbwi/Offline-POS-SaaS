@@ -9,6 +9,7 @@ import '../../domain/repositories/order_repository.dart';
 
 class OrderRepositoryImpl implements OrderRepository {
   final PosDatabase _db;
+  final _uuid = const Uuid();
   bool _paymentStatusColumnChecked = false;
 
   OrderRepositoryImpl(this._db);
@@ -105,11 +106,50 @@ class OrderRepositoryImpl implements OrderRepository {
   @override
   Future<void> markItemsAsPrinted(String orderId, String batchId) async {
     final db = await _db.database;
-    await db.rawUpdate(
-      'UPDATE order_items SET status_cetak = 1, print_batch_id = ? '
-      'WHERE order_id = ? AND (print_batch_id IS NULL OR print_batch_id = \'\')',
-      [batchId, orderId],
-    );
+    await db.transaction((txn) async {
+      // 1. Fetch all unprinted items for this order that are about to be dispatched to kitchen
+      final unprintedItems = await txn.query(
+        'order_items',
+        where: 'order_id = ? AND (print_batch_id IS NULL OR print_batch_id = \'\') AND (is_cancelled IS NULL OR is_cancelled = 0)',
+        whereArgs: [orderId],
+      );
+
+      // 2. Deduct physical product stock in real time
+      final orderRows = await txn.query(
+        'orders',
+        columns: ['nomor_order', 'table_nama', 'table_nomor', 'customer_name'],
+        where: 'id = ?',
+        whereArgs: [orderId],
+        limit: 1,
+      );
+      String note = 'Pesanan Dapur';
+      if (orderRows.isNotEmpty) {
+        final ord = orderRows.first;
+        final orderNo = ord['nomor_order'] as String? ?? '';
+        final tableNomor = ord['table_nomor'] as String? ?? ord['table_nama'] as String?;
+        final custName = ord['customer_name'] as String?;
+        if (tableNomor != null && tableNomor.isNotEmpty) {
+          note = 'Pesanan Dapur #$orderNo (Meja $tableNomor)';
+        } else if (custName != null && custName.isNotEmpty) {
+          note = 'Pesanan Dapur #$orderNo ($custName)';
+        } else {
+          note = 'Pesanan Dapur #$orderNo';
+        }
+      }
+
+      for (final item in unprintedItems) {
+        final produkId = item['produk_id'] as String? ?? '';
+        final qty = (item['qty'] as num?)?.toInt() ?? 1;
+        await _deductProductStock(txn, produkId, qty, note: note);
+      }
+
+      // 3. Mark items as printed and associate with this print batch
+      await txn.rawUpdate(
+        'UPDATE order_items SET status_cetak = 1, print_batch_id = ? '
+        'WHERE order_id = ? AND (print_batch_id IS NULL OR print_batch_id = \'\')',
+        [batchId, orderId],
+      );
+    });
   }
 
   @override
@@ -278,7 +318,29 @@ class OrderRepositoryImpl implements OrderRepository {
     final db = await _db.database;
 
     await db.transaction((txn) async {
-      // 1. Update order status to 'cancelled'
+      // 1. Restore product stock for all printed items in this order
+      final orderRows = await txn.query(
+        'orders',
+        columns: ['nomor_order'],
+        where: 'id = ?',
+        whereArgs: [orderId],
+        limit: 1,
+      );
+      final orderNo = orderRows.isNotEmpty ? (orderRows.first['nomor_order'] as String? ?? '') : '';
+      final note = orderNo.isNotEmpty ? 'Batal Pesanan #$orderNo' : 'Batal Pesanan';
+
+      final items = await txn.query(
+        'order_items',
+        where: 'order_id = ? AND status_cetak = 1 AND (is_cancelled IS NULL OR is_cancelled = 0)',
+        whereArgs: [orderId],
+      );
+      for (final item in items) {
+        final produkId = item['produk_id'] as String? ?? '';
+        final qty = (item['qty'] as num?)?.toInt() ?? 1;
+        await _restoreProductStock(txn, produkId, qty, note: note);
+      }
+
+      // 2. Update order status to 'cancelled'
       await txn.update(
         'orders',
         {
@@ -289,8 +351,8 @@ class OrderRepositoryImpl implements OrderRepository {
         whereArgs: [orderId],
       );
 
-      // 2. Set table status back to Empty (0) if tableId exists
-      if (tableId.isNotEmpty) {
+      // 3. Set table status back to Empty (0) if tableId exists
+      if (tableId.isNotEmpty && tableId != 'TABLE_TAKE_AWAY') {
         await txn.update(
           'tables',
           {
@@ -379,6 +441,146 @@ class OrderRepositoryImpl implements OrderRepository {
     });
   }
 
+  Future<void> _deductProductStock(DatabaseExecutor txn, String produkId, int qty, {String? note}) async {
+    if (produkId.isEmpty || produkId.startsWith('manual_') || qty <= 0) return;
+
+    final productRows = await txn.query(
+      'products',
+      columns: ['id', 'stok', 'nama', 'is_package'],
+      where: 'id = ?',
+      whereArgs: [produkId],
+      limit: 1,
+    );
+    if (productRows.isEmpty) return;
+
+    final isPackage = (productRows.first['is_package'] as int? ?? 0) == 1;
+    final now = DateTime.now();
+    final nowStr = now.toIso8601String();
+    final todayStr = nowStr.split('T')[0];
+
+    if (isPackage) {
+      final List<Map<String, dynamic>> compRows = await txn.rawQuery('''
+        SELECT pi.qty as comp_qty, p.id as comp_id, p.nama as comp_nama, p.stok as comp_stok
+        FROM package_items pi
+        JOIN products p ON pi.product_id = p.id
+        WHERE pi.package_id = ?
+      ''', [produkId]);
+
+      for (final comp in compRows) {
+        final compStock = comp['comp_stok'] as int? ?? 0;
+        if (compStock == -1) continue; // Unlimited non-stock
+        final compReqQty = (comp['comp_qty'] as num).toInt() * qty;
+        final newCompStock = (compStock - compReqQty).clamp(-999999, 9999999);
+        await txn.update(
+          'products',
+          {'stok': newCompStock, 'updated_at': nowStr},
+          where: 'id = ?',
+          whereArgs: [comp['comp_id']],
+        );
+        // Insert into stock_in (Mutasi Stok Keluar)
+        await txn.insert('stock_in', {
+          'id': _uuid.v4(),
+          'produk_id': comp['comp_id'],
+          'type': 'out',
+          'qty': compReqQty,
+          'tanggal': todayStr,
+          'catatan': note ?? 'Pesanan Dapur',
+          'created_at': nowStr,
+        });
+      }
+    } else {
+      final currentStock = productRows.first['stok'] as int? ?? 0;
+      if (currentStock == -1) return; // Unlimited non-stock
+      final newStock = (currentStock - qty).clamp(-999999, 9999999);
+      await txn.update(
+        'products',
+        {'stok': newStock, 'updated_at': nowStr},
+        where: 'id = ?',
+        whereArgs: [produkId],
+      );
+      // Insert into stock_in (Mutasi Stok Keluar)
+      await txn.insert('stock_in', {
+        'id': _uuid.v4(),
+        'produk_id': produkId,
+        'type': 'out',
+        'qty': qty,
+        'tanggal': todayStr,
+        'catatan': note ?? 'Pesanan Dapur',
+        'created_at': nowStr,
+      });
+    }
+  }
+
+  Future<void> _restoreProductStock(DatabaseExecutor txn, String produkId, int qty, {String? note}) async {
+    if (produkId.isEmpty || produkId.startsWith('manual_') || qty <= 0) return;
+
+    final productRows = await txn.query(
+      'products',
+      columns: ['id', 'stok', 'nama', 'is_package'],
+      where: 'id = ?',
+      whereArgs: [produkId],
+      limit: 1,
+    );
+    if (productRows.isEmpty) return;
+
+    final isPackage = (productRows.first['is_package'] as int? ?? 0) == 1;
+    final now = DateTime.now();
+    final nowStr = now.toIso8601String();
+    final todayStr = nowStr.split('T')[0];
+
+    if (isPackage) {
+      final List<Map<String, dynamic>> compRows = await txn.rawQuery('''
+        SELECT pi.qty as comp_qty, p.id as comp_id, p.nama as comp_nama, p.stok as comp_stok
+        FROM package_items pi
+        JOIN products p ON pi.product_id = p.id
+        WHERE pi.package_id = ?
+      ''', [produkId]);
+
+      for (final comp in compRows) {
+        final compStock = comp['comp_stok'] as int? ?? 0;
+        if (compStock == -1) continue; // Unlimited non-stock
+        final compReqQty = (comp['comp_qty'] as num).toInt() * qty;
+        final newCompStock = compStock + compReqQty;
+        await txn.update(
+          'products',
+          {'stok': newCompStock, 'updated_at': nowStr},
+          where: 'id = ?',
+          whereArgs: [comp['comp_id']],
+        );
+        // Insert into stock_in (Mutasi Stok Masuk / Pengembalian)
+        await txn.insert('stock_in', {
+          'id': _uuid.v4(),
+          'produk_id': comp['comp_id'],
+          'type': 'in',
+          'qty': compReqQty,
+          'tanggal': todayStr,
+          'catatan': note ?? 'Batal Pesanan',
+          'created_at': nowStr,
+        });
+      }
+    } else {
+      final currentStock = productRows.first['stok'] as int? ?? 0;
+      if (currentStock == -1) return; // Unlimited non-stock
+      final newStock = currentStock + qty;
+      await txn.update(
+        'products',
+        {'stok': newStock, 'updated_at': nowStr},
+        where: 'id = ?',
+        whereArgs: [produkId],
+      );
+      // Insert into stock_in (Mutasi Stok Masuk / Pengembalian)
+      await txn.insert('stock_in', {
+        'id': _uuid.v4(),
+        'produk_id': produkId,
+        'type': 'in',
+        'qty': qty,
+        'tanggal': todayStr,
+        'catatan': note ?? 'Batal Pesanan',
+        'created_at': nowStr,
+      });
+    }
+  }
+
   Future<void> _recalculateOrderTotals(DatabaseExecutor txn, String orderId) async {
     final orderMap = await txn.query('orders', where: 'id = ?', whereArgs: [orderId], limit: 1);
     if (orderMap.isEmpty) return;
@@ -386,12 +588,50 @@ class OrderRepositoryImpl implements OrderRepository {
     final taxPercentage = (orderMap.first['tax_percentage'] as num?)?.toDouble() ?? 0.0;
     final serviceRate = (orderMap.first['service_charge_percentage'] as num?)?.toDouble() ?? 0.0;
     final isAfterTax = (orderMap.first['service_charge_after_tax'] as int?) == 1;
+    final tableId = orderMap.first['table_id'] as String?;
 
     final activeItems = await txn.query(
       'order_items',
       where: 'order_id = ? AND (is_cancelled IS NULL OR is_cancelled = 0)',
       whereArgs: [orderId],
     );
+
+    // If ALL items in this order have been cancelled, mark order as cancelled and free the table
+    if (activeItems.isEmpty) {
+      await txn.update(
+        'orders',
+        {
+          'status': 'cancelled',
+          'subtotal': 0.0,
+          'service_charge_amount': 0.0,
+          'tax_amount': 0.0,
+          'grand_total': 0.0,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+
+      if (tableId != null && tableId.isNotEmpty && tableId != 'TABLE_TAKE_AWAY') {
+        final otherActiveOrders = await txn.query(
+          'orders',
+          where: 'table_id = ? AND id != ? AND status NOT IN (?, ?, ?)',
+          whereArgs: [tableId, orderId, 'completed', 'cancelled', 'cleared'],
+        );
+        if (otherActiveOrders.isEmpty) {
+          await txn.update(
+            'tables',
+            {
+              'status': 0,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [tableId],
+          );
+        }
+      }
+      return;
+    }
 
     double subtotal = 0.0;
     for (var item in activeItems) {
@@ -474,8 +714,23 @@ class OrderRepositoryImpl implements OrderRepository {
     await db.transaction((txn) async {
       final items = await txn.query('order_items', where: 'id = ?', whereArgs: [itemId], limit: 1);
       if (items.isEmpty) return;
-      final orderId = items.first['order_id'] as String;
+      final item = items.first;
+      final orderId = item['order_id'] as String;
+      final statusCetak = (item['status_cetak'] as num?)?.toInt() ?? 0;
+      final isAlreadyCancelled = (item['is_cancelled'] as num?)?.toInt() ?? 0;
 
+      // 1. Restore product stock if item was already dispatched to kitchen
+      if (statusCetak == 1 && isAlreadyCancelled == 0) {
+        final orderRows = await txn.query('orders', columns: ['nomor_order'], where: 'id = ?', whereArgs: [orderId], limit: 1);
+        final orderNo = orderRows.isNotEmpty ? (orderRows.first['nomor_order'] as String? ?? '') : '';
+        final note = 'Batal Item ${orderNo.isNotEmpty ? '#$orderNo' : ''}${reason.isNotEmpty ? ' ($reason)' : ''}'.trim();
+
+        final produkId = item['produk_id'] as String? ?? '';
+        final qty = (item['qty'] as num?)?.toInt() ?? 1;
+        await _restoreProductStock(txn, produkId, qty, note: note);
+      }
+
+      // 2. Mark item as cancelled
       await txn.update(
         'order_items',
         {
@@ -487,6 +742,7 @@ class OrderRepositoryImpl implements OrderRepository {
         whereArgs: [itemId],
       );
 
+      // 3. Recalculate totals and free table if empty
       await _recalculateOrderTotals(txn, orderId);
     });
   }
@@ -499,6 +755,22 @@ class OrderRepositoryImpl implements OrderRepository {
       if (items.isEmpty) return;
       final orderId = items.first['order_id'] as String;
 
+      final orderRows = await txn.query('orders', columns: ['nomor_order'], where: 'id = ?', whereArgs: [orderId], limit: 1);
+      final orderNo = orderRows.isNotEmpty ? (orderRows.first['nomor_order'] as String? ?? '') : '';
+      final note = 'Batal Batch ${orderNo.isNotEmpty ? '#$orderNo' : ''}${reason.isNotEmpty ? ' ($reason)' : ''}'.trim();
+
+      // 1. Restore product stock for all items in this batch that were dispatched to kitchen
+      for (final item in items) {
+        final statusCetak = (item['status_cetak'] as num?)?.toInt() ?? 0;
+        final isAlreadyCancelled = (item['is_cancelled'] as num?)?.toInt() ?? 0;
+        if (statusCetak == 1 && isAlreadyCancelled == 0) {
+          final produkId = item['produk_id'] as String? ?? '';
+          final qty = (item['qty'] as num?)?.toInt() ?? 1;
+          await _restoreProductStock(txn, produkId, qty, note: note);
+        }
+      }
+
+      // 2. Mark items in this batch as cancelled
       await txn.update(
         'order_items',
         {
@@ -510,6 +782,7 @@ class OrderRepositoryImpl implements OrderRepository {
         whereArgs: [batchId],
       );
 
+      // 3. Recalculate totals and free table if empty
       await _recalculateOrderTotals(txn, orderId);
     });
   }

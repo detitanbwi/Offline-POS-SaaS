@@ -34,6 +34,7 @@ import '../../../../core/utils/receipt_generator.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
+import '../widgets/manual_order_modal.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -597,18 +598,51 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
             ),
           ),
           if (_posTabController.index == 0) ...[
-            AppTextField(
-              controller: _searchController,
-              labelText: 'Cari Produk POS',
-              prefixIcon: Icons.search_rounded,
-              onChanged: (val) {
-                if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-                _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-                  setState(() {
-                    _searchQuery = val;
-                  });
-                });
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: AppTextField(
+                    controller: _searchController,
+                    labelText: 'Cari Produk POS',
+                    prefixIcon: Icons.search_rounded,
+                    onChanged: (val) {
+                      if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+                      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                        setState(() {
+                          _searchQuery = val;
+                        });
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Material(
+                  color: AppColors.primaryContainer.withAlpha(80),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => ManualOrderModal.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Manual',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.sp,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           Builder(
             builder: (context) {

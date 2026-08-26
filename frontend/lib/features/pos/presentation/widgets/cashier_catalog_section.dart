@@ -16,6 +16,7 @@ import '../../../category/application/category_notifier.dart';
 import '../../../product/application/product_notifier.dart';
 import '../../../product/domain/models/product.dart';
 import '../../application/cart_notifier.dart';
+import 'manual_order_modal.dart';
 
 class CashierCatalogSection extends ConsumerStatefulWidget {
   const CashierCatalogSection({super.key});
@@ -54,14 +55,17 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
     final categoryState = ref.watch(categoryNotifierProvider);
     final cartState = ref.watch(cartNotifierProvider);
 
-    // Calculate real-time cart usage for dynamic stock deduction in catalog
+    // Calculate real-time cart usage for dynamic stock deduction in catalog (only for unsaved / newly added items)
     final Map<String, int> cartUsage = {};
     for (final cartItem in cartState.items) {
+      final unsavedQty = (cartItem.qty - cartItem.initialSavedQty).clamp(0, 999999);
+      if (unsavedQty <= 0) continue;
+
       if (!cartItem.product.isPackage) {
-        cartUsage[cartItem.product.id] = (cartUsage[cartItem.product.id] ?? 0) + cartItem.qty;
+        cartUsage[cartItem.product.id] = (cartUsage[cartItem.product.id] ?? 0) + unsavedQty;
       } else {
         for (final comp in cartItem.product.packageItems) {
-          cartUsage[comp.productId] = (cartUsage[comp.productId] ?? 0) + (comp.qty * cartItem.qty);
+          cartUsage[comp.productId] = (cartUsage[comp.productId] ?? 0) + (comp.qty * unsavedQty);
         }
       }
     }
@@ -88,32 +92,65 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search bar
-        TextField(
-          enableSuggestions: false,
-          autocorrect: false,
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          decoration: InputDecoration(
-            hintText: 'Cari produk atau kode...',
-            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear_rounded),
-                    onPressed: () {
-                      _searchController.clear();
-                      _onSearchChanged('');
-                    },
-                  )
-                : null,
-            filled: true,
-            fillColor: AppColors.background,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+        // Search bar & Manual Order Button
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                enableSuggestions: false,
+                autocorrect: false,
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: 'Cari produk atau kode...',
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
+            const SizedBox(width: 8),
+            Material(
+              color: AppColors.primaryContainer.withAlpha(80),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => ManualOrderModal.show(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Manual',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.m),
 

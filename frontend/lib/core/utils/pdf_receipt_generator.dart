@@ -109,6 +109,8 @@ class PdfReceiptGenerator {
           result[idx] = existing.copyWith(
             qty: existing.qty + item.qty,
             subtotal: existing.subtotal + item.subtotal,
+            discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
+            discountAmount: existing.discountAmount + item.discountAmount,
             catatan: mergedNotes,
           );
         } else {
@@ -153,6 +155,8 @@ class PdfReceiptGenerator {
             produkHarga: existing.produkHarga,
             qty: existing.qty + item.qty,
             subtotal: existing.subtotal + item.subtotal,
+            discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
+            discountAmount: existing.discountAmount + item.discountAmount,
             catatan: mergedNotes,
           );
         } else {
@@ -193,7 +197,7 @@ class PdfReceiptGenerator {
         pageFormat: PdfPageFormat(_rollWidth, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (pw.Context context) {
           final (scAmount, scRate) = _resolveOrderServiceCharge(order);
-          final storeTotal = order.subtotal + scAmount + order.taxAmount;
+          final storeTotal = order.subtotal + scAmount + order.taxAmount - order.discountAmount;
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
@@ -220,12 +224,10 @@ class PdfReceiptGenerator {
 
               // Items
               for (var item in displayItems) ...[
-                pw.Text('${item.qty}x ${item.produkNama}', style: pw.TextStyle(font: font, fontSize: 8)),
-                _buildRowPdf(
-                  font,
-                  '  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}',
-                  CurrencyFormatter.formatNumber(item.subtotal),
-                ),
+                _buildRowPdf(font, '${item.qty}x ${item.produkNama}', CurrencyFormatter.formatNumber(item.subtotal)),
+                pw.Text('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
+                if (item.discountAmount > 0)
+                  pw.Text('  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (packageComponents.containsKey(item.produkId))
                   for (var comp in packageComponents[item.produkId]!)
                     pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
@@ -237,6 +239,12 @@ class PdfReceiptGenerator {
 
               // Totals
               _buildRowPdf(font, 'Subtotal', CurrencyFormatter.formatNumber(order.subtotal)),
+              if (order.discountAmount > 0)
+                _buildRowPdf(
+                  font,
+                  'Diskon Nota${order.discountPercentage > 0 ? ' (${order.discountPercentage.toStringAsFixed(0)}%)' : ''}',
+                  '-${CurrencyFormatter.formatNumber(order.discountAmount)}',
+                ),
               if (scAmount > 0)
                 _buildRowPdf(
                   font,
@@ -410,12 +418,10 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
               for (var item in displayItems) ...[
-                pw.Text('${item.qty}x ${item.produkNama}', style: pw.TextStyle(font: font, fontSize: 8)),
-                _buildRowPdf(
-                  font,
-                  '  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}',
-                  CurrencyFormatter.formatNumber(item.subtotal),
-                ),
+                _buildRowPdf(font, '${item.qty}x ${item.produkNama}', CurrencyFormatter.formatNumber(item.subtotal)),
+                pw.Text('  @ ${CurrencyFormatter.formatNumber(item.produkHarga)}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
+                if (item.discountAmount > 0)
+                  pw.Text('  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (txPackageComponents.containsKey(item.produkId))
                   for (var comp in txPackageComponents[item.produkId]!)
                     pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
@@ -426,6 +432,12 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
 
               _buildRowPdf(font, 'Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal)),
+              if (transaction.discountAmount > 0)
+                _buildRowPdf(
+                  font,
+                  'Diskon Nota${transaction.discountPercentage > 0 ? ' (${transaction.discountPercentage.toStringAsFixed(0)}%)' : ''}',
+                  '-${CurrencyFormatter.formatNumber(transaction.discountAmount)}',
+                ),
               if (txScAmount > 0)
                 _buildRowPdf(
                   font,

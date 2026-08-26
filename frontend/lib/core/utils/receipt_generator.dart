@@ -115,6 +115,8 @@ class ReceiptGenerator {
           result[idx] = existing.copyWith(
             qty: existing.qty + item.qty,
             subtotal: existing.subtotal + item.subtotal,
+            discountAmount: existing.discountAmount + item.discountAmount,
+            discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
             catatan: mergedNotes,
           );
         } else {
@@ -159,6 +161,8 @@ class ReceiptGenerator {
             produkHarga: existing.produkHarga,
             qty: existing.qty + item.qty,
             subtotal: existing.subtotal + item.subtotal,
+            discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
+            discountAmount: existing.discountAmount + item.discountAmount,
             catatan: mergedNotes,
           );
         } else {
@@ -242,6 +246,11 @@ class ReceiptGenerator {
         bytes += generator.text('   • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
       }
 
+      if (item.discountAmount > 0) {
+        final discTag = '  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})';
+        bytes += generator.text(discTag, styles: const PosStyles(align: PosAlign.left));
+      }
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
         for (var noteLine in wrappedNotes) {
@@ -259,6 +268,14 @@ class ReceiptGenerator {
       CurrencyFormatter.formatNumber(order.subtotal),
       totalWidth: charsPerLine,
     );
+    if (order.discountAmount > 0) {
+      bytes += _renderRow(
+        generator,
+        'Diskon Nota${order.discountPercentage > 0 ? ' (${order.discountPercentage.toStringAsFixed(0)}%)' : ''}',
+        '-${CurrencyFormatter.formatNumber(order.discountAmount)}',
+        totalWidth: charsPerLine,
+      );
+    }
     final (scAmount, scRate) = _resolveOrderServiceCharge(order);
     if (scAmount > 0) {
       bytes += _renderRow(
@@ -473,6 +490,11 @@ class ReceiptGenerator {
         final compNama = comp['product_nama'] as String;
         bytes += generator.text('   • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
       }
+
+      if (item.discountAmount > 0) {
+        final discTag = '  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})';
+        bytes += generator.text(discTag, styles: const PosStyles(align: PosAlign.left));
+      }
     }
 
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
@@ -484,6 +506,14 @@ class ReceiptGenerator {
       CurrencyFormatter.formatNumber(transaction.subtotal),
       totalWidth: charsPerLine,
     );
+    if (transaction.discountAmount > 0) {
+      bytes += _renderRow(
+        generator,
+        'Diskon Nota${transaction.discountPercentage > 0 ? ' (${transaction.discountPercentage.toStringAsFixed(0)}%)' : ''}',
+        '-${CurrencyFormatter.formatNumber(transaction.discountAmount)}',
+        totalWidth: charsPerLine,
+      );
+    }
     final (txScAmount, txScRate) = _resolveTxServiceCharge(transaction);
     if (txScAmount > 0) {
       bytes += _renderRow(
@@ -802,6 +832,10 @@ class ReceiptGenerator {
         buffer.writeln('   • ${compQty}x $compNama');
       }
 
+      if (item.discountAmount > 0) {
+        buffer.writeln('  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})');
+      }
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
         for (var noteLine in wrappedNotes) {
@@ -811,6 +845,9 @@ class ReceiptGenerator {
     }
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(order.subtotal), width: charsPerLine));
+    if (order.discountAmount > 0) {
+      buffer.writeln(formatTextRow('Diskon Nota${order.discountPercentage > 0 ? ' (${order.discountPercentage.toStringAsFixed(0)}%)' : ''}', '-${CurrencyFormatter.formatNumber(order.discountAmount)}', width: charsPerLine));
+    }
     final (previewScAmount, previewScRate) = _resolveOrderServiceCharge(order);
     if (previewScAmount > 0) {
       buffer.writeln(formatTextRow('Service (${previewScRate.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(previewScAmount), width: charsPerLine));
@@ -818,7 +855,7 @@ class ReceiptGenerator {
     if (order.taxAmount > 0) {
       buffer.writeln(formatTextRow('Pajak (${order.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(order.taxAmount), width: charsPerLine));
     }
-    final storeTotal = order.subtotal + previewScAmount + order.taxAmount;
+    final storeTotal = order.subtotal + previewScAmount + order.taxAmount - order.discountAmount;
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(order.onlinePlatformTotal != null && order.onlinePlatformTotal! > 0 ? storeTotal : order.grandTotal), width: charsPerLine));
     buffer.writeln(dashLine);
@@ -955,9 +992,16 @@ class ReceiptGenerator {
         final compNama = comp['product_nama'] as String;
         buffer.writeln('   • ${compQty}x $compNama');
       }
+
+      if (item.discountAmount > 0) {
+        buffer.writeln('  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})');
+      }
     }
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('Subtotal', CurrencyFormatter.formatNumber(transaction.subtotal), width: charsPerLine));
+    if (transaction.discountAmount > 0) {
+      buffer.writeln(formatTextRow('Diskon Nota${transaction.discountPercentage > 0 ? ' (${transaction.discountPercentage.toStringAsFixed(0)}%)' : ''}', '-${CurrencyFormatter.formatNumber(transaction.discountAmount)}', width: charsPerLine));
+    }
     final (txPreviewScAmount, txPreviewScRate) = _resolveTxServiceCharge(transaction);
     if (txPreviewScAmount > 0) {
       buffer.writeln(formatTextRow('Service (${txPreviewScRate.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(txPreviewScAmount), width: charsPerLine));
@@ -966,7 +1010,7 @@ class ReceiptGenerator {
       buffer.writeln(formatTextRow('Pajak (${transaction.taxPercentage.toStringAsFixed(0)}%)', CurrencyFormatter.formatNumber(transaction.taxAmount), width: charsPerLine));
     }
     buffer.writeln(dashLine);
-    final storeTotal = transaction.subtotal + txPreviewScAmount + transaction.taxAmount;
+    final storeTotal = transaction.subtotal + txPreviewScAmount + transaction.taxAmount - transaction.discountAmount;
     buffer.writeln(formatTextRow('TOTAL', CurrencyFormatter.formatNumber(transaction.onlinePlatformTotal != null ? storeTotal : transaction.grandTotal), width: charsPerLine));
     buffer.writeln(eqLine);
     if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) {

@@ -20,6 +20,8 @@ class OrderItemModel {
   final String? cancelledReason;
   final String? cancelledByManagerId;
   final String? printBatchId;
+  final double discountPercentage;
+  final double discountAmount;
 
   const OrderItemModel({
     required this.id,
@@ -43,10 +45,14 @@ class OrderItemModel {
     this.cancelledReason,
     this.cancelledByManagerId,
     this.printBatchId,
+    this.discountPercentage = 0.0,
+    this.discountAmount = 0.0,
   }) : qtyOrdered = qtyOrdered ?? qty;
 
   int get remainingUnpaidQty => (qtyOrdered - qtyPaid - cancelledQty).clamp(0, 999999);
   bool get isFullyPaid => qtyPaid >= (qtyOrdered - cancelledQty);
+  bool get isManual => produkId.startsWith('manual_');
+  bool get hasDiscount => discountAmount > 0;
 
   OrderItemModel copyWith({
     String? id,
@@ -70,6 +76,8 @@ class OrderItemModel {
     String? cancelledReason,
     String? cancelledByManagerId,
     String? printBatchId,
+    double? discountPercentage,
+    double? discountAmount,
   }) {
     return OrderItemModel(
       id: id ?? this.id,
@@ -93,6 +101,8 @@ class OrderItemModel {
       cancelledReason: cancelledReason ?? this.cancelledReason,
       cancelledByManagerId: cancelledByManagerId ?? this.cancelledByManagerId,
       printBatchId: printBatchId ?? this.printBatchId,
+      discountPercentage: discountPercentage ?? this.discountPercentage,
+      discountAmount: discountAmount ?? this.discountAmount,
     );
   }
 
@@ -119,6 +129,8 @@ class OrderItemModel {
       'cancelled_reason': cancelledReason,
       'cancelled_by_manager_id': cancelledByManagerId,
       'print_batch_id': printBatchId,
+      'diskon_percentage': discountPercentage,
+      'diskon_amount': discountAmount,
     };
   }
 
@@ -147,6 +159,8 @@ class OrderItemModel {
       cancelledReason: map['cancelled_reason'] as String?,
       cancelledByManagerId: map['cancelled_by_manager_id'] as String?,
       printBatchId: map['print_batch_id'] as String?,
+      discountPercentage: ((map['diskon_percentage'] ?? map['discount_percentage']) as num?)?.toDouble() ?? 0.0,
+      discountAmount: ((map['diskon_amount'] ?? map['discount_amount']) as num?)?.toDouble() ?? 0.0,
     );
   }
 }

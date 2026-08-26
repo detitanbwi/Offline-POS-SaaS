@@ -98,6 +98,85 @@ class VoidOrderService {
         whereArgs: [orderItemId],
       );
 
+      // Restore product stock if item was already printed/dispatched to kitchen
+      if (wasPrintedToKitchen) {
+        final produkId = row['produk_id'] as String? ?? '';
+        if (produkId.isNotEmpty && !produkId.startsWith('manual_')) {
+          final masterRowsPre = await txn.query(
+            'master_orders',
+            columns: ['nomor_order'],
+            where: 'id = ?',
+            whereArgs: [masterOrderId],
+            limit: 1,
+          );
+          final preOrderNo = masterRowsPre.isNotEmpty ? (masterRowsPre.first['nomor_order'] as String? ?? '') : '';
+          final voidNote = 'Void ${preOrderNo.isNotEmpty ? '#$preOrderNo' : 'Pesanan'}${reason.isNotEmpty ? ' ($reason)' : ''}'.trim();
+          final todayStr = nowStr.split('T')[0];
+
+          final productRows = await txn.query(
+            'products',
+            columns: ['id', 'stok', 'nama', 'is_package'],
+            where: 'id = ?',
+            whereArgs: [produkId],
+            limit: 1,
+          );
+          if (productRows.isNotEmpty) {
+            final isPackage = (productRows.first['is_package'] as int? ?? 0) == 1;
+            if (isPackage) {
+              final List<Map<String, dynamic>> compRows = await txn.rawQuery('''
+                SELECT pi.qty as comp_qty, p.id as comp_id, p.nama as comp_nama, p.stok as comp_stok
+                FROM package_items pi
+                JOIN products p ON pi.product_id = p.id
+                WHERE pi.package_id = ?
+              ''', [produkId]);
+              for (final comp in compRows) {
+                final compStock = comp['comp_stok'] as int? ?? 0;
+                if (compStock == -1) continue;
+                final compReqQty = (comp['comp_qty'] as num).toInt() * qtyToVoid;
+                final newCompStock = compStock + compReqQty;
+                await txn.update(
+                  'products',
+                  {'stok': newCompStock, 'updated_at': nowStr},
+                  where: 'id = ?',
+                  whereArgs: [comp['comp_id']],
+                );
+                // Insert into stock_in (Mutasi Stok Masuk / Void)
+                await txn.insert('stock_in', {
+                  'id': _uuid.v4(),
+                  'produk_id': comp['comp_id'],
+                  'type': 'in',
+                  'qty': compReqQty,
+                  'tanggal': todayStr,
+                  'catatan': voidNote,
+                  'created_at': nowStr,
+                });
+              }
+            } else {
+              final currentStock = productRows.first['stok'] as int? ?? 0;
+              if (currentStock != -1) {
+                final newStock = currentStock + qtyToVoid;
+                await txn.update(
+                  'products',
+                  {'stok': newStock, 'updated_at': nowStr},
+                  where: 'id = ?',
+                  whereArgs: [produkId],
+                );
+                // Insert into stock_in (Mutasi Stok Masuk / Void)
+                await txn.insert('stock_in', {
+                  'id': _uuid.v4(),
+                  'produk_id': produkId,
+                  'type': 'in',
+                  'qty': qtyToVoid,
+                  'tanggal': todayStr,
+                  'catatan': voidNote,
+                  'created_at': nowStr,
+                });
+              }
+            }
+          }
+        }
+      }
+
       // Recalculate master_orders totals
       final masterRows = await txn.query(
         'master_orders',
@@ -112,30 +191,61 @@ class VoidOrderService {
         // Sum remaining items
         final allItems = await txn.query(
           'order_items',
-          where: 'master_order_id = ? AND is_cancelled = 0',
+          where: 'master_order_id = ? AND (is_cancelled IS NULL OR is_cancelled = 0)',
           whereArgs: [masterOrderId],
         );
-        double totalSub = 0.0;
-        for (final it in allItems) {
-          totalSub += (it['subtotal'] as num).toDouble();
+
+        if (allItems.isEmpty) {
+          // Entire order is voided / cancelled
+          await txn.update(
+            'master_orders',
+            {
+              'status': 'cancelled',
+              'subtotal': 0.0,
+              'tax_amount': 0.0,
+              'grand_total': 0.0,
+              'last_activity_at': nowStr,
+              'updated_at': nowStr,
+            },
+            where: 'id = ?',
+            whereArgs: [masterOrderId],
+          );
+
+          final effectiveTableId = tableId;
+          if (effectiveTableId != null && effectiveTableId.isNotEmpty && effectiveTableId != 'TABLE_TAKE_AWAY') {
+            await txn.update(
+              'tables',
+              {
+                'status': 0,
+                'updated_at': nowStr,
+              },
+              where: 'id = ?',
+              whereArgs: [effectiveTableId],
+            );
+          }
+        } else {
+          double totalSub = 0.0;
+          for (final it in allItems) {
+            totalSub += (it['subtotal'] as num).toDouble();
+          }
+
+          final taxPerc = (master['tax_percentage'] as num?)?.toDouble() ?? 0.0;
+          final taxAmt = totalSub * (taxPerc / 100.0);
+          final grandTot = totalSub + taxAmt;
+
+          await txn.update(
+            'master_orders',
+            {
+              'subtotal': totalSub,
+              'tax_amount': taxAmt,
+              'grand_total': grandTot,
+              'last_activity_at': nowStr,
+              'updated_at': nowStr,
+            },
+            where: 'id = ?',
+            whereArgs: [masterOrderId],
+          );
         }
-
-        final taxPerc = (master['tax_percentage'] as num?)?.toDouble() ?? 0.0;
-        final taxAmt = totalSub * (taxPerc / 100.0);
-        final grandTot = totalSub + taxAmt;
-
-        await txn.update(
-          'master_orders',
-          {
-            'subtotal': totalSub,
-            'tax_amount': taxAmt,
-            'grand_total': grandTot,
-            'last_activity_at': nowStr,
-            'updated_at': nowStr,
-          },
-          where: 'id = ?',
-          whereArgs: [masterOrderId],
-        );
       }
 
       // Log to void_authorization_logs

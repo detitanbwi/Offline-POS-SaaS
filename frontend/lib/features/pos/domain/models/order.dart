@@ -10,6 +10,8 @@ class OrderModel {
   final String? onlinePlatform;
   final String? clearTableReason;
   final double subtotal;
+  final double discountPercentage;
+  final double discountAmount;
   final double taxPercentage;
   final double taxAmount;
   final double serviceChargePercentage;
@@ -40,6 +42,8 @@ class OrderModel {
     this.onlinePlatform,
     this.clearTableReason,
     this.subtotal = 0.0,
+    this.discountPercentage = 0.0,
+    this.discountAmount = 0.0,
     this.taxPercentage = 0.0,
     this.taxAmount = 0.0,
     this.serviceChargePercentage = 0.0,
@@ -68,6 +72,7 @@ class OrderModel {
   bool get isPartiallyPaid => paymentStatus == 'partially_paid';
   bool get isPaid => paymentStatus == 'paid';
   bool get isTakeAway => orderType == 'take_away';
+  bool get hasDiscount => discountAmount > 0;
 
   OrderModel copyWith({
     String? id,
@@ -81,6 +86,8 @@ class OrderModel {
     String? onlinePlatform,
     String? clearTableReason,
     double? subtotal,
+    double? discountPercentage,
+    double? discountAmount,
     double? taxPercentage,
     double? taxAmount,
     double? serviceChargePercentage,
@@ -111,6 +118,8 @@ class OrderModel {
       onlinePlatform: onlinePlatform ?? this.onlinePlatform,
       clearTableReason: clearTableReason ?? this.clearTableReason,
       subtotal: subtotal ?? this.subtotal,
+      discountPercentage: discountPercentage ?? this.discountPercentage,
+      discountAmount: discountAmount ?? this.discountAmount,
       taxPercentage: taxPercentage ?? this.taxPercentage,
       taxAmount: taxAmount ?? this.taxAmount,
       serviceChargePercentage: serviceChargePercentage ?? this.serviceChargePercentage,
@@ -144,6 +153,8 @@ class OrderModel {
       'online_platform': onlinePlatform,
       'clear_table_reason': clearTableReason,
       'subtotal': subtotal,
+      'discount_percentage': discountPercentage,
+      'discount_amount': discountAmount,
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
       'service_charge_percentage': serviceChargePercentage,
@@ -179,6 +190,8 @@ class OrderModel {
       onlinePlatform: map['online_platform'] as String?,
       clearTableReason: map['clear_table_reason'] as String?,
       subtotal: (map['subtotal'] as num).toDouble(),
+      discountPercentage: ((map['discount_percentage'] ?? map['diskon_percentage']) as num?)?.toDouble() ?? 0.0,
+      discountAmount: ((map['discount_amount'] ?? map['diskon_amount']) as num?)?.toDouble() ?? 0.0,
       taxPercentage: ((map['tax_percentage'] as num?) ?? 0.0).toDouble(),
       taxAmount: ((map['tax_amount'] as num?) ?? 0.0).toDouble(),
       serviceChargePercentage: ((map['service_charge_percentage'] as num?) ?? 0.0).toDouble(),

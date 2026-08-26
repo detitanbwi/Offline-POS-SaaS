@@ -40,7 +40,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 15,
+            version: 16,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-            version: 15,
+            version: 16,
             password: pwd,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
@@ -83,7 +83,7 @@ class PosDatabase {
             db = await databaseFactoryFfi.openDatabase(
               path,
               options: OpenDatabaseOptions(
-                version: 15,
+                version: 16,
                 onCreate: _createDB,
                 onUpgrade: _upgradeDB,
                 onConfigure: _onConfigure,
@@ -92,7 +92,7 @@ class PosDatabase {
           } else {
             db = await openDatabase(
               path,
-              version: 15,
+              version: 16,
               onCreate: _createDB,
               onUpgrade: _upgradeDB,
               onConfigure: _onConfigure,
@@ -272,6 +272,8 @@ class PosDatabase {
         nomor_transaksi TEXT NOT NULL UNIQUE,
         master_order_id TEXT,
         subtotal REAL NOT NULL,
+        discount_percentage REAL NOT NULL DEFAULT 0,
+        discount_amount REAL NOT NULL DEFAULT 0,
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
         service_charge_percentage REAL NOT NULL DEFAULT 0,
@@ -307,6 +309,8 @@ class PosDatabase {
         produk_harga REAL NOT NULL,
         qty INTEGER NOT NULL,
         subtotal REAL NOT NULL,
+        diskon_percentage REAL NOT NULL DEFAULT 0,
+        diskon_amount REAL NOT NULL DEFAULT 0,
         package_details TEXT,
         catatan TEXT,
         FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
@@ -342,6 +346,8 @@ class PosDatabase {
         online_platform TEXT,
         clear_table_reason TEXT,
         subtotal REAL NOT NULL DEFAULT 0,
+        discount_percentage REAL NOT NULL DEFAULT 0,
+        discount_amount REAL NOT NULL DEFAULT 0,
         tax_percentage REAL NOT NULL DEFAULT 0,
         tax_amount REAL NOT NULL DEFAULT 0,
         service_charge_percentage REAL NOT NULL DEFAULT 0,
@@ -375,6 +381,8 @@ class PosDatabase {
         qty_ordered INTEGER NOT NULL DEFAULT 1,
         qty_paid INTEGER NOT NULL DEFAULT 0,
         subtotal REAL NOT NULL,
+        diskon_percentage REAL NOT NULL DEFAULT 0,
+        diskon_amount REAL NOT NULL DEFAULT 0,
         package_details TEXT,
         catatan TEXT,
         status_cetak INTEGER NOT NULL DEFAULT 0,
@@ -914,6 +922,25 @@ class PosDatabase {
         "ALTER TABLE master_orders ADD COLUMN service_charge_percentage REAL NOT NULL DEFAULT 0",
         "ALTER TABLE master_orders ADD COLUMN service_charge_amount REAL NOT NULL DEFAULT 0",
         "ALTER TABLE master_orders ADD COLUMN service_charge_after_tax INTEGER NOT NULL DEFAULT 0",
+      ]) {
+        try {
+          await db.execute(stmt);
+        } catch (_) {}
+      }
+    }
+
+    if (oldVersion < 16) {
+      for (final stmt in [
+        "ALTER TABLE order_items ADD COLUMN diskon_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN diskon_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE transaction_items ADD COLUMN diskon_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE transaction_items ADD COLUMN diskon_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN discount_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE transactions ADD COLUMN discount_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE transactions ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE master_orders ADD COLUMN discount_percentage REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE master_orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0",
       ]) {
         try {
           await db.execute(stmt);

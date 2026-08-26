@@ -8,7 +8,13 @@ import '../../tax/application/tax_notifier.dart';
 
 class CartState {
   final List<CartItem> items;
-  final double subtotal;
+  final double grossSubtotal;
+  final double itemDiscountTotal;
+  final double subtotal; // items grossSubtotal - itemDiscountTotal
+  final double orderDiscountRate;
+  final double orderDiscountAmount;
+  final String orderDiscountType; // 'percent' or 'nominal'
+  final double netSubtotal; // subtotal - orderDiscountAmount
   final double taxRate;
   final double taxAmount;
   final double serviceChargeRate;
@@ -19,7 +25,13 @@ class CartState {
 
   CartState({
     this.items = const [],
+    this.grossSubtotal = 0.0,
+    this.itemDiscountTotal = 0.0,
     this.subtotal = 0.0,
+    this.orderDiscountRate = 0.0,
+    this.orderDiscountAmount = 0.0,
+    this.orderDiscountType = 'percent',
+    this.netSubtotal = 0.0,
     this.taxRate = 0.0,
     this.taxAmount = 0.0,
     this.serviceChargeRate = 0.0,
@@ -29,9 +41,18 @@ class CartState {
     this.errorMessage,
   });
 
+  bool get hasDiscount => itemDiscountTotal > 0 || orderDiscountAmount > 0;
+  double get totalDiscount => itemDiscountTotal + orderDiscountAmount;
+
   CartState copyWith({
     List<CartItem>? items,
+    double? grossSubtotal,
+    double? itemDiscountTotal,
     double? subtotal,
+    double? orderDiscountRate,
+    double? orderDiscountAmount,
+    String? orderDiscountType,
+    double? netSubtotal,
     double? taxRate,
     double? taxAmount,
     double? serviceChargeRate,
@@ -42,7 +63,13 @@ class CartState {
   }) {
     return CartState(
       items: items ?? this.items,
+      grossSubtotal: grossSubtotal ?? this.grossSubtotal,
+      itemDiscountTotal: itemDiscountTotal ?? this.itemDiscountTotal,
       subtotal: subtotal ?? this.subtotal,
+      orderDiscountRate: orderDiscountRate ?? this.orderDiscountRate,
+      orderDiscountAmount: orderDiscountAmount ?? this.orderDiscountAmount,
+      orderDiscountType: orderDiscountType ?? this.orderDiscountType,
+      netSubtotal: netSubtotal ?? this.netSubtotal,
       taxRate: taxRate ?? this.taxRate,
       taxAmount: taxAmount ?? this.taxAmount,
       serviceChargeRate: serviceChargeRate ?? this.serviceChargeRate,
@@ -64,12 +91,48 @@ class CartNotifier extends StateNotifier<CartState> {
     });
   }
 
-  void _recalculate({List<CartItem>? currentItems}) {
+  void _recalculate({
+    List<CartItem>? currentItems,
+    double? orderDiscountRate,
+    double? orderDiscountAmount,
+    String? orderDiscountType,
+  }) {
     final activeItems = currentItems ?? state.items;
-    double sub = 0.0;
+
+    double grossSub = 0.0;
+    double itemDiscTotal = 0.0;
+    double itemsSub = 0.0;
+
     for (var item in activeItems) {
-      sub += item.subtotal;
+      grossSub += item.grossSubtotal;
+      itemDiscTotal += item.discountAmount;
+      itemsSub += item.subtotal;
     }
+
+    // Determine order discount
+    String ordDiscType = orderDiscountType ?? state.orderDiscountType;
+    double ordDiscRate = orderDiscountRate ?? state.orderDiscountRate;
+    double ordDiscAmount = orderDiscountAmount ?? state.orderDiscountAmount;
+
+    if (ordDiscType == 'percent') {
+      if (ordDiscRate <= 0) {
+        ordDiscRate = 0.0;
+        ordDiscAmount = 0.0;
+      } else {
+        ordDiscRate = ordDiscRate.clamp(0.0, 100.0);
+        ordDiscAmount = (itemsSub * (ordDiscRate / 100)).clamp(0.0, itemsSub);
+      }
+    } else {
+      if (ordDiscAmount <= 0) {
+        ordDiscAmount = 0.0;
+        ordDiscRate = 0.0;
+      } else {
+        ordDiscAmount = ordDiscAmount.clamp(0.0, itemsSub);
+        ordDiscRate = itemsSub > 0 ? ((ordDiscAmount / itemsSub) * 100) : 0.0;
+      }
+    }
+
+    final netSub = (itemsSub - ordDiscAmount).clamp(0.0, double.infinity);
 
     final taxState = _ref.read(taxNotifierProvider);
     final setting = taxState.taxSetting;
@@ -91,23 +154,29 @@ class CartNotifier extends StateNotifier<CartState> {
 
     if (isAfterTax) {
       // Mode Setelah Pajak:
-      // Pajak dihitung dari Subtotal
-      taxAmount = (sub * (taxRate / 100)).ceilToDouble();
-      // Service Charge dihitung dari (Subtotal + Pajak)
-      serviceAmount = ((sub + taxAmount) * (serviceRate / 100)).ceilToDouble();
+      // Pajak dihitung dari Net Subtotal
+      taxAmount = (netSub * (taxRate / 100)).ceilToDouble();
+      // Service Charge dihitung dari (Net Subtotal + Pajak)
+      serviceAmount = ((netSub + taxAmount) * (serviceRate / 100)).ceilToDouble();
     } else {
       // Mode Sebelum Pajak:
-      // Service Charge dihitung dari Subtotal
-      serviceAmount = (sub * (serviceRate / 100)).ceilToDouble();
-      // Pajak dihitung dari (Subtotal + Service Charge)
-      taxAmount = ((sub + serviceAmount) * (taxRate / 100)).ceilToDouble();
+      // Service Charge dihitung dari Net Subtotal
+      serviceAmount = (netSub * (serviceRate / 100)).ceilToDouble();
+      // Pajak dihitung dari (Net Subtotal + Service Charge)
+      taxAmount = ((netSub + serviceAmount) * (taxRate / 100)).ceilToDouble();
     }
 
-    double grand = sub + serviceAmount + taxAmount;
+    double grand = netSub + serviceAmount + taxAmount;
 
     state = state.copyWith(
       items: activeItems,
-      subtotal: sub,
+      grossSubtotal: grossSub,
+      itemDiscountTotal: itemDiscTotal,
+      subtotal: itemsSub,
+      orderDiscountRate: ordDiscRate,
+      orderDiscountAmount: ordDiscAmount,
+      orderDiscountType: ordDiscType,
+      netSubtotal: netSub,
       taxRate: taxRate,
       taxAmount: taxAmount,
       serviceChargeRate: serviceRate,
@@ -115,6 +184,71 @@ class CartNotifier extends StateNotifier<CartState> {
       serviceChargeAfterTax: isAfterTax,
       grandTotal: grand,
       errorMessage: null,
+    );
+  }
+
+  void setItemDiscount(
+    String productId, {
+    required String discountType,
+    required double discountValue,
+    String? batchId,
+  }) {
+    final index = state.items.indexWhere(
+      (item) => item.product.id == productId && item.batchId == batchId,
+    );
+    if (index == -1) return;
+
+    final item = state.items[index];
+    final gross = item.grossSubtotal;
+
+    double discPercent = 0.0;
+    double discAmount = 0.0;
+
+    if (discountValue > 0) {
+      if (discountType == 'percent') {
+        discPercent = discountValue.clamp(0.0, 100.0);
+        discAmount = (gross * (discPercent / 100)).clamp(0.0, gross);
+      } else {
+        discAmount = discountValue.clamp(0.0, gross);
+        discPercent = gross > 0 ? ((discAmount / gross) * 100) : 0.0;
+      }
+    }
+
+    final updatedItems = List<CartItem>.from(state.items);
+    updatedItems[index] = item.copyWith(
+      discountPercentage: discPercent,
+      discountAmount: discAmount,
+      discountType: discountType,
+    );
+
+    _recalculate(currentItems: updatedItems);
+  }
+
+  void clearItemDiscount(String productId, {String? batchId}) {
+    setItemDiscount(productId, discountType: 'percent', discountValue: 0.0, batchId: batchId);
+  }
+
+  void setOrderDiscount({
+    required String discountType,
+    required double discountValue,
+  }) {
+    if (discountValue <= 0) {
+      clearOrderDiscount();
+      return;
+    }
+
+    _recalculate(
+      orderDiscountType: discountType,
+      orderDiscountRate: discountType == 'percent' ? discountValue : 0.0,
+      orderDiscountAmount: discountType == 'nominal' ? discountValue : 0.0,
+    );
+  }
+
+  void clearOrderDiscount() {
+    _recalculate(
+      orderDiscountType: 'percent',
+      orderDiscountRate: 0.0,
+      orderDiscountAmount: 0.0,
     );
   }
 
@@ -224,12 +358,65 @@ class CartNotifier extends StateNotifier<CartState> {
     List<CartItem> updatedItems = List.from(state.items);
 
     if (existingIndex != -1) {
-      updatedItems[existingIndex] = state.items[existingIndex].copyWith(
+      final oldItem = state.items[existingIndex];
+      // Recalculate discount if item had percentage discount
+      double newDiscAmount = oldItem.discountAmount;
+      if (oldItem.discountType == 'percent' && oldItem.discountPercentage > 0) {
+        final newGross = freshProduct.harga * targetQty;
+        newDiscAmount = (newGross * (oldItem.discountPercentage / 100)).clamp(0.0, newGross);
+      }
+      updatedItems[existingIndex] = oldItem.copyWith(
         qty: targetQty,
+        discountAmount: newDiscAmount,
       );
     } else {
       updatedItems.add(CartItem(product: freshProduct, qty: 1));
     }
+
+    _recalculate(currentItems: updatedItems);
+    return true;
+  }
+
+  bool addManualItem({
+    required String nama,
+    required double harga,
+    required int qty,
+    String catatan = '',
+  }) {
+    if (nama.trim().isEmpty) {
+      state = state.copyWith(errorMessage: 'Nama item manual tidak boleh kosong');
+      return false;
+    }
+    if (harga < 0) {
+      state = state.copyWith(errorMessage: 'Harga tidak boleh negatif');
+      return false;
+    }
+    if (qty <= 0) {
+      state = state.copyWith(errorMessage: 'Jumlah item minimal 1');
+      return false;
+    }
+
+    final manualId = 'manual_${DateTime.now().millisecondsSinceEpoch}_${state.items.length + 1}';
+    final manualProduct = Product(
+      id: manualId,
+      kategoriId: 'manual',
+      kategoriNama: 'Manual Order',
+      nama: nama.trim(),
+      harga: harga,
+      stok: -1, // Non-stock item (unlimited & does not reduce physical inventory)
+      isPackage: false,
+      packageItems: const [],
+      status: 1,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final updatedItems = List<CartItem>.from(state.items);
+    updatedItems.add(CartItem(
+      product: manualProduct,
+      qty: qty,
+      catatan: catatan.trim(),
+    ));
 
     _recalculate(currentItems: updatedItems);
     return true;
@@ -267,8 +454,18 @@ class CartNotifier extends StateNotifier<CartState> {
       return false;
     }
 
+    // Recalculate discount if percentage discount was active
+    double newDiscAmount = cartItem.discountAmount;
+    if (cartItem.discountType == 'percent' && cartItem.discountPercentage > 0) {
+      final newGross = cartItem.product.harga * newQty;
+      newDiscAmount = (newGross * (cartItem.discountPercentage / 100)).clamp(0.0, newGross);
+    }
+
     List<CartItem> updatedItems = List.from(state.items);
-    updatedItems[index] = cartItem.copyWith(qty: newQty);
+    updatedItems[index] = cartItem.copyWith(
+      qty: newQty,
+      discountAmount: newDiscAmount,
+    );
 
     _recalculate(currentItems: updatedItems);
     return true;
@@ -286,7 +483,13 @@ class CartNotifier extends StateNotifier<CartState> {
     _recalculate(currentItems: updatedItems);
   }
 
-  void loadDraftItems(List<OrderItemModel> draftItems, List<Product> allProducts, List<PrintBatchModel> batches) {
+  void loadDraftItems(
+    List<OrderItemModel> draftItems,
+    List<Product> allProducts,
+    List<PrintBatchModel> batches, {
+    double? orderDiscountPercentage,
+    double? orderDiscountAmount,
+  }) {
     final Map<String, CartItem> consolidatedMap = {};
     
     // Sort batches by createdAt to assign round numbers
@@ -318,9 +521,11 @@ class CartNotifier extends StateNotifier<CartState> {
         if (consolidatedMap.containsKey(key)) {
           final existing = consolidatedMap[key]!;
           final newQty = existing.qty + draft.qty;
+          final newDiscAmount = existing.discountAmount + draft.discountAmount;
           consolidatedMap[key] = existing.copyWith(
             qty: newQty,
             initialSavedQty: newQty,
+            discountAmount: newDiscAmount,
           );
         } else {
           consolidatedMap[key] = CartItem(
@@ -331,6 +536,9 @@ class CartNotifier extends StateNotifier<CartState> {
             batchId: batchId,
             isBilled: isBilled,
             batchName: batchName,
+            discountPercentage: draft.discountPercentage,
+            discountAmount: draft.discountAmount,
+            discountType: draft.discountPercentage > 0 ? 'percent' : 'nominal',
           );
         }
       }
@@ -347,7 +555,11 @@ class CartNotifier extends StateNotifier<CartState> {
         return indexA.compareTo(indexB);
       });
       
-    _recalculate(currentItems: sortedItems);
+    _recalculate(
+      currentItems: sortedItems,
+      orderDiscountRate: orderDiscountPercentage,
+      orderDiscountAmount: orderDiscountAmount,
+    );
   }
 
   void clear() {

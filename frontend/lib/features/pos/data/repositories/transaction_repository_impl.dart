@@ -1,11 +1,13 @@
 import 'package:intl/intl.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../domain/models/transaction.dart';
 import '../../domain/repositories/transaction_repository.dart';
 
 class TransactionRepositoryImpl implements TransactionRepository {
   final PosDatabase _db;
+  final _uuid = const Uuid();
 
   TransactionRepositoryImpl(this._db);
 
@@ -44,6 +46,41 @@ class TransactionRepositoryImpl implements TransactionRepository {
         conflictAlgorithm: ConflictAlgorithm.fail,
       );
 
+      // Check if stock for items was already deducted when dispatched to kitchen in draft order
+      bool itemsAlreadyDeductedInDraft = false;
+      final effectiveOrderId = header.masterOrderId;
+      if (effectiveOrderId != null && effectiveOrderId.isNotEmpty) {
+        final printedItems = await txn.query(
+          'order_items',
+          where: 'order_id = ? AND status_cetak = 1',
+          whereArgs: [effectiveOrderId],
+          limit: 1,
+        );
+        if (printedItems.isNotEmpty) {
+          itemsAlreadyDeductedInDraft = true;
+        }
+      } else if (header.nomorTransaksi.isNotEmpty) {
+        final existingOrders = await txn.query(
+          'orders',
+          columns: ['id'],
+          where: 'nomor_order = ?',
+          whereArgs: [header.nomorTransaksi],
+          limit: 1,
+        );
+        if (existingOrders.isNotEmpty) {
+          final orderId = existingOrders.first['id'] as String;
+          final printedItems = await txn.query(
+            'order_items',
+            where: 'order_id = ? AND status_cetak = 1',
+            whereArgs: [orderId],
+            limit: 1,
+          );
+          if (printedItems.isNotEmpty) {
+            itemsAlreadyDeductedInDraft = true;
+          }
+        }
+      }
+
       // 2. Loop through items
       for (var item in items) {
         // Insert transaction item details
@@ -53,7 +90,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
           conflictAlgorithm: ConflictAlgorithm.fail,
         );
 
-        // 3. Deduct product stock (supports MultiStock for Package Bundles)
+        // 3. Deduct product stock (supports MultiStock for Package Bundles, skips non-stock manual items and already deducted draft items)
+        if (itemsAlreadyDeductedInDraft || item.produkId.startsWith('manual_')) {
+          // Skip if stock was already deducted upon kitchen dispatch or is custom manual non-stock
+          continue;
+        }
+
         final List<Map<String, dynamic>> productResult = await txn.query(
           'products',
           columns: ['stok', 'nama', 'is_package'],
@@ -63,10 +105,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
         );
 
         if (productResult.isEmpty) {
-          throw Exception('Produk "${item.produkNama}" tidak ditemukan.');
+          // Gracefully skip stock deduction if product is not in database
+          continue;
         }
 
         final isPackage = (productResult.first['is_package'] as int? ?? 0) == 1;
+        final now = DateTime.now();
+        final nowStr = now.toIso8601String();
+        final todayStr = nowStr.split('T')[0];
+        final saleNote = 'Penjualan #${header.nomorTransaksi}${header.customerName != null && header.customerName!.isNotEmpty ? ' (${header.customerName})' : ''}';
 
         if (isPackage) {
           // Fetch package components and deduct stock from each physical component
@@ -94,11 +141,22 @@ class TransactionRepositoryImpl implements TransactionRepository {
                 'products',
                 {
                   'stok': newCompStock,
-                  'updated_at': DateTime.now().toIso8601String(),
+                  'updated_at': nowStr,
                 },
                 where: 'id = ?',
                 whereArgs: [comp['comp_id']],
               );
+
+              // Insert into stock_in (Mutasi Stok Keluar)
+              await txn.insert('stock_in', {
+                'id': _uuid.v4(),
+                'produk_id': comp['comp_id'],
+                'type': 'out',
+                'qty': totalDeduct,
+                'tanggal': todayStr,
+                'catatan': saleNote,
+                'created_at': nowStr,
+              });
             }
           }
         } else {
@@ -116,11 +174,22 @@ class TransactionRepositoryImpl implements TransactionRepository {
               'products',
               {
                 'stok': newStock,
-                'updated_at': DateTime.now().toIso8601String(),
+                'updated_at': nowStr,
               },
               where: 'id = ?',
               whereArgs: [item.produkId],
             );
+
+            // Insert into stock_in (Mutasi Stok Keluar)
+            await txn.insert('stock_in', {
+              'id': _uuid.v4(),
+              'produk_id': item.produkId,
+              'type': 'out',
+              'qty': item.qty,
+              'tanggal': todayStr,
+              'catatan': saleNote,
+              'created_at': nowStr,
+            });
           }
         }
       }

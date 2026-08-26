@@ -339,5 +339,21 @@ void main() {
       expect(orderRepoMock.mockActiveOrder?.customerName, 'Budi Test');
       expect(orderRepoMock.mockActiveOrder?.tableId, isNull);
     });
+
+    test('cancelOrderBatch calls repository and reloads table active order', () async {
+      final notifier = container.read(orderNotifierProvider.notifier);
+      await notifier.selectTable(sampleTable);
+
+      final success = await notifier.cancelOrderBatch('batch-1', 'Salah input');
+      expect(success, true);
+    });
+
+    test('cancelOrderItem calls repository and reloads table active order', () async {
+      final notifier = container.read(orderNotifierProvider.notifier);
+      await notifier.selectTable(sampleTable);
+
+      final success = await notifier.cancelOrderItem('item-1', 'Batal pesan');
+      expect(success, true);
+    });
   });
 }

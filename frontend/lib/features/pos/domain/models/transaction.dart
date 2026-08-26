@@ -1,7 +1,10 @@
 class TransactionHeader {
   final String id;
   final String nomorTransaksi;
+  final String? masterOrderId;
   final double subtotal;
+  final double discountPercentage;
+  final double discountAmount;
   final double taxPercentage;
   final double taxAmount;
   final double serviceChargePercentage;
@@ -26,7 +29,10 @@ class TransactionHeader {
   const TransactionHeader({
     required this.id,
     required this.nomorTransaksi,
+    this.masterOrderId,
     required this.subtotal,
+    this.discountPercentage = 0.0,
+    this.discountAmount = 0.0,
     required this.taxPercentage,
     required this.taxAmount,
     this.serviceChargePercentage = 0.0,
@@ -53,7 +59,10 @@ class TransactionHeader {
     return {
       'id': id,
       'nomor_transaksi': nomorTransaksi,
+      'master_order_id': masterOrderId,
       'subtotal': subtotal,
+      'discount_percentage': discountPercentage,
+      'discount_amount': discountAmount,
       'tax_percentage': taxPercentage,
       'tax_amount': taxAmount,
       'service_charge_percentage': serviceChargePercentage,
@@ -81,7 +90,10 @@ class TransactionHeader {
     return TransactionHeader(
       id: map['id'] as String,
       nomorTransaksi: map['nomor_transaksi'] as String,
+      masterOrderId: map['master_order_id'] as String?,
       subtotal: (map['subtotal'] as num).toDouble(),
+      discountPercentage: ((map['discount_percentage'] ?? map['diskon_percentage']) as num?)?.toDouble() ?? 0.0,
+      discountAmount: ((map['discount_amount'] ?? map['diskon_amount']) as num?)?.toDouble() ?? 0.0,
       taxPercentage: ((map['tax_percentage'] as num?) ?? 0.0).toDouble(),
       taxAmount: ((map['tax_amount'] as num?) ?? 0.0).toDouble(),
       serviceChargePercentage: ((map['service_charge_percentage'] as num?) ?? 0.0).toDouble(),
@@ -114,6 +126,8 @@ class TransactionItem {
   final double produkHarga;
   final int qty;
   final double subtotal;
+  final double discountPercentage;
+  final double discountAmount;
   final String? catatan;
 
   const TransactionItem({
@@ -124,6 +138,8 @@ class TransactionItem {
     required this.produkHarga,
     required this.qty,
     required this.subtotal,
+    this.discountPercentage = 0.0,
+    this.discountAmount = 0.0,
     this.catatan,
   });
 
@@ -136,6 +152,8 @@ class TransactionItem {
       'produk_harga': produkHarga,
       'qty': qty,
       'subtotal': subtotal,
+      'diskon_percentage': discountPercentage,
+      'diskon_amount': discountAmount,
       'catatan': catatan,
     };
   }
@@ -149,6 +167,8 @@ class TransactionItem {
       produkHarga: (map['produk_harga'] as num).toDouble(),
       qty: map['qty'] as int,
       subtotal: (map['subtotal'] as num).toDouble(),
+      discountPercentage: ((map['diskon_percentage'] ?? map['discount_percentage']) as num?)?.toDouble() ?? 0.0,
+      discountAmount: ((map['diskon_amount'] ?? map['discount_amount']) as num?)?.toDouble() ?? 0.0,
       catatan: map['catatan'] as String?,
     );
   }

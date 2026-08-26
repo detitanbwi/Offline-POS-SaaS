@@ -266,7 +266,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         savedHeader = TransactionHeader(
           id: txId,
           nomorTransaksi: _orderNumber,
+          masterOrderId: orderState.activeOrder?.id,
           subtotal: subtotal,
+          discountPercentage: cartState.orderDiscountRate,
+          discountAmount: cartState.orderDiscountAmount,
           taxPercentage: taxRate,
           taxAmount: taxAmount,
           serviceChargePercentage: cartState.serviceChargeRate,
@@ -302,6 +305,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               produkHarga: item.product.harga,
               qty: item.qty,
               subtotal: item.subtotal,
+              discountPercentage: item.discountPercentage,
+              discountAmount: item.discountAmount,
               catatan: item.catatan.isNotEmpty ? item.catatan : null,
             ));
           } else {
@@ -325,6 +330,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 produkHarga: existing.produkHarga,
                 qty: existing.qty + item.qty,
                 subtotal: existing.subtotal + item.subtotal,
+                discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
+                discountAmount: existing.discountAmount + item.discountAmount,
                 catatan: mergedNotes,
               );
             } else {
@@ -337,6 +344,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 produkHarga: item.product.harga,
                 qty: item.qty,
                 subtotal: item.subtotal,
+                discountPercentage: item.discountPercentage,
+                discountAmount: item.discountAmount,
                 catatan: item.catatan.isNotEmpty ? item.catatan : null,
               ));
             }
@@ -742,12 +751,66 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Subtotal', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                    Text(CurrencyFormatter.format(storeSubtotal), style: AppTypography.bodyMedium),
+                    Text(
+                      cartState.itemDiscountTotal > 0 ? 'Subtotal (Kotor)' : 'Subtotal',
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                    ),
+                    Text(
+                      CurrencyFormatter.format(cartState.grossSubtotal > 0 ? cartState.grossSubtotal : storeSubtotal),
+                      style: AppTypography.bodyMedium,
+                    ),
                   ],
                 ),
+                if (cartState.itemDiscountTotal > 0) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Diskon Item',
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.error),
+                      ),
+                      Text(
+                        '-${CurrencyFormatter.format(cartState.itemDiscountTotal)}',
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+                if (cartState.orderDiscountAmount > 0) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Diskon Nota (${cartState.orderDiscountType == 'percent' && cartState.orderDiscountRate > 0 ? '${cartState.orderDiscountRate.toStringAsFixed(cartState.orderDiscountRate.truncateToDouble() == cartState.orderDiscountRate ? 0 : 1)}%' : 'Rp'})',
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.error),
+                      ),
+                      Text(
+                        '-${CurrencyFormatter.format(cartState.orderDiscountAmount)}',
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+                if (cartState.hasDiscount) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Subtotal Bersih',
+                        style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        CurrencyFormatter.format(cartState.netSubtotal),
+                        style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ],
                 if (cartState.serviceChargeRate > 0) ...[
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -758,7 +821,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   ),
                 ],
                 if (cartState.taxRate > 0) ...[
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

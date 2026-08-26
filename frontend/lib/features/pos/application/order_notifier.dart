@@ -5,6 +5,7 @@ import '../../../core/di/providers.dart';
 import '../../auth/presentation/providers/auth_providers.dart';
 import '../../table/domain/models/table.dart';
 import '../../table/application/table_notifier.dart';
+import '../../product/application/product_notifier.dart';
 import '../domain/models/order.dart';
 import '../domain/models/order_item.dart';
 import '../domain/models/cart_item.dart';
@@ -154,9 +155,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
     try {
       final map = await _repository.getActiveOrdersMap();
       final drafts = await _repository.getAllDraftOrders();
-      state = state.copyWith(activeOrdersMap: map, allDraftOrders: drafts);
+      state = state.copyWith(activeOrdersMap: map, allDraftOrders: drafts, isLoading: false);
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Gagal memuat peta order aktif: $e');
+      state = state.copyWith(errorMessage: 'Gagal memuat peta order aktif: $e', isLoading: false);
     }
   }
 
@@ -231,6 +232,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
     double taxRate,
     double taxAmount,
     double grandTotal, {
+    double discountPercentage = 0.0,
+    double discountAmount = 0.0,
     double serviceChargeRate = 0.0,
     double serviceChargeAmount = 0.0,
     int serviceChargeAfterTax = 0,
@@ -303,11 +306,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
             produkNama: cartItem.product.nama,
             produkHarga: cartItem.product.harga,
             basePrice: cartItem.product.harga,
-            effectivePrice: cartItem.product.harga,
+            effectivePrice: cartItem.effectivePrice,
             qty: unprintedQty,
             qtyOrdered: unprintedQty,
             qtyPaid: 0,
-            subtotal: cartItem.product.harga * unprintedQty,
+            subtotal: cartItem.subtotal,
+            discountPercentage: cartItem.discountPercentage,
+            discountAmount: cartItem.discountAmount,
             catatan: cartItem.catatan,
             statusCetak: 0,
             printBatchId: null, // to be populated when batch is saved
@@ -333,6 +338,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
         takeAwaySubType: state.takeAwaySubType,
         onlinePlatform: state.onlinePlatform,
         subtotal: subtotal,
+        discountPercentage: discountPercentage,
+        discountAmount: discountAmount,
         taxPercentage: taxRate,
         taxAmount: taxAmount,
         serviceChargePercentage: serviceChargeRate,
@@ -400,6 +407,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       }
 
       await loadActiveOrdersMap();
+      _ref.read(productNotifierProvider.notifier).loadProducts();
       if (table != null) {
         _ref.read(tableNotifierProvider.notifier).loadTables();
         await loadActiveOrderForTable(table.id);
@@ -424,6 +432,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       await _repository.cancelOrder(order.id, table?.id ?? '');
+      _ref.read(productNotifierProvider.notifier).loadProducts();
       _ref.read(tableNotifierProvider.notifier).loadTables();
       await loadActiveOrdersMap();
       state = OrderState(selectedTable: table, activeOrdersMap: state.activeOrdersMap);
@@ -462,9 +471,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       await _repository.cancelOrderItem(itemId, reason);
+      _ref.read(productNotifierProvider.notifier).loadProducts();
+      _ref.read(tableNotifierProvider.notifier).loadTables();
+      await loadActiveOrdersMap();
       if (state.selectedTable != null) {
         await loadActiveOrderForTable(state.selectedTable!.id);
       }
+      state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal membatalkan item: $e');
@@ -476,9 +489,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       await _repository.cancelOrderBatch(batchId, reason);
+      _ref.read(productNotifierProvider.notifier).loadProducts();
+      _ref.read(tableNotifierProvider.notifier).loadTables();
+      await loadActiveOrdersMap();
       if (state.selectedTable != null) {
         await loadActiveOrderForTable(state.selectedTable!.id);
       }
+      state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Gagal membatalkan batch: $e');
