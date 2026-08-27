@@ -16,6 +16,19 @@ class PrinterRepositoryImpl implements PrinterRepository {
   }
 
   @override
+  Future<PrinterConfigModel?> getPrinterConfigById(String id) async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'printers_config',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return PrinterConfigModel.fromMap(maps.first);
+  }
+
+  @override
   Future<PrinterConfigModel?> getPrinterConfigByType(String type) async {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(

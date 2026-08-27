@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -15,13 +14,8 @@ import '../../application/cart_notifier.dart';
 import '../../application/order_notifier.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
-import '../screens/payment_screen.dart';
-import '../../../table/application/table_notifier.dart';
-import '../../../printer/application/printer_notifier.dart';
-import '../../../printer/domain/models/printer_config.dart';
 import '../../../security/presentation/providers/security_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../../core/utils/receipt_generator.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../domain/models/cart_item.dart';
 import 'dart:convert';
@@ -31,6 +25,7 @@ import '../screens/order_hub_screen.dart';
 import 'item_discount_modal.dart';
 import 'order_discount_modal.dart';
 import 'product_modifier_modal.dart';
+import 'kitchen_print_dialog.dart';
 
 class CashierCartSection extends ConsumerStatefulWidget {
   final VoidCallback onSaveDraftCompleted;
@@ -720,54 +715,16 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                 ? '#1 (Pesanan Awal - CETAK ULANG)'
                 : '#$batchNumber (Tambahan - CETAK ULANG)');
 
-      await ref.read(printerNotifierProvider.notifier).loadPrinters();
-      final printerState = ref.read(printerNotifierProvider);
-      final kitchenPrinters = printerState.configuredPrinters
-          .where((p) => p.isKitchen)
-          .toList();
-
-      if (!mounted) return;
-
-      if (kitchenPrinters.isEmpty) {
-        AppSnackbar.showWarning(context, 'Printer dapur belum dikonfigurasi.');
-        return;
-      }
-
-      final targetPrinter = kitchenPrinters.first;
-      if (!targetPrinter.isConnected) {
-        AppSnackbar.showWarning(
-          context,
-          'Printer dapur (${targetPrinter.name}) sedang tidak terhubung.',
-        );
-        return;
-      }
-
-      final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+      final success = await KitchenPrintDialog.showOrPrint(
+        context: context,
+        ref: ref,
         order: order,
         itemsToPrint: itemsToPrint,
         waveInfo: waveInfo,
-        paperSize: targetPrinter.escPosPaperSize,
-        charsPerLine: targetPrinter.effectiveCharsPerLine,
-        autoCut: targetPrinter.autoCut,
+        cashierNama: order.cashierNama,
       );
 
-      if (!mounted) return;
-
-      final success = await ref
-          .read(printerNotifierProvider.notifier)
-          .printBytes(targetPrinter, receiptBytes);
-      if (mounted) {
-        if (success) {
-          AppSnackbar.showSuccess(
-            context,
-            'Struk Dapur $waveInfo berhasil dicetak.',
-          );
-        } else {
-          AppSnackbar.showError(
-            context,
-            'Gagal mencetak ke printer dapur (${targetPrinter.name}).',
-          );
-        }
+      if (mounted && success) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const OrderHubScreen()),

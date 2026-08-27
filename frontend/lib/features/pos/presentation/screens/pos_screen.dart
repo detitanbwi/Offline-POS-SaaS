@@ -29,13 +29,11 @@ import 'payment_screen.dart';
 import '../../../table/application/table_notifier.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import '../../../../core/utils/receipt_generator.dart';
-import '../../../printer/application/printer_notifier.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
 import '../widgets/manual_order_modal.dart';
 import '../widgets/product_modifier_modal.dart';
+import '../widgets/kitchen_print_dialog.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -1293,36 +1291,14 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
           ? '[REKAP DAPUR]'
           : (batchNumber == 1 ? '#1 (Pesanan Awal - CETAK ULANG)' : '#$batchNumber (Tambahan - CETAK ULANG)');
 
-      await ref.read(printerNotifierProvider.notifier).loadPrinters();
-      final printerState = ref.read(printerNotifierProvider);
-      final kitchenPrinters = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
-
-      if (kitchenPrinters.isEmpty) {
-        AppSnackbar.showWarning(ctx, 'Printer dapur belum dikonfigurasi. Hubungkan printer dapur di Pengaturan Printer.');
-        return;
-      }
-
-      final targetPrinter = kitchenPrinters.first;
-      if (!targetPrinter.isConnected) {
-        AppSnackbar.showWarning(ctx, 'Printer dapur (${targetPrinter.name}) sedang tidak terhubung.');
-        return;
-      }
-
-      final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+      await KitchenPrintDialog.showOrPrint(
+        context: ctx,
+        ref: ref,
         order: order,
         itemsToPrint: itemsToPrint,
         waveInfo: waveInfo,
-        paperSize: targetPrinter.escPosPaperSize,
-        charsPerLine: targetPrinter.effectiveCharsPerLine,
-        autoCut: targetPrinter.autoCut,
+        cashierNama: order.cashierNama,
       );
-
-      final success = await ref.read(printerNotifierProvider.notifier).printBytes(targetPrinter, receiptBytes);
-      if (success) {
-        AppSnackbar.showSuccess(ctx, 'Struk Dapur $waveInfo berhasil dicetak.');
-      } else {
-        AppSnackbar.showError(ctx, 'Gagal mencetak ke printer dapur (${targetPrinter.name}). Periksa koneksi Bluetooth.');
-      }
     } catch (e) {
       AppSnackbar.showError(ctx, 'Gagal mencetak ulang dapur: $e');
     }

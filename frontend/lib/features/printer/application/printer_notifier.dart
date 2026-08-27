@@ -25,6 +25,14 @@ class PrinterState {
     this.isInitialLoading = true,
   });
 
+  List<PrinterConfigModel> get kitchenPrinters =>
+      configuredPrinters.where((p) => p.isKitchen).toList();
+
+  PrinterConfigModel? get cashierPrinter {
+    final list = configuredPrinters.where((p) => p.isCashier).toList();
+    return list.isNotEmpty ? list.first : null;
+  }
+
   PrinterState copyWith({
     List<PrinterConfigModel>? configuredPrinters,
     List<BluetoothDeviceModel>? scannedDevices,
@@ -56,18 +64,18 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   }
 
   Future<void> loadPrinters() async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 200));
     state = state.copyWith(isLoading: true, loadingType: () => null, errorMessage: null);
     try {
       final list = await _repository.getPrintersConfig();
-      
+
       // Verify connection status of each printer dynamically
       final List<PrinterConfigModel> verifiedList = [];
       for (var printer in list) {
         final connected = await _printerService.isConnected(printer.address);
         verifiedList.add(printer.copyWith(isConnected: connected));
       }
-      
+
       state = state.copyWith(
         configuredPrinters: verifiedList,
         isLoading: false,
@@ -102,50 +110,62 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   }
 
   Future<bool> saveAndConnectPrinter({
+    String? id,
     required String name,
+    String? label,
     required String address,
     required String type, // 'cashier' or 'kitchen'
+    int paperSize = 58,
+    int charsPerLine = 0,
+    bool autoCut = false,
+    bool openDrawer = false,
+    String printDensity = 'normal',
+    bool autoReconnect = true,
+    List<String> categoryIds = const [],
   }) async {
-    debugPrint('[PrinterNotifier] saveAndConnectPrinter starting for $name ($address) type $type');
+    debugPrint('[PrinterNotifier] saveAndConnectPrinter starting for $name ($address) type $type label $label');
     state = state.copyWith(isLoading: true, loadingType: () => type, errorMessage: null);
     try {
       debugPrint('[PrinterNotifier] Calling connectPrinter...');
       final connectSuccess = await _printerService.connectPrinter(address, type);
       debugPrint('[PrinterNotifier] connectPrinter result: $connectSuccess');
-      
-      debugPrint('[PrinterNotifier] Getting existing config from repo...');
-      final existing = await _repository.getPrinterConfigByType(type);
-      debugPrint('[PrinterNotifier] Existing config: $existing');
-      
+
+      PrinterConfigModel? existing;
+      if (id != null && id.isNotEmpty) {
+        existing = await _repository.getPrinterConfigById(id);
+      } else if (type == 'cashier') {
+        existing = await _repository.getPrinterConfigByType(type);
+      }
+
       final config = PrinterConfigModel(
-        id: existing?.id ?? _uuid.v4(),
+        id: existing?.id ?? id ?? _uuid.v4(),
         name: name,
+        label: label,
         address: address,
         type: type,
-        paperSize: existing?.paperSize ?? 58,
-        charsPerLine: existing?.charsPerLine ?? 0,
-        autoCut: existing?.autoCut ?? false,
-        printDensity: existing?.printDensity ?? 'normal',
-        autoReconnect: existing?.autoReconnect ?? true,
+        paperSize: paperSize > 0 ? paperSize : (existing?.paperSize ?? 58),
+        charsPerLine: charsPerLine,
+        autoCut: autoCut,
+        openDrawer: openDrawer,
+        printDensity: printDensity,
+        autoReconnect: autoReconnect,
         isConnected: connectSuccess,
+        categoryIds: categoryIds,
         createdAt: existing?.createdAt ?? DateTime.now(),
       );
 
       debugPrint('[PrinterNotifier] Saving config to repo: ${config.toMap()}');
       await _repository.savePrinterConfig(config);
       debugPrint('[PrinterNotifier] Config saved successfully');
-      
-      debugPrint('[PrinterNotifier] Loading printers list...');
+
       await loadPrinters();
-      debugPrint('[PrinterNotifier] Printers list loaded');
 
       if (!connectSuccess) {
         state = state.copyWith(
           errorMessage: 'Printer berhasil disimpan, tetapi tidak terhubung saat ini. Sistem akan mencoba terhubung otomatis ketika Anda mencetak.',
         );
       }
-      
-      debugPrint('[PrinterNotifier] saveAndConnectPrinter finished with true');
+
       return true;
     } catch (e, stack) {
       debugPrint('[PrinterNotifier] Exception in saveAndConnectPrinter: $e');
@@ -161,11 +181,14 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
 
   Future<bool> updatePrinterSettings({
     required String id,
+    String? label,
     int? paperSize,
     int? charsPerLine,
     bool? autoCut,
+    bool? openDrawer,
     String? printDensity,
     bool? autoReconnect,
+    List<String>? categoryIds,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -173,11 +196,14 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
       if (existingIndex == -1) return false;
       final existing = state.configuredPrinters[existingIndex];
       final updated = existing.copyWith(
+        label: label,
         paperSize: paperSize,
         charsPerLine: charsPerLine,
         autoCut: autoCut,
+        openDrawer: openDrawer,
         printDensity: printDensity,
         autoReconnect: autoReconnect,
+        categoryIds: categoryIds,
       );
       await _repository.savePrinterConfig(updated);
       await loadPrinters();
@@ -195,12 +221,12 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     state = state.copyWith(isLoading: true, loadingType: () => type, errorMessage: null);
     try {
       await _printerService.disconnectPrinter(type);
-      
+
       final config = await _repository.getPrinterConfigByType(type);
       if (config != null) {
         await _repository.savePrinterConfig(config.copyWith(isConnected: false));
       }
-      
+
       await loadPrinters();
       return true;
     } catch (e) {
@@ -243,8 +269,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
 
   Future<bool> openCashDrawer({String? targetAddress}) async {
     try {
-      final cashierPrinterList = state.configuredPrinters.where((p) => p.isCashier).toList();
-      final cashier = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
+      final cashier = state.cashierPrinter;
       final addr = targetAddress ?? cashier?.address;
       if (addr == null || addr.isEmpty) {
         debugPrint('No cashier printer configured for cash drawer kick.');

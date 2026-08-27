@@ -35,6 +35,7 @@ import '../../../printer/application/printer_notifier.dart';
 import 'table_selector_screen.dart';
 import 'cashier_screen.dart';
 import 'payment_screen.dart';
+import '../widgets/kitchen_print_dialog.dart';
 
 class OrderHubScreen extends ConsumerStatefulWidget {
   const OrderHubScreen({super.key});
@@ -2431,64 +2432,22 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
 
       final waveInfo = '#${(await repo.getPrintBatches(order.id)).length} (BARU)';
 
-      await ref.read(printerNotifierProvider.notifier).loadPrinters();
-      final printerState = ref.read(printerNotifierProvider);
-      final kitchenPrinters = printerState.configuredPrinters
-          .where((p) => p.isKitchen)
-          .toList();
-
-      if (!mounted) return;
-
-      if (kitchenPrinters.isEmpty) {
-        AppSnackbar.showWarning(
-          context,
-          'Pesanan dikirim ke dapur (Printer dapur belum dikonfigurasi).',
-        );
-        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        return;
-      }
-
-      final targetPrinter = kitchenPrinters.first;
-      if (!targetPrinter.isConnected) {
-        AppSnackbar.showWarning(
-          context,
-          'Pesanan dikirim ke dapur (Printer dapur ${targetPrinter.name} tidak terhubung).',
-        );
-        ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        return;
-      }
-
-      final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
-        order: order,
-        itemsToPrint: unprintedItems,
-        waveInfo: waveInfo,
-        paperSize: targetPrinter.escPosPaperSize,
-        charsPerLine: targetPrinter.effectiveCharsPerLine,
-        autoCut: targetPrinter.autoCut,
-      );
-
-      if (!mounted) return;
-
-      final success = await ref
-          .read(printerNotifierProvider.notifier)
-          .printBytes(targetPrinter, receiptBytes);
       if (mounted) {
-        if (success) {
-          AppSnackbar.showSuccess(
-            context,
-            'Struk Dapur $waveInfo berhasil dicetak.',
-          );
-        } else {
-          AppSnackbar.showWarning(
-            context,
-            'Pesanan dikirim, namun gagal mencetak ke printer dapur (${targetPrinter.name}).',
-          );
-        }
+        await KitchenPrintDialog.showOrPrint(
+          context: context,
+          ref: ref,
+          order: order,
+          itemsToPrint: unprintedItems,
+          waveInfo: waveInfo,
+          cashierNama: order.cashierNama,
+        );
+
         ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         AppSnackbar.showError(context, 'Gagal kirim batch dapur: $e');
+      }
     }
   }
 
@@ -2526,55 +2485,17 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                 ? '#1 (Pesanan Awal - CETAK ULANG)'
                 : '#$batchNumber (Tambahan - CETAK ULANG)');
 
-      await ref.read(printerNotifierProvider.notifier).loadPrinters();
-      final printerState = ref.read(printerNotifierProvider);
-      final kitchenPrinters = printerState.configuredPrinters
-          .where((p) => p.isKitchen)
-          .toList();
-
-      if (!mounted) return;
-
-      if (kitchenPrinters.isEmpty) {
-        AppSnackbar.showWarning(context, 'Printer dapur belum dikonfigurasi.');
-        return;
-      }
-
-      final targetPrinter = kitchenPrinters.first;
-      if (!targetPrinter.isConnected) {
-        AppSnackbar.showWarning(
-          context,
-          'Printer dapur (${targetPrinter.name}) sedang tidak terhubung.',
-        );
-        return;
-      }
-
-      final receiptBytes = await ReceiptGenerator.generateKitchenTicket(
+      final success = await KitchenPrintDialog.showOrPrint(
+        context: context,
+        ref: ref,
         order: order,
         itemsToPrint: itemsToPrint,
         waveInfo: waveInfo,
-        paperSize: targetPrinter.escPosPaperSize,
-        charsPerLine: targetPrinter.effectiveCharsPerLine,
-        autoCut: targetPrinter.autoCut,
+        cashierNama: order.cashierNama,
       );
 
-      if (!mounted) return;
-
-      final success = await ref
-          .read(printerNotifierProvider.notifier)
-          .printBytes(targetPrinter, receiptBytes);
-      if (mounted) {
-        if (success) {
-          AppSnackbar.showSuccess(
-            context,
-            'Struk Dapur $waveInfo berhasil dicetak ulang.',
-          );
-          Navigator.pop(context);
-        } else {
-          AppSnackbar.showError(
-            context,
-            'Gagal mencetak ulang ke printer dapur (${targetPrinter.name}).',
-          );
-        }
+      if (mounted && success) {
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {

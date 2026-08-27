@@ -49,7 +49,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-            version: 16,
+            version: 17,
             password: pwd,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
@@ -83,7 +83,7 @@ class PosDatabase {
             db = await databaseFactoryFfi.openDatabase(
               path,
               options: OpenDatabaseOptions(
-                version: 16,
+                version: 17,
                 onCreate: _createDB,
                 onUpgrade: _upgradeDB,
                 onConfigure: _onConfigure,
@@ -465,14 +465,17 @@ class PosDatabase {
       CREATE TABLE printers_config (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        label TEXT,
         address TEXT NOT NULL,
         type TEXT NOT NULL,
         paper_size INTEGER NOT NULL DEFAULT 58,
         chars_per_line INTEGER NOT NULL DEFAULT 0,
         auto_cut INTEGER NOT NULL DEFAULT 0,
+        open_drawer INTEGER NOT NULL DEFAULT 0,
         print_density TEXT NOT NULL DEFAULT 'normal',
         auto_reconnect INTEGER NOT NULL DEFAULT 1,
         is_connected INTEGER NOT NULL DEFAULT 0,
+        category_ids TEXT NOT NULL DEFAULT '[]',
         created_at TEXT NOT NULL
       )
     ''');
@@ -993,6 +996,18 @@ class PosDatabase {
         "ALTER TABLE transactions ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0",
         "ALTER TABLE master_orders ADD COLUMN discount_percentage REAL NOT NULL DEFAULT 0",
         "ALTER TABLE master_orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0",
+      ]) {
+        try {
+          await db.execute(stmt);
+        } catch (_) {}
+      }
+    }
+
+    if (oldVersion < 17) {
+      for (final stmt in [
+        "ALTER TABLE printers_config ADD COLUMN label TEXT",
+        "ALTER TABLE printers_config ADD COLUMN open_drawer INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE printers_config ADD COLUMN category_ids TEXT NOT NULL DEFAULT '[]'",
       ]) {
         try {
           await db.execute(stmt);
