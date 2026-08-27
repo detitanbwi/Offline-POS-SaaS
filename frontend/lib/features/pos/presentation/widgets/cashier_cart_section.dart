@@ -993,7 +993,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                       item.initialSavedQty
                                                 : item.qty;
                                             final newSubtotal =
-                                                item.product.harga * newQty;
+                                                item.effectivePrice * newQty;
                                             return Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -1652,7 +1652,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                 item,
                                               ) {
                                                 final savedSubtotal =
-                                                    item.product.harga *
+                                                    item.effectivePrice *
                                                     item.initialSavedQty;
                                                 return Padding(
                                                   padding:

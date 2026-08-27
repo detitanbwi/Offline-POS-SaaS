@@ -137,7 +137,7 @@ class _ItemDiscountModalState extends State<ItemDiscountModal> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${widget.item.qty} pcs x ${currencyFormat.format(widget.item.product.harga)} = ${currencyFormat.format(grossTotal)}',
+                        '${widget.item.qty} pcs x ${currencyFormat.format(widget.item.baseUnitPrice)} = ${currencyFormat.format(grossTotal)}',
                         style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
                       ),
                     ],
