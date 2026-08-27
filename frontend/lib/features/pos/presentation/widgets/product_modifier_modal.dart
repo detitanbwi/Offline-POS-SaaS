@@ -10,17 +10,29 @@ import '../../../product/domain/models/product.dart';
 
 class ProductModifierModal extends StatefulWidget {
   final Product product;
+  final List<SelectedModifier>? initialModifiers;
+  final int initialQty;
+  final String initialNotes;
+  final bool isEditing;
   final Function(List<SelectedModifier> selectedModifiers, int qty, String notes) onConfirm;
 
   const ProductModifierModal({
     super.key,
     required this.product,
+    this.initialModifiers,
+    this.initialQty = 1,
+    this.initialNotes = '',
+    this.isEditing = false,
     required this.onConfirm,
   });
 
   static Future<void> show({
     required BuildContext context,
     required Product product,
+    List<SelectedModifier>? initialModifiers,
+    int initialQty = 1,
+    String initialNotes = '',
+    bool isEditing = false,
     required Function(List<SelectedModifier> selectedModifiers, int qty, String notes) onConfirm,
   }) {
     return showModalBottomSheet(
@@ -29,6 +41,10 @@ class ProductModifierModal extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (ctx) => ProductModifierModal(
         product: product,
+        initialModifiers: initialModifiers,
+        initialQty: initialQty,
+        initialNotes: initialNotes,
+        isEditing: isEditing,
         onConfirm: onConfirm,
       ),
     );
@@ -40,24 +56,36 @@ class ProductModifierModal extends StatefulWidget {
 
 class _ProductModifierModalState extends State<ProductModifierModal> {
   final Map<String, Set<String>> _selectedOptionIdsByGroup = {};
-  final _notesController = TextEditingController();
-  int _qty = 1;
+  late final TextEditingController _notesController;
+  late int _qty;
 
   @override
   void initState() {
     super.initState();
-    // Initialize default selections
-    for (var grp in widget.product.modifierGroups) {
-      _selectedOptionIdsByGroup[grp.id] = {};
-      final defaultOpts = grp.options.where((o) => o.isDefault).toList();
-      if (defaultOpts.isNotEmpty) {
-        for (var opt in defaultOpts) {
-          _selectedOptionIdsByGroup[grp.id]!.add(opt.id);
-          if (!grp.allowMultiple) break; // single selection
+    _qty = widget.initialQty > 0 ? widget.initialQty : 1;
+    _notesController = TextEditingController(text: widget.initialNotes);
+
+    if (widget.initialModifiers != null && widget.initialModifiers!.isNotEmpty) {
+      for (var grp in widget.product.modifierGroups) {
+        _selectedOptionIdsByGroup[grp.id] = {};
+      }
+      for (var mod in widget.initialModifiers!) {
+        _selectedOptionIdsByGroup.putIfAbsent(mod.groupId, () => {}).add(mod.optionId);
+      }
+    } else {
+      // Initialize default selections
+      for (var grp in widget.product.modifierGroups) {
+        _selectedOptionIdsByGroup[grp.id] = {};
+        final defaultOpts = grp.options.where((o) => o.isDefault).toList();
+        if (defaultOpts.isNotEmpty) {
+          for (var opt in defaultOpts) {
+            _selectedOptionIdsByGroup[grp.id]!.add(opt.id);
+            if (!grp.allowMultiple) break; // single selection
+          }
+        } else if (grp.isRequired && grp.options.isNotEmpty && !grp.allowMultiple) {
+          // Automatically select the first option if single required
+          _selectedOptionIdsByGroup[grp.id]!.add(grp.options.first.id);
         }
-      } else if (grp.isRequired && grp.options.isNotEmpty && !grp.allowMultiple) {
-        // Automatically select the first option if single required
-        _selectedOptionIdsByGroup[grp.id]!.add(grp.options.first.id);
       }
     }
   }
@@ -162,7 +190,7 @@ class _ProductModifierModalState extends State<ProductModifierModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.product.nama,
+                        widget.isEditing ? 'Ubah Varian: ${widget.product.nama}' : widget.product.nama,
                         style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 16.sp),
                       ),
                       SizedBox(height: 2.h),
@@ -255,8 +283,10 @@ class _ProductModifierModalState extends State<ProductModifierModal> {
                   // Submit Button
                   Expanded(
                     child: AppButton(
-                      text: 'Tambah (${CurrencyFormatter.format(_totalPrice)})',
-                      icon: Icons.shopping_bag_outlined,
+                      text: widget.isEditing
+                          ? 'Perbarui (${CurrencyFormatter.format(_totalPrice)})'
+                          : 'Tambah (${CurrencyFormatter.format(_totalPrice)})',
+                      icon: widget.isEditing ? Icons.check_circle_outline_rounded : Icons.shopping_bag_outlined,
                       onPressed: _isValid
                           ? () {
                               widget.onConfirm(

@@ -453,6 +453,49 @@ class CartNotifier extends StateNotifier<CartState> {
     return true;
   }
 
+  bool updateItemModifiers(
+    CartItem oldItem, {
+    required List<SelectedModifier> newModifiers,
+    required int newQty,
+    required String newCatatan,
+  }) {
+    final index = state.items.indexOf(oldItem);
+    if (index == -1) return false;
+
+    // Check stock limit for newQty
+    final stockError = _checkStockLimit(
+      oldItem.product,
+      newQty,
+      targetBatchId: oldItem.batchId,
+      isBatchBaru: oldItem.batchId == null,
+    );
+    if (stockError != null) {
+      state = state.copyWith(errorMessage: stockError);
+      return false;
+    }
+
+    // Recalculate discount if percentage discount was active
+    double newDiscAmount = oldItem.discountAmount;
+    final singleUnitPrice = oldItem.product.harga + newModifiers.fold<double>(0.0, (sum, m) => sum + m.harga);
+    if (oldItem.discountType == 'percent' && oldItem.discountPercentage > 0) {
+      final newGross = singleUnitPrice * newQty;
+      newDiscAmount = (newGross * (oldItem.discountPercentage / 100)).clamp(0.0, newGross);
+    }
+
+    final updated = oldItem.copyWith(
+      selectedModifiers: newModifiers,
+      qty: newQty,
+      catatan: newCatatan,
+      discountAmount: newDiscAmount,
+    );
+
+    List<CartItem> updatedItems = List.from(state.items);
+    updatedItems[index] = updated;
+
+    _recalculate(currentItems: updatedItems);
+    return true;
+  }
+
   bool addManualItem({
     required String nama,
     required double harga,

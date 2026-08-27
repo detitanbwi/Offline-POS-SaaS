@@ -1359,6 +1359,7 @@ class ProductFormState extends State<ProductForm> {
                         labelText: 'Nama Kelompok Varian',
                         hintText: 'Contoh: Ukuran / Topping / Level Pedas',
                         prefixIcon: Icons.label_outline,
+                        maxLength: 50,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -1451,14 +1452,17 @@ class ProductFormState extends State<ProductForm> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 flex: 3,
                                 child: TextFormField(
                                   controller: optMap['nameCtrl'] as TextEditingController,
+                                  maxLength: 50,
+                                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                                   decoration: InputDecoration(
                                     labelText: 'Nama Opsi #${idx + 1}',
-                                    hintText: 'Contoh: Regular / Extra Hot',
+                                    hintText: 'Maks. 50 karakter',
                                     isDense: true,
                                     border: const OutlineInputBorder(),
                                   ),
@@ -1515,11 +1519,23 @@ class ProductFormState extends State<ProductForm> {
                       );
                       return;
                     }
+                    if (groupName.length > 50) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Nama kelompok varian maksimal 50 karakter'), backgroundColor: AppColors.error),
+                      );
+                      return;
+                    }
 
                     final validOptions = <ProductModifierOption>[];
                     for (var optMap in optionsList) {
                       final n = (optMap['nameCtrl'] as TextEditingController).text.trim();
                       if (n.isNotEmpty) {
+                        if (n.length > 50) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Nama opsi "$n" melebihi batas 50 karakter'), backgroundColor: AppColors.error),
+                          );
+                          return;
+                        }
                         final pStr = (optMap['priceCtrl'] as TextEditingController).text.replaceAll('.', '');
                         final pr = double.tryParse(pStr) ?? 0.0;
                         validOptions.add(ProductModifierOption(

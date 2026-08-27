@@ -231,10 +231,9 @@ class PdfReceiptGenerator {
                   pw.Text('  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (packageComponents.containsKey(item.produkId))
                   for (var comp in packageComponents[item.produkId]!)
-                    pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
-                if (item.hasModifiers)
+                    pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),                if (item.hasModifiers)
                   for (var m in item.selectedModifiers)
-                    pw.Text('   + ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : ''}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
+                    pw.Text('   + ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : ''}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],
@@ -359,7 +358,7 @@ class PdfReceiptGenerator {
                     pw.Text('     • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey800)),
                 if (item.hasModifiers)
                   for (var m in item.selectedModifiers)
-                    pw.Text('     + ${m.groupName}: ${m.optionName}', style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey800)),
+                    pw.Text('     + ${m.optionName}', style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey800)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],
@@ -434,7 +433,7 @@ class PdfReceiptGenerator {
                     pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (item.hasModifiers)
                   for (var m in item.selectedModifiers)
-                    pw.Text('   + ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : ''}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
+                    pw.Text('   + ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : ''}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],

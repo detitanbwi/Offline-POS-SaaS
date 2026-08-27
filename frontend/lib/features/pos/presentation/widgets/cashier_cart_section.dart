@@ -30,6 +30,7 @@ import '../../../product/application/product_notifier.dart';
 import '../screens/order_hub_screen.dart';
 import 'item_discount_modal.dart';
 import 'order_discount_modal.dart';
+import 'product_modifier_modal.dart';
 
 class CashierCartSection extends ConsumerStatefulWidget {
   final VoidCallback onSaveDraftCompleted;
@@ -1076,32 +1077,71 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                   ),
                                                                 ],
                                                                 Expanded(
-                                                                  child: Text(
-                                                                    item.product.nama,
-                                                                    style: AppTypography.titleMedium.copyWith(
-                                                                      fontSize: 13.sp,
-                                                                      fontWeight: FontWeight.bold,
-                                                                    ),
-                                                                    maxLines: 1,
-                                                                    overflow: TextOverflow.ellipsis,
-                                                                  ),
-                                                                ),
+                                                                   child: InkWell(
+                                                                     onTap: (item.product.hasModifiers && !item.isBilled)
+                                                                         ? () {
+                                                                             ProductModifierModal.show(
+                                                                               context: context,
+                                                                               product: item.product,
+                                                                               initialModifiers: item.selectedModifiers,
+                                                                               initialQty: item.qty,
+                                                                               initialNotes: item.catatan,
+                                                                               isEditing: true,
+                                                                               onConfirm: (newMods, newQty, newNotes) {
+                                                                                 cartNotifier.updateItemModifiers(
+                                                                                   item,
+                                                                                   newModifiers: newMods,
+                                                                                   newQty: newQty,
+                                                                                   newCatatan: newNotes,
+                                                                                 );
+                                                                               },
+                                                                             );
+                                                                           }
+                                                                         : null,
+                                                                     child: Text(
+                                                                       item.product.nama,
+                                                                       style: AppTypography.titleMedium.copyWith(
+                                                                         fontSize: 13.sp,
+                                                                         fontWeight: FontWeight.bold,
+                                                                       ),
+                                                                       maxLines: 1,
+                                                                       overflow: TextOverflow.ellipsis,
+                                                                     ),
+                                                                   ),
+                                                                 ),
                                                               ],
                                                             ),
                                                             SizedBox(height: 2),
                                                             Text(
-                                                              CurrencyFormatter.format(
-                                                                item
-                                                                    .product
-                                                                    .harga,
+                                                              '${CurrencyFormatter.format(item.baseUnitPrice)}${item.hasModifiers ? ' (Dasar ${CurrencyFormatter.format(item.product.harga)})' : ''}',
+                                                              style: AppTypography.bodySmall.copyWith(
+                                                                color: AppColors.textSecondary,
+                                                                fontSize: 11.sp,
                                                               ),
-                                                              style: AppTypography
-                                                                  .bodySmall
-                                                                  .copyWith(
-                                                                    color: AppColors
-                                                                        .textSecondary,
-                                                                  ),
                                                             ),
+                                                            if (item.hasModifiers) ...[
+                                                              const SizedBox(height: 3),
+                                                              ...item.selectedModifiers.map((m) => Padding(
+                                                                padding: const EdgeInsets.only(bottom: 2),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Icon(Icons.add_circle_outline_rounded, size: 11.sp, color: AppColors.primary),
+                                                                    const SizedBox(width: 4),
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        '${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                                                        style: TextStyle(
+                                                                          fontSize: 10.5.sp,
+                                                                          color: AppColors.primary,
+                                                                          fontWeight: FontWeight.w600,
+                                                                          height: 1.2,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              )),
+                                                            ],
                                                             if (item.product.isPackage && item.product.packageItems.isNotEmpty) ...[
                                                               const SizedBox(height: 4),
                                                               ...item.product.packageItems.map((comp) => Padding(
@@ -1161,6 +1201,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                         item.qty -
                                                                             1,
                                                                         batchId: item.batchId,
+                                                                        modifierSignature: item.modifierSignature,
                                                                       );
                                                                     },
                                                             )
@@ -1207,6 +1248,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                       item.qty +
                                                                           1,
                                                                       batchId: item.batchId,
+                                                                      modifierSignature: item.modifierSignature,
                                                                     );
                                                                   },
                                                           ),
@@ -1282,40 +1324,82 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                     ),
                                                   ],
                                                   const SizedBox(height: 4),
-                                                  Align(
-                                                    alignment: Alignment.centerLeft,
-                                                    child: TextButton.icon(
-                                                      icon: Icon(
-                                                        (item.catatan.isEmpty && !item.hasDiscount)
-                                                            ? Icons.add_comment_outlined
-                                                            : Icons.discount_rounded,
-                                                        size: 14,
-                                                        color: item.hasDiscount ? AppColors.error : AppColors.primary,
-                                                      ),
-                                                      label: Text(
-                                                        (item.catatan.isEmpty && !item.hasDiscount)
-                                                            ? 'Catatan & Diskon'
-                                                            : 'Ubah Catatan / Diskon',
-                                                        style: TextStyle(
-                                                          color: item.isBilled
-                                                              ? AppColors.disabled
-                                                              : (item.hasDiscount ? AppColors.error : AppColors.primary),
-                                                          fontSize: 11.sp,
-                                                          fontWeight: item.hasDiscount ? FontWeight.w600 : FontWeight.normal,
+                                                  Wrap(
+                                                    spacing: 8,
+                                                    runSpacing: 2,
+                                                    children: [
+                                                      if (item.product.hasModifiers && !item.isBilled)
+                                                        TextButton.icon(
+                                                          icon: const Icon(
+                                                            Icons.tune_rounded,
+                                                            size: 14,
+                                                            color: AppColors.primary,
+                                                          ),
+                                                          label: Text(
+                                                            'Varian & Topping',
+                                                            style: TextStyle(
+                                                              color: AppColors.primary,
+                                                              fontSize: 11.sp,
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                          onPressed: () {
+                                                            ProductModifierModal.show(
+                                                              context: context,
+                                                              product: item.product,
+                                                              initialModifiers: item.selectedModifiers,
+                                                              initialQty: item.qty,
+                                                              initialNotes: item.catatan,
+                                                              isEditing: true,
+                                                              onConfirm: (newMods, newQty, newNotes) {
+                                                                cartNotifier.updateItemModifiers(
+                                                                  item,
+                                                                  newModifiers: newMods,
+                                                                  newQty: newQty,
+                                                                  newCatatan: newNotes,
+                                                                );
+                                                              },
+                                                            );
+                                                          },
+                                                          style: TextButton.styleFrom(
+                                                            padding: EdgeInsets.zero,
+                                                            minimumSize: const Size(60, 28),
+                                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                          ),
+                                                        ),
+                                                      TextButton.icon(
+                                                        icon: Icon(
+                                                          (item.catatan.isEmpty && !item.hasDiscount)
+                                                              ? Icons.add_comment_outlined
+                                                              : Icons.discount_rounded,
+                                                          size: 14,
+                                                          color: item.hasDiscount ? AppColors.error : AppColors.primary,
+                                                        ),
+                                                        label: Text(
+                                                          (item.catatan.isEmpty && !item.hasDiscount)
+                                                              ? 'Catatan & Diskon'
+                                                              : 'Ubah Catatan / Diskon',
+                                                          style: TextStyle(
+                                                            color: item.isBilled
+                                                                ? AppColors.disabled
+                                                                : (item.hasDiscount ? AppColors.error : AppColors.primary),
+                                                            fontSize: 11.sp,
+                                                            fontWeight: item.hasDiscount ? FontWeight.w600 : FontWeight.normal,
+                                                          ),
+                                                        ),
+                                                        onPressed: item.isBilled
+                                                            ? null
+                                                            : () => _showNoteDialog(
+                                                                  context,
+                                                                  item,
+                                                                ),
+                                                        style: TextButton.styleFrom(
+                                                          padding: EdgeInsets.zero,
+                                                          minimumSize: const Size(60, 28),
+                                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                         ),
                                                       ),
-                                                      onPressed: item.isBilled
-                                                          ? null
-                                                          : () => _showNoteDialog(
-                                                                context,
-                                                                item,
-                                                              ),
-                                                      style: TextButton.styleFrom(
-                                                        padding: EdgeInsets.zero,
-                                                        minimumSize: const Size(60, 28),
-                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                      ),
-                                                    ),
+                                                    ],
                                                   ),
                                                 ],
                                               ),
@@ -1484,8 +1568,12 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                 ...item.selectedModifiers.map((m) => Padding(
                                                                   padding: const EdgeInsets.only(bottom: 2),
                                                                   child: Row(
+                                                                    crossAxisAlignment: CrossAxisAlignment.start,
                                                                     children: [
-                                                                      Icon(Icons.add_circle_outline, size: 11.sp, color: AppColors.primary),
+                                                                      Padding(
+                                                                        padding: const EdgeInsets.only(top: 2),
+                                                                        child: Icon(Icons.add_circle_outline_rounded, size: 11.sp, color: AppColors.primary),
+                                                                      ),
                                                                       const SizedBox(width: 4),
                                                                       Expanded(
                                                                         child: Text(
@@ -1494,9 +1582,8 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                             fontSize: 10.sp,
                                                                             color: AppColors.primary,
                                                                             fontWeight: FontWeight.w500,
+                                                                            height: 1.2,
                                                                           ),
-                                                                          maxLines: 1,
-                                                                          overflow: TextOverflow.ellipsis,
                                                                         ),
                                                                       ),
                                                                     ],
@@ -1643,7 +1730,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                             ),
                                                             SizedBox(height: 2),
                                                             Text(
-                                                              '${item.initialSavedQty}x @ ${CurrencyFormatter.format(item.product.harga)} (Tersimpan)',
+                                                              '${item.initialSavedQty}x @ ${CurrencyFormatter.format(item.baseUnitPrice)} (Tersimpan)',
                                                               style: AppTypography
                                                                   .bodySmall
                                                                   .copyWith(
@@ -1653,6 +1740,29 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                         11.sp,
                                                                   ),
                                                             ),
+                                                            if (item.hasModifiers) ...[
+                                                              const SizedBox(height: 3),
+                                                              ...item.selectedModifiers.map((m) => Padding(
+                                                                padding: const EdgeInsets.only(bottom: 2),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Icon(Icons.add_circle_outline_rounded, size: 11.sp, color: AppColors.primary),
+                                                                    const SizedBox(width: 4),
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        '${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                                                        style: TextStyle(
+                                                                          fontSize: 10.5.sp,
+                                                                          color: AppColors.primary,
+                                                                          fontWeight: FontWeight.w600,
+                                                                          height: 1.2,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              )),
+                                                            ],
                                                           ],
                                                         ),
                                                       ),

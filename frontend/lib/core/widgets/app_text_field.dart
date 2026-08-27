@@ -24,6 +24,7 @@ class AppTextField extends StatefulWidget {
   final Duration? debounceDuration;
   final bool enableSuggestions;
   final bool autocorrect;
+  final TextCapitalization textCapitalization;
 
   const AppTextField({
     super.key,
@@ -46,6 +47,7 @@ class AppTextField extends StatefulWidget {
     this.debounceDuration,
     this.enableSuggestions = false,
     this.autocorrect = false,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -84,6 +86,7 @@ class _AppTextFieldState extends State<AppTextField> {
       obscureText: widget.obscureText,
       enableSuggestions: widget.enableSuggestions,
       autocorrect: widget.autocorrect,
+      textCapitalization: widget.textCapitalization,
       keyboardType: widget.keyboardType,
       inputFormatters: widget.inputFormatters,
       onChanged: _handleChanged,

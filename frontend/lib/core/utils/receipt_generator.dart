@@ -250,7 +250,11 @@ class ReceiptGenerator {
       if (item.hasModifiers) {
         for (var m in item.selectedModifiers) {
           final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
-          bytes += generator.text('   + ${m.groupName}: ${m.optionName}$modPrice', styles: const PosStyles(align: PosAlign.left));
+          final modText = '${m.optionName}$modPrice';
+          final wrappedMod = wrapTextWithIndent(modText, charsPerLine, firstLineIndent: '  + ', otherLinesIndent: '    ');
+          for (var l in wrappedMod) {
+            bytes += generator.text(l, styles: const PosStyles(align: PosAlign.left));
+          }
         }
       }
 
@@ -414,7 +418,10 @@ class ReceiptGenerator {
 
       if (item.hasModifiers) {
         for (var m in item.selectedModifiers) {
-          bytes += generator.text('     + ${m.groupName}: ${m.optionName}', styles: const PosStyles(align: PosAlign.left));
+          final wrappedMod = wrapTextWithIndent(m.optionName, charsPerLine, firstLineIndent: '    + ', otherLinesIndent: '      ');
+          for (var l in wrappedMod) {
+            bytes += generator.text(l, styles: const PosStyles(align: PosAlign.left));
+          }
         }
       }
 
@@ -508,7 +515,11 @@ class ReceiptGenerator {
       if (item.hasModifiers) {
         for (var m in item.selectedModifiers) {
           final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
-          bytes += generator.text('   + ${m.groupName}: ${m.optionName}$modPrice', styles: const PosStyles(align: PosAlign.left));
+          final modText = '${m.optionName}$modPrice';
+          final wrappedMod = wrapTextWithIndent(modText, charsPerLine, firstLineIndent: '  + ', otherLinesIndent: '    ');
+          for (var l in wrappedMod) {
+            bytes += generator.text(l, styles: const PosStyles(align: PosAlign.left));
+          }
         }
       }
 
@@ -856,7 +867,11 @@ class ReceiptGenerator {
       if (item.hasModifiers) {
         for (var m in item.selectedModifiers) {
           final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
-          buffer.writeln('   + ${m.groupName}: ${m.optionName}$modPrice');
+          final modText = '${m.optionName}$modPrice';
+          final wrappedMod = wrapTextWithIndent(modText, charsPerLine, firstLineIndent: '  + ', otherLinesIndent: '    ');
+          for (var l in wrappedMod) {
+            buffer.writeln(l);
+          }
         }
       }
 
@@ -958,7 +973,10 @@ class ReceiptGenerator {
 
       if (item.hasModifiers) {
         for (var m in item.selectedModifiers) {
-          buffer.writeln('     + ${m.groupName}: ${m.optionName}');
+          final wrappedMod = wrapTextWithIndent(m.optionName, charsPerLine, firstLineIndent: '    + ', otherLinesIndent: '      ');
+          for (var l in wrappedMod) {
+            buffer.writeln(l);
+          }
         }
       }
 
@@ -1030,7 +1048,11 @@ class ReceiptGenerator {
       if (item.hasModifiers) {
         for (var m in item.selectedModifiers) {
           final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
-          buffer.writeln('   + ${m.groupName}: ${m.optionName}$modPrice');
+          final modText = '${m.optionName}$modPrice';
+          final wrappedMod = wrapTextWithIndent(modText, charsPerLine, firstLineIndent: '  + ', otherLinesIndent: '    ');
+          for (var l in wrappedMod) {
+            buffer.writeln(l);
+          }
         }
       }
 

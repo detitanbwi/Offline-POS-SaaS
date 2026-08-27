@@ -255,6 +255,16 @@ class TableOrderDetailSheet {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(item.produkNama, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.sp)),
+                                        if (item.hasModifiers) ...[
+                                          const SizedBox(height: 2),
+                                          ...item.selectedModifiers.map((m) => Padding(
+                                            padding: const EdgeInsets.only(bottom: 1),
+                                            child: Text(
+                                              '+ ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                              style: TextStyle(fontSize: 10.5.sp, color: AppColors.primary, fontWeight: FontWeight.w500),
+                                            ),
+                                          )),
+                                        ],
                                         if (item.catatan != null && item.catatan!.isNotEmpty)
                                           Text('Note: ${item.catatan}', style: TextStyle(fontSize: 11.sp, color: Colors.orange, fontStyle: FontStyle.italic)),
                                       ],

@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/utils/license_key_formatter.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/screens/pin_screen.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
@@ -54,9 +55,10 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
           orElse: () => tokens.first,
         );
         if (availableToken != null && availableToken['token_key'] != null) {
+          final String rawKey = (availableToken['token_key'] as String).toUpperCase();
           setState(() {
-            _pulledTokenKey = availableToken['token_key'];
-            _licenseController.text = _pulledTokenKey!;
+            _pulledTokenKey = rawKey;
+            _licenseController.text = rawKey;
           });
         }
       }
@@ -186,8 +188,12 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                     AppTextField(
                       controller: _licenseController,
                       labelText: 'Lisensi Key',
-                      hintText: 'LIC-XXXX-XXXX-XXXX',
+                      hintText: 'WDEV-PRO-XXXX-XXXX-2026',
                       prefixIcon: Icons.key_rounded,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [
+                        LicenseKeyInputFormatter(),
+                      ],
                     ),
                     SizedBox(height: 16.h),
                     AppButton(
