@@ -94,7 +94,7 @@ class PdfReceiptGenerator {
         // Packages are NOT consolidated ("kecuali paket/beda paket")
         result.add(item);
       } else {
-        final key = '${item.produkId}_${item.produkHarga}';
+        final key = '${item.produkId}_${item.produkHarga}_${item.modifierSignature}';
         if (regularIndexMap.containsKey(key)) {
           final idx = regularIndexMap[key]!;
           final existing = result[idx];
@@ -135,7 +135,7 @@ class PdfReceiptGenerator {
         // Packages are NOT consolidated
         result.add(item);
       } else {
-        final key = '${item.produkId}_${item.produkHarga}';
+        final key = '${item.produkId}_${item.produkHarga}_${item.modifierSignature}';
         if (regularIndexMap.containsKey(key)) {
           final idx = regularIndexMap[key]!;
           final existing = result[idx];
@@ -158,6 +158,7 @@ class PdfReceiptGenerator {
             discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
             discountAmount: existing.discountAmount + item.discountAmount,
             catatan: mergedNotes,
+            selectedModifiers: existing.selectedModifiers,
           );
         } else {
           regularIndexMap[key] = result.length;
@@ -231,6 +232,9 @@ class PdfReceiptGenerator {
                 if (packageComponents.containsKey(item.produkId))
                   for (var comp in packageComponents[item.produkId]!)
                     pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
+                if (item.hasModifiers)
+                  for (var m in item.selectedModifiers)
+                    pw.Text('   + ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : ''}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],
@@ -353,6 +357,9 @@ class PdfReceiptGenerator {
                 if (packageComponents.containsKey(item.produkId))
                   for (var comp in packageComponents[item.produkId]!)
                     pw.Text('     • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey800)),
+                if (item.hasModifiers)
+                  for (var m in item.selectedModifiers)
+                    pw.Text('     + ${m.groupName}: ${m.optionName}', style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey800)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],
@@ -425,6 +432,9 @@ class PdfReceiptGenerator {
                 if (txPackageComponents.containsKey(item.produkId))
                   for (var comp in txPackageComponents[item.produkId]!)
                     pw.Text('   • ${(comp['qty'] as int) * item.qty}x ${comp['product_nama']}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
+                if (item.hasModifiers)
+                  for (var m in item.selectedModifiers)
+                    pw.Text('   + ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : ''}', style: pw.TextStyle(font: font, fontSize: 7, color: PdfColors.grey700)),
                 if (item.catatan != null && item.catatan!.trim().isNotEmpty)
                   pw.Text('     - ${item.catatan}', style: pw.TextStyle(font: font, fontSize: 8)),
               ],

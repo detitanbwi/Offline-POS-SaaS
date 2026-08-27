@@ -166,6 +166,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
     required int status,
     bool isPackage = false,
     List<PackageItem> packageItems = const [],
+    List<ProductModifierGroup> modifierGroups = const [],
     String? image,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -185,6 +186,21 @@ class ProductNotifier extends StateNotifier<ProductState> {
         return item.copyWith(packageId: newId);
       }).toList();
 
+      final updatedModifierGroups = modifierGroups.map((grp) {
+        final grpId = grp.id.isEmpty ? _uuid.v4() : grp.id;
+        final updatedOpts = grp.options.map((opt) {
+          return opt.copyWith(
+            id: opt.id.isEmpty ? _uuid.v4() : opt.id,
+            groupId: grpId,
+          );
+        }).toList();
+        return grp.copyWith(
+          id: grpId,
+          productId: newId,
+          options: updatedOpts,
+        );
+      }).toList();
+
       final product = Product(
         id: newId,
         kategoriId: kategoriId,
@@ -193,6 +209,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
         stok: isPackage ? 0 : stok,
         isPackage: isPackage,
         packageItems: updatedPackageItems,
+        modifierGroups: updatedModifierGroups,
         status: status,
         image: image,
         createdAt: now,
@@ -221,6 +238,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
     int? stok,
     bool? isPackage,
     List<PackageItem>? packageItems,
+    List<ProductModifierGroup>? modifierGroups,
     String? image,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -244,6 +262,21 @@ class ProductNotifier extends StateNotifier<ProductState> {
         return item.copyWith(packageId: id);
       }).toList();
 
+      final updatedModifierGroups = modifierGroups?.map((grp) {
+        final grpId = grp.id.isEmpty ? _uuid.v4() : grp.id;
+        final updatedOpts = grp.options.map((opt) {
+          return opt.copyWith(
+            id: opt.id.isEmpty ? _uuid.v4() : opt.id,
+            groupId: grpId,
+          );
+        }).toList();
+        return grp.copyWith(
+          id: grpId,
+          productId: id,
+          options: updatedOpts,
+        );
+      }).toList();
+
       final updated = current.copyWith(
         nama: nama.trim(),
         kategoriId: kategoriId,
@@ -251,6 +284,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
         stok: isPackage == true ? 0 : (stok ?? current.stok),
         isPackage: isPackage ?? current.isPackage,
         packageItems: updatedPackageItems ?? current.packageItems,
+        modifierGroups: updatedModifierGroups ?? current.modifierGroups,
         status: status,
         image: image ?? current.image,
         updatedAt: DateTime.now(),

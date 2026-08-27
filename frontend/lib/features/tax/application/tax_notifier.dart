@@ -62,6 +62,7 @@ class TaxNotifier extends StateNotifier<TaxState> {
       serviceEnable: current?.isServiceChargeEnabled ?? false,
       servicePercentage: current?.serviceChargePercentage ?? 0.0,
       serviceAfterTax: current?.isServiceChargeAfterTax ?? false,
+      serviceExcludeOnline: current?.isServiceChargeExcludeOnline ?? true,
     );
   }
 
@@ -71,6 +72,7 @@ class TaxNotifier extends StateNotifier<TaxState> {
     required bool serviceEnable,
     required double servicePercentage,
     required bool serviceAfterTax,
+    bool serviceExcludeOnline = true,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -81,6 +83,7 @@ class TaxNotifier extends StateNotifier<TaxState> {
         serviceChargeEnable: serviceEnable ? 1 : 0,
         serviceChargePercentage: servicePercentage,
         serviceChargeAfterTax: serviceAfterTax ? 1 : 0,
+        serviceChargeExcludeOnline: serviceExcludeOnline ? 1 : 0,
         updatedAt: DateTime.now(),
       );
       await _repository.updateTaxSetting(setting);

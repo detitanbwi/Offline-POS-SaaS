@@ -13,6 +13,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../domain/models/product.dart';
+import '../../domain/models/product_modifier.dart';
 import '../../../category/domain/models/category.dart';
 
 class ProductForm extends StatefulWidget {
@@ -27,6 +28,7 @@ class ProductForm extends StatefulWidget {
     required int status,
     required bool isPackage,
     required List<PackageItem> packageItems,
+    required List<ProductModifierGroup> modifierGroups,
     String? image,
   }) onSubmit;
 
@@ -55,6 +57,7 @@ class ProductFormState extends State<ProductForm> {
   bool _isAlwaysAvailable = false;
   bool _isPackage = false;
   List<PackageItem> _packageItems = [];
+  List<ProductModifierGroup> _modifierGroups = [];
 
   // Temporary selection states for adding component
   String? _selectedComponentProductId;
@@ -71,6 +74,7 @@ class ProductFormState extends State<ProductForm> {
     );
     _isPackage = widget.product?.isPackage ?? false;
     _packageItems = widget.product?.packageItems != null ? List.from(widget.product!.packageItems) : [];
+    _modifierGroups = widget.product?.modifierGroups != null ? List.from(widget.product!.modifierGroups) : [];
 
     _isAlwaysAvailable = widget.product?.stok == -1;
     _stockController = TextEditingController(
@@ -1106,6 +1110,175 @@ class ProductFormState extends State<ProductForm> {
               ],
             ],
 
+            // Section Varian & Topping (Menu Modifiers)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.tune_rounded, size: 18, color: AppColors.primary),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Varian & Topping Menu',
+                              style: AppTypography.titleMedium.copyWith(
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Pilihan ukuran, topping, level gula, dll.',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 10.sp,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _showModifierGroupDialog(),
+                        icon: const Icon(Icons.add_circle_outline, size: 16),
+                        label: const Text('Tambah'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_modifierGroups.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ..._modifierGroups.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final group = entry.value;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        group.nama,
+                                        style: AppTypography.titleMedium.copyWith(
+                                          fontSize: 12.sp,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: group.isRequired ? AppColors.primary.withValues(alpha: 0.12) : Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          group.isRequired ? 'Wajib' : 'Opsional',
+                                          style: TextStyle(
+                                            fontSize: 9.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: group.isRequired ? AppColors.primary : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          group.isSingleSelect ? 'Pilih 1' : 'Multi',
+                                          style: TextStyle(
+                                            fontSize: 9.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 16),
+                                  color: AppColors.primary,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                  onPressed: () => _showModifierGroupDialog(initialGroup: group, editIndex: idx),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 16),
+                                  color: AppColors.error,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                  onPressed: () {
+                                    setState(() {
+                                      _modifierGroups.removeAt(idx);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                            if (group.options.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: group.options.map((opt) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: AppColors.divider),
+                                    ),
+                                    child: Text(
+                                      '${opt.nama}${opt.harga > 0 ? ' (+${CurrencyFormatter.format(opt.harga)})' : ' (+Rp 0)'}',
+                                      style: TextStyle(fontSize: 10.sp, color: AppColors.textPrimary),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            ),
+
             if (widget.product != null) ...[
               Text(
                 'Status Produk',
@@ -1143,6 +1316,261 @@ class ProductFormState extends State<ProductForm> {
     );
   }
 
+  void _showModifierGroupDialog({ProductModifierGroup? initialGroup, int? editIndex}) {
+    final nameCtrl = TextEditingController(text: initialGroup?.nama ?? '');
+    bool isRequired = initialGroup?.isRequired ?? false;
+    bool isSingleSelect = initialGroup?.isSingleSelect ?? true;
+    final optionsList = initialGroup != null
+        ? initialGroup.options
+            .map((o) => {
+                  'id': o.id,
+                  'nameCtrl': TextEditingController(text: o.nama),
+                  'priceCtrl': TextEditingController(text: o.harga > 0 ? CurrencyFormatter.formatNumber(o.harga) : '0'),
+                })
+            .toList()
+        : <Map<String, dynamic>>[
+            {
+              'id': const Uuid().v4(),
+              'nameCtrl': TextEditingController(text: ''),
+              'priceCtrl': TextEditingController(text: '0'),
+            }
+          ];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                initialGroup == null ? 'Tambah Kelompok Varian / Topping' : 'Ubah Kelompok Varian',
+                style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppTextField(
+                        controller: nameCtrl,
+                        labelText: 'Nama Kelompok Varian',
+                        hintText: 'Contoh: Ukuran / Topping / Level Pedas',
+                        prefixIcon: Icons.label_outline,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setDialogState(() => isSingleSelect = true),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: isSingleSelect ? AppColors.primary.withValues(alpha: 0.12) : AppColors.surface,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: isSingleSelect ? AppColors.primary : AppColors.divider),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.radio_button_checked, size: 16, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary),
+                                    const SizedBox(height: 4),
+                                    Text('Pilih 1 (Radio)', style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setDialogState(() => isSingleSelect = false),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: !isSingleSelect ? AppColors.primary.withValues(alpha: 0.12) : AppColors.surface,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: !isSingleSelect ? AppColors.primary : AppColors.divider),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.check_box_outlined, size: 16, color: !isSingleSelect ? AppColors.primary : AppColors.textSecondary),
+                                    const SizedBox(height: 4),
+                                    Text('Pilih Banyak (Topping)', style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: !isSingleSelect ? AppColors.primary : AppColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        title: Text('Wajib Dipilih Oleh Pelanggan', style: AppTypography.titleMedium.copyWith(fontSize: 12.sp)),
+                        subtitle: Text(
+                          isRequired ? 'Pelanggan harus memilih minimal 1 opsi' : 'Pelanggan bebas tidak memilih opsi ini',
+                          style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary),
+                        ),
+                        value: isRequired,
+                        activeColor: AppColors.primary,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) => setDialogState(() => isRequired = val),
+                      ),
+                      const Divider(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Daftar Opsi Varian', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                          TextButton.icon(
+                            onPressed: () {
+                              setDialogState(() {
+                                optionsList.add({
+                                  'id': const Uuid().v4(),
+                                  'nameCtrl': TextEditingController(text: ''),
+                                  'priceCtrl': TextEditingController(text: '0'),
+                                });
+                              });
+                            },
+                            icon: const Icon(Icons.add, size: 14),
+                            label: const Text('Tambah Opsi'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              textStyle: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...optionsList.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final optMap = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: optMap['nameCtrl'] as TextEditingController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Nama Opsi #${idx + 1}',
+                                    hintText: 'Contoh: Regular / Extra Hot',
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: optMap['priceCtrl'] as TextEditingController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: '+ Harga',
+                                    prefixText: 'Rp ',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              if (optionsList.length > 1) ...[
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      optionsList.removeAt(idx);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final groupName = nameCtrl.text.trim();
+                    if (groupName.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Nama kelompok varian tidak boleh kosong'), backgroundColor: AppColors.error),
+                      );
+                      return;
+                    }
+
+                    final validOptions = <ProductModifierOption>[];
+                    for (var optMap in optionsList) {
+                      final n = (optMap['nameCtrl'] as TextEditingController).text.trim();
+                      if (n.isNotEmpty) {
+                        final pStr = (optMap['priceCtrl'] as TextEditingController).text.replaceAll('.', '');
+                        final pr = double.tryParse(pStr) ?? 0.0;
+                        validOptions.add(ProductModifierOption(
+                          id: optMap['id'] as String? ?? const Uuid().v4(),
+                          groupId: initialGroup?.id ?? '',
+                          nama: n,
+                          harga: pr,
+                          sortOrder: validOptions.length,
+                        ));
+                      }
+                    }
+
+                    if (validOptions.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Minimal harus ada 1 nama opsi varian yang diisi'), backgroundColor: AppColors.error),
+                      );
+                      return;
+                    }
+
+                    final newGroup = ProductModifierGroup(
+                      id: initialGroup?.id ?? const Uuid().v4(),
+                      productId: widget.product?.id ?? '',
+                      nama: groupName,
+                      isRequired: isRequired,
+                      allowMultiple: !isSingleSelect,
+                      minSelect: isRequired ? 1 : 0,
+                      maxSelect: isSingleSelect ? 1 : 99,
+                      sortOrder: editIndex ?? _modifierGroups.length,
+                      options: validOptions,
+                    );
+
+                    setState(() {
+                      if (editIndex != null && editIndex < _modifierGroups.length) {
+                        _modifierGroups[editIndex] = newGroup;
+                      } else {
+                        _modifierGroups.add(newGroup);
+                      }
+                    });
+
+                    Navigator.pop(dialogCtx);
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   bool submit() {
     if (_formKey.currentState?.validate() ?? false) {
       if (_selectedCategoryId == null) return false;
@@ -1170,6 +1598,7 @@ class ProductFormState extends State<ProductForm> {
         status: _status,
         isPackage: _isPackage,
         packageItems: _packageItems,
+        modifierGroups: _modifierGroups,
         image: _imagePath,
       );
       return true;

@@ -35,6 +35,7 @@ import '../../../printer/application/printer_notifier.dart';
 import '../../domain/models/order.dart';
 import '../../domain/models/order_item.dart';
 import '../widgets/manual_order_modal.dart';
+import '../widgets/product_modifier_modal.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -1361,7 +1362,26 @@ class _PosScreenState extends ConsumerState<PosScreen> with SingleTickerProvider
         return AppCard(
           borderSide: const BorderSide(color: AppColors.divider),
           padding: EdgeInsets.zero,
-          onTap: isOutOfStock ? null : () => cartNotifier.addItem(product),
+          onTap: isOutOfStock
+              ? null
+              : () {
+                  if (product.hasModifiers) {
+                    ProductModifierModal.show(
+                      context: context,
+                      product: product,
+                      onConfirm: (modifiers, qty, notes) {
+                        cartNotifier.addItemWithModifiers(
+                          product,
+                          modifiers,
+                          qty: qty,
+                          catatan: notes,
+                        );
+                      },
+                    );
+                  } else {
+                    cartNotifier.addItem(product);
+                  }
+                },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -2032,9 +2052,33 @@ class _CartItemRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      CurrencyFormatter.format(item.product.harga),
+                      CurrencyFormatter.format(item.baseUnitPrice),
                       style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp),
                     ),
+                    if (item.hasModifiers) ...[
+                      const SizedBox(height: 3),
+                      ...item.selectedModifiers.map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.add_circle_outline, size: 12.sp, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                '${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                style: TextStyle(
+                                  fontSize: 11.sp,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
                     if (item.product.isPackage && item.product.packageItems.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       ...item.product.packageItems.map((comp) => Padding(
@@ -2120,7 +2164,7 @@ class _CartItemRow extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
-                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty - 1, batchId: item.batchId),
+                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty - 1, batchId: item.batchId, modifierSignature: item.modifierSignature),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -2133,7 +2177,7 @@ class _CartItemRow extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
-                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty + 1, batchId: item.batchId),
+                    onPressed: () => cartNotifier.updateQuantity(item.product.id, item.qty + 1, batchId: item.batchId, modifierSignature: item.modifierSignature),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),

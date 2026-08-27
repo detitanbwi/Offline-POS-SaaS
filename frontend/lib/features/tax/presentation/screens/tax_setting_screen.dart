@@ -27,6 +27,7 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
   bool _taxEnabled = false;
   bool _serviceEnabled = false;
   bool _serviceAfterTax = false;
+  bool _serviceExcludeOnline = true;
 
   @override
   void initState() {
@@ -49,6 +50,7 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
           _servicePercentageController.text = sp % 1 == 0 ? sp.toInt().toString() : sp.toString();
 
           _serviceAfterTax = setting.isServiceChargeAfterTax;
+          _serviceExcludeOnline = setting.isServiceChargeExcludeOnline;
         });
       }
     });
@@ -72,6 +74,7 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
             serviceEnable: _serviceEnabled,
             servicePercentage: servicePercentage,
             serviceAfterTax: _serviceAfterTax,
+            serviceExcludeOnline: _serviceExcludeOnline,
           );
 
       if (!mounted) return;
@@ -99,6 +102,7 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
           _servicePercentageController.text = sp % 1 == 0 ? sp.toInt().toString() : sp.toString();
 
           _serviceAfterTax = next.taxSetting!.isServiceChargeAfterTax;
+          _serviceExcludeOnline = next.taxSetting!.isServiceChargeExcludeOnline;
         });
       }
     });
@@ -298,6 +302,46 @@ class _TaxSettingScreenState extends ConsumerState<TaxSettingScreen> {
                                       _serviceAfterTax
                                           ? 'Mode Aktif: Pajak dihitung dari Subtotal, kemudian Service Charge dihitung dari total Subtotal + Pajak.'
                                           : 'Mode Standar: Service Charge dihitung dari Subtotal, kemudian Pajak dihitung dari total Subtotal + Service Charge.',
+                                      style: AppTypography.bodySmall.copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11.sp,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.divider),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Kecualikan untuk Take Away & Online Food',
+                                            style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        Switch(
+                                          value: _serviceExcludeOnline,
+                                          activeThumbColor: AppColors.primary,
+                                          onChanged: (val) {
+                                            setState(() => _serviceExcludeOnline = val);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Jika aktif, pesanan Take Away dan pesanan Online Food (GrabFood/GoFood/ShopeeFood) tidak akan dikenakan biaya layanan (Service Charge 0%).',
                                       style: AppTypography.bodySmall.copyWith(
                                         color: AppColors.textSecondary,
                                         fontSize: 11.sp,

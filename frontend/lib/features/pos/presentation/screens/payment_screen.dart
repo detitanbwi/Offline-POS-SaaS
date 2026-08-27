@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../../product/presentation/widgets/product_form.dart';
+import '../../../product/application/product_notifier.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -69,6 +70,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       setState(() => _orderNumber = orderNo);
 
       final orderState = ref.read(orderNotifierProvider);
+      if (ref.read(cartNotifierProvider).items.isEmpty && orderState.activeOrder != null) {
+        final productState = ref.read(productNotifierProvider);
+        ref.read(cartNotifierProvider.notifier).loadDraftItems(
+          orderState.activeOrderItems,
+          productState.allProducts,
+          orderState.activePrintBatches,
+          orderDiscountPercentage: orderState.activeOrder?.discountPercentage,
+          orderDiscountAmount: orderState.activeOrder?.discountAmount,
+        );
+      }
+
       final total = orderState.onlinePlatformTotal ?? orderState.activeOrder?.onlinePlatformTotal;
       if (total != null && total > 0) {
         _appTotalController.text = CurrencyFormatter.formatNumber(total);
@@ -302,15 +314,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               transactionId: txId,
               produkId: item.product.id,
               produkNama: item.product.nama,
-              produkHarga: item.product.harga,
+              produkHarga: item.baseUnitPrice,
               qty: item.qty,
               subtotal: item.subtotal,
               discountPercentage: item.discountPercentage,
               discountAmount: item.discountAmount,
               catatan: item.catatan.isNotEmpty ? item.catatan : null,
+              selectedModifiers: item.selectedModifiers,
             ));
           } else {
-            final key = '${item.product.id}_${item.product.harga}';
+            final key = '${item.product.id}_${item.baseUnitPrice}_${item.modifierSignature}';
             if (regularIndexMap.containsKey(key)) {
               final idx = regularIndexMap[key]!;
               final existing = consolidatedTxItems[idx];
@@ -333,6 +346,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
                 discountAmount: existing.discountAmount + item.discountAmount,
                 catatan: mergedNotes,
+                selectedModifiers: existing.selectedModifiers,
               );
             } else {
               regularIndexMap[key] = consolidatedTxItems.length;
@@ -341,12 +355,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 transactionId: txId,
                 produkId: item.product.id,
                 produkNama: item.product.nama,
-                produkHarga: item.product.harga,
+                produkHarga: item.baseUnitPrice,
                 qty: item.qty,
                 subtotal: item.subtotal,
                 discountPercentage: item.discountPercentage,
                 discountAmount: item.discountAmount,
                 catatan: item.catatan.isNotEmpty ? item.catatan : null,
+                selectedModifiers: item.selectedModifiers,
               ));
             }
           }

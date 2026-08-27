@@ -1,5 +1,7 @@
 export 'package_item.dart';
+export 'product_modifier.dart';
 import 'package_item.dart';
+import 'product_modifier.dart';
 
 class Product {
   final String id;
@@ -10,6 +12,7 @@ class Product {
   final int stok;
   final bool isPackage;
   final List<PackageItem> packageItems;
+  final List<ProductModifierGroup> modifierGroups;
   final int status; // 1 = aktif, 0 = nonaktif
   final String? image;
   final DateTime createdAt;
@@ -24,6 +27,7 @@ class Product {
     this.stok = 0,
     this.isPackage = false,
     this.packageItems = const [],
+    this.modifierGroups = const [],
     this.status = 1,
     this.image,
     required this.createdAt,
@@ -31,6 +35,7 @@ class Product {
   });
 
   bool get isActive => status == 1;
+  bool get hasModifiers => modifierGroups.isNotEmpty;
 
   /// Calculates effective available stock.
   /// If [isPackage] is true, computes: min(floor(component.stok / item.qty))
@@ -82,6 +87,7 @@ class Product {
     int? stok,
     bool? isPackage,
     List<PackageItem>? packageItems,
+    List<ProductModifierGroup>? modifierGroups,
     int? status,
     String? image,
     DateTime? createdAt,
@@ -96,6 +102,7 @@ class Product {
       stok: stok ?? this.stok,
       isPackage: isPackage ?? this.isPackage,
       packageItems: packageItems ?? this.packageItems,
+      modifierGroups: modifierGroups ?? this.modifierGroups,
       status: status ?? this.status,
       image: image ?? this.image,
       createdAt: createdAt ?? this.createdAt,
@@ -122,6 +129,7 @@ class Product {
     Map<String, dynamic> map, {
     String? categoryName,
     List<PackageItem>? packageItems,
+    List<ProductModifierGroup>? modifierGroups,
   }) {
     return Product(
       id: map['id'] as String,
@@ -132,6 +140,7 @@ class Product {
       stok: map['stok'] as int,
       isPackage: (map['is_package'] as int? ?? 0) == 1,
       packageItems: packageItems ?? const [],
+      modifierGroups: modifierGroups ?? const [],
       status: map['status'] as int,
       image: map['image'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),

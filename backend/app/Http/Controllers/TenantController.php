@@ -106,10 +106,56 @@ class TenantController extends Controller
 
     public function update(UpdateTenantRequest $request, Tenant $tenant)
     {
-        $this->tenantRepository->update($tenant, $request->validated());
+        return DB::transaction(function () use ($request, $tenant) {
+            $data = $request->validated();
+            $oldEmail = $tenant->email;
+            $hasNewPassword = $request->filled('password');
 
-        return redirect()->route('admin.tenants.index')
-            ->with('success', 'Tenant berhasil diperbarui!');
+            // Hapus password dari data tenant karena bukan kolom di tabel tenants
+            unset($data['password'], $data['password_confirmation']);
+
+            $this->tenantRepository->update($tenant, $data);
+
+            // Sinkronisasi data user tenant yang terhubung
+            $user = $tenant->users()->first();
+            if (!$user) {
+                $user = User::where('email', $oldEmail)->first();
+            }
+
+            $userUpdates = [
+                'name' => $tenant->owner_name,
+                'email' => $tenant->email,
+            ];
+
+            if ($hasNewPassword) {
+                $userUpdates['password'] = $request->input('password');
+            }
+
+            if ($user) {
+                $user->update($userUpdates);
+            } elseif ($hasNewPassword) {
+                User::create([
+                    'tenant_id' => $tenant->id,
+                    'name' => $tenant->owner_name,
+                    'email' => $tenant->email,
+                    'password' => $request->input('password'),
+                    'is_admin' => false,
+                ]);
+            }
+
+            if ($hasNewPassword) {
+                AuditLog::create([
+                    'action' => 'tenant_password_reset',
+                    'tenant_id' => $tenant->id,
+                    'details' => "Password untuk user tenant {$tenant->name} ({$tenant->email}) direset oleh Admin.",
+                ]);
+            }
+
+            $successMsg = 'Tenant berhasil diperbarui!' . ($hasNewPassword ? ' Password user berhasil direset.' : '');
+
+            return redirect()->route('admin.tenants.index')
+                ->with('success', $successMsg);
+        });
     }
 
     public function destroy(Tenant $tenant)

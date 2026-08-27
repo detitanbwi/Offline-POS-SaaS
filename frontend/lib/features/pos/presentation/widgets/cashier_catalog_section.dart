@@ -17,6 +17,7 @@ import '../../../product/application/product_notifier.dart';
 import '../../../product/domain/models/product.dart';
 import '../../application/cart_notifier.dart';
 import 'manual_order_modal.dart';
+import 'product_modifier_modal.dart';
 
 class CashierCatalogSection extends ConsumerStatefulWidget {
   const CashierCatalogSection({super.key});
@@ -232,7 +233,22 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                           onTap: isOutOfStock
                               ? null
                               : () {
-                                  ref.read(cartNotifierProvider.notifier).addItem(product);
+                                  if (product.hasModifiers) {
+                                    ProductModifierModal.show(
+                                      context: context,
+                                      product: product,
+                                      onConfirm: (modifiers, qty, notes) {
+                                        ref.read(cartNotifierProvider.notifier).addItemWithModifiers(
+                                          product,
+                                          modifiers,
+                                          qty: qty,
+                                          catatan: notes,
+                                        );
+                                      },
+                                    );
+                                  } else {
+                                    ref.read(cartNotifierProvider.notifier).addItem(product);
+                                  }
                                 },
                           color: isOutOfStock
                               ? const Color(0xFFF1F5F9)

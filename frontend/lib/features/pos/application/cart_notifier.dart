@@ -5,6 +5,7 @@ import '../domain/models/cart_item.dart';
 import '../domain/models/order_item.dart';
 import '../domain/models/print_batch.dart';
 import '../../tax/application/tax_notifier.dart';
+import 'order_notifier.dart';
 
 class CartState {
   final List<CartItem> items;
@@ -89,6 +90,19 @@ class CartNotifier extends StateNotifier<CartState> {
     _ref.listen(taxNotifierProvider, (previous, next) {
       _recalculate();
     });
+
+    // Listen to order type / platform changes to auto-recalculate totals
+    _ref.listen(orderNotifierProvider, (previous, next) {
+      if (previous?.orderType != next.orderType ||
+          previous?.takeAwaySubType != next.takeAwaySubType ||
+          previous?.onlinePlatform != next.onlinePlatform) {
+        _recalculate();
+      }
+    });
+  }
+
+  void recalculateTotals() {
+    _recalculate();
   }
 
   void _recalculate({
@@ -145,7 +159,13 @@ class CartNotifier extends StateNotifier<CartState> {
     double serviceRate = 0.0;
     bool isAfterTax = false;
     if (setting != null && setting.isServiceChargeEnabled) {
-      serviceRate = setting.serviceChargePercentage;
+      final orderState = _ref.read(orderNotifierProvider);
+      final isTakeAwayOrOnline = orderState.isTakeAway || (orderState.activeOrder != null && orderState.activeOrder!.isTakeAway);
+      if (isTakeAwayOrOnline && setting.isServiceChargeExcludeOnline) {
+        serviceRate = 0.0;
+      } else {
+        serviceRate = setting.serviceChargePercentage;
+      }
       isAfterTax = setting.isServiceChargeAfterTax;
     }
 
@@ -345,8 +365,8 @@ class CartNotifier extends StateNotifier<CartState> {
       return false;
     }
 
-    // Always target uncommitted item (batchId == null)
-    final existingIndex = state.items.indexWhere((item) => item.product.id == freshProduct.id && item.batchId == null);
+    // Always target uncommitted item (batchId == null) with no modifiers
+    final existingIndex = state.items.indexWhere((item) => item.product.id == freshProduct.id && item.batchId == null && !item.hasModifiers);
     final targetQty = existingIndex != -1 ? state.items[existingIndex].qty + 1 : 1;
 
     final stockError = _checkStockLimit(freshProduct, targetQty, isBatchBaru: true);
@@ -362,7 +382,7 @@ class CartNotifier extends StateNotifier<CartState> {
       // Recalculate discount if item had percentage discount
       double newDiscAmount = oldItem.discountAmount;
       if (oldItem.discountType == 'percent' && oldItem.discountPercentage > 0) {
-        final newGross = freshProduct.harga * targetQty;
+        final newGross = oldItem.baseUnitPrice * targetQty;
         newDiscAmount = (newGross * (oldItem.discountPercentage / 100)).clamp(0.0, newGross);
       }
       updatedItems[existingIndex] = oldItem.copyWith(
@@ -371,6 +391,62 @@ class CartNotifier extends StateNotifier<CartState> {
       );
     } else {
       updatedItems.add(CartItem(product: freshProduct, qty: 1));
+    }
+
+    _recalculate(currentItems: updatedItems);
+    return true;
+  }
+
+  bool addItemWithModifiers(
+    Product product,
+    List<SelectedModifier> modifiers, {
+    int qty = 1,
+    String catatan = '',
+  }) {
+    final productState = _ref.read(productNotifierProvider);
+    final freshProduct = productState.allProducts.firstWhere(
+      (p) => p.id == product.id,
+      orElse: () => product,
+    );
+
+    if (!freshProduct.isActive) {
+      state = state.copyWith(errorMessage: 'Produk tidak aktif');
+      return false;
+    }
+
+    final modSig = (modifiers.map((m) => '${m.groupId}:${m.optionId}').toList()..sort()).join('|');
+    final existingIndex = state.items.indexWhere(
+      (item) => item.product.id == freshProduct.id && item.batchId == null && item.modifierSignature == modSig && item.catatan == catatan,
+    );
+
+    final targetQty = existingIndex != -1 ? state.items[existingIndex].qty + qty : qty;
+
+    final stockError = _checkStockLimit(freshProduct, targetQty, isBatchBaru: true);
+    if (stockError != null) {
+      state = state.copyWith(errorMessage: stockError);
+      return false;
+    }
+
+    List<CartItem> updatedItems = List.from(state.items);
+
+    if (existingIndex != -1) {
+      final oldItem = state.items[existingIndex];
+      double newDiscAmount = oldItem.discountAmount;
+      if (oldItem.discountType == 'percent' && oldItem.discountPercentage > 0) {
+        final newGross = oldItem.baseUnitPrice * targetQty;
+        newDiscAmount = (newGross * (oldItem.discountPercentage / 100)).clamp(0.0, newGross);
+      }
+      updatedItems[existingIndex] = oldItem.copyWith(
+        qty: targetQty,
+        discountAmount: newDiscAmount,
+      );
+    } else {
+      updatedItems.add(CartItem(
+        product: freshProduct,
+        qty: qty,
+        catatan: catatan,
+        selectedModifiers: modifiers,
+      ));
     }
 
     _recalculate(currentItems: updatedItems);
@@ -422,18 +498,29 @@ class CartNotifier extends StateNotifier<CartState> {
     return true;
   }
 
-  void removeItem(String productId, {String? batchId}) {
+  void removeItem(String productId, {String? batchId, String? modifierSignature}) {
     final updatedItems = state.items.where(
-      (item) => !(item.product.id == productId && item.batchId == batchId),
+      (item) => !(item.product.id == productId && item.batchId == batchId && (modifierSignature == null || item.modifierSignature == modifierSignature)),
     ).toList();
     _recalculate(currentItems: updatedItems);
   }
 
-  bool updateQuantity(String productId, int newQty, {String? batchId}) {
+  void removeItemByIndex(int index) {
+    if (index < 0 || index >= state.items.length) return;
+    final updatedItems = List<CartItem>.from(state.items)..removeAt(index);
+    _recalculate(currentItems: updatedItems);
+  }
+
+  bool updateQuantity(String productId, int newQty, {String? batchId, String? modifierSignature}) {
     final index = state.items.indexWhere(
-      (item) => item.product.id == productId && item.batchId == batchId,
+      (item) => item.product.id == productId && item.batchId == batchId && (modifierSignature == null || item.modifierSignature == modifierSignature),
     );
     if (index == -1) return false;
+    return updateQuantityByIndex(index, newQty);
+  }
+
+  bool updateQuantityByIndex(int index, int newQty) {
+    if (index < 0 || index >= state.items.length) return false;
 
     final cartItem = state.items[index];
 
@@ -444,11 +531,11 @@ class CartNotifier extends StateNotifier<CartState> {
     }
 
     if (newQty <= 0) {
-      removeItem(productId, batchId: batchId);
+      removeItemByIndex(index);
       return true;
     }
 
-    final stockError = _checkStockLimit(cartItem.product, newQty, targetBatchId: batchId, isBatchBaru: batchId == null);
+    final stockError = _checkStockLimit(cartItem.product, newQty, targetBatchId: cartItem.batchId, isBatchBaru: cartItem.batchId == null);
     if (stockError != null) {
       state = state.copyWith(errorMessage: stockError);
       return false;
@@ -457,7 +544,7 @@ class CartNotifier extends StateNotifier<CartState> {
     // Recalculate discount if percentage discount was active
     double newDiscAmount = cartItem.discountAmount;
     if (cartItem.discountType == 'percent' && cartItem.discountPercentage > 0) {
-      final newGross = cartItem.product.harga * newQty;
+      final newGross = cartItem.baseUnitPrice * newQty;
       newDiscAmount = (newGross * (cartItem.discountPercentage / 100)).clamp(0.0, newGross);
     }
 
@@ -471,11 +558,16 @@ class CartNotifier extends StateNotifier<CartState> {
     return true;
   }
 
-  void updateCatatan(String productId, String catatan, {String? batchId}) {
+  void updateCatatan(String productId, String catatan, {String? batchId, String? modifierSignature}) {
     final index = state.items.indexWhere(
-      (item) => item.product.id == productId && item.batchId == batchId,
+      (item) => item.product.id == productId && item.batchId == batchId && (modifierSignature == null || item.modifierSignature == modifierSignature),
     );
     if (index == -1) return;
+    updateCatatanByIndex(index, catatan);
+  }
+
+  void updateCatatanByIndex(int index, String catatan) {
+    if (index < 0 || index >= state.items.length) return;
 
     List<CartItem> updatedItems = List.from(state.items);
     updatedItems[index] = state.items[index].copyWith(catatan: catatan);
@@ -489,6 +581,7 @@ class CartNotifier extends StateNotifier<CartState> {
     List<PrintBatchModel> batches, {
     double? orderDiscountPercentage,
     double? orderDiscountAmount,
+    String? orderDiscountType,
   }) {
     final Map<String, CartItem> consolidatedMap = {};
     
@@ -501,46 +594,57 @@ class CartNotifier extends StateNotifier<CartState> {
     for (var draft in draftItems) {
       if (draft.isCancelled) continue;
       final productIndex = allProducts.indexWhere((p) => p.id == draft.produkId);
-      if (productIndex != -1) {
-        final product = allProducts[productIndex];
-        final catatan = draft.catatan ?? '';
-        final batchId = draft.printBatchId;
-        final key = '${product.id}_${catatan}_$batchId';
+      final product = productIndex != -1
+          ? allProducts[productIndex]
+          : Product(
+              id: draft.produkId,
+              kategoriId: 'manual',
+              nama: draft.produkNama,
+              harga: draft.produkHarga,
+              stok: -1,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
 
-        bool isBilled = false;
-        String? batchName;
-        if (batchId != null) {
-          final batch = batches.firstWhere((b) => b.id == batchId, orElse: () => PrintBatchModel(id: '', orderId: '', createdAt: DateTime.now()));
-          if (batch.id.isNotEmpty) {
-            isBilled = batch.paymentStatus == 'billed' || batch.paymentStatus == 'paid';
-          }
-          final roundNum = batchIndices[batchId] ?? 0;
-          batchName = roundNum > 0 ? 'Round $roundNum' : null;
-        }
+      final catatan = draft.catatan ?? '';
+      final batchId = draft.printBatchId;
+      final modSig = (draft.selectedModifiers.map((m) => '${m.groupId}:${m.optionId}').toList()..sort()).join('|');
+      final key = '${product.id}_${catatan}_${batchId}_$modSig';
 
-        if (consolidatedMap.containsKey(key)) {
-          final existing = consolidatedMap[key]!;
-          final newQty = existing.qty + draft.qty;
-          final newDiscAmount = existing.discountAmount + draft.discountAmount;
-          consolidatedMap[key] = existing.copyWith(
-            qty: newQty,
-            initialSavedQty: newQty,
-            discountAmount: newDiscAmount,
-          );
-        } else {
-          consolidatedMap[key] = CartItem(
-            product: product,
-            qty: draft.qty,
-            catatan: catatan,
-            initialSavedQty: draft.qty,
-            batchId: batchId,
-            isBilled: isBilled,
-            batchName: batchName,
-            discountPercentage: draft.discountPercentage,
-            discountAmount: draft.discountAmount,
-            discountType: draft.discountPercentage > 0 ? 'percent' : 'nominal',
-          );
+      bool isBilled = false;
+      String? batchName;
+      if (batchId != null) {
+        final batch = batches.firstWhere((b) => b.id == batchId, orElse: () => PrintBatchModel(id: '', orderId: '', createdAt: DateTime.now()));
+        if (batch.id.isNotEmpty) {
+          isBilled = batch.paymentStatus == 'billed' || batch.paymentStatus == 'paid';
         }
+        final roundNum = batchIndices[batchId] ?? 0;
+        batchName = roundNum > 0 ? 'Round $roundNum' : null;
+      }
+
+      if (consolidatedMap.containsKey(key)) {
+        final existing = consolidatedMap[key]!;
+        final newQty = existing.qty + draft.qty;
+        final newDiscAmount = existing.discountAmount + draft.discountAmount;
+        consolidatedMap[key] = existing.copyWith(
+          qty: newQty,
+          initialSavedQty: newQty,
+          discountAmount: newDiscAmount,
+        );
+      } else {
+        consolidatedMap[key] = CartItem(
+          product: product,
+          qty: draft.qty,
+          catatan: catatan,
+          initialSavedQty: draft.qty,
+          batchId: batchId,
+          isBilled: isBilled,
+          batchName: batchName,
+          discountPercentage: draft.discountPercentage,
+          discountAmount: draft.discountAmount,
+          discountType: draft.discountPercentage > 0 ? 'percent' : 'nominal',
+          selectedModifiers: draft.selectedModifiers,
+        );
       }
     }
     
@@ -554,11 +658,20 @@ class CartNotifier extends StateNotifier<CartState> {
         final indexB = batchIndices[b.batchId!] ?? 0;
         return indexA.compareTo(indexB);
       });
+
+    final activeOrder = _ref.read(orderNotifierProvider).activeOrder;
+    final effDiscountPct = orderDiscountPercentage ?? activeOrder?.discountPercentage;
+    final effDiscountAmt = orderDiscountAmount ?? activeOrder?.discountAmount;
+    final effDiscountType = orderDiscountType ??
+        (effDiscountPct != null && effDiscountPct > 0
+            ? 'percent'
+            : (effDiscountAmt != null && effDiscountAmt > 0 ? 'nominal' : null));
       
     _recalculate(
       currentItems: sortedItems,
-      orderDiscountRate: orderDiscountPercentage,
-      orderDiscountAmount: orderDiscountAmount,
+      orderDiscountRate: effDiscountPct,
+      orderDiscountAmount: effDiscountAmt,
+      orderDiscountType: effDiscountType,
     );
   }
 

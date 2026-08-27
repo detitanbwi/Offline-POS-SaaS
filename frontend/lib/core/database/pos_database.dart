@@ -130,10 +130,23 @@ class PosDatabase {
     await _addColumnIfNotExists(db, 'order_items', 'package_details', 'TEXT');
     await _addColumnIfNotExists(db, 'transaction_items', 'package_details', 'TEXT');
 
+    // Discounts
+    await _addColumnIfNotExists(db, 'orders', 'discount_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'orders', 'discount_amount', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'order_items', 'diskon_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'order_items', 'diskon_amount', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'transactions', 'discount_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'transactions', 'discount_amount', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'transaction_items', 'diskon_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'transaction_items', 'diskon_amount', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'master_orders', 'discount_percentage', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfNotExists(db, 'master_orders', 'discount_amount', 'REAL NOT NULL DEFAULT 0.0');
+
     // Tax Settings Service Charge
     await _addColumnIfNotExists(db, 'tax_settings', 'service_charge_enable', 'INTEGER NOT NULL DEFAULT 0');
     await _addColumnIfNotExists(db, 'tax_settings', 'service_charge_percentage', 'REAL NOT NULL DEFAULT 0.0');
     await _addColumnIfNotExists(db, 'tax_settings', 'service_charge_after_tax', 'INTEGER NOT NULL DEFAULT 0');
+    await _addColumnIfNotExists(db, 'tax_settings', 'service_charge_exclude_online', 'INTEGER NOT NULL DEFAULT 1');
 
     // Transactions Service Charge
     await _addColumnIfNotExists(db, 'transactions', 'service_charge_percentage', 'REAL NOT NULL DEFAULT 0.0');
@@ -149,6 +162,42 @@ class PosDatabase {
     await _addColumnIfNotExists(db, 'master_orders', 'service_charge_percentage', 'REAL NOT NULL DEFAULT 0.0');
     await _addColumnIfNotExists(db, 'master_orders', 'service_charge_amount', 'REAL NOT NULL DEFAULT 0.0');
     await _addColumnIfNotExists(db, 'master_orders', 'service_charge_after_tax', 'INTEGER NOT NULL DEFAULT 0');
+
+    // Modifier details
+    await _addColumnIfNotExists(db, 'order_items', 'modifier_details', 'TEXT');
+    await _addColumnIfNotExists(db, 'transaction_items', 'modifier_details', 'TEXT');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS product_modifier_groups (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL,
+        nama TEXT NOT NULL,
+        is_required INTEGER NOT NULL DEFAULT 0,
+        allow_multiple INTEGER NOT NULL DEFAULT 0,
+        min_select INTEGER NOT NULL DEFAULT 0,
+        max_select INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_prod_mod_groups_prod ON product_modifier_groups(product_id)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS product_modifier_options (
+        id TEXT PRIMARY KEY,
+        group_id TEXT NOT NULL,
+        nama TEXT NOT NULL,
+        harga REAL NOT NULL DEFAULT 0.0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (group_id) REFERENCES product_modifier_groups(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_prod_mod_opts_grp ON product_modifier_options(group_id)');
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS package_items (
@@ -261,6 +310,7 @@ class PosDatabase {
         service_charge_enable INTEGER NOT NULL DEFAULT 0,
         service_charge_percentage REAL NOT NULL DEFAULT 0,
         service_charge_after_tax INTEGER NOT NULL DEFAULT 0,
+        service_charge_exclude_online INTEGER NOT NULL DEFAULT 1,
         updated_at TEXT NOT NULL
       )
     ''');
@@ -312,6 +362,7 @@ class PosDatabase {
         diskon_percentage REAL NOT NULL DEFAULT 0,
         diskon_amount REAL NOT NULL DEFAULT 0,
         package_details TEXT,
+        modifier_details TEXT,
         catatan TEXT,
         FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
         FOREIGN KEY (produk_id) REFERENCES products(id) ON DELETE RESTRICT
@@ -384,6 +435,7 @@ class PosDatabase {
         diskon_percentage REAL NOT NULL DEFAULT 0,
         diskon_amount REAL NOT NULL DEFAULT 0,
         package_details TEXT,
+        modifier_details TEXT,
         catatan TEXT,
         status_cetak INTEGER NOT NULL DEFAULT 0,
         is_cancelled INTEGER NOT NULL DEFAULT 0,

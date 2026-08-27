@@ -5,6 +5,7 @@ class TaxSetting {
   final int serviceChargeEnable; // 1 = enabled, 0 = disabled
   final double serviceChargePercentage;
   final int serviceChargeAfterTax; // 1 = compound after tax, 0 = standard before tax
+  final int serviceChargeExcludeOnline; // 1 = exclude for online food/take away, 0 = include
   final DateTime updatedAt;
 
   const TaxSetting({
@@ -14,12 +15,14 @@ class TaxSetting {
     this.serviceChargeEnable = 0,
     this.serviceChargePercentage = 0.0,
     this.serviceChargeAfterTax = 0,
+    this.serviceChargeExcludeOnline = 1,
     required this.updatedAt,
   });
 
   bool get isEnabled => enable == 1;
   bool get isServiceChargeEnabled => serviceChargeEnable == 1;
   bool get isServiceChargeAfterTax => serviceChargeAfterTax == 1;
+  bool get isServiceChargeExcludeOnline => serviceChargeExcludeOnline == 1;
 
   TaxSetting copyWith({
     int? id,
@@ -28,6 +31,7 @@ class TaxSetting {
     int? serviceChargeEnable,
     double? serviceChargePercentage,
     int? serviceChargeAfterTax,
+    int? serviceChargeExcludeOnline,
     DateTime? updatedAt,
   }) {
     return TaxSetting(
@@ -37,6 +41,7 @@ class TaxSetting {
       serviceChargeEnable: serviceChargeEnable ?? this.serviceChargeEnable,
       serviceChargePercentage: serviceChargePercentage ?? this.serviceChargePercentage,
       serviceChargeAfterTax: serviceChargeAfterTax ?? this.serviceChargeAfterTax,
+      serviceChargeExcludeOnline: serviceChargeExcludeOnline ?? this.serviceChargeExcludeOnline,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -49,6 +54,7 @@ class TaxSetting {
       'service_charge_enable': serviceChargeEnable,
       'service_charge_percentage': serviceChargePercentage,
       'service_charge_after_tax': serviceChargeAfterTax,
+      'service_charge_exclude_online': serviceChargeExcludeOnline,
       'updated_at': updatedAt.toIso8601String(),
     };
   }
@@ -61,6 +67,7 @@ class TaxSetting {
       serviceChargeEnable: (map['service_charge_enable'] as int?) ?? 0,
       serviceChargePercentage: ((map['service_charge_percentage'] as num?) ?? 0.0).toDouble(),
       serviceChargeAfterTax: (map['service_charge_after_tax'] as int?) ?? 0,
+      serviceChargeExcludeOnline: (map['service_charge_exclude_online'] as int?) ?? 1,
       updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at'] as String) : DateTime.now(),
     );
   }

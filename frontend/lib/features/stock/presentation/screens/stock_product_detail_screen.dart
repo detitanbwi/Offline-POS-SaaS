@@ -62,8 +62,26 @@ class _StockProductDetailScreenState extends ConsumerState<StockProductDetailScr
       orElse: () => widget.product,
     );
 
-    // Filter mutations for this specific product
-    List<StockIn> productMutations = stockState.allStockIn.where((s) => s.produkId == currentProduct.id).toList();
+    // 1. Get ALL mutations for this product (unfiltered) sorted newest first
+    final allProductMutations = stockState.allStockIn
+        .where((s) => s.produkId == currentProduct.id)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    // 2. Precompute running balance (saldo stok setelah mutasi) for every mutation
+    final Map<String, int> runningBalanceMap = {};
+    if (currentProduct.stok != -1) {
+      int runningBalance = currentProduct.stok;
+      for (int i = 0; i < allProductMutations.length; i++) {
+        final m = allProductMutations[i];
+        runningBalanceMap[m.id] = runningBalance;
+        final int netDelta = m.isOut ? -m.qty.abs() : m.qty.abs();
+        runningBalance = runningBalance - netDelta;
+      }
+    }
+
+    // Filter mutations for display
+    List<StockIn> productMutations = List.from(allProductMutations);
 
     // Apply date range filter if selected
     if (_startDate != null && _endDate != null) {
@@ -353,20 +371,49 @@ class _StockProductDetailScreenState extends ConsumerState<StockProductDetailScr
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: badgeBg,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '$signPrefix${log.qty.abs()} pcs',
-                                      style: AppTypography.labelLarge.copyWith(
-                                        color: badgeTextColor,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13.sp,
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+                                        decoration: BoxDecoration(
+                                          color: badgeBg,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '$signPrefix${log.qty.abs()} pcs',
+                                          style: AppTypography.labelLarge.copyWith(
+                                            color: badgeTextColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5.sp,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Sisa: ',
+                                            style: AppTypography.bodySmall.copyWith(
+                                              color: AppColors.textSecondary,
+                                              fontSize: 11.sp,
+                                            ),
+                                          ),
+                                          Text(
+                                            runningBalanceMap.containsKey(log.id)
+                                                ? '${runningBalanceMap[log.id]} pcs'
+                                                : '-',
+                                            style: AppTypography.bodySmall.copyWith(
+                                              color: AppColors.textPrimary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11.5.sp,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

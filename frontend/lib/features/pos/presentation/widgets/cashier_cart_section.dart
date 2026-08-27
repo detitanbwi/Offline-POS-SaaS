@@ -1471,48 +1471,54 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                                                                   ),
                                                                 ],
                                                               ),
-                                                              SizedBox(
-                                                                height: 2,
-                                                              ),
+                                                              const SizedBox(height: 2),
                                                               Text(
                                                                 '${item.qty}x @ ${CurrencyFormatter.format(item.produkHarga)} (Tersimpan)',
-                                                                style: AppTypography
-                                                                    .bodySmall
-                                                                    .copyWith(
-                                                                      color: AppColors
-                                                                          .textSecondary,
-                                                                      fontSize:
-                                                                          11.sp,
-                                                                    ),
+                                                                style: AppTypography.bodySmall.copyWith(
+                                                                  color: AppColors.textSecondary,
+                                                                  fontSize: 11.sp,
+                                                                ),
                                                               ),
+                                                              if (item.hasModifiers) ...[
+                                                                const SizedBox(height: 3),
+                                                                ...item.selectedModifiers.map((m) => Padding(
+                                                                  padding: const EdgeInsets.only(bottom: 2),
+                                                                  child: Row(
+                                                                    children: [
+                                                                      Icon(Icons.add_circle_outline, size: 11.sp, color: AppColors.primary),
+                                                                      const SizedBox(width: 4),
+                                                                      Expanded(
+                                                                        child: Text(
+                                                                          '${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                                                          style: TextStyle(
+                                                                            fontSize: 10.sp,
+                                                                            color: AppColors.primary,
+                                                                            fontWeight: FontWeight.w500,
+                                                                          ),
+                                                                          maxLines: 1,
+                                                                          overflow: TextOverflow.ellipsis,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                )),
+                                                              ],
                                                             ],
                                                           ),
                                                         ),
                                                         Flexible(
                                                           flex: 1,
                                                           child: FittedBox(
-                                                            fit: BoxFit
-                                                                .scaleDown,
-                                                            alignment: Alignment
-                                                                .centerRight,
+                                                            fit: BoxFit.scaleDown,
+                                                            alignment: Alignment.centerRight,
                                                             child: Text(
-                                                              CurrencyFormatter.format(
-                                                                item.subtotal,
+                                                              CurrencyFormatter.format(item.subtotal),
+                                                              textAlign: TextAlign.right,
+                                                              style: AppTypography.titleMedium.copyWith(
+                                                                fontSize: 12.sp,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: AppColors.textSecondary,
                                                               ),
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .right,
-                                                              style: AppTypography
-                                                                  .titleMedium
-                                                                  .copyWith(
-                                                                    fontSize:
-                                                                        12.sp,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                    color: AppColors
-                                                                        .textSecondary,
-                                                                  ),
                                                             ),
                                                           ),
                                                         ),

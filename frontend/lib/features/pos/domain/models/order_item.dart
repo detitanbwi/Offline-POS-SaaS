@@ -1,3 +1,7 @@
+import 'dart:convert';
+import '../../../product/domain/models/product_modifier.dart';
+import '../../../../core/utils/currency_formatter.dart';
+
 class OrderItemModel {
   final String id;
   final String orderId; // legacy order ID or master order ID
@@ -22,6 +26,7 @@ class OrderItemModel {
   final String? printBatchId;
   final double discountPercentage;
   final double discountAmount;
+  final List<SelectedModifier> selectedModifiers;
 
   const OrderItemModel({
     required this.id,
@@ -47,12 +52,27 @@ class OrderItemModel {
     this.printBatchId,
     this.discountPercentage = 0.0,
     this.discountAmount = 0.0,
+    this.selectedModifiers = const [],
   }) : qtyOrdered = qtyOrdered ?? qty;
 
   int get remainingUnpaidQty => (qtyOrdered - qtyPaid - cancelledQty).clamp(0, 999999);
   bool get isFullyPaid => qtyPaid >= (qtyOrdered - cancelledQty);
   bool get isManual => produkId.startsWith('manual_');
   bool get hasDiscount => discountAmount > 0;
+  bool get hasModifiers => selectedModifiers.isNotEmpty;
+
+  String get modifierSignature {
+    if (selectedModifiers.isEmpty) return '';
+    final sigs = selectedModifiers.map((m) => '${m.groupId}:${m.optionId}').toList()..sort();
+    return sigs.join('|');
+  }
+
+  double get modifierUnitPrice => selectedModifiers.fold<double>(0.0, (sum, m) => sum + m.harga);
+  double get effectiveUnitPrice => (produkHarga + modifierUnitPrice);
+
+  String get modifiersSummary => selectedModifiers
+      .map((m) => '${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}')
+      .join(', ');
 
   OrderItemModel copyWith({
     String? id,
@@ -78,6 +98,7 @@ class OrderItemModel {
     String? printBatchId,
     double? discountPercentage,
     double? discountAmount,
+    List<SelectedModifier>? selectedModifiers,
   }) {
     return OrderItemModel(
       id: id ?? this.id,
@@ -103,6 +124,7 @@ class OrderItemModel {
       printBatchId: printBatchId ?? this.printBatchId,
       discountPercentage: discountPercentage ?? this.discountPercentage,
       discountAmount: discountAmount ?? this.discountAmount,
+      selectedModifiers: selectedModifiers ?? this.selectedModifiers,
     );
   }
 
@@ -131,12 +153,25 @@ class OrderItemModel {
       'print_batch_id': printBatchId,
       'diskon_percentage': discountPercentage,
       'diskon_amount': discountAmount,
+      'modifier_details': selectedModifiers.isNotEmpty
+          ? jsonEncode(selectedModifiers.map((m) => m.toMap()).toList())
+          : null,
     };
   }
 
   factory OrderItemModel.fromMap(Map<String, dynamic> map) {
     final qtyVal = map['qty'] as int;
     final produkHargaVal = (map['produk_harga'] as num).toDouble();
+
+    List<SelectedModifier> parsedModifiers = const [];
+    final rawModifiers = map['modifier_details'] as String?;
+    if (rawModifiers != null && rawModifiers.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawModifiers) as List;
+        parsedModifiers = decoded.map((m) => SelectedModifier.fromMap(Map<String, dynamic>.from(m as Map))).toList();
+      } catch (_) {}
+    }
+
     return OrderItemModel(
       id: map['id'] as String,
       orderId: map['order_id'] as String,
@@ -161,6 +196,7 @@ class OrderItemModel {
       printBatchId: map['print_batch_id'] as String?,
       discountPercentage: ((map['diskon_percentage'] ?? map['discount_percentage']) as num?)?.toDouble() ?? 0.0,
       discountAmount: ((map['diskon_amount'] ?? map['discount_amount']) as num?)?.toDouble() ?? 0.0,
+      selectedModifiers: parsedModifiers,
     );
   }
 }

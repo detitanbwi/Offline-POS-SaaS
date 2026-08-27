@@ -304,6 +304,34 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                     }),
                   ]
                 ),
+
+                if (report['top_modifiers'] != null && (report['top_modifiers'] as List).isNotEmpty) ...[
+                  pw.SizedBox(height: 20),
+                  pw.Text('Rekap Varian & Topping Terjual', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 8),
+                  pw.Table(
+                    border: pw.TableBorder.all(),
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Varian / Topping', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Qty Terjual', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Tambahan Pendapatan', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                        ]
+                      ),
+                      ...(report['top_modifiers'] as List).map((mod) {
+                        final m = mod as Map<String, dynamic>;
+                        return pw.TableRow(
+                          children: [
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(m['nama'] as String? ?? '-')),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${m['qty']}')),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(CurrencyFormatter.format((m['total'] as num?)?.toDouble() ?? 0.0))),
+                          ]
+                        );
+                      }),
+                    ]
+                  ),
+                ],
               ],
             ),
           );
@@ -386,6 +414,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final totalTax = report['total_tax'] as double;
     final paymentBreakdown = report['payment_breakdown'] as Map<String, double>;
     final topProducts = report['top_products'] as List<Map<String, dynamic>>;
+    final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
     final isWide = MediaQuery.of(context).size.width >= 600 &&
         MediaQuery.of(context).orientation == Orientation.landscape;
@@ -584,6 +613,59 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ],
           ),
         ),
+        if (topModifiers.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          AppCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.tune_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Rekap Varian & Topping Terjual',
+                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: topModifiers.length,
+                  separatorBuilder: (_, _) => const Divider(height: 16),
+                  itemBuilder: (context, index) {
+                    final mod = topModifiers[index];
+                    final double total = (mod['total'] as num?)?.toDouble() ?? 0.0;
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(mod['nama'] as String? ?? '-', style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
+                              Text('${mod['qty']}x dipilih', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 12.sp)),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          total > 0 ? CurrencyFormatter.format(total) : 'Gratis',
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: total > 0 ? AppColors.primary : AppColors.textSecondary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
         SizedBox(height: 24),
         AppButton(
           text: 'Cetak Laporan Ringkasan',

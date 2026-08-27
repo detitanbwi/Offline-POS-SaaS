@@ -64,6 +64,63 @@ class ProductRepositoryImpl implements ProductRepository {
     }
   }
 
+  Future<Map<String, List<ProductModifierGroup>>> _loadAllModifierGroups(DatabaseExecutor db) async {
+    try {
+      final List<Map<String, dynamic>> rawGroups = await db.query(
+        'product_modifier_groups',
+        orderBy: 'sort_order ASC, created_at ASC',
+      );
+      final List<Map<String, dynamic>> rawOptions = await db.query(
+        'product_modifier_options',
+        orderBy: 'sort_order ASC, created_at ASC',
+      );
+
+      final Map<String, List<ProductModifierOption>> optionsMap = {};
+      for (var optRow in rawOptions) {
+        final grpId = optRow['group_id'] as String;
+        optionsMap.putIfAbsent(grpId, () => []).add(ProductModifierOption.fromMap(optRow));
+      }
+
+      final Map<String, List<ProductModifierGroup>> resultMap = {};
+      for (var grpRow in rawGroups) {
+        final prodId = grpRow['product_id'] as String;
+        final grpId = grpRow['id'] as String;
+        final options = optionsMap[grpId] ?? const [];
+        resultMap.putIfAbsent(prodId, () => []).add(ProductModifierGroup.fromMap(grpRow, options: options));
+      }
+      return resultMap;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<List<ProductModifierGroup>> _loadModifierGroupsForProduct(DatabaseExecutor db, String productId) async {
+    try {
+      final List<Map<String, dynamic>> rawGroups = await db.query(
+        'product_modifier_groups',
+        where: 'product_id = ?',
+        whereArgs: [productId],
+        orderBy: 'sort_order ASC, created_at ASC',
+      );
+
+      final List<ProductModifierGroup> groups = [];
+      for (var grpRow in rawGroups) {
+        final grpId = grpRow['id'] as String;
+        final List<Map<String, dynamic>> rawOptions = await db.query(
+          'product_modifier_options',
+          where: 'group_id = ?',
+          whereArgs: [grpId],
+          orderBy: 'sort_order ASC, created_at ASC',
+        );
+        final options = rawOptions.map((o) => ProductModifierOption.fromMap(o)).toList();
+        groups.add(ProductModifierGroup.fromMap(grpRow, options: options));
+      }
+      return groups;
+    } catch (_) {
+      return [];
+    }
+  }
+
   @override
   Future<List<Product>> getAllProducts() async {
     final db = await _db.database;
@@ -76,12 +133,14 @@ class ProductRepositoryImpl implements ProductRepository {
     ''');
 
     final packageItemsMap = await _loadAllPackageItems(db);
+    final modifierGroupsMap = await _loadAllModifierGroups(db);
 
     return List.generate(maps.length, (i) {
       final row = maps[i];
       final prodId = row['id'] as String;
       final pkgItems = packageItemsMap[prodId] ?? const [];
-      return Product.fromMap(row, packageItems: pkgItems);
+      final modGroups = modifierGroupsMap[prodId] ?? const [];
+      return Product.fromMap(row, packageItems: pkgItems, modifierGroups: modGroups);
     });
   }
 
@@ -98,7 +157,8 @@ class ProductRepositoryImpl implements ProductRepository {
     if (maps.isEmpty) return null;
 
     final pkgItems = await _loadPackageItemsForProduct(db, id);
-    return Product.fromMap(maps.first, packageItems: pkgItems);
+    final modGroups = await _loadModifierGroupsForProduct(db, id);
+    return Product.fromMap(maps.first, packageItems: pkgItems, modifierGroups: modGroups);
   }
 
   @override
@@ -119,6 +179,25 @@ class ProductRepositoryImpl implements ProductRepository {
             itemToInsert.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
+        }
+      }
+
+      if (product.modifierGroups.isNotEmpty) {
+        for (var grp in product.modifierGroups) {
+          final grpToInsert = grp.productId.isEmpty ? grp.copyWith(productId: product.id) : grp;
+          await txn.insert(
+            'product_modifier_groups',
+            grpToInsert.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          for (var opt in grp.options) {
+            final optToInsert = opt.groupId.isEmpty ? opt.copyWith(groupId: grpToInsert.id) : opt;
+            await txn.insert(
+              'product_modifier_options',
+              optToInsert.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
         }
       }
     });
@@ -150,6 +229,46 @@ class ProductRepositoryImpl implements ProductRepository {
             itemToInsert.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
+        }
+      }
+
+      // Refresh modifier groups and options for this product
+      // Note: Foreign keys will cascade or we delete options then groups
+      final existingGroups = await txn.query(
+        'product_modifier_groups',
+        columns: ['id'],
+        where: 'product_id = ?',
+        whereArgs: [product.id],
+      );
+      for (var grpRow in existingGroups) {
+        await txn.delete(
+          'product_modifier_options',
+          where: 'group_id = ?',
+          whereArgs: [grpRow['id']],
+        );
+      }
+      await txn.delete(
+        'product_modifier_groups',
+        where: 'product_id = ?',
+        whereArgs: [product.id],
+      );
+
+      if (product.modifierGroups.isNotEmpty) {
+        for (var grp in product.modifierGroups) {
+          final grpToInsert = grp.productId.isEmpty ? grp.copyWith(productId: product.id) : grp;
+          await txn.insert(
+            'product_modifier_groups',
+            grpToInsert.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          for (var opt in grp.options) {
+            final optToInsert = opt.groupId.isEmpty ? opt.copyWith(groupId: grpToInsert.id) : opt;
+            await txn.insert(
+              'product_modifier_options',
+              optToInsert.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
         }
       }
     });

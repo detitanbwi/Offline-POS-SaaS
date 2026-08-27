@@ -100,7 +100,7 @@ class ReceiptGenerator {
         // Packages are NOT consolidated ("kecuali paket/beda paket")
         result.add(item);
       } else {
-        final key = '${item.produkId}_${item.produkHarga}';
+        final key = '${item.produkId}_${item.produkHarga}_${item.modifierSignature}';
         if (regularIndexMap.containsKey(key)) {
           final idx = regularIndexMap[key]!;
           final existing = result[idx];
@@ -141,7 +141,7 @@ class ReceiptGenerator {
         // Packages are NOT consolidated
         result.add(item);
       } else {
-        final key = '${item.produkId}_${item.produkHarga}';
+        final key = '${item.produkId}_${item.produkHarga}_${item.modifierSignature}';
         if (regularIndexMap.containsKey(key)) {
           final idx = regularIndexMap[key]!;
           final existing = result[idx];
@@ -164,6 +164,7 @@ class ReceiptGenerator {
             discountPercentage: existing.discountPercentage > 0 ? existing.discountPercentage : item.discountPercentage,
             discountAmount: existing.discountAmount + item.discountAmount,
             catatan: mergedNotes,
+            selectedModifiers: existing.selectedModifiers,
           );
         } else {
           regularIndexMap[key] = result.length;
@@ -244,6 +245,13 @@ class ReceiptGenerator {
         final compQty = (comp['qty'] as int) * item.qty;
         final compNama = comp['product_nama'] as String;
         bytes += generator.text('   • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
+      }
+
+      if (item.hasModifiers) {
+        for (var m in item.selectedModifiers) {
+          final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
+          bytes += generator.text('   + ${m.groupName}: ${m.optionName}$modPrice', styles: const PosStyles(align: PosAlign.left));
+        }
       }
 
       if (item.discountAmount > 0) {
@@ -404,6 +412,12 @@ class ReceiptGenerator {
         bytes += generator.text('     • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
       }
 
+      if (item.hasModifiers) {
+        for (var m in item.selectedModifiers) {
+          bytes += generator.text('     + ${m.groupName}: ${m.optionName}', styles: const PosStyles(align: PosAlign.left));
+        }
+      }
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
         for (var noteLine in wrappedNotes) {
@@ -489,6 +503,13 @@ class ReceiptGenerator {
         final compQty = (comp['qty'] as int) * item.qty;
         final compNama = comp['product_nama'] as String;
         bytes += generator.text('   • ${compQty}x $compNama', styles: const PosStyles(align: PosAlign.left));
+      }
+
+      if (item.hasModifiers) {
+        for (var m in item.selectedModifiers) {
+          final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
+          bytes += generator.text('   + ${m.groupName}: ${m.optionName}$modPrice', styles: const PosStyles(align: PosAlign.left));
+        }
       }
 
       if (item.discountAmount > 0) {
@@ -832,6 +853,13 @@ class ReceiptGenerator {
         buffer.writeln('   • ${compQty}x $compNama');
       }
 
+      if (item.hasModifiers) {
+        for (var m in item.selectedModifiers) {
+          final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
+          buffer.writeln('   + ${m.groupName}: ${m.optionName}$modPrice');
+        }
+      }
+
       if (item.discountAmount > 0) {
         buffer.writeln('  (Disc -${item.discountPercentage > 0 ? '${item.discountPercentage.toStringAsFixed(0)}% ' : ''}${CurrencyFormatter.formatNumber(item.discountAmount)})');
       }
@@ -928,6 +956,12 @@ class ReceiptGenerator {
         buffer.writeln('     • ${compQty}x $compNama');
       }
 
+      if (item.hasModifiers) {
+        for (var m in item.selectedModifiers) {
+          buffer.writeln('     + ${m.groupName}: ${m.optionName}');
+        }
+      }
+
       if (item.catatan != null && item.catatan!.trim().isNotEmpty) {
         final wrappedNotes = wrapTextWithIndent(item.catatan!.trim(), charsPerLine, firstLineIndent: '     - ', otherLinesIndent: '       ');
         for (var noteLine in wrappedNotes) {
@@ -991,6 +1025,13 @@ class ReceiptGenerator {
         final compQty = (comp['qty'] as int) * item.qty;
         final compNama = comp['product_nama'] as String;
         buffer.writeln('   • ${compQty}x $compNama');
+      }
+
+      if (item.hasModifiers) {
+        for (var m in item.selectedModifiers) {
+          final modPrice = m.harga > 0 ? ' (+${CurrencyFormatter.formatNumber(m.harga)})' : '';
+          buffer.writeln('   + ${m.groupName}: ${m.optionName}$modPrice');
+        }
       }
 
       if (item.discountAmount > 0) {

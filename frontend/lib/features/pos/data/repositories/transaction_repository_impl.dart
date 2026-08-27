@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:uuid/uuid.dart';
@@ -306,6 +307,52 @@ class TransactionRepositoryImpl implements TransactionRepository {
       };
     }).toList();
 
+    final List<Map<String, dynamic>> modifierItemsResult = await db.rawQuery(
+      '''
+      SELECT qty, modifier_details 
+      FROM transaction_items 
+      WHERE transaction_id IN (SELECT id FROM transactions WHERE $whereClause) 
+        AND modifier_details IS NOT NULL 
+        AND modifier_details != '' 
+        AND modifier_details != '[]'
+      ''',
+      whereArgs,
+    );
+
+    final Map<String, Map<String, dynamic>> modifierAggMap = {};
+    for (var row in modifierItemsResult) {
+      final itemQty = (row['qty'] as num?)?.toInt() ?? 1;
+      final rawModJson = row['modifier_details'] as String?;
+      if (rawModJson == null || rawModJson.isEmpty) continue;
+      try {
+        final List<dynamic> list = jsonDecode(rawModJson);
+        for (var item in list) {
+          if (item is Map<String, dynamic>) {
+            final groupName = item['groupName'] as String? ?? 'Varian';
+            final optionName = item['optionName'] as String? ?? '';
+            final harga = (item['harga'] as num?)?.toDouble() ?? 0.0;
+            final key = '$groupName: $optionName';
+            if (!modifierAggMap.containsKey(key)) {
+              modifierAggMap[key] = {
+                'nama': key,
+                'group': groupName,
+                'option': optionName,
+                'qty': 0,
+                'total': 0.0,
+              };
+            }
+            modifierAggMap[key]!['qty'] = (modifierAggMap[key]!['qty'] as int) + itemQty;
+            modifierAggMap[key]!['total'] = (modifierAggMap[key]!['total'] as double) + (harga * itemQty);
+          }
+        }
+      } catch (e) {
+        // ignore malformed json
+      }
+    }
+
+    final topModifiers = modifierAggMap.values.toList()
+      ..sort((a, b) => (b['qty'] as int).compareTo(a['qty'] as int));
+
     return {
       'date': dateStr,
       'total_sales': totalSales,
@@ -317,6 +364,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       'total_void_amount': totalVoidAmount,
       'payment_breakdown': paymentBreakdown,
       'top_products': topProducts,
+      'top_modifiers': topModifiers,
     };
   }
 

@@ -1,3 +1,7 @@
+import 'dart:convert';
+import '../../../product/domain/models/product_modifier.dart';
+import '../../../../core/utils/currency_formatter.dart';
+
 class TransactionHeader {
   final String id;
   final String nomorTransaksi;
@@ -129,6 +133,7 @@ class TransactionItem {
   final double discountPercentage;
   final double discountAmount;
   final String? catatan;
+  final List<SelectedModifier> selectedModifiers;
 
   const TransactionItem({
     required this.id,
@@ -141,7 +146,24 @@ class TransactionItem {
     this.discountPercentage = 0.0,
     this.discountAmount = 0.0,
     this.catatan,
+    this.selectedModifiers = const [],
   });
+
+  bool get hasDiscount => discountAmount > 0;
+  bool get hasModifiers => selectedModifiers.isNotEmpty;
+
+  String get modifierSignature {
+    if (selectedModifiers.isEmpty) return '';
+    final sigs = selectedModifiers.map((m) => '${m.groupId}:${m.optionId}').toList()..sort();
+    return sigs.join('|');
+  }
+
+  double get modifierUnitPrice => selectedModifiers.fold<double>(0.0, (sum, m) => sum + m.harga);
+  double get effectiveUnitPrice => (produkHarga + modifierUnitPrice);
+
+  String get modifiersSummary => selectedModifiers
+      .map((m) => '${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}')
+      .join(', ');
 
   Map<String, dynamic> toMap() {
     return {
@@ -155,10 +177,22 @@ class TransactionItem {
       'diskon_percentage': discountPercentage,
       'diskon_amount': discountAmount,
       'catatan': catatan,
+      'modifier_details': selectedModifiers.isNotEmpty
+          ? jsonEncode(selectedModifiers.map((m) => m.toMap()).toList())
+          : null,
     };
   }
 
   factory TransactionItem.fromMap(Map<String, dynamic> map) {
+    List<SelectedModifier> parsedModifiers = const [];
+    final rawModifiers = map['modifier_details'] as String?;
+    if (rawModifiers != null && rawModifiers.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawModifiers) as List;
+        parsedModifiers = decoded.map((m) => SelectedModifier.fromMap(Map<String, dynamic>.from(m as Map))).toList();
+      } catch (_) {}
+    }
+
     return TransactionItem(
       id: map['id'] as String,
       transactionId: map['transaction_id'] as String,
@@ -170,6 +204,7 @@ class TransactionItem {
       discountPercentage: ((map['diskon_percentage'] ?? map['discount_percentage']) as num?)?.toDouble() ?? 0.0,
       discountAmount: ((map['diskon_amount'] ?? map['discount_amount']) as num?)?.toDouble() ?? 0.0,
       catatan: map['catatan'] as String?,
+      selectedModifiers: parsedModifiers,
     );
   }
 }

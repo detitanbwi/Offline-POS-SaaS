@@ -13,6 +13,7 @@ import '../domain/repositories/order_repository.dart';
 import '../../../../core/utils/receipt_generator.dart';
 import '../../printer/application/printer_notifier.dart';
 import '../domain/models/print_batch.dart';
+import 'cart_notifier.dart';
 
 class OrderState {
   final TableModel? selectedTable;
@@ -120,6 +121,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         clearActiveOrder: clearActiveOrder,
       );
     }
+    _ref.read(cartNotifierProvider.notifier).recalculateTotals();
   }
 
   void setCustomerName(String? name) {
@@ -139,9 +141,11 @@ class OrderNotifier extends StateNotifier<OrderState> {
         orderType: 'dine_in',
         customerName: state.customerName,
       );
+      _ref.read(cartNotifierProvider.notifier).recalculateTotals();
       await loadActiveOrderForTable(table.id);
     } else {
       state = state.copyWith(clearSelectedTable: true);
+      _ref.read(cartNotifierProvider.notifier).recalculateTotals();
     }
   }
 
@@ -276,7 +280,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
         if (item.printBatchId != null || item.statusCetak == 1) {
           allOrderItems.add(item);
           if (!item.isCancelled) {
-            printedQtyMap[item.produkId] = (printedQtyMap[item.produkId] ?? 0) + item.qty;
+            final modSig = (item.selectedModifiers.map((m) => '${m.groupId}:${m.optionId}').toList()..sort()).join('|');
+            final key = '${item.produkId}_${item.catatan ?? ''}_$modSig';
+            printedQtyMap[key] = (printedQtyMap[key] ?? 0) + item.qty;
           }
         }
       }
@@ -286,15 +292,15 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final Map<String, CartItem> cartItemMap = {};
       final Map<String, int> cartQtyMap = {};
       for (var cartItem in cartItems) {
-        final prodId = cartItem.product.id;
-        cartQtyMap[prodId] = (cartQtyMap[prodId] ?? 0) + cartItem.qty;
-        cartItemMap[prodId] = cartItem;
+        final key = '${cartItem.product.id}_${cartItem.catatan}_${cartItem.modifierSignature}';
+        cartQtyMap[key] = (cartQtyMap[key] ?? 0) + cartItem.qty;
+        cartItemMap[key] = cartItem;
       }
 
-      for (var prodId in cartQtyMap.keys) {
-        final cartItem = cartItemMap[prodId]!;
-        final currentQty = cartQtyMap[prodId]!;
-        final printedQty = printedQtyMap[prodId] ?? 0;
+      for (var key in cartQtyMap.keys) {
+        final cartItem = cartItemMap[key]!;
+        final currentQty = cartQtyMap[key]!;
+        final printedQty = printedQtyMap[key] ?? 0;
 
         if (currentQty > printedQty) {
           final unprintedQty = currentQty - printedQty;
@@ -302,20 +308,21 @@ class OrderNotifier extends StateNotifier<OrderState> {
           final orderItem = OrderItemModel(
             id: _uuid.v4(),
             orderId: orderId,
-            produkId: prodId,
+            produkId: cartItem.product.id,
             produkNama: cartItem.product.nama,
-            produkHarga: cartItem.product.harga,
-            basePrice: cartItem.product.harga,
+            produkHarga: cartItem.baseUnitPrice,
+            basePrice: cartItem.baseUnitPrice,
             effectivePrice: cartItem.effectivePrice,
             qty: unprintedQty,
             qtyOrdered: unprintedQty,
             qtyPaid: 0,
-            subtotal: cartItem.subtotal,
+            subtotal: cartItem.effectivePrice * unprintedQty,
             discountPercentage: cartItem.discountPercentage,
             discountAmount: cartItem.discountAmount,
             catatan: cartItem.catatan,
             statusCetak: 0,
             printBatchId: null, // to be populated when batch is saved
+            selectedModifiers: cartItem.selectedModifiers,
           );
           allOrderItems.add(orderItem);
           itemsToPrint.add(orderItem);

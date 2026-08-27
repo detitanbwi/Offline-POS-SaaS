@@ -32,8 +32,24 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
   final Set<String> _selectedIds = {};
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _searchController.clear();
+        ref.read(productNotifierProvider.notifier).setSearchQuery('');
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
+    Future.microtask(() {
+      try {
+        ref.read(productNotifierProvider.notifier).setSearchQuery('');
+      } catch (_) {}
+    });
     super.dispose();
   }
 
@@ -122,6 +138,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     required int status,
                     required bool isPackage,
                     required List<PackageItem> packageItems,
+                    required List<ProductModifierGroup> modifierGroups,
                     String? image,
                   }) async {
                     if (isSaving) return;
@@ -145,6 +162,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             status: status,
                             isPackage: isPackage,
                             packageItems: packageItems,
+                            modifierGroups: modifierGroups,
                             image: image,
                           );
                     } else {
@@ -157,6 +175,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             status: status,
                             isPackage: isPackage,
                             packageItems: packageItems,
+                            modifierGroups: modifierGroups,
                             image: image,
                           );
                     }
@@ -407,7 +426,20 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             controller: _searchController,
                             labelText: 'Cari Produk',
                             prefixIcon: Icons.search,
-                            onChanged: (val) => notifier.setSearchQuery(val),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 20),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      notifier.setSearchQuery('');
+                                      setState(() {});
+                                    },
+                                  )
+                                : null,
+                            onChanged: (val) {
+                              notifier.setSearchQuery(val);
+                              setState(() {});
+                            },
                             debounceDuration: const Duration(milliseconds: 500),
                           ),
                         ),
@@ -441,8 +473,21 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       controller: _searchController,
                       labelText: 'Cari Produk',
                       prefixIcon: Icons.search,
-                      onChanged: (val) => notifier.setSearchQuery(val),
-                            debounceDuration: const Duration(milliseconds: 500),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                notifier.setSearchQuery('');
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      onChanged: (val) {
+                        notifier.setSearchQuery(val);
+                        setState(() {});
+                      },
+                      debounceDuration: const Duration(milliseconds: 500),
                     ),
                     SizedBox(height: 12),
                     // Categories chips scrollable filter

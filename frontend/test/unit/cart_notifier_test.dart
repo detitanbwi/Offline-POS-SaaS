@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/features/product/domain/models/product.dart';
 import 'package:frontend/features/pos/application/cart_notifier.dart';
+import 'package:frontend/features/pos/application/order_notifier.dart';
 import 'package:frontend/features/tax/application/tax_notifier.dart';
 import 'package:frontend/features/tax/domain/models/tax_setting.dart';
 import 'package:frontend/features/tax/domain/repositories/tax_repository.dart';
@@ -241,6 +242,53 @@ void main() {
       expect(state.taxAmount, 2195.0);
       // Grand Total = 19.000 + 950 + 2.195 = 22.145
       expect(state.grandTotal, 22145.0);
+
+      customContainer.dispose();
+    });
+
+    test('Take Away and Online Food excludes Service Charge when toggle is enabled', () {
+      final customContainer = ProviderContainer(
+        overrides: [
+          taxNotifierProvider.overrideWith((ref) => TaxNotifierMock(
+            setting: TaxSetting(
+              id: 1,
+              enable: 1,
+              percentage: 10.0, // 10% tax
+              serviceChargeEnable: 1,
+              serviceChargePercentage: 5.0, // 5% service
+              serviceChargeAfterTax: 0,
+              serviceChargeExcludeOnline: 1, // Exclude for online / take away
+              updatedAt: DateTime.now(),
+            ),
+          )),
+        ],
+      );
+
+      final orderNotifier = customContainer.read(orderNotifierProvider.notifier);
+      final cart = customContainer.read(cartNotifierProvider.notifier);
+
+      // Set to take away
+      orderNotifier.setOrderType('take_away', subType: 'online_food', platform: 'GrabFood');
+
+      cart.addItem(Product(
+        id: 'prod-online',
+        kategoriId: 'cat-1',
+        nama: 'Menu Online',
+        harga: 50000.0,
+        stok: -1,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ));
+
+      final state = customContainer.read(cartNotifierProvider);
+      expect(state.subtotal, 50000.0);
+      // Service charge must be 0% and Rp 0 because order is take away / online food
+      expect(state.serviceChargeRate, 0.0);
+      expect(state.serviceChargeAmount, 0.0);
+      // Tax is 10% of 50.000 = 5.000
+      expect(state.taxAmount, 5000.0);
+      // Grand Total = 50.000 + 5.000 = 55.000
+      expect(state.grandTotal, 55000.0);
 
       customContainer.dispose();
     });

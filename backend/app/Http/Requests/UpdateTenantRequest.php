@@ -22,6 +22,7 @@ class UpdateTenantRequest extends FormRequest
             'phone' => 'nullable|string|regex:/^[0-9]+$/|max:20',
             'store_name' => 'nullable|string|max:255',
             'store_address' => 'nullable|string|max:500',
+            'password' => 'nullable|string|min:6|confirmed',
         ];
     }
 
@@ -29,6 +30,8 @@ class UpdateTenantRequest extends FormRequest
     {
         return [
             'phone.regex' => 'Nomor telepon/WhatsApp hanya boleh berupa angka.',
+            'password.min' => 'Password baru minimal harus 6 karakter.',
+            'password.confirmed' => 'Konfirmasi password baru tidak cocok.',
         ];
     }
 }
