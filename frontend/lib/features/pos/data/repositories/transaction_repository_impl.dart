@@ -84,6 +84,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
       // 2. Loop through items
       for (var item in items) {
+        // Ensure manual product foreign key is satisfied
+        await _ensureManualProductExists(txn, item.produkId, item.produkNama, item.produkHarga);
+
         // Insert transaction item details
         await txn.insert(
           'transaction_items',
@@ -431,6 +434,44 @@ class TransactionRepositoryImpl implements TransactionRepository {
         whereArgs: [transactionId],
       );
     });
+  }
+
+  Future<void> _ensureManualProductExists(
+    DatabaseExecutor txn,
+    String produkId,
+    String produkNama,
+    double produkHarga,
+  ) async {
+    if (!produkId.startsWith('manual_')) return;
+
+    final pCheck = await txn.query('products', where: 'id = ?', whereArgs: [produkId]);
+    if (pCheck.isEmpty) {
+      final anyCat = await txn.query('categories', limit: 1);
+      String catId = anyCat.isNotEmpty ? (anyCat.first['id'] as String) : 'CAT_MANUAL';
+      if (anyCat.isEmpty) {
+        await txn.insert('categories', {
+          'id': 'CAT_MANUAL',
+          'nama': 'Manual Order',
+          'status': 1,
+          'is_deleted': 1,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      await txn.insert('products', {
+        'id': produkId,
+        'kategori_id': catId,
+        'nama': produkNama,
+        'harga': produkHarga,
+        'stok': -1,
+        'is_package': 0,
+        'status': 1,
+        'is_deleted': 1,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    }
   }
 }
 

@@ -289,8 +289,9 @@ class OrderRepositoryImpl implements OrderRepository {
         whereArgs: [order.id],
       );
 
-      // 3. Insert all new items
+      // 3. Insert all new items (ensure foreign key for manual products is satisfied)
       for (var item in items) {
+        await _ensureManualProductExists(txn, item.produkId, item.produkNama, item.produkHarga);
         await txn.insert(
           'order_items',
           item.toMap(),
@@ -859,6 +860,44 @@ class OrderRepositoryImpl implements OrderRepository {
       where: 'id = ?',
       whereArgs: [orderId],
     );
+  }
+
+  Future<void> _ensureManualProductExists(
+    DatabaseExecutor txn,
+    String produkId,
+    String produkNama,
+    double produkHarga,
+  ) async {
+    if (!produkId.startsWith('manual_')) return;
+
+    final pCheck = await txn.query('products', where: 'id = ?', whereArgs: [produkId]);
+    if (pCheck.isEmpty) {
+      final anyCat = await txn.query('categories', limit: 1);
+      String catId = anyCat.isNotEmpty ? (anyCat.first['id'] as String) : 'CAT_MANUAL';
+      if (anyCat.isEmpty) {
+        await txn.insert('categories', {
+          'id': 'CAT_MANUAL',
+          'nama': 'Manual Order',
+          'status': 1,
+          'is_deleted': 1,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      await txn.insert('products', {
+        'id': produkId,
+        'kategori_id': catId,
+        'nama': produkNama,
+        'harga': produkHarga,
+        'stok': -1,
+        'is_package': 0,
+        'status': 1,
+        'is_deleted': 1,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    }
   }
 }
 

@@ -1318,6 +1318,7 @@ class ProductFormState extends State<ProductForm> {
 
   void _showModifierGroupDialog({ProductModifierGroup? initialGroup, int? editIndex}) {
     final nameCtrl = TextEditingController(text: initialGroup?.nama ?? '');
+    final scrollController = ScrollController();
     bool isRequired = initialGroup?.isRequired ?? false;
     bool isSingleSelect = initialGroup?.isSingleSelect ?? true;
     final optionsList = initialGroup != null
@@ -1342,14 +1343,37 @@ class ProductFormState extends State<ProductForm> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
+            void addNewOption() {
+              FocusScope.of(ctx).unfocus();
+              setDialogState(() {
+                optionsList.add({
+                  'id': const Uuid().v4(),
+                  'nameCtrl': TextEditingController(text: ''),
+                  'priceCtrl': TextEditingController(text: '0'),
+                });
+              });
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (scrollController.hasClients) {
+                  scrollController.animateTo(
+                    scrollController.position.maxScrollExtent,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOut,
+                  );
+                }
+              });
+            }
+
             return AlertDialog(
               title: Text(
                 initialGroup == null ? 'Tambah Kelompok Varian / Topping' : 'Ubah Kelompok Varian',
                 style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
               ),
               content: SizedBox(
-                width: 420,
+                width: MediaQuery.sizeOf(context).width < 500
+                    ? (MediaQuery.sizeOf(context).width * 0.9)
+                    : 480,
                 child: SingleChildScrollView(
+                  controller: scrollController,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1426,20 +1450,16 @@ class ProductFormState extends State<ProductForm> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Daftar Opsi Varian', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp)),
-                          TextButton.icon(
-                            onPressed: () {
-                              setDialogState(() {
-                                optionsList.add({
-                                  'id': const Uuid().v4(),
-                                  'nameCtrl': TextEditingController(text: ''),
-                                  'priceCtrl': TextEditingController(text: '0'),
-                                });
-                              });
-                            },
-                            icon: const Icon(Icons.add, size: 14),
+                          ElevatedButton.icon(
+                            onPressed: addNewOption,
+                            icon: const Icon(Icons.add, size: 16),
                             label: const Text('Tambah Opsi'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primary,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               textStyle: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -1450,6 +1470,7 @@ class ProductFormState extends State<ProductForm> {
                         final idx = entry.key;
                         final optMap = entry.value;
                         return Padding(
+                          key: ValueKey(optMap['id']),
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,

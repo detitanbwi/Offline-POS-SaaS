@@ -36,6 +36,8 @@ class PrinterRepositoryMock implements PrinterRepository {
   @override
   Future<PrinterConfigModel?> getPrinterConfigByType(String type) async => null;
   @override
+  Future<PrinterConfigModel?> getPrinterConfigById(String id) async => null;
+  @override
   Future<void> savePrinterConfig(PrinterConfigModel config) async {}
   @override
   Future<void> deletePrinterConfig(String id) async {}

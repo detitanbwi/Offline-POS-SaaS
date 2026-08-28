@@ -389,12 +389,21 @@ class _KitchenPrinterSelectionModalState
                   setState(() => _isPrinting = true);
                   int successCount = 0;
                   int failedCount = 0;
+                  int skippedCount = 0;
 
                   for (final printerId in _selectedPrinterIds) {
                     final printer = widget.kitchenPrinters.firstWhere((p) => p.id == printerId);
                     final matchingItems = _getItemsForPrinter(printer, productCategoryMap);
 
-                    if (matchingItems.isEmpty) continue;
+                    if (matchingItems.isEmpty) {
+                      skippedCount++;
+                      continue;
+                    }
+
+                    // Jeda waktu antar cetak struk agar buffer hardware printer thermal tidak drop/overflow
+                    if (successCount > 0) {
+                      await Future.delayed(const Duration(milliseconds: 1200));
+                    }
 
                     final success = await KitchenPrintDialog._printToSingleKitchen(
                       context: context,
@@ -417,14 +426,26 @@ class _KitchenPrinterSelectionModalState
                   if (context.mounted) {
                     Navigator.of(context).pop(true);
                     if (successCount > 0 && failedCount == 0) {
-                      AppSnackbar.showSuccess(
-                        context,
-                        'Pesanan dapur berhasil dikirim ke $successCount printer.',
-                      );
+                      if (skippedCount > 0) {
+                        AppSnackbar.showSuccess(
+                          context,
+                          'Pesanan dicetak ke $successCount printer ($skippedCount printer dilewati karena tidak ada item kategori yang cocok).',
+                        );
+                      } else {
+                        AppSnackbar.showSuccess(
+                          context,
+                          'Pesanan dapur berhasil dicetak ke $successCount printer.',
+                        );
+                      }
                     } else if (successCount > 0 && failedCount > 0) {
                       AppSnackbar.showWarning(
                         context,
                         'Berhasil cetak ke $successCount printer, namun $failedCount printer gagal.',
+                      );
+                    } else if (skippedCount > 0 && successCount == 0) {
+                      AppSnackbar.showWarning(
+                        context,
+                        'Tidak ada item yang sesuai dengan kategori printer dapur yang dipilih.',
                       );
                     } else {
                       AppSnackbar.showError(
