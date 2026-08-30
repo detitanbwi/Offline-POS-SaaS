@@ -385,6 +385,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         icon: Icons.folder_open_rounded,
                       ),
                     ),
+                    SizedBox(height: 16),
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        border: Border.all(color: AppColors.divider),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Info Fungsi Tombol:',
+                                  style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 6),
+                          Text('• Cadangkan: Menyimpan data transaksi ke file.', style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary, height: 1.4)),
+                          Text('• Pulihkan Database: Memuat data dari file secara aman (dilengkapi validasi & rollback otomatis).', style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary, height: 1.4)),
+                          Text('• Paksa Pemulihan: Mode darurat (bypass) menimpa database tanpa validasi keamanan.', style: TextStyle(fontSize: 10.sp, color: AppColors.error, height: 1.4)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
