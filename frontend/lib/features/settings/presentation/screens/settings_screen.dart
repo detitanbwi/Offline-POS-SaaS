@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -37,7 +38,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _backupDetails;
-  bool _hasBackup = false;
 
   @override
   void initState() {
@@ -47,11 +47,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _checkBackupStatus() async {
     final backupService = ref.read(backupServiceProvider);
-    final hasBkp = await backupService.hasBackup();
     final details = await backupService.getBackupDetails();
     if (mounted) {
       setState(() {
-        _hasBackup = hasBkp;
         _backupDetails = details;
       });
     }
@@ -71,30 +69,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _handleRestore() async {
-    AppDialog.show(
-      context: context,
-      title: 'Pulihkan Database',
-      message: 'Apakah Anda yakin ingin memulihkan database dari cadangan terakhir? Data transaksi saat ini akan ditimpa.',
-      confirmText: 'Pulihkan',
-      isDestructive: true,
-      onConfirm: () async {
-        final backupService = ref.read(backupServiceProvider);
-        final success = await backupService.restoreBackup();
-        if (!mounted) return;
-        Navigator.pop(context); // Close dialog
-        if (success) {
-          AppSnackbar.showSuccess(context, 'Database berhasil dipulihkan!');
-          // Reload catalog and application state from restored database
-          ref.read(productNotifierProvider.notifier).loadProducts();
-          ref.read(cashierNotifierProvider.notifier).loadCashiers();
-          ref.read(categoryNotifierProvider.notifier).loadCategories();
-          ref.read(tableNotifierProvider.notifier).loadTables();
-          ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-        } else {
-          AppSnackbar.showError(context, 'Gagal memulihkan cadangan database.');
-        }
-      },
-    );
+    try {
+      final files = await FilePicker.pickFiles(
+        dialogTitle: 'Pilih File Cadangan Database POS',
+      );
+
+      if (files.isEmpty || files.first.path == null) {
+        return; // Pengguna membatalkan pemilihan file
+      }
+
+      final pickedPath = files.first.path!;
+      final pickedName = files.first.name;
+
+      if (!mounted) return;
+
+      AppDialog.show(
+        context: context,
+        title: 'Pulihkan Database',
+        message: 'Apakah Anda yakin ingin memulihkan database dari file "$pickedName"? Data transaksi saat ini akan ditimpa dengan data cadangan tersebut.',
+        confirmText: 'Pulihkan',
+        isDestructive: true,
+        onConfirm: () async {
+          final backupService = ref.read(backupServiceProvider);
+          final result = await backupService.restoreFromPath(pickedPath);
+          if (!mounted) return;
+          Navigator.pop(context); // Tutup dialog konfirmasi
+          if (result['success'] == true) {
+            AppSnackbar.showSuccess(context, 'Database berhasil dipulihkan dari $pickedName!');
+            // Reload catalog and application state from restored database
+            ref.read(productNotifierProvider.notifier).loadProducts();
+            ref.read(cashierNotifierProvider.notifier).loadCashiers();
+            ref.read(categoryNotifierProvider.notifier).loadCategories();
+            ref.read(tableNotifierProvider.notifier).loadTables();
+            ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+            _checkBackupStatus();
+          } else {
+            AppSnackbar.showError(context, result['message'] ?? 'Gagal memulihkan database.');
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.showError(context, 'Gagal memilih file cadangan: $e');
+      }
+    }
   }
 
   Future<void> _handleRestoreFromFile() async {
@@ -346,17 +364,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             icon: Icons.cloud_upload_outlined,
                           ),
                         ),
-                        if (_hasBackup) ...[
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: AppButton(
-                              text: 'Pulihkan',
-                              type: AppButtonType.secondary,
-                              onPressed: _handleRestore,
-                              icon: Icons.settings_backup_restore_rounded,
-                            ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: AppButton(
+                            text: 'Pulihkan',
+                            type: AppButtonType.secondary,
+                            onPressed: _handleRestore,
+                            icon: Icons.settings_backup_restore_rounded,
                           ),
-                        ],
+                        ),
                       ],
                     ),
                     SizedBox(height: 12),

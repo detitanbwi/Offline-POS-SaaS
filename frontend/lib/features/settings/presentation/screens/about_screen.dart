@@ -6,7 +6,6 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/providers.dart';
-import 'license_log_screen.dart';
 
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
@@ -133,24 +132,9 @@ class AboutScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Status Lisensi',
-                                    style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.history_rounded, color: AppColors.primary),
-                                    tooltip: 'Log Aktivitas Lisensi',
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (_) => const LicenseLogScreen()),
-                                      );
-                                    },
-                                  )
-                                ],
+                              Text(
+                                'Status Lisensi',
+                                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const Divider(height: 16),
                               _buildInfoRow('License Key', licenseKey),

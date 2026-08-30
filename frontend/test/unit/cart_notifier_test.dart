@@ -432,6 +432,61 @@ void main() {
       // Grand Total = 80.000 + 4.000 + 8.400 = 92.400
       expect(state.grandTotal, 92400.0);
     });
+
+    test('addItemWithModifiers correctly calculates baseUnitPrice and subtotal including modifiers', () {
+      final cart = container.read(cartNotifierProvider.notifier);
+      final product = Product(
+        id: 'prod-kopi',
+        kategoriId: 'cat-1',
+        nama: 'Kopi Susu',
+        harga: 18000.0,
+        stok: -1,
+        modifierGroups: [
+          ProductModifierGroup(
+            id: 'grp-sugar',
+            productId: 'prod-kopi',
+            nama: 'Sugar',
+            options: [
+              ProductModifierOption(id: 'opt-normal', groupId: 'grp-sugar', nama: 'Normal Sugar', harga: 0.0),
+              ProductModifierOption(id: 'opt-extra', groupId: 'grp-sugar', nama: 'Extra Sugar', harga: 2000.0),
+            ],
+          ),
+          ProductModifierGroup(
+            id: 'grp-topping',
+            productId: 'prod-kopi',
+            nama: 'Topping',
+            allowMultiple: true,
+            options: [
+              ProductModifierOption(id: 'opt-boba', groupId: 'grp-topping', nama: 'Boba Jelly', harga: 5000.0),
+            ],
+          ),
+        ],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final success = cart.addItemWithModifiers(
+        product,
+        [
+          SelectedModifier(groupId: 'grp-sugar', groupName: 'Sugar', optionId: 'opt-extra', optionName: 'Extra Sugar', harga: 2000.0),
+          SelectedModifier(groupId: 'grp-topping', groupName: 'Topping', optionId: 'opt-boba', optionName: 'Boba Jelly', harga: 5000.0),
+        ],
+        qty: 2,
+        catatan: 'Less Ice',
+      );
+
+      expect(success, true);
+      final state = container.read(cartNotifierProvider);
+      expect(state.items.length, 1);
+      final item = state.items.first;
+
+      // Base price = 18.000 + 2.000 + 5.000 = 25.000
+      expect(item.modifierUnitPrice, 7000.0);
+      expect(item.baseUnitPrice, 25000.0);
+      expect(item.grossSubtotal, 50000.0);
+      expect(item.subtotal, 50000.0);
+      expect(state.subtotal, 50000.0);
+    });
   });
 }
 
