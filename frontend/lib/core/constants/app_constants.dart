@@ -10,8 +10,8 @@ const String apiBaseUrl = 'http://192.168.1.19:8000';
 // const String apiBaseUrl = 'https://demo2.rce-eastjava.org';
 
 /// Application metadata
-const String appVersion = '0.1.72';
-const String appBuildNumber = '172';
+const String appVersion = '0.1.76';
+const String appBuildNumber = '176';
 const String appName = 'Kasir Pro';
 
 /// Order Type constants

@@ -87,7 +87,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         context: context,
         title: 'Pulihkan Database',
         message: 'Apakah Anda yakin ingin memulihkan database dari file "$pickedName"? Data transaksi saat ini akan ditimpa dengan data cadangan tersebut.',
-        confirmText: 'Pulihkan',
+        confirmText: 'Pulihkan Database',
         isDestructive: true,
         onConfirm: () async {
           final backupService = ref.read(backupServiceProvider);
@@ -128,9 +128,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         AppDialog.show(
           context: context,
-          title: 'Pulihkan dari File',
-          message: 'Apakah Anda yakin ingin memulihkan database dari file terpilih? Data transaksi saat ini akan ditimpa.',
-          confirmText: 'Pulihkan',
+          title: 'Paksa Pemulihan (Darurat)',
+          message: 'Apakah Anda yakin ingin memaksa pemulihan database dari file terpilih? Data transaksi saat ini akan ditimpa TANPA VALIDASI.',
+          confirmText: 'Paksa Pulihkan',
           isDestructive: true,
           onConfirm: () async {
             final backupService = ref.read(backupServiceProvider);
@@ -367,7 +367,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: AppButton(
-                            text: 'Pulihkan',
+                            text: 'Pulihkan Database',
                             type: AppButtonType.secondary,
                             onPressed: _handleRestore,
                             icon: Icons.settings_backup_restore_rounded,
@@ -379,8 +379,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: AppButton(
-                        text: 'Pulihkan dari File Manual',
-                        type: AppButtonType.secondary,
+                        text: 'Paksa Pemulihan (Darurat)',
+                        type: AppButtonType.destructive,
                         onPressed: _handleRestoreFromFile,
                         icon: Icons.folder_open_rounded,
                       ),
