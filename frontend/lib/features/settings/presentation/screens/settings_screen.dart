@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,6 +95,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         }
       },
     );
+  }
+
+  Future<void> _handleRestoreFromFile() async {
+    try {
+      List<PlatformFile>? result = await FilePicker.pickFiles(
+        type: FileType.any,
+      );
+
+      if (result.isNotEmpty && result.single.path != null) {
+        File file = File(result.single.path!);
+        
+        if (!mounted) return;
+
+        AppDialog.show(
+          context: context,
+          title: 'Pulihkan dari File',
+          message: 'Apakah Anda yakin ingin memulihkan database dari file terpilih? Data transaksi saat ini akan ditimpa.',
+          confirmText: 'Pulihkan',
+          isDestructive: true,
+          onConfirm: () async {
+            final backupService = ref.read(backupServiceProvider);
+            final success = await backupService.restoreBackupFromFile(file);
+            if (!mounted) return;
+            Navigator.pop(context); // Close dialog
+            if (success) {
+              AppSnackbar.showSuccess(context, 'Database berhasil dipulihkan dari file!');
+              // Reload catalog and application state from restored database
+              ref.read(productNotifierProvider.notifier).loadProducts();
+              ref.read(cashierNotifierProvider.notifier).loadCashiers();
+              ref.read(categoryNotifierProvider.notifier).loadCategories();
+              ref.read(tableNotifierProvider.notifier).loadTables();
+              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+            } else {
+              AppSnackbar.showError(context, 'Gagal memulihkan cadangan database dari file.');
+            }
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.showError(context, 'Gagal memilih file: $e');
+      }
+    }
   }
 
   void _showLogsDialog() async {
@@ -313,6 +358,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                       ],
+                    ),
+                    SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: AppButton(
+                        text: 'Pulihkan dari File Manual',
+                        type: AppButtonType.secondary,
+                        onPressed: _handleRestoreFromFile,
+                        icon: Icons.folder_open_rounded,
+                      ),
                     ),
                   ],
                 ),

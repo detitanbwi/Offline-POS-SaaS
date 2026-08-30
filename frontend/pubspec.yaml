@@ -59,6 +59,7 @@ dependencies:
   airplane_mode_checker: ^3.3.0
   dart_jsonwebtoken: ^3.4.1
   url_launcher: ^6.3.0
+  file_picker: ^12.1.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

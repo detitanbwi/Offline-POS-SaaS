@@ -4,6 +4,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' show databaseFactoryFfi;
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../../core/utils/file_saver_util.dart';
@@ -61,8 +62,17 @@ class BackupService {
 
       // 4. Also export copy to public Downloads folder for cross-app/cross-build accessibility
       try {
+        if (!kIsWeb && Platform.isAndroid) {
+          final status = await Permission.storage.request();
+          if (!status.isGranted) {
+            await Permission.manageExternalStorage.request();
+          }
+        }
+
         final downloadsDir = await FileSaverUtil.getDownloadsDirectoryPath();
-        final publicBackupFile = File(join(downloadsDir.path, backupName));
+        final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:\.\-]'), '').replaceFirst('T', '_');
+        final publicBackupName = 'pos_database_backup_$timestamp.db';
+        final publicBackupFile = File(join(downloadsDir.path, publicBackupName));
         await targetFile.copy(publicBackupFile.path);
         AppLogger.info('Public backup copied to Downloads: ${publicBackupFile.path}');
       } catch (pubErr) {
@@ -112,6 +122,33 @@ class BackupService {
       return true;
     } catch (e, stackTrace) {
       AppLogger.error('Failed to restore database backup', error: e, stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  Future<bool> restoreBackupFromFile(File customBackupFile) async {
+    try {
+      if (!await customBackupFile.exists()) {
+        AppLogger.warning('Custom backup file not found at: ${customBackupFile.path}');
+        return false;
+      }
+
+      final dbDir = await _getDbDirectory();
+      final targetFile = File(join(dbDir, dbName));
+
+      // 1. Close current active database connection cleanly before rewriting file
+      await PosDatabase.instance.close();
+
+      // 2. Copy backup file over main DB file
+      await customBackupFile.copy(targetFile.path);
+
+      // 3. Reset database instance again to force clean re-open on next query
+      await PosDatabase.instance.close();
+
+      AppLogger.info('Backup restored successfully from custom file: ${customBackupFile.path}');
+      return true;
+    } catch (e, stackTrace) {
+      AppLogger.error('Failed to restore custom database backup', error: e, stackTrace: stackTrace);
       return false;
     }
   }
