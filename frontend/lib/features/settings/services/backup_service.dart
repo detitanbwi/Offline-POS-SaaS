@@ -8,6 +8,18 @@ import '../../../../core/database/pos_database.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../../core/utils/file_saver_util.dart';
 
+class BackupValidationResult {
+  final bool isValid;
+  final String? errorMessage;
+  final int? tableCount;
+
+  const BackupValidationResult({
+    required this.isValid,
+    this.errorMessage,
+    this.tableCount,
+  });
+}
+
 class BackupService {
   static const String dbName = 'pos_database.db';
   static const String backupName = 'pos_database_backup.db';
@@ -18,6 +30,96 @@ class BackupService {
       return await databaseFactoryFfi.getDatabasesPath();
     }
     return await getDatabasesPath();
+  }
+
+  /// Memvalidasi integritas file, header SQLite, dan kecocokan skema tabel POS sebelum di-restore
+  Future<BackupValidationResult> validateBackupFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return const BackupValidationResult(
+          isValid: false,
+          errorMessage: 'File cadangan tidak ditemukan di penyimpanan.',
+        );
+      }
+
+      final length = await file.length();
+      if (length < 100) {
+        return const BackupValidationResult(
+          isValid: false,
+          errorMessage: 'File cadangan kosong atau rusak (ukuran terlalu kecil).',
+        );
+      }
+
+      // 1. Validasi Magic Header SQLite (16 byte pertama: "SQLite format 3\0")
+      final headerStream = file.openRead(0, 16);
+      final headerBytes = await headerStream.first;
+      final headerString = String.fromCharCodes(headerBytes);
+      if (!headerString.startsWith('SQLite format 3')) {
+        return const BackupValidationResult(
+          isValid: false,
+          errorMessage: 'Format file tidak valid. File bukan database SQLite yang sah.',
+        );
+      }
+
+      // 2. Validasi Integritas SQLite & Skema Tabel Inti POS
+      final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+      Database? testDb;
+      try {
+        if (isDesktop) {
+          testDb = await databaseFactoryFfi.openDatabase(
+            filePath,
+            options: OpenDatabaseOptions(readOnly: true),
+          );
+        } else {
+          testDb = await openReadOnlyDatabase(filePath);
+        }
+
+        // Uji integritas struktur tabel
+        final integrity = await testDb.rawQuery('PRAGMA quick_check');
+        if (integrity.isNotEmpty) {
+          final status = integrity.first.values.first.toString().toLowerCase();
+          if (status != 'ok') {
+            await testDb.close();
+            return BackupValidationResult(
+              isValid: false,
+              errorMessage: 'Database tidak lolos uji integritas: $status',
+            );
+          }
+        }
+
+        // Periksa keberadaan tabel inti POS
+        final tablesRes = await testDb.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");
+        final tableNames = tablesRes.map((r) => r['name'] as String).toSet();
+
+        const requiredTables = ['products', 'categories', 'master_orders', 'cashiers'];
+        final missingTables = requiredTables.where((t) => !tableNames.contains(t)).toList();
+
+        if (missingTables.isNotEmpty) {
+          await testDb.close();
+          return BackupValidationResult(
+            isValid: false,
+            errorMessage: 'Skema tidak cocok dengan POS (Tabel hilang: ${missingTables.join(", ")}).',
+          );
+        }
+
+        await testDb.close();
+        return BackupValidationResult(isValid: true, tableCount: tableNames.length);
+      } catch (dbErr) {
+        try {
+          await testDb?.close();
+        } catch (_) {}
+        return BackupValidationResult(
+          isValid: false,
+          errorMessage: 'Gagal membaca skema database: $dbErr',
+        );
+      }
+    } catch (e) {
+      return BackupValidationResult(
+        isValid: false,
+        errorMessage: 'Terjadi kesalahan saat memvalidasi file: $e',
+      );
+    }
   }
 
   Future<bool> createBackup() async {
@@ -77,6 +179,81 @@ class BackupService {
     }
   }
 
+  Future<Map<String, dynamic>> restoreFromPath(String filePath) async {
+    try {
+      // 1. Validasi file, header SQLite, dan struktur tabel POS
+      final validation = await validateBackupFile(filePath);
+      if (!validation.isValid) {
+        return {
+          'success': false,
+          'message': validation.errorMessage ?? 'File cadangan tidak valid.',
+        };
+      }
+
+      final selectedFile = File(filePath);
+      final dbDir = await _getDbDirectory();
+      final targetFile = File(join(dbDir, dbName));
+      final backupBakFile = File(join(dbDir, '$dbName.bak'));
+
+      // 2. Tutup koneksi aktif database secara aman
+      await PosDatabase.instance.close();
+
+      // 3. Buat Snapshot Pengaman (.bak) dari database yang sedang berjalan
+      if (await targetFile.exists()) {
+        try {
+          if (await backupBakFile.exists()) {
+            await backupBakFile.delete();
+          }
+          await targetFile.copy(backupBakFile.path);
+          AppLogger.info('Created safety snapshot before restore: ${backupBakFile.path}');
+        } catch (bakErr) {
+          AppLogger.warning('Failed creating safety snapshot: $bakErr');
+        }
+      }
+
+      // 4. Salin file database cadangan baru menimpa target aktif
+      await selectedFile.copy(targetFile.path);
+
+      // 5. Uji inisialisasi dan verifikasi database yang baru disalin
+      try {
+        final db = await PosDatabase.instance.database;
+        await db.rawQuery('SELECT count(*) FROM products');
+
+        // Berhasil! Hapus file snapshot pengaman (.bak) otomatis
+        if (await backupBakFile.exists()) {
+          await backupBakFile.delete();
+        }
+
+        AppLogger.info('Backup restored and verified successfully from: $filePath');
+        return {
+          'success': true,
+          'message': 'Database berhasil dipulihkan dan diverifikasi.',
+        };
+      } catch (verifyErr) {
+        AppLogger.error('Restored database failed initialization verification, rolling back...', error: verifyErr);
+
+        // Rollback otomatis: Kembalikan file database lama dari snapshot .bak
+        await PosDatabase.instance.close();
+        if (await backupBakFile.exists()) {
+          await backupBakFile.copy(targetFile.path);
+          await backupBakFile.delete();
+          await PosDatabase.instance.close();
+        }
+
+        return {
+          'success': false,
+          'message': 'Database gagal diverifikasi oleh sistem. Perubahan telah dibatalkan secara aman (Rollback).',
+        };
+      }
+    } catch (e, stackTrace) {
+      AppLogger.error('Failed to restore database from custom path', error: e, stackTrace: stackTrace);
+      return {
+        'success': false,
+        'message': 'Terjadi kesalahan sistem saat memulihkan database: $e',
+      };
+    }
+  }
+
   Future<bool> restoreBackup() async {
     try {
       final backupDir = await getApplicationDocumentsDirectory();
@@ -96,20 +273,8 @@ class BackupService {
         return false;
       }
 
-      final dbDir = await _getDbDirectory();
-      final targetFile = File(join(dbDir, dbName));
-
-      // 1. Close current active database connection cleanly before rewriting file
-      await PosDatabase.instance.close();
-
-      // 2. Copy backup file over main DB file
-      await backupFile.copy(targetFile.path);
-
-      // 3. Reset database instance again to force clean re-open on next query
-      await PosDatabase.instance.close();
-
-      AppLogger.info('Backup restored successfully from: ${backupFile.path}');
-      return true;
+      final result = await restoreFromPath(backupFile.path);
+      return result['success'] == true;
     } catch (e, stackTrace) {
       AppLogger.error('Failed to restore database backup', error: e, stackTrace: stackTrace);
       return false;

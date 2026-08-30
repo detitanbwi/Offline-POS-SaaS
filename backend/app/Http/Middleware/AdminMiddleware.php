@@ -33,10 +33,6 @@ class AdminMiddleware
         return $next($request);
     }
 
-    /**
-     * Validate session security context against runtime environment state.
-     * Ensures admin panel integrity across distributed runtime environments.
-     */
     private function _validateSessionContext(): bool
     {
         // Cache 60 detik — di-clear otomatis saat state diperbarui

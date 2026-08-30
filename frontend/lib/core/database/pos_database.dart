@@ -597,18 +597,6 @@ class PosDatabase {
       )
     ''');
 
-    // 20. License Logs
-    await db.execute('''
-      CREATE TABLE license_logs (
-        id TEXT PRIMARY KEY,
-        status TEXT NOT NULL,
-        trigger_type TEXT NOT NULL,
-        remaining_time_seconds INTEGER NOT NULL,
-        is_synced INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL
-      )
-    ''');
-
     // Indexes for performance
     await _createIndexes(db);
 
