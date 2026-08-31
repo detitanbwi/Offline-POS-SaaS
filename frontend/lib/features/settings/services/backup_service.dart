@@ -93,14 +93,27 @@ class BackupService {
         final tablesRes = await testDb.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");
         final tableNames = tablesRes.map((r) => r['name'] as String).toSet();
 
-        const requiredTables = ['products', 'categories', 'master_orders', 'cashiers'];
-        final missingTables = requiredTables.where((t) => !tableNames.contains(t)).toList();
+        // Validasi tabel pokok POS
+        const requiredCoreTables = ['products', 'categories'];
+        final missingCore = requiredCoreTables.where((t) => !tableNames.contains(t)).toList();
 
-        if (missingTables.isNotEmpty) {
+        if (missingCore.isNotEmpty) {
           await testDb.close();
           return BackupValidationResult(
             isValid: false,
-            errorMessage: 'Skema tidak cocok dengan POS (Tabel hilang: ${missingTables.join(", ")}).',
+            errorMessage: 'Skema tidak cocok dengan POS (Tabel inti hilang: ${missingCore.join(", ")}).',
+          );
+        }
+
+        // Pastikan ada setidaknya salah satu tabel transaksi/order
+        final hasTransactionTables = tableNames.contains('orders') ||
+            tableNames.contains('master_orders') ||
+            tableNames.contains('transactions');
+        if (!hasTransactionTables) {
+          await testDb.close();
+          return const BackupValidationResult(
+            isValid: false,
+            errorMessage: 'Skema tidak valid: Tidak ditemukan tabel pesanan atau transaksi POS.',
           );
         }
 
@@ -204,6 +217,9 @@ class BackupService {
       final dbDir = await _getDbDirectory();
       final targetFile = File(join(dbDir, dbName));
       final backupBakFile = File(join(dbDir, '$dbName.bak'));
+      final walFile = File(join(dbDir, '$dbName-wal'));
+      final shmFile = File(join(dbDir, '$dbName-shm'));
+      final journalFile = File(join(dbDir, '$dbName-journal'));
 
       // 2. Tutup koneksi aktif database secara aman
       await PosDatabase.instance.close();
@@ -221,10 +237,24 @@ class BackupService {
         }
       }
 
-      // 4. Salin file database cadangan baru menimpa target aktif
-      await selectedFile.copy(targetFile.path);
+      // 4. Hapus sisa-sisa file WAL/SHM/Journal lama agar tidak mereplay transaksi lama ke database baru
+      try {
+        if (await walFile.exists()) await walFile.delete();
+        if (await shmFile.exists()) await shmFile.delete();
+        if (await journalFile.exists()) await journalFile.delete();
+      } catch (walErr) {
+        AppLogger.warning('Notice: Cleaning old WAL files before restore: $walErr');
+      }
 
-      // 5. Uji inisialisasi dan verifikasi database yang baru disalin
+      // 5. Salin file database cadangan baru menimpa target aktif (menggunakan byte copy untuk kompatibilitas multi-storage)
+      try {
+        final bytes = await selectedFile.readAsBytes();
+        await targetFile.writeAsBytes(bytes, flush: true);
+      } catch (_) {
+        await selectedFile.copy(targetFile.path);
+      }
+
+      // 6. Uji inisialisasi dan verifikasi database yang baru disalin
       try {
         final db = await PosDatabase.instance.database;
         await db.rawQuery('SELECT count(*) FROM products');
@@ -244,15 +274,26 @@ class BackupService {
 
         // Rollback otomatis: Kembalikan file database lama dari snapshot .bak
         await PosDatabase.instance.close();
+        try {
+          if (await walFile.exists()) await walFile.delete();
+          if (await shmFile.exists()) await shmFile.delete();
+          if (await journalFile.exists()) await journalFile.delete();
+        } catch (_) {}
+
         if (await backupBakFile.exists()) {
-          await backupBakFile.copy(targetFile.path);
+          try {
+            final bakBytes = await backupBakFile.readAsBytes();
+            await targetFile.writeAsBytes(bakBytes, flush: true);
+          } catch (_) {
+            await backupBakFile.copy(targetFile.path);
+          }
           await backupBakFile.delete();
           await PosDatabase.instance.close();
         }
 
         return {
           'success': false,
-          'message': 'Database gagal diverifikasi oleh sistem. Perubahan telah dibatalkan secara aman (Rollback).',
+          'message': 'Database gagal diverifikasi oleh sistem ($verifyErr). Perubahan telah dibatalkan secara aman (Rollback).',
         };
       }
     } catch (e, stackTrace) {

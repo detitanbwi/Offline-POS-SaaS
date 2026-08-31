@@ -7,6 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart' show sqfliteFfiInit, databa
 import '../../features/auth/services/secure_storage_service.dart';
 
 class PosDatabase {
+  static const int currentDbVersion = 17;
   static final PosDatabase instance = PosDatabase._init();
   static Database? _database;
 
@@ -40,7 +41,7 @@ class PosDatabase {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 16,
+            version: currentDbVersion,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,7 +50,7 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-            version: 17,
+            version: currentDbVersion,
             password: pwd,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
@@ -83,7 +84,7 @@ class PosDatabase {
             db = await databaseFactoryFfi.openDatabase(
               path,
               options: OpenDatabaseOptions(
-                version: 17,
+                version: currentDbVersion,
                 onCreate: _createDB,
                 onUpgrade: _upgradeDB,
                 onConfigure: _onConfigure,
@@ -92,7 +93,7 @@ class PosDatabase {
           } else {
             db = await openDatabase(
               path,
-              version: 16,
+              version: currentDbVersion,
               onCreate: _createDB,
               onUpgrade: _upgradeDB,
               onConfigure: _onConfigure,
