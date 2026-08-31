@@ -20,6 +20,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:printing/printing.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/sales_report_notifier.dart';
@@ -345,7 +346,15 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
       
       if (!mounted) return;
-      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan di folder Downloads:\n${savedFile.path}');
+      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan:\n${savedFile.path}');
+
+      // Buka dialog preview / cetak PDF sistem
+      try {
+        await Printing.layoutPdf(
+          onLayout: (format) async => pdfBytes,
+          name: fileName,
+        );
+      } catch (_) {}
     } catch (e) {
       if (!mounted) return;
       AppSnackbar.showError(context, 'Gagal membuat file PDF: $e');

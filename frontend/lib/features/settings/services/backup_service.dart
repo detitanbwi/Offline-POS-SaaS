@@ -177,19 +177,11 @@ class BackupService {
 
       // 4. Also export copy to public Downloads folder for cross-app/cross-build accessibility
       try {
-        if (!kIsWeb && Platform.isAndroid) {
-          final status = await Permission.storage.request();
-          if (!status.isGranted) {
-            await Permission.manageExternalStorage.request();
-          }
-        }
-
-        final downloadsDir = await FileSaverUtil.getDownloadsDirectoryPath();
         final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:\.\-]'), '').replaceFirst('T', '_');
         final publicBackupName = 'pos_database_backup_$timestamp.db';
-        final publicBackupFile = File(join(downloadsDir.path, publicBackupName));
-        await targetFile.copy(publicBackupFile.path);
-        AppLogger.info('Public backup copied to Downloads: ${publicBackupFile.path}');
+        final backupBytes = await targetFile.readAsBytes();
+        final publicBackupFile = await FileSaverUtil.saveToDownloads(backupBytes, publicBackupName);
+        AppLogger.info('Public backup saved to: ${publicBackupFile.path}');
       } catch (pubErr) {
         AppLogger.warning('Could not write backup to public Downloads folder: $pubErr');
       }
