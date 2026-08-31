@@ -11,6 +11,8 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
+import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../domain/models/product.dart';
 import '../../domain/models/product_modifier.dart';
@@ -1321,21 +1323,24 @@ class ProductFormState extends State<ProductForm> {
     final scrollController = ScrollController();
     bool isRequired = initialGroup?.isRequired ?? false;
     bool isSingleSelect = initialGroup?.isSingleSelect ?? true;
-    final optionsList = initialGroup != null
+    final List<Map<String, dynamic>> optionsList = (initialGroup != null && initialGroup.options.isNotEmpty)
         ? initialGroup.options
-            .map((o) => {
-                  'id': o.id,
+            .map<Map<String, dynamic>>((o) => <String, dynamic>{
+                  'id': (o.id.isNotEmpty ? o.id : null) ?? const Uuid().v4(),
                   'nameCtrl': TextEditingController(text: o.nama),
                   'priceCtrl': TextEditingController(text: o.harga > 0 ? CurrencyFormatter.formatNumber(o.harga) : '0'),
                 })
             .toList()
         : <Map<String, dynamic>>[
-            {
+            <String, dynamic>{
               'id': const Uuid().v4(),
               'nameCtrl': TextEditingController(text: ''),
               'priceCtrl': TextEditingController(text: '0'),
             }
           ];
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = screenWidth < 500 ? 12.0 : 32.0;
 
     showDialog(
       context: context,
@@ -1344,16 +1349,15 @@ class ProductFormState extends State<ProductForm> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             void addNewOption() {
-              FocusScope.of(ctx).unfocus();
               setDialogState(() {
-                optionsList.add({
+                optionsList.add(<String, dynamic>{
                   'id': const Uuid().v4(),
                   'nameCtrl': TextEditingController(text: ''),
                   'priceCtrl': TextEditingController(text: '0'),
                 });
               });
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (scrollController.hasClients) {
+                if (scrollController.hasClients && scrollController.position.hasContentDimensions) {
                   scrollController.animateTo(
                     scrollController.position.maxScrollExtent,
                     duration: const Duration(milliseconds: 250),
@@ -1364,14 +1368,31 @@ class ProductFormState extends State<ProductForm> {
             }
 
             return AlertDialog(
+              insetPadding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.radius24,
+              ),
+              titlePadding: const EdgeInsets.only(
+                left: AppSpacing.l,
+                right: AppSpacing.l,
+                top: AppSpacing.l,
+                bottom: AppSpacing.s,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.l,
+                vertical: AppSpacing.s,
+              ),
+              actionsPadding: const EdgeInsets.all(AppSpacing.l),
               title: Text(
                 initialGroup == null ? 'Tambah Kelompok Varian / Topping' : 'Ubah Kelompok Varian',
                 style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
               ),
-              content: SizedBox(
-                width: MediaQuery.sizeOf(context).width < 500
-                    ? (MediaQuery.sizeOf(context).width * 0.9)
-                    : 480,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 480,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+                  minWidth: screenWidth < 500 ? (screenWidth - 64) : 460,
+                ),
                 child: SingleChildScrollView(
                   controller: scrollController,
                   child: Column(
@@ -1447,18 +1468,25 @@ class ProductFormState extends State<ProductForm> {
                       ),
                       const Divider(height: 24),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Daftar Opsi Varian', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                          Expanded(
+                            child: Text(
+                              'Daftar Opsi Varian',
+                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: addNewOption,
-                            icon: const Icon(Icons.add, size: 16),
+                            icon: const Icon(Icons.add, size: 14),
                             label: const Text('Tambah Opsi'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               textStyle: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold),
                             ),
@@ -1469,8 +1497,11 @@ class ProductFormState extends State<ProductForm> {
                       ...optionsList.asMap().entries.map((entry) {
                         final idx = entry.key;
                         final optMap = entry.value;
+                        final optKey = (optMap['id'] as String?)?.isNotEmpty == true
+                            ? optMap['id'] as String
+                            : 'opt_$idx';
                         return Padding(
-                          key: ValueKey(optMap['id']),
+                          key: ValueKey(optKey),
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1485,6 +1516,7 @@ class ProductFormState extends State<ProductForm> {
                                     labelText: 'Nama Opsi #${idx + 1}',
                                     hintText: 'Maks. 50 karakter',
                                     isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                                     border: const OutlineInputBorder(),
                                   ),
                                 ),
@@ -1499,6 +1531,7 @@ class ProductFormState extends State<ProductForm> {
                                     labelText: '+ Harga',
                                     prefixText: 'Rp ',
                                     isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                                     border: OutlineInputBorder(),
                                   ),
                                 ),
@@ -1507,6 +1540,8 @@ class ProductFormState extends State<ProductForm> {
                                 const SizedBox(width: 4),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () {
                                     setDialogState(() {
                                       optionsList.removeAt(idx);
