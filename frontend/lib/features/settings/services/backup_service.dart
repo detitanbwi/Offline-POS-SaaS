@@ -291,33 +291,6 @@ class BackupService {
     }
   }
 
-  Future<bool> restoreBackupFromFile(File customBackupFile) async {
-    try {
-      if (!await customBackupFile.exists()) {
-        AppLogger.warning('Custom backup file not found at: ${customBackupFile.path}');
-        return false;
-      }
-
-      final dbDir = await _getDbDirectory();
-      final targetFile = File(join(dbDir, dbName));
-
-      // 1. Close current active database connection cleanly before rewriting file
-      await PosDatabase.instance.close();
-
-      // 2. Copy backup file over main DB file
-      await customBackupFile.copy(targetFile.path);
-
-      // 3. Reset database instance again to force clean re-open on next query
-      await PosDatabase.instance.close();
-
-      AppLogger.info('Backup restored successfully from custom file: ${customBackupFile.path}');
-      return true;
-    } catch (e, stackTrace) {
-      AppLogger.error('Failed to restore custom database backup', error: e, stackTrace: stackTrace);
-      return false;
-    }
-  }
-
   Future<bool> hasBackup() async {
     try {
       final backupDir = await getApplicationDocumentsDirectory();
