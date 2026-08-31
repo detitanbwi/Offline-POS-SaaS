@@ -872,31 +872,46 @@ class OrderRepositoryImpl implements OrderRepository {
 
     final pCheck = await txn.query('products', where: 'id = ?', whereArgs: [produkId]);
     if (pCheck.isEmpty) {
-      final anyCat = await txn.query('categories', limit: 1);
-      String catId = anyCat.isNotEmpty ? (anyCat.first['id'] as String) : 'CAT_MANUAL';
-      if (anyCat.isEmpty) {
-        await txn.insert('categories', {
-          'id': 'CAT_MANUAL',
-          'nama': 'Manual Order',
+      // 1. Dapatkan atau buat kategori default untuk manual order
+      final activeCats = await txn.query('categories', limit: 1);
+      String catId = 'CAT_MANUAL';
+      if (activeCats.isNotEmpty) {
+        catId = activeCats.first['id'] as String;
+      } else {
+        final existingManualCat = await txn.query('categories', where: 'id = ?', whereArgs: ['CAT_MANUAL']);
+        if (existingManualCat.isEmpty) {
+          await txn.insert(
+            'categories',
+            {
+              'id': 'CAT_MANUAL',
+              'nama': 'Non Stock / Manual Order',
+              'status': 1,
+              'is_deleted': 1,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      }
+
+      // 2. Simpan produk manual dengan nama unik (disertai ID) untuk memenuhi UNIQUE constraint pada products.nama
+      await txn.insert(
+        'products',
+        {
+          'id': produkId,
+          'kategori_id': catId,
+          'nama': '$produkNama [$produkId]',
+          'harga': produkHarga,
+          'stok': -1,
+          'is_package': 0,
           'status': 1,
           'is_deleted': 1,
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
-        });
-      }
-
-      await txn.insert('products', {
-        'id': produkId,
-        'kategori_id': catId,
-        'nama': produkNama,
-        'harga': produkHarga,
-        'stok': -1,
-        'is_package': 0,
-        'status': 1,
-        'is_deleted': 1,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
 }
