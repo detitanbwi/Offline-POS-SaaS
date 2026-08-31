@@ -5,6 +5,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' show databaseFactoryFfi;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../auth/services/secure_storage_service.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/services/app_logger.dart';
 import '../../../../core/utils/file_saver_util.dart';
@@ -33,7 +34,7 @@ class BackupService {
     return await getDatabasesPath();
   }
 
-  /// Memvalidasi integritas file, header SQLite, dan kecocokan skema tabel POS sebelum di-restore
+  /// Memvalidasi integritas file, struktur SQLite/SQLCipher, dan kecocokan skema tabel POS sebelum di-restore
   Future<BackupValidationResult> validateBackupFile(String filePath) async {
     try {
       final file = File(filePath);
@@ -52,28 +53,39 @@ class BackupService {
         );
       }
 
-      // 1. Validasi Magic Header SQLite (16 byte pertama: "SQLite format 3\0")
-      final headerStream = file.openRead(0, 16);
-      final headerBytes = await headerStream.first;
-      final headerString = String.fromCharCodes(headerBytes);
-      if (!headerString.startsWith('SQLite format 3')) {
-        return const BackupValidationResult(
-          isValid: false,
-          errorMessage: 'Format file tidak valid. File bukan database SQLite yang sah.',
-        );
-      }
-
-      // 2. Validasi Integritas SQLite & Skema Tabel Inti POS
+      // Validasi Integritas SQLite & Skema Tabel Inti POS (Mendukung Standar SQLite & Terenkripsi SQLCipher)
+      final storage = SecureStorageService();
+      final encryptionKey = await storage.getEncryptionKey();
       final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+      
       Database? testDb;
       try {
+        // Coba 1: Buka sebagai plain/unencrypted database
         if (isDesktop) {
           testDb = await databaseFactoryFfi.openDatabase(
             filePath,
             options: OpenDatabaseOptions(readOnly: true),
           );
         } else {
-          testDb = await openReadOnlyDatabase(filePath);
+          try {
+            testDb = await openReadOnlyDatabase(filePath);
+          } catch (_) {
+            // Coba 2: Jika gagal (kemungkinan SQLCipher terenkripsi), coba buka dengan password enkripsi
+            if (encryptionKey != null && encryptionKey.isNotEmpty) {
+              testDb = await openDatabase(
+                filePath,
+                password: encryptionKey,
+                readOnly: true,
+              );
+            }
+          }
+        }
+
+        if (testDb == null) {
+          return const BackupValidationResult(
+            isValid: false,
+            errorMessage: 'Format file tidak valid. File bukan database SQLite yang sah.',
+          );
         }
 
         // Uji integritas struktur tabel
@@ -125,7 +137,7 @@ class BackupService {
         } catch (_) {}
         return BackupValidationResult(
           isValid: false,
-          errorMessage: 'Gagal membaca skema database: $dbErr',
+          errorMessage: 'Format file tidak valid atau gagal membaca skema: $dbErr',
         );
       }
     } catch (e) {
