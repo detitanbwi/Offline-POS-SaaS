@@ -9,8 +9,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 String get apiBaseUrl => dotenv.env['API_BASE_URL'];
 
 /// Application metadata
-const String appVersion = '0.1.81';
-const String appBuildNumber = '181';
+const String appVersion = '0.1.82';
+const String appBuildNumber = '182';
 const String appName = 'Kasir Pro';
 
 /// Order Type constants
