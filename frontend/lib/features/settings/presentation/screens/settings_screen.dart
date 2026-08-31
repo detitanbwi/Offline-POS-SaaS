@@ -115,49 +115,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _handleRestoreFromFile() async {
-    try {
-      List<PlatformFile>? result = await FilePicker.pickFiles(
-        type: FileType.any,
-      );
-
-      if (result.isNotEmpty && result.single.path != null) {
-        File file = File(result.single.path!);
-        
-        if (!mounted) return;
-
-        AppDialog.show(
-          context: context,
-          title: 'Paksa Pemulihan (Darurat)',
-          message: 'Apakah Anda yakin ingin memaksa pemulihan database dari file terpilih? Data transaksi saat ini akan ditimpa TANPA VALIDASI.',
-          confirmText: 'Paksa Pulihkan',
-          isDestructive: true,
-          onConfirm: () async {
-            final backupService = ref.read(backupServiceProvider);
-            final success = await backupService.restoreBackupFromFile(file);
-            if (!mounted) return;
-            Navigator.pop(context); // Close dialog
-            if (success) {
-              AppSnackbar.showSuccess(context, 'Database berhasil dipulihkan dari file!');
-              // Reload catalog and application state from restored database
-              ref.read(productNotifierProvider.notifier).loadProducts();
-              ref.read(cashierNotifierProvider.notifier).loadCashiers();
-              ref.read(categoryNotifierProvider.notifier).loadCategories();
-              ref.read(tableNotifierProvider.notifier).loadTables();
-              ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
-            } else {
-              AppSnackbar.showError(context, 'Gagal memulihkan cadangan database dari file.');
-            }
-          },
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackbar.showError(context, 'Gagal memilih file: $e');
-      }
-    }
-  }
-
   void _showLogsDialog() async {
     final logs = await AppLogger.readLogs();
     if (!mounted) return;
@@ -375,16 +332,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppButton(
-                        text: 'Paksa Pemulihan (Darurat)',
-                        type: AppButtonType.destructive,
-                        onPressed: _handleRestoreFromFile,
-                        icon: Icons.folder_open_rounded,
-                      ),
-                    ),
+
                     SizedBox(height: 16),
                     Container(
                       padding: EdgeInsets.all(12),
@@ -412,7 +360,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           SizedBox(height: 6),
                           Text('• Cadangkan: Menyimpan data transaksi ke file.', style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary, height: 1.4)),
                           Text('• Pulihkan Database: Memuat data dari file secara aman (dilengkapi validasi & rollback otomatis).', style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary, height: 1.4)),
-                          Text('• Paksa Pemulihan: Mode darurat (bypass) menimpa database tanpa validasi keamanan.', style: TextStyle(fontSize: 10.sp, color: AppColors.error, height: 1.4)),
+
                         ],
                       ),
                     ),

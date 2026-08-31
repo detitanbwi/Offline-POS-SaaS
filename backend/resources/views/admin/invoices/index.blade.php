@@ -4,8 +4,9 @@
 
 @section('content')
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title">Daftar Invoice (Otomatis)</h3>
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="card-title" style="margin-bottom: 0;">Daftar Invoice</h3>
+        <a href="{{ route('admin.invoices.create') }}" class="btn btn-primary btn-sm">+ Buat Invoice Baru</a>
     </div>
 
     <form method="GET" class="search-bar">

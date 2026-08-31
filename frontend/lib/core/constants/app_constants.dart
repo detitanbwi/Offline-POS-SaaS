@@ -2,16 +2,17 @@
 /// Centralizes magic strings and configuration to avoid duplication.
 library;
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 /// API base URL for the SaaS backend server.
-/// In production, this should be configured via environment or build config.
-const String apiBaseUrl = 'https://aplikasi.appkasirpro.com';
-// const String apiBaseUrl = 'https://demo2.wirodev.com';
-// const String apiBaseUrl = 'http://192.168.1.19:8000';
-// const String apiBaseUrl = 'https://demo2.rce-eastjava.org';
+/// Configured via .env files with fallback to production server.
+String get apiBaseUrl => dotenv.env['API_BASE_URL']?.isNotEmpty == true
+    ? dotenv.env['API_BASE_URL']!
+    : 'https://aplikasi.appkasirpro.com';
 
 /// Application metadata
-const String appVersion = '0.1.77';
-const String appBuildNumber = '177';
+const String appVersion = '0.1.81';
+const String appBuildNumber = '181';
 const String appName = 'Kasir Pro';
 
 /// Order Type constants
