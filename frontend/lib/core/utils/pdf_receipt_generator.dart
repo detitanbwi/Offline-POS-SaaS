@@ -401,7 +401,7 @@ class PdfReceiptGenerator {
         pageFormat: PdfPageFormat(_rollWidth, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (pw.Context context) {
           final (txScAmount, txScRate) = _resolveTxServiceCharge(transaction);
-          final storeTotal = transaction.subtotal + txScAmount + transaction.taxAmount;
+          final storeTotal = transaction.subtotal - transaction.discountAmount + txScAmount + transaction.taxAmount;
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
@@ -522,8 +522,11 @@ class PdfReceiptGenerator {
     required int totalTransactions,
     required double totalTax,
     double? totalServiceCharge,
+    int? totalVoidCount,
+    double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
+    List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
     String? startTimeStr,
     String? endTimeStr,
@@ -542,7 +545,7 @@ class PdfReceiptGenerator {
     final String end = endTimeStr ?? nowFormatted;
     final int itemsCount = totalItemsCount ?? topProducts.fold<int>(0, (sum, p) => sum + ((p['qty'] as num?)?.toInt() ?? 0));
 
-    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
+    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0);
     final double actCash = actualCash ?? expCash;
     final double diffCash = selisihCash ?? (actCash - expCash);
 
@@ -566,6 +569,8 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Total Transaksi : $totalTransactions', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Total Item      : $itemsCount', style: pw.TextStyle(font: font, fontSize: 8)),
+              if (totalVoidCount != null && totalVoidCount > 0)
+                _buildRowPdf(font, 'Transaksi Void ($totalVoidCount)', CurrencyFormatter.formatNumber(totalVoidAmount ?? 0.0)),
               if (totalServiceCharge != null && totalServiceCharge > 0)
                 _buildRowPdf(font, 'Total Service', CurrencyFormatter.formatNumber(totalServiceCharge)),
               if (totalTax > 0)
@@ -593,6 +598,20 @@ class PdfReceiptGenerator {
                     font,
                     (p['nama'] ?? p['name'] ?? p['produk_nama'] ?? 'Produk').toString(),
                     '${p['qty'] ?? 0}x',
+                  ),
+                pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
+
+              if (topModifiers != null && topModifiers.isNotEmpty) ...[
+                pw.Center(child: pw.Text('VARIAN & TOPPING', style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+                for (var m in topModifiers)
+                  _buildRowPdf(
+                    font,
+                    (m['nama'] ?? m['name'] ?? '-').toString(),
+                    (m['total'] as num?)?.toDouble() != null && (m['total'] as num) > 0
+                        ? '${m['qty'] ?? 0}x (${CurrencyFormatter.formatNumber(m['total'])})'
+                        : '${m['qty'] ?? 0}x',
                   ),
                 pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
               ],

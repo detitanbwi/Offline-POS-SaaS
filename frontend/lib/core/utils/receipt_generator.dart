@@ -305,7 +305,7 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
-    final storeTotal = order.subtotal + scAmount + order.taxAmount;
+    final storeTotal = order.subtotal - order.discountAmount + scAmount + order.taxAmount;
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += _renderRow(
       generator,
@@ -563,7 +563,7 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
-    final storeTotal = transaction.subtotal + txScAmount + transaction.taxAmount;
+    final storeTotal = transaction.subtotal - transaction.discountAmount + txScAmount + transaction.taxAmount;
     bytes += _renderRow(
       generator,
       'TOTAL',
@@ -574,7 +574,6 @@ class ReceiptGenerator {
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) {
-      final storeTotal = transaction.subtotal + transaction.taxAmount;
       final diff = (transaction.platformDifference != null && transaction.platformDifference != 0)
           ? transaction.platformDifference!
           : (transaction.onlinePlatformTotal! - storeTotal);
@@ -632,8 +631,11 @@ class ReceiptGenerator {
     required int totalTransactions,
     required double totalTax,
     double? totalServiceCharge,
+    int? totalVoidCount,
+    double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
+    List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
     String? startTimeStr,
     String? endTimeStr,
@@ -674,6 +676,14 @@ class ReceiptGenerator {
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Transaksi : $totalTransactions', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Item      : $itemsCount', styles: const PosStyles(align: PosAlign.left));
+    if (totalVoidCount != null && totalVoidCount > 0) {
+      bytes += _renderRow(
+        generator,
+        'Transaksi Void ($totalVoidCount)',
+        CurrencyFormatter.formatNumber(totalVoidAmount ?? 0.0),
+        totalWidth: charsPerLine,
+      );
+    }
     if (totalServiceCharge != null && totalServiceCharge > 0) {
       bytes += _renderRow(generator, 'Total Service', CurrencyFormatter.formatNumber(totalServiceCharge), totalWidth: charsPerLine);
     }
@@ -712,8 +722,22 @@ class ReceiptGenerator {
       bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
     }
 
+    // Top Modifiers / Topping Section
+    if (topModifiers != null && topModifiers.isNotEmpty) {
+      bytes += generator.text('VARIAN & TOPPING', styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+      for (var m in topModifiers) {
+        final nama = (m['nama'] ?? m['name'] ?? '-').toString();
+        final qty = (m['qty'] ?? 0).toString();
+        final total = (m['total'] as num?)?.toDouble() ?? 0.0;
+        final rightStr = total > 0 ? '${qty}x (${CurrencyFormatter.formatNumber(total)})' : '${qty}x';
+        bytes += _renderRow(generator, nama, rightStr, totalWidth: charsPerLine);
+      }
+      bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+    }
+
     // Physical Cash Reconciliation Banner
-    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
+    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0);
     final double actCash = actualCash ?? expCash;
     final double diffCash = selisihCash ?? (actCash - expCash);
 
@@ -1101,8 +1125,11 @@ class ReceiptGenerator {
     required int totalTransactions,
     required double totalTax,
     double? totalServiceCharge,
+    int? totalVoidCount,
+    double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
     required List<Map<String, dynamic>> topProducts,
+    List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
     String? startTimeStr,
     String? endTimeStr,
@@ -1118,7 +1145,7 @@ class ReceiptGenerator {
     final String end = endTimeStr ?? nowFormatted;
     final int itemsCount = totalItemsCount ?? topProducts.fold<int>(0, (sum, p) => sum + ((p['qty'] as num?)?.toInt() ?? 0));
 
-    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
+    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0);
     final double actCash = actualCash ?? expCash;
     final double diffCash = selisihCash ?? (actCash - expCash);
 
@@ -1137,6 +1164,9 @@ class ReceiptGenerator {
     buffer.writeln(dashLine);
     buffer.writeln('Total Transaksi : $totalTransactions');
     buffer.writeln('Total Item      : $itemsCount');
+    if (totalVoidCount != null && totalVoidCount > 0) {
+      buffer.writeln(formatTextRow('Transaksi Void ($totalVoidCount)', CurrencyFormatter.formatNumber(totalVoidAmount ?? 0.0), width: charsPerLine));
+    }
     if (totalServiceCharge != null && totalServiceCharge > 0) {
       buffer.writeln(formatTextRow('Total Service', CurrencyFormatter.formatNumber(totalServiceCharge), width: charsPerLine));
     }
@@ -1160,6 +1190,18 @@ class ReceiptGenerator {
         final nama = (p['nama'] ?? p['name'] ?? p['produk_nama'] ?? 'Produk').toString();
         final qty = (p['qty'] ?? 0).toString();
         buffer.writeln(formatTextRow(nama, '${qty}x', width: charsPerLine));
+      }
+      buffer.writeln(eqLine);
+    }
+    if (topModifiers != null && topModifiers.isNotEmpty) {
+      buffer.writeln(centerText('VARIAN & TOPPING', width: charsPerLine));
+      buffer.writeln(dashLine);
+      for (var m in topModifiers) {
+        final nama = (m['nama'] ?? m['name'] ?? '-').toString();
+        final qty = (m['qty'] ?? 0).toString();
+        final total = (m['total'] as num?)?.toDouble() ?? 0.0;
+        final rightStr = total > 0 ? '${qty}x (${CurrencyFormatter.formatNumber(total)})' : '${qty}x';
+        buffer.writeln(formatTextRow(nama, rightStr, width: charsPerLine));
       }
       buffer.writeln(eqLine);
     }

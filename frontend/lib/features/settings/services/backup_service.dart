@@ -4,7 +4,6 @@ import 'package:path/path.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' show databaseFactoryFfi;
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../auth/services/secure_storage_service.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/services/app_logger.dart';
@@ -36,6 +35,8 @@ class BackupService {
 
   /// Memvalidasi integritas file, struktur SQLite/SQLCipher, dan kecocokan skema tabel POS sebelum di-restore
   Future<BackupValidationResult> validateBackupFile(String filePath) async {
+    File? tempValidateFile;
+    Database? testDb;
     try {
       final file = File(filePath);
       if (!await file.exists()) {
@@ -53,98 +54,119 @@ class BackupService {
         );
       }
 
+      // Salin ke file sementara di cache internal app agar aman dari lock / permission file_picker Android
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = join(tempDir.path, 'temp_val_${DateTime.now().millisecondsSinceEpoch}.db');
+      final bytes = await file.readAsBytes();
+      tempValidateFile = File(tempPath);
+      await tempValidateFile.writeAsBytes(bytes, flush: true);
+
       // Validasi Integritas SQLite & Skema Tabel Inti POS (Mendukung Standar SQLite & Terenkripsi SQLCipher)
       final storage = SecureStorageService();
       final encryptionKey = await storage.getEncryptionKey();
       final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
       
-      Database? testDb;
+      // Strategi 1: Coba buka sebagai plain/unencrypted database
       try {
-        // Coba 1: Buka sebagai plain/unencrypted database
         if (isDesktop) {
           testDb = await databaseFactoryFfi.openDatabase(
-            filePath,
-            options: OpenDatabaseOptions(readOnly: true),
+            tempPath,
+            options: OpenDatabaseOptions(readOnly: false),
           );
         } else {
-          try {
-            testDb = await openReadOnlyDatabase(filePath);
-          } catch (_) {
-            // Coba 2: Jika gagal (kemungkinan SQLCipher terenkripsi), coba buka dengan password enkripsi
-            if (encryptionKey != null && encryptionKey.isNotEmpty) {
-              testDb = await openDatabase(
-                filePath,
-                password: encryptionKey,
-                readOnly: true,
-              );
-            }
-          }
-        }
-
-        if (testDb == null) {
-          return const BackupValidationResult(
-            isValid: false,
-            errorMessage: 'Format file tidak valid. File bukan database SQLite yang sah.',
+          testDb = await openDatabase(
+            tempPath,
+            readOnly: false,
           );
         }
+      } catch (e1) {
+        // Strategi 2: Jika unencrypted gagal, coba buka dengan password enkripsi SQLCipher
+        if (encryptionKey != null && encryptionKey.isNotEmpty) {
+          try {
+            if (isDesktop) {
+              testDb = await databaseFactoryFfi.openDatabase(
+                tempPath,
+                options: OpenDatabaseOptions(readOnly: false),
+              );
+            } else {
+              testDb = await openDatabase(
+                tempPath,
+                password: encryptionKey,
+                readOnly: false,
+              );
+            }
+          } catch (e2) {
+            testDb = null;
+          }
+        }
+      }
 
-        // Uji integritas struktur tabel
+      if (testDb == null) {
+        return const BackupValidationResult(
+          isValid: false,
+          errorMessage: 'Format file tidak valid. File bukan database SQLite POS yang sah atau kunci enkripsi tidak cocok.',
+        );
+      }
+
+      // Uji integritas struktur tabel
+      try {
         final integrity = await testDb.rawQuery('PRAGMA quick_check');
         if (integrity.isNotEmpty) {
           final status = integrity.first.values.first.toString().toLowerCase();
           if (status != 'ok') {
-            await testDb.close();
             return BackupValidationResult(
               isValid: false,
               errorMessage: 'Database tidak lolos uji integritas: $status',
             );
           }
         }
+      } catch (integErr) {
+        AppLogger.warning('Notice: PRAGMA quick_check skipped: $integErr');
+      }
 
-        // Periksa keberadaan tabel inti POS
-        final tablesRes = await testDb.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");
-        final tableNames = tablesRes.map((r) => r['name'] as String).toSet();
+      // Periksa keberadaan tabel inti POS
+      final tablesRes = await testDb.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");
+      final tableNames = tablesRes.map((r) => r['name'] as String).toSet();
 
-        // Validasi tabel pokok POS
-        const requiredCoreTables = ['products', 'categories'];
-        final missingCore = requiredCoreTables.where((t) => !tableNames.contains(t)).toList();
+      // Validasi tabel pokok POS
+      const requiredCoreTables = ['products', 'categories'];
+      final missingCore = requiredCoreTables.where((t) => !tableNames.contains(t)).toList();
 
-        if (missingCore.isNotEmpty) {
-          await testDb.close();
-          return BackupValidationResult(
-            isValid: false,
-            errorMessage: 'Skema tidak cocok dengan POS (Tabel inti hilang: ${missingCore.join(", ")}).',
-          );
-        }
-
-        // Pastikan ada setidaknya salah satu tabel transaksi/order
-        final hasTransactionTables = tableNames.contains('orders') ||
-            tableNames.contains('master_orders') ||
-            tableNames.contains('transactions');
-        if (!hasTransactionTables) {
-          await testDb.close();
-          return const BackupValidationResult(
-            isValid: false,
-            errorMessage: 'Skema tidak valid: Tidak ditemukan tabel pesanan atau transaksi POS.',
-          );
-        }
-
-        await testDb.close();
-        return BackupValidationResult(isValid: true, tableCount: tableNames.length);
-      } catch (dbErr) {
-        try {
-          await testDb?.close();
-        } catch (_) {}
+      if (missingCore.isNotEmpty) {
         return BackupValidationResult(
           isValid: false,
-          errorMessage: 'Format file tidak valid atau gagal membaca skema: $dbErr',
+          errorMessage: 'Skema tidak cocok dengan POS (Tabel inti hilang: ${missingCore.join(", ")}).',
         );
       }
+
+      // Pastikan ada setidaknya salah satu tabel transaksi/order
+      final hasTransactionTables = tableNames.contains('orders') ||
+          tableNames.contains('master_orders') ||
+          tableNames.contains('transactions');
+      if (!hasTransactionTables) {
+        return const BackupValidationResult(
+          isValid: false,
+          errorMessage: 'Skema tidak valid: Tidak ditemukan tabel pesanan atau transaksi POS.',
+        );
+      }
+
+      return BackupValidationResult(isValid: true, tableCount: tableNames.length);
     } catch (e) {
       return BackupValidationResult(
         isValid: false,
         errorMessage: 'Terjadi kesalahan saat memvalidasi file: $e',
       );
+    } finally {
+      if (testDb != null && testDb.isOpen) {
+        try {
+          await testDb.close();
+        } catch (_) {}
+      }
+      if (tempValidateFile != null && await tempValidateFile.exists()) {
+        try {
+          await tempValidateFile.delete();
+        } catch (_) {}
+      }
     }
   }
 
@@ -161,21 +183,47 @@ class BackupService {
         AppLogger.warning('Failed WAL checkpoint before backup: $walErr');
       }
 
-      // 2. Export clean unencrypted database file using SQLite VACUUM INTO
-      bool vacuumSuccess = false;
+      // 2. Export database cadangan unencrypted (portabel & kompatibel lintas perangkat / pasca aktivasi ulang)
+      bool exportSuccess = false;
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+      final escapedPath = targetFile.path.replaceAll("'", "''");
+
+      // Coba 1: sqlcipher_export ke target unencrypted (KEY '') jika database aktif terenkripsi SQLCipher
       try {
-        if (await targetFile.exists()) {
-          await targetFile.delete();
+        await db.execute("ATTACH DATABASE '$escapedPath' AS backup_db KEY ''");
+        await db.execute("SELECT sqlcipher_export('backup_db')");
+        await db.execute("DETACH DATABASE backup_db");
+        exportSuccess = await targetFile.exists() && (await targetFile.length()) > 100;
+        if (exportSuccess) {
+          AppLogger.info('Successfully exported unencrypted backup using sqlcipher_export');
         }
-        final escapedPath = targetFile.path.replaceAll("'", "''");
-        await db.execute("VACUUM INTO '$escapedPath'");
-        vacuumSuccess = await targetFile.exists();
-      } catch (vacErr) {
-        AppLogger.warning('VACUUM INTO export failed, falling back to direct copy: $vacErr');
+      } catch (sqlCipherErr) {
+        AppLogger.warning('Notice: sqlcipher_export unencrypted attempt: $sqlCipherErr');
+        try {
+          await db.execute("DETACH DATABASE backup_db");
+        } catch (_) {}
       }
 
-      // 3. Fallback to direct file copy if VACUUM INTO fails
-      if (!vacuumSuccess) {
+      // Coba 2: VACUUM INTO jika sqlcipher_export tidak berlaku (misal di SQLite unencrypted / Desktop)
+      if (!exportSuccess) {
+        try {
+          if (await targetFile.exists()) {
+            await targetFile.delete();
+          }
+          await db.execute("VACUUM INTO '$escapedPath'");
+          exportSuccess = await targetFile.exists() && (await targetFile.length()) > 100;
+          if (exportSuccess) {
+            AppLogger.info('Successfully exported backup using VACUUM INTO');
+          }
+        } catch (vacErr) {
+          AppLogger.warning('VACUUM INTO export failed, falling back to direct copy: $vacErr');
+        }
+      }
+
+      // Coba 3: Fallback ke direct copy jika metode export di atas gagal
+      if (!exportSuccess) {
         final dbDir = await _getDbDirectory();
         final sourceFile = File(join(dbDir, dbName));
 
@@ -261,17 +309,20 @@ class BackupService {
       // 6. Uji inisialisasi dan verifikasi database yang baru disalin
       try {
         final db = await PosDatabase.instance.database;
-        await db.rawQuery('SELECT count(*) FROM products');
+        final prodRes = await db.rawQuery('SELECT count(*) as count FROM products WHERE is_deleted = 0');
+        final catRes = await db.rawQuery('SELECT count(*) as count FROM categories WHERE is_deleted = 0');
+        final prodCount = (prodRes.first['count'] as num?)?.toInt() ?? 0;
+        final catCount = (catRes.first['count'] as num?)?.toInt() ?? 0;
 
         // Berhasil! Hapus file snapshot pengaman (.bak) otomatis
         if (await backupBakFile.exists()) {
           await backupBakFile.delete();
         }
 
-        AppLogger.info('Backup restored and verified successfully from: $filePath');
+        AppLogger.info('Backup restored and verified successfully from: $filePath ($prodCount produk, $catCount kategori)');
         return {
           'success': true,
-          'message': 'Database berhasil dipulihkan dan diverifikasi.',
+          'message': 'Database berhasil dipulihkan ($prodCount produk aktif, $catCount kategori).',
         };
       } catch (verifyErr) {
         AppLogger.error('Restored database failed initialization verification, rolling back...', error: verifyErr);

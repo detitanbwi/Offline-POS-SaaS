@@ -125,12 +125,21 @@ void main() {
     // Verify Nama Opsi #3 is added
     expect(find.text('Nama Opsi #3'), findsOneWidget);
 
-    // Enter name for Option #2 and Option #3
+    // Enter name for Option #2 and Option #3 and price
     final opt2Field = find.widgetWithText(TextFormField, 'Nama Opsi #2');
     final opt3Field = find.widgetWithText(TextFormField, 'Nama Opsi #3');
     await tester.enterText(opt2Field, 'Pedas');
     await tester.enterText(opt3Field, 'Ekstra Pedas');
     await tester.pumpAndSettle();
+
+    // Find price field for Option #3 and input 10000
+    final priceFields = find.widgetWithText(TextFormField, '+ Harga');
+    expect(priceFields, findsNWidgets(3));
+    await tester.enterText(priceFields.at(2), '10000');
+    await tester.pumpAndSettle();
+
+    // Verify it is formatted as 10.000 in the text field
+    expect(find.descendant(of: priceFields.at(2), matching: find.text('10.000')), findsOneWidget);
 
     // Save dialog
     final saveDialogButton = find.widgetWithText(ElevatedButton, 'Simpan');
@@ -141,6 +150,6 @@ void main() {
     expect(find.text('Ubah Kelompok Varian'), findsNothing);
     expect(find.text('Biasa (+Rp 0)'), findsOneWidget);
     expect(find.text('Pedas (+Rp 0)'), findsOneWidget);
-    expect(find.text('Ekstra Pedas (+Rp 0)'), findsOneWidget);
+    expect(find.text('Ekstra Pedas (+Rp 10.000)'), findsOneWidget);
   });
 }

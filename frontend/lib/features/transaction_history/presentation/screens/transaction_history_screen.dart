@@ -245,6 +245,25 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     );
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final currentSelected = ref.read(transactionHistoryNotifierProvider).selectedDate ?? DateTime.now();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: currentSelected,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      ref.read(transactionHistoryNotifierProvider.notifier).setSelectedDate(picked);
+    }
+  }
+
+  bool _isTodaySelected(DateTime? selectedDate) {
+    if (selectedDate == null) return false;
+    final now = DateTime.now();
+    return selectedDate.year == now.year && selectedDate.month == now.month && selectedDate.day == now.day;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(transactionHistoryNotifierProvider);
@@ -253,24 +272,125 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text('Riwayat Transaksi'),
+        title: const Text('Riwayat Transaksi'),
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Search Input Header
+            // Search & Date Filter Header
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.all(AppSpacing.m),
-              child: AppTextField(
-                controller: _searchController,
-                labelText: 'Cari Struk Transaksi',
-                prefixIcon: Icons.search,
-                onChanged: (val) => notifier.setSearchQuery(val),
-                            debounceDuration: const Duration(milliseconds: 500),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 10),
+              child: Column(
+                children: [
+                  AppTextField(
+                    controller: _searchController,
+                    labelText: 'Cari Struk Transaksi',
+                    hintText: 'Cari nomor struk atau metode...',
+                    prefixIcon: Icons.search,
+                    onChanged: (val) => notifier.setSearchQuery(val),
+                    debounceDuration: const Duration(milliseconds: 300),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      // Date Selector Button
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _selectDate(context),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: state.selectedDate != null ? AppColors.primary : AppColors.divider,
+                                width: state.selectedDate != null ? 1.5 : 1.0,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              color: state.selectedDate != null
+                                  ? AppColors.primary.withValues(alpha: 0.06)
+                                  : AppColors.surface,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_month_rounded,
+                                  size: 18,
+                                  color: state.selectedDate != null ? AppColors.primary : AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    state.selectedDate != null
+                                        ? DateFormat('dd MMMM yyyy', 'id_ID').format(state.selectedDate!)
+                                        : 'Semua Tanggal',
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      fontWeight: state.selectedDate != null ? FontWeight.bold : FontWeight.normal,
+                                      color: state.selectedDate != null ? AppColors.primary : AppColors.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (state.selectedDate != null)
+                                  GestureDetector(
+                                    onTap: () => notifier.setSelectedDate(null),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close_rounded, size: 14, color: Colors.black87),
+                                    ),
+                                  )
+                                else
+                                  const Icon(Icons.arrow_drop_down_rounded, color: Colors.grey),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Quick Filter "Hari Ini"
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          side: BorderSide(
+                            color: _isTodaySelected(state.selectedDate) ? AppColors.primary : AppColors.divider,
+                          ),
+                          backgroundColor: _isTodaySelected(state.selectedDate)
+                              ? AppColors.primary.withValues(alpha: 0.1)
+                              : Colors.transparent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          if (_isTodaySelected(state.selectedDate)) {
+                            notifier.setSelectedDate(null);
+                          } else {
+                            notifier.setSelectedDate(DateTime.now());
+                          }
+                        },
+                        icon: Icon(
+                          _isTodaySelected(state.selectedDate) ? Icons.check_rounded : Icons.today_rounded,
+                          size: 16,
+                          color: _isTodaySelected(state.selectedDate) ? AppColors.primary : AppColors.textSecondary,
+                        ),
+                        label: Text(
+                          'Hari Ini',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: _isTodaySelected(state.selectedDate) ? AppColors.primary : AppColors.textSecondary,
+                            fontWeight: _isTodaySelected(state.selectedDate) ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const Divider(),
+            const Divider(height: 1),
             // Content
             Expanded(
               child: state.isLoading
@@ -278,8 +398,8 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                   : state.filteredTransactions.isEmpty
                       ? AppEmptyState(
                           title: 'Riwayat Transaksi Kosong',
-                          description: _searchController.text.isNotEmpty
-                              ? 'Tidak ada struk transaksi yang cocok.'
+                          description: state.selectedDate != null || _searchController.text.isNotEmpty
+                              ? 'Tidak ada transaksi yang cocok dengan filter.'
                               : 'Belum ada transaksi tersimpan.',
                           icon: Icons.history_toggle_off_rounded,
                         )

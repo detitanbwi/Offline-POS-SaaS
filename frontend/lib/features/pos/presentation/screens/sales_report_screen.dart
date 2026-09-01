@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -61,9 +60,11 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
 
   Future<void> _handlePrintReport(Map<String, dynamic> report) async {
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
-    final expectedCash = paymentBreakdown['Tunai'] ?? (report['total_sales'] as double? ?? 0.0);
+    final expectedCash = paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0;
 
-    final actualCashController = TextEditingController(text: expectedCash.toInt().toString());
+    final actualCashController = TextEditingController(
+      text: CurrencyFormatter.formatNumber(expectedCash),
+    );
 
     final actualCash = await showDialog<double>(
       context: context,
@@ -76,9 +77,29 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           children: [
             Text('Expected Kas (Sistem): ${CurrencyFormatter.format(expectedCash)}', style: AppTypography.bodyMedium),
             SizedBox(height: 12),
-            TextField(enableSuggestions: false, autocorrect: false, 
+            TextField(
+              enableSuggestions: false, 
+              autocorrect: false, 
               controller: actualCashController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              onChanged: (val) {
+                final cleanText = val.replaceAll('.', '').replaceAll(',', '');
+                final parsed = double.tryParse(cleanText);
+                if (parsed != null) {
+                  final formatted = CurrencyFormatter.formatNumber(parsed);
+                  if (actualCashController.text != formatted) {
+                    actualCashController.value = TextEditingValue(
+                      text: formatted,
+                      selection: TextSelection.collapsed(offset: formatted.length),
+                    );
+                  }
+                } else if (cleanText.isEmpty) {
+                  actualCashController.clear();
+                }
+              },
               decoration: const InputDecoration(
                 labelText: 'Jumlah Uang Fisik di Laci (Actual)',
                 prefixText: 'Rp ',
@@ -94,7 +115,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final val = double.tryParse(actualCashController.text) ?? expectedCash;
+              final cleanText = actualCashController.text.replaceAll('.', '').replaceAll(',', '');
+              final val = double.tryParse(cleanText) ?? expectedCash;
               Navigator.pop(context, val);
             },
             child: Text('Lanjutkan Cetak'),
@@ -108,6 +130,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
 
     final activeUser = ref.read(authSessionProvider);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
+    final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final dateStr = DateFormat('dd-MM-yyyy').format(_selectedDate);
 
     final printerState = ref.read(printerNotifierProvider);
@@ -115,6 +138,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
 
     final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
+    final totalVoidCount = (report['total_void_count'] as int?) ?? 0;
+    final totalVoidAmount = (report['total_void_amount'] as num?)?.toDouble() ?? 0.0;
 
     final textPreview = await ReceiptGenerator.formatReportTextPreview(
       dateStr: dateStr,
@@ -122,8 +147,11 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       totalTransactions: report['total_transactions'] as int,
       totalTax: report['total_tax'] as double,
       totalServiceCharge: totalServiceCharge,
+      totalVoidCount: totalVoidCount,
+      totalVoidAmount: totalVoidAmount,
       paymentBreakdown: paymentBreakdown,
       topProducts: topProducts,
+      topModifiers: topModifiers,
       cashierNama: activeUser?.nama,
       expectedCash: expectedCash,
       actualCash: actualCash,
@@ -142,8 +170,11 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalTransactions: report['total_transactions'] as int,
         totalTax: report['total_tax'] as double,
         totalServiceCharge: totalServiceCharge,
+        totalVoidCount: totalVoidCount,
+        totalVoidAmount: totalVoidAmount,
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
+        topModifiers: topModifiers,
         cashierNama: activeUser?.nama,
         expectedCash: expectedCash,
         actualCash: actualCash,
@@ -155,8 +186,11 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalTransactions: report['total_transactions'] as int,
         totalTax: report['total_tax'] as double,
         totalServiceCharge: totalServiceCharge,
+        totalVoidCount: totalVoidCount,
+        totalVoidAmount: totalVoidAmount,
         paymentBreakdown: paymentBreakdown,
         topProducts: topProducts,
+        topModifiers: topModifiers,
         cashierNama: activeUser?.nama,
         expectedCash: expectedCash,
         actualCash: actualCash,
@@ -168,7 +202,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
-  Future<void> _exportToPDF(Map<String, dynamic> report) async {
+  Future<Uint8List> _generatePdfBytes(Map<String, dynamic> report) async {
     final pdf = pw.Document();
     
     final storage = ref.read(secureStorageServiceProvider);
@@ -180,10 +214,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final totalTransactions = report['total_transactions'] as int;
     final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
     final totalTax = report['total_tax'] as double;
+    final totalVoidCount = (report['total_void_count'] as int?) ?? 0;
+    final totalVoidAmount = (report['total_void_amount'] as num?)?.toDouble() ?? 0.0;
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
 
-    final formattedDate = DateFormat('dd MMMM yyyy').format(_selectedDate);
+    final formattedDate = DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate);
 
     pdf.addPage(
       pw.Page(
@@ -213,7 +249,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                 pw.Text('LAPORAN PENJUALAN HARIAN', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 4),
                 pw.Text('Tanggal Laporan: $formattedDate', style: const pw.TextStyle(fontSize: 12)),
-                pw.Text('Waktu Cetak: ${DateTime.now().toString().split('.').first}', style: const pw.TextStyle(fontSize: 10)),
+                pw.Text('Waktu Cetak: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 10)),
                 pw.SizedBox(height: 20),
 
                 // Ringkasan Keuangan
@@ -253,6 +289,13 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('$totalTransactions')),
                       ]
                     ),
+                    if (totalVoidCount > 0)
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Transaksi Dibatalkan (Void) ($totalVoidCount transaksi)')),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(CurrencyFormatter.format(totalVoidAmount), style: const pw.TextStyle(color: PdfColors.red))),
+                        ]
+                      ),
                   ]
                 ),
                 pw.SizedBox(height: 20),
@@ -340,8 +383,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       ),
     );
 
+    return pdf.save();
+  }
+
+  Future<void> _exportToPDF(Map<String, dynamic> report) async {
     try {
-      final pdfBytes = await pdf.save();
+      final pdfBytes = await _generatePdfBytes(report);
       final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
       final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
       
@@ -361,6 +408,21 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     }
   }
 
+  Future<void> _sharePDF(Map<String, dynamic> report) async {
+    try {
+      final pdfBytes = await _generatePdfBytes(report);
+      final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
+      
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: fileName,
+        subject: 'Laporan Penjualan - ${DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate)}',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.showError(context, 'Gagal membagikan file PDF: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -370,7 +432,15 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text('Laporan Penjualan Harian'),
+        title: const Text('Laporan Penjualan Harian'),
+        actions: [
+          if (reportState.reportData != null && ((reportState.reportData!['total_transactions'] as int?) ?? 0) > 0)
+            IconButton(
+              icon: const Icon(Icons.share_rounded),
+              tooltip: 'Bagikan PDF Laporan',
+              onPressed: () => _sharePDF(reportState.reportData!),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -633,9 +703,21 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   children: [
                     Icon(Icons.tune_rounded, size: 18, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    Text(
-                      'Rekap Varian & Topping Terjual',
-                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rekap Varian & Topping Terjual',
+                            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Pendapatan varian/topping sudah otomatis masuk ke total omset produk di atas',
+                            style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -675,18 +757,33 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ),
           ),
         ],
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
         AppButton(
           text: 'Cetak Laporan Ringkasan',
           onPressed: totalTransactions == 0 ? null : () => _handlePrintReport(report),
           icon: Icons.print_rounded,
         ),
-        SizedBox(height: 8),
-        AppButton(
-          text: 'Unduh / Ekspor Laporan PDF',
-          type: AppButtonType.secondary,
-          onPressed: totalTransactions == 0 ? null : () => _exportToPDF(report),
-          icon: Icons.picture_as_pdf_rounded,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: AppButton(
+                text: 'Unduh PDF',
+                type: AppButtonType.secondary,
+                onPressed: totalTransactions == 0 ? null : () => _exportToPDF(report),
+                icon: Icons.download_rounded,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: AppButton(
+                text: 'Bagikan PDF',
+                type: AppButtonType.secondary,
+                onPressed: totalTransactions == 0 ? null : () => _sharePDF(report),
+                icon: Icons.share_rounded,
+              ),
+            ),
+          ],
         ),
       ],
     );

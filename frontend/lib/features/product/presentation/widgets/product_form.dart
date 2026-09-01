@@ -1527,6 +1527,10 @@ class ProductFormState extends State<ProductForm> {
                                 child: TextFormField(
                                   controller: optMap['priceCtrl'] as TextEditingController,
                                   keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    RupiahInputFormatter(),
+                                  ],
                                   decoration: const InputDecoration(
                                     labelText: '+ Harga',
                                     prefixText: 'Rp ',

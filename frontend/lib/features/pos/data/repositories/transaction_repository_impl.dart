@@ -331,10 +331,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
         final List<dynamic> list = jsonDecode(rawModJson);
         for (var item in list) {
           if (item is Map<String, dynamic>) {
-            final groupName = item['groupName'] as String? ?? 'Varian';
-            final optionName = item['optionName'] as String? ?? '';
+            final groupName = (item['group_name'] ?? item['groupName'] ?? 'Varian').toString();
+            final optionName = (item['option_name'] ?? item['optionName'] ?? '').toString();
             final harga = (item['harga'] as num?)?.toDouble() ?? 0.0;
-            final key = '$groupName: $optionName';
+            final key = optionName.isNotEmpty
+                ? (groupName.isNotEmpty ? '$groupName: $optionName' : optionName)
+                : groupName;
             if (!modifierAggMap.containsKey(key)) {
               modifierAggMap[key] = {
                 'nama': key,

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
 import '../../auth/domain/models/auth_user.dart';
 import '../../auth/presentation/providers/auth_providers.dart';
@@ -9,6 +10,7 @@ class TransactionHistoryState {
   final List<TransactionHeader> allTransactions;
   final List<TransactionHeader> filteredTransactions;
   final String searchQuery;
+  final DateTime? selectedDate;
   final bool isLoading;
   final String? errorMessage;
 
@@ -16,6 +18,7 @@ class TransactionHistoryState {
     this.allTransactions = const [],
     this.filteredTransactions = const [],
     this.searchQuery = '',
+    this.selectedDate,
     this.isLoading = false,
     this.errorMessage,
   });
@@ -24,6 +27,8 @@ class TransactionHistoryState {
     List<TransactionHeader>? allTransactions,
     List<TransactionHeader>? filteredTransactions,
     String? searchQuery,
+    DateTime? selectedDate,
+    bool clearSelectedDate = false,
     bool? isLoading,
     String? errorMessage,
   }) {
@@ -31,6 +36,7 @@ class TransactionHistoryState {
       allTransactions: allTransactions ?? this.allTransactions,
       filteredTransactions: filteredTransactions ?? this.filteredTransactions,
       searchQuery: searchQuery ?? this.searchQuery,
+      selectedDate: clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );
@@ -50,8 +56,8 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       String? cashierId;
-      if (_authUser != null && _authUser!.isCashier) {
-        cashierId = _authUser!.id;
+      if (_authUser != null && _authUser.isCashier) {
+        cashierId = _authUser.id;
       }
       final list = await _repository.getAllTransactions(cashierId: cashierId);
       state = state.copyWith(
@@ -72,8 +78,27 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
     _applyFilter();
   }
 
+  void setSelectedDate(DateTime? date) {
+    if (date == null) {
+      state = state.copyWith(clearSelectedDate: true);
+    } else {
+      state = state.copyWith(selectedDate: date);
+    }
+    _applyFilter();
+  }
+
   void _applyFilter() {
     List<TransactionHeader> filtered = List.from(state.allTransactions);
+
+    // Filter by single date (harian)
+    if (state.selectedDate != null) {
+      final targetDateStr = DateFormat('yyyy-MM-dd').format(state.selectedDate!);
+      filtered = filtered.where((t) {
+        final txDateStr = DateFormat('yyyy-MM-dd').format(t.createdAt);
+        return txDateStr == targetDateStr;
+      }).toList();
+    }
+
     if (state.searchQuery.isNotEmpty) {
       final query = state.searchQuery.toLowerCase();
       filtered = filtered

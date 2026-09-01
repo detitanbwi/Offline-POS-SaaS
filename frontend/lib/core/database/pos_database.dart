@@ -64,21 +64,28 @@ class PosDatabase {
       try {
         db = await openWithParams();
       } catch (e) {
-        debugPrint('[PosDatabase] Unencrypted open failed: $e. Re-creating DB...');
-        try {
-          if (isDesktop) {
-            await databaseFactoryFfi.deleteDatabase(path);
-          } else {
-            await deleteDatabase(path);
+        debugPrint('[PosDatabase] Unencrypted open failed ($e). Attempting fallback open with encryptionKey if available...');
+        if (encryptionKey != null && encryptionKey.isNotEmpty) {
+          try {
+            db = await openWithParams(pwd: encryptionKey);
+            // Dekripsi database agar kembali unencrypted jika saat ini mode unencrypted
+            try {
+              await db.execute("PRAGMA rekey = ''");
+              debugPrint('[PosDatabase] Successfully decrypted database to unencrypted format.');
+            } catch (_) {}
+          } catch (innerErr) {
+            debugPrint('[PosDatabase] Fallback encrypted open failed: $innerErr');
+            rethrow;
           }
-        } catch (_) {}
-        db = await openWithParams();
+        } else {
+          rethrow;
+        }
       }
     } else {
       try {
         db = await openWithParams(pwd: encryptionKey);
       } catch (e) {
-        debugPrint('[PosDatabase] Encrypted open failed: $e. Attempting fallback unencrypted open + rekey...');
+        debugPrint('[PosDatabase] Encrypted open failed ($e). Attempting fallback unencrypted open + rekey...');
         try {
           if (isDesktop) {
             db = await databaseFactoryFfi.openDatabase(
@@ -102,15 +109,8 @@ class PosDatabase {
           await db.execute("PRAGMA rekey = '$encryptionKey'");
           debugPrint('[PosDatabase] Successfully converted unencrypted backup DB to encrypted SQLCipher!');
         } catch (innerErr) {
-          debugPrint('[PosDatabase] Fallback failed ($innerErr). Re-creating fresh database...');
-          try {
-            if (isDesktop) {
-              await databaseFactoryFfi.deleteDatabase(path);
-            } else {
-              await deleteDatabase(path);
-            }
-          } catch (_) {}
-          db = await openWithParams(pwd: encryptionKey);
+          debugPrint('[PosDatabase] Fallback unencrypted open + rekey failed: $innerErr');
+          rethrow;
         }
       }
     }
@@ -606,32 +606,6 @@ class PosDatabase {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 14) {
-      // TAHAP PENGEMBANGAN: Hapus semua tabel dan buat ulang dari awal untuk memastikan schema bersih
-      bool droppedAll = false;
-      while (!droppedAll) {
-        final tables = await db.rawQuery('SELECT name FROM sqlite_master WHERE type="table" AND name NOT LIKE "sqlite_%"');
-        if (tables.isEmpty) {
-          droppedAll = true;
-          break;
-        }
-        int droppedCount = 0;
-        for (final table in tables) {
-          final tableName = table['name'];
-          try {
-            await db.execute('DROP TABLE IF EXISTS $tableName');
-            droppedCount++;
-          } catch (e) {
-            // Ignore foreign key constraint errors and retry in next pass
-          }
-        }
-        if (droppedCount == 0) {
-          break; // Avoid infinite loop if a table cannot be dropped for other reasons
-        }
-      }
-      await _createDB(db, newVersion);
-      return; // Skip migrasi versi lama karena database sudah di-reset
-    }
 
     if (oldVersion < 2) {
       await db.execute('''
