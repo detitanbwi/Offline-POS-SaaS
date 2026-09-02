@@ -25,6 +25,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _isAirplaneModeOn = false;
+  bool _obscurePassword = true;
   StreamSubscription? _airplaneModeSub;
 
   @override
@@ -187,8 +188,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _passwordController,
                       labelText: 'Password',
                       hintText: 'Masukkan password Anda',
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       prefixIcon: Icons.lock_outline_rounded,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
                     ),
                     SizedBox(height: 8.h),
                     Align(

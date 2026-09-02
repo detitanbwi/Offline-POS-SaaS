@@ -34,9 +34,7 @@ class PosDatabase {
     final storage = SecureStorageService();
     final encryptionKey = await storage.getEncryptionKey();
 
-    final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
-
-    Future<Database> openWithParams({String? pwd}) async {
+    Future<Database> openPlain() async {
       if (isDesktop) {
         return await databaseFactoryFfi.openDatabase(
           path,
@@ -50,68 +48,39 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-            version: currentDbVersion,
-            password: pwd,
-            onCreate: _createDB,
-            onUpgrade: _upgradeDB,
-            onConfigure: _onConfigure,
+          version: currentDbVersion,
+          onCreate: _createDB,
+          onUpgrade: _upgradeDB,
+          onConfigure: _onConfigure,
         );
       }
     }
 
     Database db;
-    if (!shouldEncrypt) {
-      try {
-        db = await openWithParams();
-      } catch (e) {
-        debugPrint('[PosDatabase] Unencrypted open failed ($e). Attempting fallback open with encryptionKey if available...');
-        if (encryptionKey != null && encryptionKey.isNotEmpty) {
-          try {
-            db = await openWithParams(pwd: encryptionKey);
-            // Dekripsi database agar kembali unencrypted jika saat ini mode unencrypted
-            try {
-              await db.execute("PRAGMA rekey = ''");
-              debugPrint('[PosDatabase] Successfully decrypted database to unencrypted format.');
-            } catch (_) {}
-          } catch (innerErr) {
-            debugPrint('[PosDatabase] Fallback encrypted open failed: $innerErr');
-            rethrow;
-          }
-        } else {
-          rethrow;
-        }
-      }
-    } else {
-      try {
-        db = await openWithParams(pwd: encryptionKey);
-      } catch (e) {
-        debugPrint('[PosDatabase] Encrypted open failed ($e). Attempting fallback unencrypted open + rekey...');
+    try {
+      // 1. Buka sebagai database SQLite standar unencrypted (Cepat, portabel & bebas masalah kunci)
+      db = await openPlain();
+    } catch (e) {
+      debugPrint('[PosDatabase] Unencrypted open failed ($e). Checking if legacy encrypted DB needs decryption...');
+      if (encryptionKey != null && encryptionKey.isNotEmpty) {
         try {
-          if (isDesktop) {
-            db = await databaseFactoryFfi.openDatabase(
-              path,
-              options: OpenDatabaseOptions(
-                version: currentDbVersion,
-                onCreate: _createDB,
-                onUpgrade: _upgradeDB,
-                onConfigure: _onConfigure,
-              ),
-            );
-          } else {
-            db = await openDatabase(
-              path,
-              version: currentDbVersion,
-              onCreate: _createDB,
-              onUpgrade: _upgradeDB,
-              onConfigure: _onConfigure,
-            );
-          }
-          await db.execute("PRAGMA rekey = '$encryptionKey'");
-          debugPrint('[PosDatabase] Successfully converted unencrypted backup DB to encrypted SQLCipher!');
+          // Buka dengan kunci enkripsi lama lalu ubah permanen ke unencrypted plaintext
+          db = await openDatabase(
+            path,
+            version: currentDbVersion,
+            password: encryptionKey,
+            onCreate: _createDB,
+            onUpgrade: _upgradeDB,
+            onConfigure: _onConfigure,
+          );
+          await db.execute("PRAGMA rekey = ''");
+          debugPrint('[PosDatabase] Successfully converted legacy encrypted database to standard unencrypted SQLite!');
         } catch (innerErr) {
-          debugPrint('[PosDatabase] Fallback unencrypted open + rekey failed: $innerErr');
+          debugPrint('[PosDatabase] Decryption attempt failed ($innerErr).');
           rethrow;
         }
+      } else {
+        rethrow;
       }
     }
 

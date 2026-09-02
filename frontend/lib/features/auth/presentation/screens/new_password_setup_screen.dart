@@ -19,6 +19,8 @@ class NewPasswordSetupScreen extends ConsumerStatefulWidget {
 class _NewPasswordSetupScreenState extends ConsumerState<NewPasswordSetupScreen> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   Future<void> _handleSave() async {
     final newPassword = _newPasswordController.text;
@@ -100,16 +102,38 @@ class _NewPasswordSetupScreenState extends ConsumerState<NewPasswordSetupScreen>
                     controller: _newPasswordController,
                     labelText: 'Password Baru',
                     hintText: 'Masukkan password baru',
-                    obscureText: true,
+                    obscureText: _obscureNewPassword,
                     prefixIcon: Icons.lock_outline_rounded,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureNewPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureNewPassword = !_obscureNewPassword;
+                        });
+                      },
+                    ),
                   ),
                   SizedBox(height: 16.h),
                   AppTextField(
                     controller: _confirmPasswordController,
                     labelText: 'Konfirmasi Password Baru',
                     hintText: 'Masukkan ulang password',
-                    obscureText: true,
+                    obscureText: _obscureConfirmPassword,
                     prefixIcon: Icons.lock_outline_rounded,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
                   ),
                   
                   SizedBox(height: 32.h),

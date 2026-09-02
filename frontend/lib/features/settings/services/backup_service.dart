@@ -66,7 +66,7 @@ class BackupService {
       final encryptionKey = await storage.getEncryptionKey();
       final isDesktop = !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
       
-      // Strategi 1: Coba buka sebagai plain/unencrypted database
+      // Strategi 1: Buka sebagai plain/unencrypted database (Standar POS)
       try {
         if (isDesktop) {
           testDb = await databaseFactoryFfi.openDatabase(
@@ -80,7 +80,7 @@ class BackupService {
           );
         }
       } catch (e1) {
-        // Strategi 2: Jika unencrypted gagal, coba buka dengan password enkripsi SQLCipher
+        // Strategi 2: Fallback jika file cadangan versi lama masih terenkripsi SQLCipher
         if (encryptionKey != null && encryptionKey.isNotEmpty) {
           try {
             if (isDesktop) {
@@ -104,7 +104,7 @@ class BackupService {
       if (testDb == null) {
         return const BackupValidationResult(
           isValid: false,
-          errorMessage: 'Format file tidak valid. File bukan database SQLite POS yang sah atau kunci enkripsi tidak cocok.',
+          errorMessage: 'Format file tidak valid atau file rusak (Bukan database SQLite POS yang sah).',
         );
       }
 
@@ -183,46 +183,25 @@ class BackupService {
         AppLogger.warning('Failed WAL checkpoint before backup: $walErr');
       }
 
-      // 2. Export database cadangan unencrypted (portabel & kompatibel lintas perangkat / pasca aktivasi ulang)
+      // 2. Export database cadangan unencrypted (bersih, portabel & tanpa isu kunci)
       bool exportSuccess = false;
       if (await targetFile.exists()) {
         await targetFile.delete();
       }
       final escapedPath = targetFile.path.replaceAll("'", "''");
 
-      // Coba 1: sqlcipher_export ke target unencrypted (KEY '') jika database aktif terenkripsi SQLCipher
+      // Coba 1: VACUUM INTO (Menghasilkan clean SQLite snapshot)
       try {
-        await db.execute("ATTACH DATABASE '$escapedPath' AS backup_db KEY ''");
-        await db.execute("SELECT sqlcipher_export('backup_db')");
-        await db.execute("DETACH DATABASE backup_db");
+        await db.execute("VACUUM INTO '$escapedPath'");
         exportSuccess = await targetFile.exists() && (await targetFile.length()) > 100;
         if (exportSuccess) {
-          AppLogger.info('Successfully exported unencrypted backup using sqlcipher_export');
+          AppLogger.info('Successfully exported backup using VACUUM INTO');
         }
-      } catch (sqlCipherErr) {
-        AppLogger.warning('Notice: sqlcipher_export unencrypted attempt: $sqlCipherErr');
-        try {
-          await db.execute("DETACH DATABASE backup_db");
-        } catch (_) {}
+      } catch (vacErr) {
+        AppLogger.warning('VACUUM INTO export failed, falling back to direct copy: $vacErr');
       }
 
-      // Coba 2: VACUUM INTO jika sqlcipher_export tidak berlaku (misal di SQLite unencrypted / Desktop)
-      if (!exportSuccess) {
-        try {
-          if (await targetFile.exists()) {
-            await targetFile.delete();
-          }
-          await db.execute("VACUUM INTO '$escapedPath'");
-          exportSuccess = await targetFile.exists() && (await targetFile.length()) > 100;
-          if (exportSuccess) {
-            AppLogger.info('Successfully exported backup using VACUUM INTO');
-          }
-        } catch (vacErr) {
-          AppLogger.warning('VACUUM INTO export failed, falling back to direct copy: $vacErr');
-        }
-      }
-
-      // Coba 3: Fallback ke direct copy jika metode export di atas gagal
+      // Coba 2: Fallback ke direct copy jika VACUUM INTO gagal
       if (!exportSuccess) {
         final dbDir = await _getDbDirectory();
         final sourceFile = File(join(dbDir, dbName));
@@ -235,7 +214,7 @@ class BackupService {
         await sourceFile.copy(targetFile.path);
       }
 
-      // 4. Also export copy to public Downloads folder for cross-app/cross-build accessibility
+      // 3. Export juga salinan ke folder Downloads publik agar mudah diakses & dipindahkan
       try {
         final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:\.\-]'), '').replaceFirst('T', '_');
         final publicBackupName = 'pos_database_backup_$timestamp.db';
