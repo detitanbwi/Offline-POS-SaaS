@@ -1424,7 +1424,7 @@ class ProductFormState extends State<ProductForm> {
                                   children: [
                                     Icon(Icons.radio_button_checked, size: 16, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary),
                                     const SizedBox(height: 4),
-                                    Text('Pilih 1 (Radio)', style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary)),
+                                    Text('Pilih 1 (Varian)', style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary)),
                                   ],
                                 ),
                               ),

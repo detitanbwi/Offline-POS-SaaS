@@ -22,11 +22,12 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:printing/printing.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../cashier/application/cashier_notifier.dart';
 import '../../application/sales_report_notifier.dart';
 
-
 class SalesReportScreen extends ConsumerStatefulWidget {
-  const SalesReportScreen({super.key});
+  final bool isEmbedded;
+  const SalesReportScreen({super.key, this.isEmbedded = false});
 
   @override
   ConsumerState<SalesReportScreen> createState() => _SalesReportScreenState();
@@ -39,7 +40,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(salesReportNotifierProvider.notifier).loadDailyReport(_selectedDate);
+      ref.read(salesReportNotifierProvider.notifier).loadDailyReport(date: _selectedDate);
+      ref.read(cashierNotifierProvider.notifier).loadCashiers();
     });
   }
 
@@ -48,13 +50,13 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
       });
-      ref.read(salesReportNotifierProvider.notifier).loadDailyReport(picked);
+      ref.read(salesReportNotifierProvider.notifier).setDate(picked);
     }
   }
 
@@ -427,7 +429,135 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   @override
   Widget build(BuildContext context) {
     final reportState = ref.watch(salesReportNotifierProvider);
+    final cashierState = ref.watch(cashierNotifierProvider);
+    final authUser = ref.watch(authSessionProvider);
+    final isOwner = authUser?.isOwner ?? false;
     final formattedDate = DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate);
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header Filter Card
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tanggal Laporan',
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          formattedDate,
+                          style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _selectDate(context),
+                    icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                    label: const Text('Ubah Tanggal'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+              if (isOwner || cashierState.allCashiers.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.person_search_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Kasir:',
+                      style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 12.sp),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: reportState.selectedCashierId,
+                            isExpanded: true,
+                            hint: const Text('Semua Kasir (Akumulasi)', style: TextStyle(fontSize: 13)),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('Semua Kasir (Akumulasi)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                              ...cashierState.allCashiers.map((cashier) {
+                                return DropdownMenuItem<String?>(
+                                  value: cashier.id,
+                                  child: Text(
+                                    '${cashier.nama}${cashier.isOwner == 1 ? " (Owner)" : ""}',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              String? cashierName;
+                              if (val != null) {
+                                final matches = cashierState.allCashiers.where((x) => x.id == val);
+                                if (matches.isNotEmpty) {
+                                  cashierName = matches.first.nama;
+                                }
+                              }
+                              ref.read(salesReportNotifierProvider.notifier).setCashier(val, cashierName);
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.m),
+            child: reportState.isLoading
+                ? const AppLoading(message: 'Membuat laporan...')
+                : reportState.reportData == null
+                    ? Center(
+                        child: Text(
+                          'Laporan tidak tersedia',
+                          style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
+                        ),
+                      )
+                    : _buildReportContent(context, reportState.reportData!),
+          ),
+        ),
+      ],
+    );
+
+    if (widget.isEmbedded) {
+      return SafeArea(child: content);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -443,45 +573,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.l),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Tanggal Laporan', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                      Text(formattedDate, style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => _selectDate(context),
-                    icon: Icon(Icons.calendar_month_rounded),
-                    label: Text('Ubah Tanggal'),
-                  ),
-                ],
-              ),
-              SizedBox(height: AppSpacing.l),
-              
-              Expanded(
-                child: reportState.isLoading
-                    ? const AppLoading(message: 'Membuat laporan...')
-                    : reportState.reportData == null
-                        ? Center(
-                            child: Text(
-                              'Laporan tidak tersedia',
-                              style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-                            ),
-                          )
-                        : _buildReportContent(context, reportState.reportData!),
-              ),
-            ],
-          ),
-        ),
+        child: content,
       ),
     );
   }

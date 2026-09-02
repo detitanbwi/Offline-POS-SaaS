@@ -27,7 +27,8 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
-  const TransactionHistoryScreen({super.key});
+  final bool isEmbedded;
+  const TransactionHistoryScreen({super.key, this.isEmbedded = false});
 
   @override
   ConsumerState<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
@@ -269,20 +270,14 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     final state = ref.watch(transactionHistoryNotifierProvider);
     final notifier = ref.read(transactionHistoryNotifierProvider.notifier);
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: const Text('Riwayat Transaksi'),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Search & Date Filter Header
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 10),
-              child: Column(
-                children: [
+    final content = Column(
+      children: [
+        // Search & Date Filter Header
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 10),
+          child: Column(
+            children: [
                   AppTextField(
                     controller: _searchController,
                     labelText: 'Cari Struk Transaksi',
@@ -472,7 +467,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                          ),
                                         SizedBox(height: 4),
                                         Text(
-                                          'Pembayaran: ${tx.paymentMethodNama} • $timeStr',
+                                          'Kasir: ${tx.cashierNama != null && tx.cashierNama!.isNotEmpty ? tx.cashierNama : "-"} • ${tx.paymentMethodNama} • $timeStr',
                                           style: AppTypography.bodyMedium.copyWith(
                                             color: AppColors.textSecondary,
                                             fontSize: 12.sp,
@@ -506,7 +501,19 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                         ),
             ),
           ],
-        ),
+        );
+
+    if (widget.isEmbedded) {
+      return SafeArea(child: content);
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        title: const Text('Riwayat Transaksi'),
+      ),
+      body: SafeArea(
+        child: content,
       ),
     );
   }

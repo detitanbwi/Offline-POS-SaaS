@@ -43,7 +43,7 @@ class PinRecoveryService {
     } catch (e) {
       if (e is PinRecoveryException) rethrow;
       throw PinRecoveryException(
-        'Gagal terhubung ke server ($apiBaseUrl). Periksa koneksi internet Anda.',
+        'Gagal terhubung ke server. Periksa koneksi internet Anda.',
       );
     }
   }
@@ -79,7 +79,7 @@ class PinRecoveryService {
     } catch (e) {
       if (e is PinRecoveryException) rethrow;
       throw PinRecoveryException(
-        'Gagal terhubung ke server ($apiBaseUrl). Periksa koneksi internet Anda.',
+        'Gagal terhubung ke server. Periksa koneksi internet Anda.',
       );
     }
   }
@@ -122,7 +122,7 @@ class PinRecoveryService {
     } catch (e) {
       if (e is PinRecoveryException) rethrow;
       throw PinRecoveryException(
-        'Gagal terhubung ke server ($apiBaseUrl). Periksa koneksi internet Anda.',
+        'Gagal terhubung ke server. Periksa koneksi internet Anda.',
       );
     }
   }

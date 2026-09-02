@@ -24,6 +24,7 @@ import '../../../../core/di/providers.dart';
 import '../../../printer/presentation/screens/printer_setting_screen.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
 import '../../../cashier/presentation/screens/cashier_management_screen.dart';
+import '../../../pos/presentation/screens/owner_reports_hub_screen.dart';
 import '../../../../core/utils/url_helper.dart';
 
 class MainMenuScreen extends ConsumerWidget {
@@ -277,6 +278,17 @@ class MainMenuScreen extends ConsumerWidget {
         mainAxisSpacing: AppSpacing.m,
         childAspectRatio: childAspectRatio,
         children: [
+          _buildMenuCard(
+            context,
+            title: 'Laporan & Riwayat',
+            subtitle: 'Riwayat transaksi & rekap shift',
+            icon: Icons.analytics_rounded,
+            color: Colors.indigo.shade50,
+            iconColor: Colors.indigo.shade700,
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerReportsHubScreen()));
+            },
+          ),
           _buildMenuCard(
             context,
             title: 'Kelola Akun Kasir',

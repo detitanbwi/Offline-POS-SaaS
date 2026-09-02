@@ -9,22 +9,35 @@ class SalesReportState {
   final Map<String, dynamic>? reportData;
   final bool isLoading;
   final String? errorMessage;
+  final DateTime selectedDate;
+  final String? selectedCashierId; // null = Semua Kasir
+  final String? selectedCashierName;
 
   SalesReportState({
     this.reportData,
     this.isLoading = false,
     this.errorMessage,
-  });
+    DateTime? selectedDate,
+    this.selectedCashierId,
+    this.selectedCashierName,
+  }) : selectedDate = selectedDate ?? DateTime.now();
 
   SalesReportState copyWith({
     Map<String, dynamic>? reportData,
     bool? isLoading,
     String? errorMessage,
+    DateTime? selectedDate,
+    String? selectedCashierId,
+    bool clearCashier = false,
+    String? selectedCashierName,
   }) {
     return SalesReportState(
       reportData: reportData ?? this.reportData,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
+      selectedDate: selectedDate ?? this.selectedDate,
+      selectedCashierId: clearCashier ? null : (selectedCashierId ?? this.selectedCashierId),
+      selectedCashierName: clearCashier ? null : (selectedCashierName ?? this.selectedCashierName),
     );
   }
 }
@@ -33,26 +46,53 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
   final TransactionRepository _repository;
   final AuthUser? _authUser;
 
-  SalesReportNotifier(this._repository, this._authUser) : super(SalesReportState());
+  SalesReportNotifier(this._repository, this._authUser) : super(SalesReportState()) {
+    loadDailyReport();
+  }
 
-  Future<void> loadDailyReport(DateTime date) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    state = state.copyWith(isLoading: true, errorMessage: null);
+  Future<void> loadDailyReport({DateTime? date, String? cashierId, String? cashierName, bool clearCashier = false}) async {
+    final targetDate = date ?? state.selectedDate;
+    final targetCashierId = clearCashier ? null : (cashierId ?? state.selectedCashierId);
+    final targetCashierName = clearCashier ? null : (cashierName ?? state.selectedCashierName);
+
+    state = state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      selectedDate: targetDate,
+      selectedCashierId: targetCashierId,
+      clearCashier: clearCashier,
+      selectedCashierName: targetCashierName,
+    );
+
     try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
       
-      String? cashierId;
+      String? effectiveCashierId;
       if (_authUser != null && _authUser!.isCashier) {
-        cashierId = _authUser!.id;
+        effectiveCashierId = _authUser!.id;
+      } else {
+        effectiveCashierId = targetCashierId;
       }
 
-      final data = await _repository.getDailySalesReport(dateStr, cashierId: cashierId);
+      final data = await _repository.getDailySalesReport(dateStr, cashierId: effectiveCashierId);
       state = state.copyWith(reportData: data, isLoading: false);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Gagal memuat laporan penjualan: $e',
       );
+    }
+  }
+
+  void setDate(DateTime date) {
+    loadDailyReport(date: date);
+  }
+
+  void setCashier(String? cashierId, String? cashierName) {
+    if (cashierId == null) {
+      loadDailyReport(clearCashier: true);
+    } else {
+      loadDailyReport(cashierId: cashierId, cashierName: cashierName);
     }
   }
 }

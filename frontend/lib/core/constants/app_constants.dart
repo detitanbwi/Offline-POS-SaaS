@@ -11,8 +11,8 @@ String get apiBaseUrl => dotenv.env['API_BASE_URL']?.isNotEmpty == true
     : 'https://aplikasi.appkasirpro.com';
 
 /// Application metadata
-const String appVersion = '1.0.2';
-const String appBuildNumber = '2';
+const String appVersion = '1.0.3';
+const String appBuildNumber = '3';
 const String appName = 'Kasir Pro';
 
 /// Order Type constants

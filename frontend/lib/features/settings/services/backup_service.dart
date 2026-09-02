@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' show databaseFactoryFfi;
@@ -214,10 +215,12 @@ class BackupService {
         await sourceFile.copy(targetFile.path);
       }
 
-      // 3. Export juga salinan ke folder Downloads publik agar mudah diakses & dipindahkan
+      // 3. Export juga salinan ke folder Downloads publik dengan format ddMMyy_timestamp_appkasirpro.db
       try {
-        final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:\.\-]'), '').replaceFirst('T', '_');
-        final publicBackupName = 'pos_database_backup_$timestamp.db';
+        final now = DateTime.now();
+        final datePart = DateFormat('ddMMyy').format(now);
+        final timePart = DateFormat('HHmmss').format(now);
+        final publicBackupName = '${datePart}_${timePart}_appkasirpro.db';
         final backupBytes = await targetFile.readAsBytes();
         final publicBackupFile = await FileSaverUtil.saveToDownloads(backupBytes, publicBackupName);
         AppLogger.info('Public backup saved to: ${publicBackupFile.path}');
