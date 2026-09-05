@@ -382,7 +382,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _buildSettingsTile(
               context,
               title: 'Pusat Bantuan & Layanan CS',
-              subtitle: 'Buka pusat bantuan resmi di alatkasirpro.com/hubungi',
+              subtitle: 'Buka pusat bantuan resmi di appkasirpro.com/contact.html',
               icon: Icons.help_outline_rounded,
               onTap: () => UrlHelper.openHelpCenter(context),
             ),

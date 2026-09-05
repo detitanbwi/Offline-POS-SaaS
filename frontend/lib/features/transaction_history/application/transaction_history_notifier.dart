@@ -10,25 +10,33 @@ class TransactionHistoryState {
   final List<TransactionHeader> allTransactions;
   final List<TransactionHeader> filteredTransactions;
   final String searchQuery;
-  final DateTime? selectedDate;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final bool isLoading;
   final String? errorMessage;
+
+  DateTime? get selectedDate => startDate;
 
   TransactionHistoryState({
     this.allTransactions = const [],
     this.filteredTransactions = const [],
     this.searchQuery = '',
-    this.selectedDate,
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? selectedDate,
     this.isLoading = false,
     this.errorMessage,
-  });
+  }) : startDate = startDate ?? selectedDate,
+       endDate = endDate ?? selectedDate;
 
   TransactionHistoryState copyWith({
     List<TransactionHeader>? allTransactions,
     List<TransactionHeader>? filteredTransactions,
     String? searchQuery,
+    DateTime? startDate,
+    DateTime? endDate,
     DateTime? selectedDate,
-    bool clearSelectedDate = false,
+    bool clearDateRange = false,
     bool? isLoading,
     String? errorMessage,
   }) {
@@ -36,7 +44,8 @@ class TransactionHistoryState {
       allTransactions: allTransactions ?? this.allTransactions,
       filteredTransactions: filteredTransactions ?? this.filteredTransactions,
       searchQuery: searchQuery ?? this.searchQuery,
-      selectedDate: clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
+      startDate: clearDateRange ? null : (startDate ?? (selectedDate ?? this.startDate)),
+      endDate: clearDateRange ? null : (endDate ?? (selectedDate ?? this.endDate)),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );
@@ -80,9 +89,18 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
 
   void setSelectedDate(DateTime? date) {
     if (date == null) {
-      state = state.copyWith(clearSelectedDate: true);
+      state = state.copyWith(clearDateRange: true);
     } else {
-      state = state.copyWith(selectedDate: date);
+      state = state.copyWith(startDate: date, endDate: date);
+    }
+    _applyFilter();
+  }
+
+  void setDateRange(DateTime? start, DateTime? end) {
+    if (start == null && end == null) {
+      state = state.copyWith(clearDateRange: true);
+    } else {
+      state = state.copyWith(startDate: start, endDate: end ?? start);
     }
     _applyFilter();
   }
@@ -90,12 +108,23 @@ class TransactionHistoryNotifier extends StateNotifier<TransactionHistoryState> 
   void _applyFilter() {
     List<TransactionHeader> filtered = List.from(state.allTransactions);
 
-    // Filter by single date (harian)
-    if (state.selectedDate != null) {
-      final targetDateStr = DateFormat('yyyy-MM-dd').format(state.selectedDate!);
+    // Filter by date range
+    if (state.startDate != null || state.endDate != null) {
+      final start = state.startDate != null
+          ? DateTime(state.startDate!.year, state.startDate!.month, state.startDate!.day, 0, 0, 0)
+          : null;
+      final end = state.endDate != null
+          ? DateTime(state.endDate!.year, state.endDate!.month, state.endDate!.day, 23, 59, 59, 999)
+          : null;
+
       filtered = filtered.where((t) {
-        final txDateStr = DateFormat('yyyy-MM-dd').format(t.createdAt);
-        return txDateStr == targetDateStr;
+        if (start != null && t.createdAt.isBefore(start)) {
+          return false;
+        }
+        if (end != null && t.createdAt.isAfter(end)) {
+          return false;
+        }
+        return true;
       }).toList();
     }
 

@@ -246,29 +246,71 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     );
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final currentSelected = ref.read(transactionHistoryNotifierProvider).selectedDate ?? DateTime.now();
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDateRange(BuildContext context) async {
+    final state = ref.read(transactionHistoryNotifierProvider);
+    DateTimeRange? initialRange;
+    if (state.startDate != null && state.endDate != null) {
+      initialRange = DateTimeRange(start: state.startDate!, end: state.endDate!);
+    } else if (state.startDate != null) {
+      initialRange = DateTimeRange(start: state.startDate!, end: state.startDate!);
+    }
+
+    final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      initialDate: currentSelected,
+      initialDateRange: initialRange,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Pilih Rentang Tanggal Transaksi',
+      cancelText: 'Batal',
+      confirmText: 'Pilih',
+      saveText: 'Terapkan',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
+
     if (picked != null) {
-      ref.read(transactionHistoryNotifierProvider.notifier).setSelectedDate(picked);
+      ref.read(transactionHistoryNotifierProvider.notifier).setDateRange(picked.start, picked.end);
     }
   }
 
-  bool _isTodaySelected(DateTime? selectedDate) {
-    if (selectedDate == null) return false;
+  bool _isTodaySelected(DateTime? startDate, DateTime? endDate) {
+    if (startDate == null || endDate == null) return false;
     final now = DateTime.now();
-    return selectedDate.year == now.year && selectedDate.month == now.month && selectedDate.day == now.day;
+    final isStartToday = startDate.year == now.year && startDate.month == now.month && startDate.day == now.day;
+    final isEndToday = endDate.year == now.year && endDate.month == now.month && endDate.day == now.day;
+    return isStartToday && isEndToday;
+  }
+
+  String _formatDateRange(DateTime? start, DateTime? end) {
+    if (start == null && end == null) return 'Semua Tanggal';
+    if (start != null && end != null) {
+      if (start.year == end.year && start.month == end.month && start.day == end.day) {
+        return DateFormat('dd MMMM yyyy', 'id_ID').format(start);
+      }
+      if (start.year == end.year) {
+        return '${DateFormat('dd MMM', 'id_ID').format(start)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(end)}';
+      }
+      return '${DateFormat('dd/MM/yy', 'id_ID').format(start)} - ${DateFormat('dd/MM/yy', 'id_ID').format(end)}';
+    }
+    if (start != null) return 'Dari ${DateFormat('dd MMM yyyy', 'id_ID').format(start)}';
+    return 'Sampai ${DateFormat('dd MMM yyyy', 'id_ID').format(end!)}';
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(transactionHistoryNotifierProvider);
     final notifier = ref.read(transactionHistoryNotifierProvider.notifier);
+    final hasDateFilter = state.startDate != null || state.endDate != null;
 
     final content = Column(
       children: [
@@ -289,20 +331,20 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      // Date Selector Button
+                      // Date Selector Button (Date Range)
                       Expanded(
                         child: InkWell(
-                          onTap: () => _selectDate(context),
+                          onTap: () => _selectDateRange(context),
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: state.selectedDate != null ? AppColors.primary : AppColors.divider,
-                                width: state.selectedDate != null ? 1.5 : 1.0,
+                                color: hasDateFilter ? AppColors.primary : AppColors.divider,
+                                width: hasDateFilter ? 1.5 : 1.0,
                               ),
                               borderRadius: BorderRadius.circular(10),
-                              color: state.selectedDate != null
+                              color: hasDateFilter
                                   ? AppColors.primary.withValues(alpha: 0.06)
                                   : AppColors.surface,
                             ),
@@ -311,25 +353,23 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                 Icon(
                                   Icons.calendar_month_rounded,
                                   size: 18,
-                                  color: state.selectedDate != null ? AppColors.primary : AppColors.textSecondary,
+                                  color: hasDateFilter ? AppColors.primary : AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    state.selectedDate != null
-                                        ? DateFormat('dd MMMM yyyy', 'id_ID').format(state.selectedDate!)
-                                        : 'Semua Tanggal',
+                                    _formatDateRange(state.startDate, state.endDate),
                                     style: TextStyle(
                                       fontSize: 12.sp,
-                                      fontWeight: state.selectedDate != null ? FontWeight.bold : FontWeight.normal,
-                                      color: state.selectedDate != null ? AppColors.primary : AppColors.textPrimary,
+                                      fontWeight: hasDateFilter ? FontWeight.bold : FontWeight.normal,
+                                      color: hasDateFilter ? AppColors.primary : AppColors.textPrimary,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (state.selectedDate != null)
+                                if (hasDateFilter)
                                   GestureDetector(
-                                    onTap: () => notifier.setSelectedDate(null),
+                                    onTap: () => notifier.setDateRange(null, null),
                                     child: Container(
                                       padding: const EdgeInsets.all(2),
                                       decoration: BoxDecoration(
@@ -352,31 +392,32 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           side: BorderSide(
-                            color: _isTodaySelected(state.selectedDate) ? AppColors.primary : AppColors.divider,
+                            color: _isTodaySelected(state.startDate, state.endDate) ? AppColors.primary : AppColors.divider,
                           ),
-                          backgroundColor: _isTodaySelected(state.selectedDate)
+                          backgroundColor: _isTodaySelected(state.startDate, state.endDate)
                               ? AppColors.primary.withValues(alpha: 0.1)
                               : Colors.transparent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: () {
-                          if (_isTodaySelected(state.selectedDate)) {
-                            notifier.setSelectedDate(null);
+                          if (_isTodaySelected(state.startDate, state.endDate)) {
+                            notifier.setDateRange(null, null);
                           } else {
-                            notifier.setSelectedDate(DateTime.now());
+                            final now = DateTime.now();
+                            notifier.setDateRange(now, now);
                           }
                         },
                         icon: Icon(
-                          _isTodaySelected(state.selectedDate) ? Icons.check_rounded : Icons.today_rounded,
+                          _isTodaySelected(state.startDate, state.endDate) ? Icons.check_rounded : Icons.today_rounded,
                           size: 16,
-                          color: _isTodaySelected(state.selectedDate) ? AppColors.primary : AppColors.textSecondary,
+                          color: _isTodaySelected(state.startDate, state.endDate) ? AppColors.primary : AppColors.textSecondary,
                         ),
                         label: Text(
                           'Hari Ini',
                           style: TextStyle(
                             fontSize: 12.sp,
-                            color: _isTodaySelected(state.selectedDate) ? AppColors.primary : AppColors.textSecondary,
-                            fontWeight: _isTodaySelected(state.selectedDate) ? FontWeight.bold : FontWeight.normal,
+                            color: _isTodaySelected(state.startDate, state.endDate) ? AppColors.primary : AppColors.textSecondary,
+                            fontWeight: _isTodaySelected(state.startDate, state.endDate) ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),

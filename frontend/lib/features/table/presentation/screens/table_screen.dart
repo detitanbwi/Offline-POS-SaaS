@@ -615,6 +615,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                               ),
                                           ],
                                         ),
+                                        if (item.hasModifiers) ...[
+                                          const SizedBox(height: 2),
+                                          ...item.selectedModifiers.map((m) => Padding(
+                                            padding: const EdgeInsets.only(bottom: 1),
+                                            child: Text(
+                                              '+ ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                              style: TextStyle(
+                                                fontSize: 10.5.sp,
+                                                color: AppColors.primary,
+                                                fontWeight: FontWeight.w500,
+                                                decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                              ),
+                                            ),
+                                          )),
+                                        ],
                                         if (item.catatan != null && item.catatan!.isNotEmpty)
                                           Text(
                                             'Note: ${item.catatan}',

@@ -474,7 +474,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   ),
                 ],
               ),
-              if (isOwner || cashierState.allCashiers.isNotEmpty) ...[
+              if (isOwner && cashierState.allCashiers.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
@@ -526,6 +526,31 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                               ref.read(salesReportNotifierProvider.notifier).setCashier(val, cashierName);
                             },
                           ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (!isOwner && authUser != null) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.person_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Kasir:',
+                      style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 12.sp),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        authUser.nama,
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.sp,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                     ),

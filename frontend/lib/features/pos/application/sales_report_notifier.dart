@@ -46,21 +46,31 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
   final TransactionRepository _repository;
   final AuthUser? _authUser;
 
-  SalesReportNotifier(this._repository, this._authUser) : super(SalesReportState()) {
+  SalesReportNotifier(this._repository, this._authUser)
+      : super(SalesReportState(
+          selectedCashierId: _authUser != null && _authUser.isCashier ? _authUser.id : null,
+          selectedCashierName: _authUser != null && _authUser.isCashier ? _authUser.nama : null,
+        )) {
     loadDailyReport();
   }
 
   Future<void> loadDailyReport({DateTime? date, String? cashierId, String? cashierName, bool clearCashier = false}) async {
     final targetDate = date ?? state.selectedDate;
-    final targetCashierId = clearCashier ? null : (cashierId ?? state.selectedCashierId);
-    final targetCashierName = clearCashier ? null : (cashierName ?? state.selectedCashierName);
+    final isCashierUser = _authUser != null && _authUser.isCashier;
+    
+    final targetCashierId = isCashierUser
+        ? _authUser.id
+        : (clearCashier ? null : (cashierId ?? state.selectedCashierId));
+    final targetCashierName = isCashierUser
+        ? _authUser.nama
+        : (clearCashier ? null : (cashierName ?? state.selectedCashierName));
 
     state = state.copyWith(
       isLoading: true,
       errorMessage: null,
       selectedDate: targetDate,
       selectedCashierId: targetCashierId,
-      clearCashier: clearCashier,
+      clearCashier: clearCashier && !isCashierUser,
       selectedCashierName: targetCashierName,
     );
 
@@ -68,8 +78,8 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
       final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
       
       String? effectiveCashierId;
-      if (_authUser != null && _authUser!.isCashier) {
-        effectiveCashierId = _authUser!.id;
+      if (isCashierUser) {
+        effectiveCashierId = _authUser.id;
       } else {
         effectiveCashierId = targetCashierId;
       }
@@ -89,6 +99,9 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
   }
 
   void setCashier(String? cashierId, String? cashierName) {
+    if (_authUser != null && _authUser.isCashier) {
+      return; // Kasir tidak boleh mengubah filter kasir
+    }
     if (cashierId == null) {
       loadDailyReport(clearCashier: true);
     } else {
