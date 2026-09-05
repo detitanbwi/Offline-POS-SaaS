@@ -3,3 +3,4 @@ backend/.env
 .agents
 graphify-out/
 rincian_harga_fitur_pos.*
+.DS_Store
