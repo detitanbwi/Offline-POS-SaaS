@@ -372,7 +372,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
         // Jika transaksi dari order aktif, tandai order 'paid' dan bebaskan meja jika sudah lunas semua
-        final currentOrderState = ref.read(orderNotifierProvider);
         final activeOrder = currentOrderState.activeOrder;
         if (activeOrder != null) {
           // Full payment

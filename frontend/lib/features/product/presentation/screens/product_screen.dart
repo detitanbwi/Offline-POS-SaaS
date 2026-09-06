@@ -140,6 +140,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     required List<PackageItem> packageItems,
                     required List<ProductModifierGroup> modifierGroups,
                     String? image,
+                    DateTime? initialStockDate,
+                    String? initialStockNotes,
                   }) async {
                     if (isSaving) return;
                     
