@@ -1391,24 +1391,11 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               } catch (_) {}
                             }
 
-                            // 3. Cek Kasir bertipe Owner jika belum authorized
-                            if (!isAuthorized) {
-                              try {
-                                final cashierRepo =
-                                    ref.read(cashierRepositoryProvider);
-                                final cashier = await cashierRepo
-                                    .getCashierByPin(hashedPin);
-                                if (cashier != null && cashier.isOwner == 1) {
-                                  isAuthorized = true;
-                                }
-                              } catch (_) {}
-                            }
-
                             if (!isAuthorized) {
                               setDialogState(() {
                                 isSubmitting = false;
                                 dialogErrorMessage =
-                                    'Otorisasi gagal! PIN salah atau bukan Owner.';
+                                    'Otorisasi gagal! PIN Master Pemilik salah.';
                               });
                               return;
                             }

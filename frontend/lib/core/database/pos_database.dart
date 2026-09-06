@@ -137,6 +137,11 @@ class PosDatabase {
     await _addColumnIfNotExists(db, 'order_items', 'modifier_details', 'TEXT');
     await _addColumnIfNotExists(db, 'transaction_items', 'modifier_details', 'TEXT');
 
+    // Pastikan semua kasir adalah kasir standar (non-owner), karena otorisasi sensitif hanya milik Master PIN
+    try {
+      await db.execute('UPDATE cashiers SET is_owner = 0 WHERE is_owner = 1');
+    } catch (_) {}
+
     await db.execute('''
       CREATE TABLE IF NOT EXISTS product_modifier_groups (
         id TEXT PRIMARY KEY,

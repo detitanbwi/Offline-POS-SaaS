@@ -632,7 +632,7 @@ class TableOrderDetailSheet {
                 SizedBox(height: 12),
                 AppTextField(
                   controller: pinController,
-                  labelText: 'PIN Manager / Kasir',
+                  labelText: 'PIN Master / Pemilik',
                   hintText: 'Masukkan PIN 6 digit',
                   prefixIcon: Icons.lock_outline_rounded,
                   keyboardType: TextInputType.number,

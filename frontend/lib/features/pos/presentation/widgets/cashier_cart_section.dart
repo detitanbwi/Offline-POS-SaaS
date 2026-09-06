@@ -114,16 +114,13 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
               final isMasterPinValid = await ref
                   .read(securityRepositoryProvider)
                   .validateMasterPin(pin);
-              final cashierRepo = ref.read(cashierRepositoryProvider);
-              final cashier = await cashierRepo.getCashierByPin(hashedPin);
-              final isOwnerCashier = cashier != null && cashier.isOwner == 1;
 
               if (!context.mounted) return;
 
-              if (!isMasterPinValid && !isOwnerCashier) {
+              if (!isMasterPinValid) {
                 AppSnackbar.showError(
                   context,
-                  'Otorisasi gagal! PIN salah atau bukan Owner.',
+                  'Otorisasi gagal! PIN Master Pemilik salah.',
                 );
                 return;
               }

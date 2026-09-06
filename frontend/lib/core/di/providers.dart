@@ -35,6 +35,7 @@ import '../../features/pos/domain/services/split_payment_service.dart';
 import '../../features/pos/domain/services/void_order_service.dart';
 import '../../features/pos/domain/services/online_food_order_service.dart';
 
+import '../../features/security/presentation/providers/security_providers.dart';
 
 // Database Provider
 final posDatabaseProvider = Provider<PosDatabase>((ref) {
@@ -156,7 +157,8 @@ final splitPaymentServiceProvider = Provider<SplitPaymentService>((ref) {
 final voidOrderServiceProvider = Provider<VoidOrderService>((ref) {
   final db = ref.watch(posDatabaseProvider);
   final printQueue = ref.watch(printQueueServiceProvider);
-  return VoidOrderService(db, printQueue);
+  final securityRepo = ref.watch(securityRepositoryProvider);
+  return VoidOrderService(db, printQueue, securityRepo);
 });
 
 final onlineFoodOrderServiceProvider = Provider<OnlineFoodOrderService>((ref) {
