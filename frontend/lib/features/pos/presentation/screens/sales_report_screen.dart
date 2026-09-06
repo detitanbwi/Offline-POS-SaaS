@@ -34,29 +34,67 @@ class SalesReportScreen extends ConsumerStatefulWidget {
 }
 
 class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
-  DateTime _selectedDate = DateTime.now();
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(salesReportNotifierProvider.notifier).loadDailyReport(date: _selectedDate);
+      ref.read(salesReportNotifierProvider.notifier).loadDailyReport();
       ref.read(cashierNotifierProvider.notifier).loadCashiers();
     });
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDateRange(BuildContext context) async {
+    final reportState = ref.read(salesReportNotifierProvider);
+    final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDateRange: DateTimeRange(start: reportState.startDate, end: reportState.endDate),
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Pilih Rentang Tanggal Laporan',
+      cancelText: 'Batal',
+      confirmText: 'Pilih',
+      saveText: 'Terapkan',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-      ref.read(salesReportNotifierProvider.notifier).setDate(picked);
+    if (picked != null) {
+      ref.read(salesReportNotifierProvider.notifier).setDateRange(picked.start, picked.end);
+    }
+  }
+
+  void _applyQuickPreset(String preset) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    switch (preset) {
+      case 'today':
+        ref.read(salesReportNotifierProvider.notifier).setDate(today);
+        break;
+      case 'yesterday':
+        final yesterday = today.subtract(const Duration(days: 1));
+        ref.read(salesReportNotifierProvider.notifier).setDate(yesterday);
+        break;
+      case '7days':
+        final start = today.subtract(const Duration(days: 6));
+        ref.read(salesReportNotifierProvider.notifier).setDateRange(start, today);
+        break;
+      case '30days':
+        final start = today.subtract(const Duration(days: 29));
+        ref.read(salesReportNotifierProvider.notifier).setDateRange(start, today);
+        break;
+      case 'this_month':
+        final start = DateTime(today.year, today.month, 1);
+        ref.read(salesReportNotifierProvider.notifier).setDateRange(start, today);
+        break;
     }
   }
 
@@ -133,7 +171,11 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final activeUser = ref.read(authSessionProvider);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
     final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final dateStr = DateFormat('dd-MM-yyyy').format(_selectedDate);
+    final reportState = ref.read(salesReportNotifierProvider);
+    final dateStr = report['date'] as String? ??
+        (reportState.isRange
+            ? '${DateFormat('dd/MM/yyyy').format(reportState.startDate)} - ${DateFormat('dd/MM/yyyy').format(reportState.endDate)}'
+            : DateFormat('dd-MM-yyyy').format(reportState.startDate));
 
     final printerState = ref.read(printerNotifierProvider);
     final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
@@ -221,7 +263,10 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
 
-    final formattedDate = DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate);
+    final reportState = ref.read(salesReportNotifierProvider);
+    final formattedDate = reportState.isRange
+        ? '${DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate)} s/d ${DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.endDate)}'
+        : DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate);
 
     pdf.addPage(
       pw.Page(
@@ -390,8 +435,11 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
 
   Future<void> _exportToPDF(Map<String, dynamic> report) async {
     try {
+      final reportState = ref.read(salesReportNotifierProvider);
       final pdfBytes = await _generatePdfBytes(report);
-      final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
+      final fileName = reportState.isRange
+          ? 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}_${DateFormat('yyyyMMdd').format(reportState.endDate)}.pdf'
+          : 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}.pdf';
       final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
       
       if (!mounted) return;
@@ -412,18 +460,70 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
 
   Future<void> _sharePDF(Map<String, dynamic> report) async {
     try {
+      final reportState = ref.read(salesReportNotifierProvider);
       final pdfBytes = await _generatePdfBytes(report);
-      final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
+      final fileName = reportState.isRange
+          ? 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}_${DateFormat('yyyyMMdd').format(reportState.endDate)}.pdf'
+          : 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}.pdf';
       
+      final dateSubject = reportState.isRange
+          ? '${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.startDate)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.endDate)}'
+          : DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate);
+
       await Printing.sharePdf(
         bytes: pdfBytes,
         filename: fileName,
-        subject: 'Laporan Penjualan - ${DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate)}',
+        subject: 'Laporan Penjualan - $dateSubject',
       );
     } catch (e) {
       if (!mounted) return;
       AppSnackbar.showError(context, 'Gagal membagikan file PDF: $e');
     }
+  }
+
+  Widget _buildPresetChip(String label, String preset, SalesReportState state) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    bool isSelected = false;
+
+    if (preset == 'today') {
+      isSelected = !state.isRange && DateUtils.isSameDay(state.startDate, today);
+    } else if (preset == 'yesterday') {
+      final yesterday = today.subtract(const Duration(days: 1));
+      isSelected = !state.isRange && DateUtils.isSameDay(state.startDate, yesterday);
+    } else if (preset == '7days') {
+      final start = today.subtract(const Duration(days: 6));
+      isSelected = state.isRange && DateUtils.isSameDay(state.startDate, start) && DateUtils.isSameDay(state.endDate, today);
+    } else if (preset == '30days') {
+      final start = today.subtract(const Duration(days: 29));
+      isSelected = state.isRange && DateUtils.isSameDay(state.startDate, start) && DateUtils.isSameDay(state.endDate, today);
+    } else if (preset == 'this_month') {
+      final start = DateTime(today.year, today.month, 1);
+      isSelected = state.isRange && DateUtils.isSameDay(state.startDate, start) && DateUtils.isSameDay(state.endDate, today);
+    }
+
+    return InkWell(
+      onTap: () => _applyQuickPreset(preset),
+      borderRadius: BorderRadius.circular(20.r),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.divider,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.sp,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -432,7 +532,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final cashierState = ref.watch(cashierNotifierProvider);
     final authUser = ref.watch(authSessionProvider);
     final isOwner = authUser?.isOwner ?? false;
-    final formattedDate = DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate);
+    final formattedDate = reportState.isRange
+        ? '${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.startDate)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.endDate)}'
+        : DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate);
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -452,7 +554,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Tanggal Laporan',
+                          reportState.isRange ? 'Periode Laporan' : 'Tanggal Laporan',
                           style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
                         ),
                         const SizedBox(height: 2),
@@ -464,15 +566,32 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                     ),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => _selectDate(context),
+                    onPressed: () => _selectDateRange(context),
                     icon: const Icon(Icons.calendar_month_rounded, size: 16),
-                    label: const Text('Ubah Tanggal'),
+                    label: Text(reportState.isRange ? 'Ganti Rentang' : 'Pilih Rentang'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildPresetChip('Hari Ini', 'today', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('Kemarin', 'yesterday', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('7 Hari', '7days', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('30 Hari', '30days', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('Bulan Ini', 'this_month', reportState),
+                  ],
+                ),
               ),
               if (isOwner && cashierState.allCashiers.isNotEmpty) ...[
                 const SizedBox(height: 10),

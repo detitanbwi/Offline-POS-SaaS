@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
@@ -9,7 +10,8 @@ class SalesReportState {
   final Map<String, dynamic>? reportData;
   final bool isLoading;
   final String? errorMessage;
-  final DateTime selectedDate;
+  final DateTime startDate;
+  final DateTime endDate;
   final String? selectedCashierId; // null = Semua Kasir
   final String? selectedCashierName;
 
@@ -17,16 +19,22 @@ class SalesReportState {
     this.reportData,
     this.isLoading = false,
     this.errorMessage,
-    DateTime? selectedDate,
+    DateTime? startDate,
+    DateTime? endDate,
     this.selectedCashierId,
     this.selectedCashierName,
-  }) : selectedDate = selectedDate ?? DateTime.now();
+  })  : startDate = startDate ?? DateTime.now(),
+        endDate = endDate ?? startDate ?? DateTime.now();
+
+  DateTime get selectedDate => startDate;
+  bool get isRange => !DateUtils.isSameDay(startDate, endDate);
 
   SalesReportState copyWith({
     Map<String, dynamic>? reportData,
     bool? isLoading,
     String? errorMessage,
-    DateTime? selectedDate,
+    DateTime? startDate,
+    DateTime? endDate,
     String? selectedCashierId,
     bool clearCashier = false,
     String? selectedCashierName,
@@ -35,7 +43,8 @@ class SalesReportState {
       reportData: reportData ?? this.reportData,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
-      selectedDate: selectedDate ?? this.selectedDate,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
       selectedCashierId: clearCashier ? null : (selectedCashierId ?? this.selectedCashierId),
       selectedCashierName: clearCashier ? null : (selectedCashierName ?? this.selectedCashierName),
     );
@@ -54,8 +63,16 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
     loadDailyReport();
   }
 
-  Future<void> loadDailyReport({DateTime? date, String? cashierId, String? cashierName, bool clearCashier = false}) async {
-    final targetDate = date ?? state.selectedDate;
+  Future<void> loadDailyReport({
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? date,
+    String? cashierId,
+    String? cashierName,
+    bool clearCashier = false,
+  }) async {
+    final targetStart = startDate ?? date ?? state.startDate;
+    final targetEnd = endDate ?? date ?? (startDate != null ? startDate : state.endDate);
     final isCashierUser = _authUser != null && _authUser.isCashier;
     
     final targetCashierId = isCashierUser
@@ -68,14 +85,16 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
     state = state.copyWith(
       isLoading: true,
       errorMessage: null,
-      selectedDate: targetDate,
+      startDate: targetStart,
+      endDate: targetEnd,
       selectedCashierId: targetCashierId,
       clearCashier: clearCashier && !isCashierUser,
       selectedCashierName: targetCashierName,
     );
 
     try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      final startDateStr = DateFormat('yyyy-MM-dd').format(targetStart);
+      final endDateStr = DateFormat('yyyy-MM-dd').format(targetEnd);
       
       String? effectiveCashierId;
       if (isCashierUser) {
@@ -84,7 +103,11 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
         effectiveCashierId = targetCashierId;
       }
 
-      final data = await _repository.getDailySalesReport(dateStr, cashierId: effectiveCashierId);
+      final data = await _repository.getDailySalesReport(
+        startDateStr,
+        endDateStr: endDateStr,
+        cashierId: effectiveCashierId,
+      );
       state = state.copyWith(reportData: data, isLoading: false);
     } catch (e) {
       state = state.copyWith(
@@ -95,7 +118,11 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
   }
 
   void setDate(DateTime date) {
-    loadDailyReport(date: date);
+    loadDailyReport(startDate: date, endDate: date);
+  }
+
+  void setDateRange(DateTime start, DateTime end) {
+    loadDailyReport(startDate: start, endDate: end);
   }
 
   void setCashier(String? cashierId, String? cashierName) {
@@ -115,3 +142,4 @@ final salesReportNotifierProvider = StateNotifierProvider<SalesReportNotifier, S
   final authUser = ref.watch(authSessionProvider);
   return SalesReportNotifier(repo, authUser);
 });
+

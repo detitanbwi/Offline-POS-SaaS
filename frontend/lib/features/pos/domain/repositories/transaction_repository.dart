@@ -6,5 +6,5 @@ abstract class TransactionRepository {
   Future<void> saveTransaction(TransactionHeader header, List<TransactionItem> items);
   Future<void> voidTransaction(String transactionId);
   Future<String> generateNextOrderNumber();
-  Future<Map<String, dynamic>> getDailySalesReport(String dateStr, {String? cashierId});
+  Future<Map<String, dynamic>> getDailySalesReport(String dateStr, {String? endDateStr, String? cashierId});
 }

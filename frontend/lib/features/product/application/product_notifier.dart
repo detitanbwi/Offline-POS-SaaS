@@ -168,6 +168,8 @@ class ProductNotifier extends StateNotifier<ProductState> {
     List<PackageItem> packageItems = const [],
     List<ProductModifierGroup> modifierGroups = const [],
     String? image,
+    DateTime? initialStockDate,
+    String? initialStockNotes,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -216,7 +218,11 @@ class ProductNotifier extends StateNotifier<ProductState> {
         updatedAt: now,
       );
 
-      await _repository.insertProduct(product);
+      await _repository.insertProduct(
+        product,
+        initialStockDate: initialStockDate,
+        initialStockNotes: initialStockNotes,
+      );
       await loadProducts();
       return true;
     } catch (e) {

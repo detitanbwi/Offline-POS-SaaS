@@ -198,14 +198,6 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                               } catch (_) {}
                             }
 
-                            // 4. Cek jika sesi aktif adalah Owner
-                            if (!isAuthorized) {
-                              final authUser = ref.read(authSessionProvider);
-                              if (authUser != null && (authUser.isOwner || authUser.role == 'pemilik')) {
-                                isAuthorized = true;
-                              }
-                            }
-
                             if (!isAuthorized) {
                               setDialogState(() {
                                 isSubmitting = false;

@@ -32,6 +32,8 @@ class ProductForm extends StatefulWidget {
     required List<PackageItem> packageItems,
     required List<ProductModifierGroup> modifierGroups,
     String? image,
+    DateTime? initialStockDate,
+    String? initialStockNotes,
   }) onSubmit;
 
   const ProductForm({
@@ -51,6 +53,9 @@ class ProductFormState extends State<ProductForm> {
   late TextEditingController _nameController;
   late TextEditingController _priceController;
   late TextEditingController _stockController;
+  late DateTime _stockDate;
+  late TextEditingController _stockDateController;
+  late TextEditingController _stockNotesController;
   String? _selectedCategoryId;
   late int _status;
   String? _imagePath;
@@ -84,6 +89,11 @@ class ProductFormState extends State<ProductForm> {
           ? (widget.product!.stok == -1 ? '' : widget.product!.stok.toString())
           : '0',
     );
+    _stockDate = DateTime.now();
+    _stockDateController = TextEditingController(
+      text: DateFormat('yyyy-MM-dd').format(_stockDate),
+    );
+    _stockNotesController = TextEditingController(text: 'Stok Awal');
     _imagePath = widget.product?.image;
 
     // Set default category
@@ -102,7 +112,24 @@ class ProductFormState extends State<ProductForm> {
     _nameController.dispose();
     _priceController.dispose();
     _stockController.dispose();
+    _stockDateController.dispose();
+    _stockNotesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectStockDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _stockDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && picked != _stockDate) {
+      setState(() {
+        _stockDate = picked;
+        _stockDateController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -1108,6 +1135,29 @@ class ProductFormState extends State<ProductForm> {
                     return Validators.integer(v, 'Stok');
                   },
                 ),
+                if (widget.product == null) ...[
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    controller: _stockDateController,
+                    labelText: 'Tanggal Stok Awal',
+                    hintText: 'Pilih tanggal stok',
+                    prefixIcon: Icons.calendar_today_outlined,
+                    readOnly: true,
+                    onTap: () => _selectStockDate(context),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.date_range_rounded),
+                      onPressed: () => _selectStockDate(context),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    controller: _stockNotesController,
+                    labelText: 'Catatan Mutasi Stok',
+                    hintText: 'Catatan stok awal',
+                    prefixIcon: Icons.lock_outline_rounded,
+                    readOnly: true,
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
             ],
@@ -1676,6 +1726,8 @@ class ProductFormState extends State<ProductForm> {
         packageItems: _packageItems,
         modifierGroups: _modifierGroups,
         image: _imagePath,
+        initialStockDate: _stockDate,
+        initialStockNotes: _stockNotesController.text.trim(),
       );
       return true;
     }

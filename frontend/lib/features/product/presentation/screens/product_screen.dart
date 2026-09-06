@@ -164,6 +164,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             packageItems: packageItems,
                             modifierGroups: modifierGroups,
                             image: image,
+                            initialStockDate: initialStockDate,
+                            initialStockNotes: initialStockNotes,
                           );
                     } else {
                       success = await ref.read(productNotifierProvider.notifier).updateProduct(

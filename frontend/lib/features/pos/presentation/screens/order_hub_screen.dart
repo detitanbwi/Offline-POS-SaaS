@@ -1404,14 +1404,6 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               } catch (_) {}
                             }
 
-                            // 4. Cek jika sesi aktif adalah Owner
-                            if (!isAuthorized) {
-                              final authUser = ref.read(authSessionProvider);
-                              if (authUser != null && authUser.isOwner) {
-                                isAuthorized = true;
-                              }
-                            }
-
                             if (!isAuthorized) {
                               setDialogState(() {
                                 isSubmitting = false;
@@ -2016,10 +2008,19 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                       ),
                                       SizedBox(height: 4),
                                       Text(
-                                        'Waktu: $formattedTime • Pelanggan: ${order.customerName ?? 'Umum'}',
+                                        'Waktu: $formattedTime',
                                         style: AppTypography.bodySmall.copyWith(
                                           color: AppColors.textSecondary,
                                           fontSize: 11.sp,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Pelanggan: ${(order.customerName != null && order.customerName!.trim().isNotEmpty) ? order.customerName : 'Umum'}',
+                                        style: AppTypography.bodySmall.copyWith(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 11.sp,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,

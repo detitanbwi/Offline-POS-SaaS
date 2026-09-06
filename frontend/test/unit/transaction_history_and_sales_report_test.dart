@@ -27,7 +27,7 @@ class MockTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> getDailySalesReport(String date, {String? cashierId}) async {
+  Future<Map<String, dynamic>> getDailySalesReport(String date, {String? endDateStr, String? cashierId}) async {
     return {
       'date': date,
       'cashier_id': cashierId,

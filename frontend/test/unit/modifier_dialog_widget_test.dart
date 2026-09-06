@@ -79,6 +79,8 @@ void main() {
                   required List<PackageItem> packageItems,
                   required List<ProductModifierGroup> modifierGroups,
                   String? image,
+                  DateTime? initialStockDate,
+                  String? initialStockNotes,
                 }) {
                   savedModifierGroups = modifierGroups;
                 },
