@@ -628,7 +628,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                                 return DropdownMenuItem<String?>(
                                   value: cashier.id,
                                   child: Text(
-                                    '${cashier.nama}${cashier.isOwner == 1 ? " (Owner)" : ""}',
+                                    cashier.nama,
                                     style: const TextStyle(fontSize: 13),
                                   ),
                                 );
