@@ -99,7 +99,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   }
 
   Future<void> _handlePrintReport(Map<String, dynamic> report) async {
-    final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
+    final paymentBreakdown = (report['payment_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final expectedCash = paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0;
 
     final actualCashController = TextEditingController(
@@ -169,7 +169,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final selisihCash = actualCash - expectedCash;
 
     final activeUser = ref.read(authSessionProvider);
-    final paymentBreakdown = (report['payment_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final onlinePlatformBreakdown = (report['online_platform_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
     final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
