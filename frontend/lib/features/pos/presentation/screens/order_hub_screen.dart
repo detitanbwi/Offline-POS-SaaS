@@ -518,26 +518,28 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: AppTypography.titleMedium.copyWith(
-                                      fontSize: 18.sp,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  if (order.customerName != null &&
-                                      order.customerName!.isNotEmpty)
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      'Atas Nama: ${order.customerName}',
-                                      style: AppTypography.bodySmall.copyWith(
-                                        color: AppColors.primary,
+                                      title,
+                                      style: AppTypography.titleMedium.copyWith(
+                                        fontSize: 18.sp,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                ],
+                                    if (order.customerName != null &&
+                                        order.customerName!.isNotEmpty)
+                                      Text(
+                                        'Atas Nama: ${order.customerName}',
+                                        style: AppTypography.bodySmall.copyWith(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                               IconButton(
                                 icon: Icon(Icons.close),

@@ -429,19 +429,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Rincian ${table.nama}',
-                        style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
-                      ),
-                      if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'Atas Nama: ${activeOrder.customerName}',
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          'Rincian ${table.nama}',
+                          style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                         ),
-                    ],
+                        if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                          Text(
+                            'Atas Nama: ${activeOrder.customerName}',
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
                   ),
                   IconButton(
                     icon: Icon(Icons.close),
