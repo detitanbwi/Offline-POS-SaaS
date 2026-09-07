@@ -355,6 +355,26 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final topModifiers = modifierAggMap.values.toList()
       ..sort((a, b) => (b['qty'] as int).compareTo(a['qty'] as int));
 
+    final List<Map<String, dynamic>> onlinePlatformResult = await db.rawQuery(
+      '''
+      SELECT online_platform, COALESCE(SUM(grand_total), 0) as total 
+      FROM transactions 
+      WHERE $whereClause 
+        AND online_platform IS NOT NULL 
+        AND TRIM(online_platform) != ''
+      GROUP BY online_platform
+      ORDER BY total DESC
+      ''',
+      whereArgs,
+    );
+
+    final Map<String, double> onlinePlatformBreakdown = {};
+    for (var row in onlinePlatformResult) {
+      final platform = row['online_platform'] as String;
+      final total = (row['total'] as num).toDouble();
+      onlinePlatformBreakdown[platform] = total;
+    }
+
     final String displayDate = isRange ? '$dateStr s/d $endDateStr' : dateStr;
     return {
       'date': displayDate,
@@ -369,6 +389,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       'total_void_count': totalVoidCount,
       'total_void_amount': totalVoidAmount,
       'payment_breakdown': paymentBreakdown,
+      'online_platform_breakdown': onlinePlatformBreakdown,
       'top_products': topProducts,
       'top_modifiers': topModifiers,
     };

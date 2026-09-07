@@ -634,6 +634,7 @@ class ReceiptGenerator {
     int? totalVoidCount,
     double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
+    Map<String, double>? onlinePlatformBreakdown,
     required List<Map<String, dynamic>> topProducts,
     List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
@@ -708,6 +709,22 @@ class ReceiptGenerator {
       totalWidth: charsPerLine,
     );
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+
+    // Online Food Breakdown Section
+    if (onlinePlatformBreakdown != null && onlinePlatformBreakdown.isNotEmpty) {
+      bytes += generator.text('DETAIL ONLINE FOOD', styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+      double totalOnlineFood = 0.0;
+      onlinePlatformBreakdown.forEach((platform, total) {
+        if (total >= 0) {
+          totalOnlineFood += total;
+          bytes += _renderRow(generator, platform, CurrencyFormatter.formatNumber(total), totalWidth: charsPerLine);
+        }
+      });
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+      bytes += _renderRow(generator, 'Total Online Food', CurrencyFormatter.formatNumber(totalOnlineFood), bold: true, totalWidth: charsPerLine);
+      bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+    }
 
     // Top 5 Best Selling Products Section
     if (topProducts.isNotEmpty) {
@@ -1128,6 +1145,7 @@ class ReceiptGenerator {
     int? totalVoidCount,
     double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
+    Map<String, double>? onlinePlatformBreakdown,
     required List<Map<String, dynamic>> topProducts,
     List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
@@ -1182,6 +1200,21 @@ class ReceiptGenerator {
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('TOTAL OMZET', CurrencyFormatter.formatNumber(totalSales), width: charsPerLine));
     buffer.writeln(eqLine);
+
+    if (onlinePlatformBreakdown != null && onlinePlatformBreakdown.isNotEmpty) {
+      buffer.writeln(centerText('DETAIL ONLINE FOOD', width: charsPerLine));
+      buffer.writeln(dashLine);
+      double totalOnlineFood = 0.0;
+      onlinePlatformBreakdown.forEach((platform, total) {
+        if (total >= 0) {
+          totalOnlineFood += total;
+          buffer.writeln(formatTextRow(platform, CurrencyFormatter.formatNumber(total), width: charsPerLine));
+        }
+      });
+      buffer.writeln(dashLine);
+      buffer.writeln(formatTextRow('Total Online Food', CurrencyFormatter.formatNumber(totalOnlineFood), width: charsPerLine));
+      buffer.writeln(eqLine);
+    }
     if (topProducts.isNotEmpty) {
       buffer.writeln(centerText('5 PRODUK TERLARIS', width: charsPerLine));
       buffer.writeln(dashLine);

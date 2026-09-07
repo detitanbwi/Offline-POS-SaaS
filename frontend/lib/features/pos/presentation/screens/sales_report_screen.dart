@@ -169,6 +169,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final selisihCash = actualCash - expectedCash;
 
     final activeUser = ref.read(authSessionProvider);
+    final paymentBreakdown = (report['payment_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
+    final onlinePlatformBreakdown = (report['online_platform_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
     final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final reportState = ref.read(salesReportNotifierProvider);
@@ -194,6 +196,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       totalVoidCount: totalVoidCount,
       totalVoidAmount: totalVoidAmount,
       paymentBreakdown: paymentBreakdown,
+      onlinePlatformBreakdown: onlinePlatformBreakdown,
       topProducts: topProducts,
       topModifiers: topModifiers,
       cashierNama: activeUser?.nama,
@@ -217,6 +220,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalVoidCount: totalVoidCount,
         totalVoidAmount: totalVoidAmount,
         paymentBreakdown: paymentBreakdown,
+        onlinePlatformBreakdown: onlinePlatformBreakdown,
         topProducts: topProducts,
         topModifiers: topModifiers,
         cashierNama: activeUser?.nama,
@@ -233,6 +237,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalVoidCount: totalVoidCount,
         totalVoidAmount: totalVoidAmount,
         paymentBreakdown: paymentBreakdown,
+        onlinePlatformBreakdown: onlinePlatformBreakdown,
         topProducts: topProducts,
         topModifiers: topModifiers,
         cashierNama: activeUser?.nama,
@@ -261,6 +266,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final totalVoidCount = (report['total_void_count'] as int?) ?? 0;
     final totalVoidAmount = (report['total_void_amount'] as num?)?.toDouble() ?? 0.0;
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
+    final onlinePlatformBreakdown = (report['online_platform_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
 
     final reportState = ref.read(salesReportNotifierProvider);
@@ -369,6 +375,30 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                     }),
                   ]
                 ),
+                if (onlinePlatformBreakdown.isNotEmpty) ...[
+                  pw.SizedBox(height: 20),
+                  pw.Text('Detail Pendapatan Online Food', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 8),
+                  pw.Table(
+                    border: pw.TableBorder.all(),
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Platform Online Food', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Total Pendapatan', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                        ]
+                      ),
+                      ...onlinePlatformBreakdown.entries.map((entry) {
+                        return pw.TableRow(
+                          children: [
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(entry.key)),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(CurrencyFormatter.format(entry.value))),
+                          ]
+                        );
+                      }),
+                    ]
+                  ),
+                ],
                 pw.SizedBox(height: 20),
 
                 // Produk Terlaris
@@ -727,7 +757,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final totalTransactions = report['total_transactions'] as int;
     final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
     final totalTax = report['total_tax'] as double;
-    final paymentBreakdown = report['payment_breakdown'] as Map<String, double>;
+    final paymentBreakdown = (report['payment_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
+    final onlinePlatformBreakdown = (report['online_platform_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final topProducts = report['top_products'] as List<Map<String, dynamic>>;
     final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
@@ -876,6 +907,64 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ],
           ),
         ),
+        if (onlinePlatformBreakdown.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          AppCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.delivery_dining_rounded, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Detail Pendapatan Online Food',
+                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                ...onlinePlatformBreakdown.entries.map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(entry.key, style: AppTypography.bodyMedium),
+                        Text(
+                          CurrencyFormatter.format(entry.value),
+                          style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const Divider(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total Online Food',
+                      style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      CurrencyFormatter.format(
+                        onlinePlatformBreakdown.values.fold<double>(0.0, (sum, val) => sum + val),
+                      ),
+                      style: AppTypography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
 

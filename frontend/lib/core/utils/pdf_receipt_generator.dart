@@ -525,6 +525,7 @@ class PdfReceiptGenerator {
     int? totalVoidCount,
     double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
+    Map<String, double>? onlinePlatformBreakdown,
     required List<Map<String, dynamic>> topProducts,
     List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
@@ -589,6 +590,24 @@ class PdfReceiptGenerator {
                 isBold: true,
               ),
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
+
+              if (onlinePlatformBreakdown != null && onlinePlatformBreakdown.isNotEmpty) ...[
+                pw.Center(child: pw.Text('DETAIL ONLINE FOOD', style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+                for (var entry in onlinePlatformBreakdown.entries)
+                  if (entry.value >= 0)
+                    _buildRowPdf(font, entry.key, CurrencyFormatter.formatNumber(entry.value)),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+                _buildRowPdf(
+                  fontBold,
+                  'Total Online Food',
+                  CurrencyFormatter.formatNumber(
+                    onlinePlatformBreakdown.values.fold<double>(0.0, (sum, val) => sum + val),
+                  ),
+                  isBold: true,
+                ),
+                pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
 
               if (topProducts.isNotEmpty) ...[
                 pw.Center(child: pw.Text('5 PRODUK TERLARIS', style: pw.TextStyle(font: fontBold, fontSize: 9))),

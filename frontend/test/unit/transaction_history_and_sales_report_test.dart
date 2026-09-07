@@ -35,6 +35,11 @@ class MockTransactionRepository implements TransactionRepository {
       'total_transactions': 1,
       'total_tax': 0.0,
       'payment_breakdown': {'Tunai': 100000.0},
+      'online_platform_breakdown': {
+        'ShopeeFood': 800000.0,
+        'GoFood': 1000000.0,
+        'GrabFood': 2000000.0,
+      },
       'top_products': <Map<String, dynamic>>[],
       'top_modifiers': <Map<String, dynamic>>[],
     };
@@ -178,6 +183,17 @@ void main() {
       // Owner resets to all cashiers
       notifier.setCashier(null, null);
       expect(notifier.state.selectedCashierId, null);
+    });
+
+    test('Loads online platform breakdown correctly in daily report', () async {
+      final notifier = SalesReportNotifier(mockRepo, ownerUser);
+      await notifier.loadDailyReport();
+
+      expect(notifier.state.reportData, isNotNull);
+      final breakdown = notifier.state.reportData!['online_platform_breakdown'] as Map<String, double>;
+      expect(breakdown['ShopeeFood'], 800000.0);
+      expect(breakdown['GoFood'], 1000000.0);
+      expect(breakdown['GrabFood'], 2000000.0);
     });
   });
 }
