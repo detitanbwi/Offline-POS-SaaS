@@ -675,15 +675,20 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                 color: AppColors.primary,
                                               ),
                                               SizedBox(width: 6),
-                                              Text(
-                                                batchTitle,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13.sp,
-                                                  color: AppColors.primary,
+                                              Expanded(
+                                                child: Text(
+                                                  batchTitle,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13.sp,
+                                                    color: AppColors.primary,
+                                                  ),
                                                 ),
                                               ),
-                                              const Spacer(),
+                                              SizedBox(width: 8),
                                               Text(
                                                 '${batchItemList.length} Menu',
                                                 style: TextStyle(
