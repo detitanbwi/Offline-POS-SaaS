@@ -184,8 +184,17 @@ class ProductRepositoryImpl implements ProductRepository {
 
       // Record initial stock mutation to stock_in if physical stock > 0
       if (!product.isPackage && product.stok > 0) {
-        final dateStr = DateFormat('yyyy-MM-dd').format(initialStockDate ?? DateTime.now());
-        final nowStr = DateTime.now().toIso8601String();
+        final stockDate = initialStockDate ?? DateTime.now();
+        final dateStr = DateFormat('yyyy-MM-dd').format(stockDate);
+        final now = DateTime.now();
+        final effectiveCreatedAt = DateTime(
+          stockDate.year,
+          stockDate.month,
+          stockDate.day,
+          now.hour,
+          now.minute,
+          now.second,
+        );
         final note = (initialStockNotes != null && initialStockNotes.trim().isNotEmpty)
             ? initialStockNotes.trim()
             : 'Stok Awal';
@@ -196,7 +205,7 @@ class ProductRepositoryImpl implements ProductRepository {
           'qty': product.stok,
           'tanggal': dateStr,
           'catatan': note,
-          'created_at': nowStr,
+          'created_at': effectiveCreatedAt.toIso8601String(),
         });
       }
 
