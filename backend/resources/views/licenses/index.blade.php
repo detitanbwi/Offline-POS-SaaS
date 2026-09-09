@@ -227,7 +227,7 @@
     <div class="container">
         <header>
             <div>
-                <h1>🔑 License Server Simulator</h1>
+                <h1>License Server Simulator</h1>
                 <p style="color: var(--text-muted); margin: 5px 0 0 0;">Demo & Activation management dashboard for Offline-First SaaS simulation</p>
             </div>
         </header>
@@ -239,7 +239,7 @@
         @endif
 
         <div class="card form-card">
-            <h3 style="margin-top: 0; margin-bottom: 20px; color: var(--primary); font-size: 18px;">✨ Generate New License Key</h3>
+            <h3 style="margin-top: 0; margin-bottom: 20px; color: var(--primary); font-size: 18px;">Generate New License Key</h3>
             <form action="{{ route('licenses.generate') }}" method="POST">
                 @csrf
                 <div class="form-grid">
@@ -273,7 +273,7 @@
                     </div>
                 </div>
                 <div style="margin-top: 20px; text-align: right;">
-                    <button type="submit" class="btn btn-accent">✨ Generate & Register</button>
+                    <button type="submit" class="btn btn-accent">Generate & Register</button>
                 </div>
             </form>
         </div>
@@ -335,7 +335,7 @@
                                 @if(!$license->expires_at->isPast())
                                     <form action="{{ route('licenses.force-expire', $license->id) }}" method="POST" style="display:inline;">
                                         @csrf
-                                        <button type="submit" class="btn btn-danger btn-sm">⚡ Force Expire</button>
+                                        <button type="submit" class="btn btn-danger btn-sm">Force Expire</button>
                                     </form>
                                 @else
                                     <span style="color: var(--text-muted); font-size: 12px; font-style: italic;">No actions</span>

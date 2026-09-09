@@ -29,6 +29,14 @@ class Role extends Model
 
     public function hasPermission(string $permissionSlug): bool
     {
-        return $this->permissions->contains('slug', $permissionSlug);
+        if ($this->slug === 'super_admin') {
+            return true;
+        }
+
+        if ($this->relationLoaded('permissions')) {
+            return $this->permissions->contains('slug', $permissionSlug);
+        }
+
+        return $this->permissions()->where('slug', $permissionSlug)->exists();
     }
 }

@@ -41,16 +41,16 @@
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 @php
                     $moduleLabels = [
-                        'dashboard' => '📊 Modul Dashboard',
-                        'tenants' => '🏢 Modul Manajemen Tenant',
-                        'packages' => '📦 Modul Paket Langganan',
-                        'invoices' => '🧾 Modul Tagihan & Invoice',
-                        'subscriptions' => '🔄 Modul Langganan',
-                        'tokens' => '🔑 Modul Token Lisensi',
-                        'devices' => '📱 Modul Perangkat Kasir',
-                        'users' => '👥 Modul Pengguna & RBAC',
-                        'audit_logs' => '📋 Modul Audit Log',
-                        'profile' => '⚙️ Modul Profil Admin',
+                        'dashboard' => 'Modul Dashboard',
+                        'tenants' => 'Modul Manajemen Tenant',
+                        'packages' => 'Modul Paket Langganan',
+                        'invoices' => 'Modul Tagihan & Invoice',
+                        'subscriptions' => 'Modul Langganan',
+                        'tokens' => 'Modul Token Lisensi',
+                        'devices' => 'Modul Perangkat Kasir',
+                        'users' => 'Modul Pengguna & RBAC',
+                        'audit_logs' => 'Modul Audit Log',
+                        'profile' => 'Modul Profil Admin',
                     ];
                 @endphp
 
@@ -60,7 +60,7 @@
                             <h3 style="font-size: 14px; font-weight: 700; color: var(--primary);">
                                 {{ $moduleLabels[$module] ?? 'Modul ' . ucfirst($module) }}
                             </h3>
-                            <button type="button" class="btn btn-outline btn-xs" onclick="toggleModule('{{ $module }}')" style="font-size: 10px; padding: 2px 8px;">Toggle Modul</button>
+                            <button type="button" class="btn btn-outline btn-xs" onclick="toggleModule('{{ $module }}')" style="font-size: 10px; padding: 2px 8px;">Pilih Semua</button>
                         </div>
 
                         <div class="grid grid-2" style="gap: 12px;">

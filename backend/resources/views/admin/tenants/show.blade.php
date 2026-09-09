@@ -19,7 +19,9 @@
             <div class="detail-label">Bergabung</div><div class="detail-value">{{ $tenant->created_at->format('d F Y') }}</div>
         </div>
         <div class="flex gap-3 mt-4 flex-wrap">
-            <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-sm">Edit</a>
+            @can('tenants.edit')
+                <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-sm">Edit</a>
+            @endcan
             @can('tenants.suspend')
                 @if ($tenant->status->value === 'active')
                     <form method="POST" action="{{ route('admin.tenants.suspend', $tenant) }}" onsubmit="return confirm('Tangguhkan tenant ini?')">@csrf<button class="btn btn-warning btn-sm">Tangguhkan</button></form>

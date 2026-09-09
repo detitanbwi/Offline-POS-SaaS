@@ -42,7 +42,7 @@
             @if ($token->device && $token->status->value === 'active')
                 <form method="POST" action="{{ route('admin.tokens.reset-device', $token) }}" onsubmit="return confirm('Reset perangkat dari token ini? Token akan kembali tersedia.')">
                     @csrf
-                    <button class="btn btn-warning btn-sm">⟳ Reset Perangkat</button>
+                    <button class="btn btn-warning btn-sm">Reset Perangkat</button>
                 </form>
             @endif
         @endcan
@@ -50,11 +50,11 @@
             @if (in_array($token->status->value, ['available', 'active']))
                 <form method="POST" action="{{ route('admin.tokens.revoke', $token) }}" onsubmit="return confirm('Cabut token ini? Token tidak dapat digunakan kembali.')">
                     @csrf
-                    <button class="btn btn-danger btn-sm">✕ Cabut Token</button>
+                    <button class="btn btn-danger btn-sm">Cabut Token</button>
                 </form>
             @endif
         @endcan
-        <a href="{{ route('admin.tokens.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
+        <a href="{{ route('admin.tokens.index') }}" class="btn btn-outline btn-sm">Kembali</a>
     </div>
 </div>
 @endsection

@@ -6,7 +6,9 @@
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">Daftar Tenant</h3>
-        <a href="{{ route('admin.tenants.create') }}" class="btn btn-primary btn-sm">+ Tambah Tenant</a>
+        @can('tenants.create')
+            <a href="{{ route('admin.tenants.create') }}" class="btn btn-primary btn-sm">+ Tambah Tenant</a>
+        @endcan
     </div>
     <form method="GET" class="search-bar">
         <input type="text" name="search" class="form-control" placeholder="Cari nama, email, atau toko..." value="{{ request('search') }}">
@@ -31,7 +33,9 @@
                     <td><span class="badge {{ $tenant->status->badgeClass() }}">{{ $tenant->status->label() }}</span></td>
                     <td>
                         <a href="{{ route('admin.tenants.show', $tenant) }}" class="btn btn-outline btn-xs">Detail</a>
-                        <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-xs">Edit</a>
+                        @can('tenants.edit')
+                            <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-xs">Edit</a>
+                        @endcan
                     </td>
                 </tr>
                 @empty

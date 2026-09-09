@@ -143,4 +143,36 @@ class RbacAuthorizationTest extends TestCase
         $response = $this->actingAs($this->operator)->get('/admin/users');
         $response->assertStatus(403);
     }
+
+    public function test_user_without_dashboard_permission_cannot_view_dashboard(): void
+    {
+        // Remove dashboard.view from operator
+        $dashboardPerm = \App\Models\Permission::where('slug', 'dashboard.view')->first();
+        $this->operator->role->permissions()->detach($dashboardPerm->id);
+        $this->operator->load('role.permissions');
+
+        $response = $this->actingAs($this->operator)->get('/admin');
+        $response->assertStatus(403);
+    }
+
+    public function test_user_without_tenant_edit_permission_cannot_edit_or_update_tenant(): void
+    {
+        // Remove tenants.edit from operator
+        $tenantEditPerm = \App\Models\Permission::where('slug', 'tenants.edit')->first();
+        $this->operator->role->permissions()->detach($tenantEditPerm->id);
+        $this->operator->load('role.permissions');
+
+        // Try GET edit form
+        $response = $this->actingAs($this->operator)->get('/admin/tenants/' . $this->tenant->id . '/edit');
+        $response->assertStatus(403);
+
+        // Try PUT update request
+        $response = $this->actingAs($this->operator)->put('/admin/tenants/' . $this->tenant->id, [
+            'name' => 'Hacked Name',
+            'owner_name' => 'Hacked Owner',
+            'email' => 'hacked@example.com',
+            'status' => 'active',
+        ]);
+        $response->assertStatus(403);
+    }
 }

@@ -54,25 +54,26 @@ class User extends Authenticatable
             return false;
         }
 
-        // If no role assigned yet or role is super_admin, default admin is super_admin
-        if (! $this->role_id || ! $this->role) {
-            return true;
+        if (! empty($this->role_id)) {
+            $role = $this->role ?? Role::find($this->role_id);
+            return $role?->slug === 'super_admin';
         }
 
-        return $this->role->slug === 'super_admin';
+        return true;
     }
 
     public function hasRole(string|array $roles): bool
     {
-        if (! $this->role) {
+        $role = $this->role ?? ($this->role_id ? Role::find($this->role_id) : null);
+        if (! $role) {
             return false;
         }
 
         if (is_array($roles)) {
-            return in_array($this->role->slug, $roles);
+            return in_array($role->slug, $roles);
         }
 
-        return $this->role->slug === $roles;
+        return $role->slug === $roles;
     }
 
     public function hasPermission(string $permissionSlug): bool
@@ -85,10 +86,11 @@ class User extends Authenticatable
             return true;
         }
 
-        if (! $this->role) {
+        $role = $this->role ?? ($this->role_id ? Role::find($this->role_id) : null);
+        if (! $role) {
             return false;
         }
 
-        return $this->role->hasPermission($permissionSlug);
+        return $role->hasPermission($permissionSlug);
     }
 }
