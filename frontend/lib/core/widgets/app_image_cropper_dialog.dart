@@ -44,6 +44,8 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
   double _fittedW = 280.0;
   double _fittedH = 280.0;
 
+  static const double cropViewportSize = 280.0;
+
   @override
   void initState() {
     super.initState();
@@ -69,15 +71,16 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
 
       final bakedBytes = Uint8List.fromList(img.encodePng(decoded));
 
-      // Calculate initial fitted size (BoxFit.cover) for 280x280 viewport
-      const boxSize = 280.0;
+      // Calculate initial fitted size (BoxFit.cover) for cropViewportSize
       final origW = decoded.width.toDouble();
       final origH = decoded.height.toDouble();
-      final scaleToCover = (boxSize / origW) > (boxSize / origH) ? (boxSize / origW) : (boxSize / origH);
+      final scaleToCover = (cropViewportSize / origW) > (cropViewportSize / origH)
+          ? (cropViewportSize / origW)
+          : (cropViewportSize / origH);
       final fittedW = origW * scaleToCover;
       final fittedH = origH * scaleToCover;
-      final initialTx = (boxSize - fittedW) / 2;
-      final initialTy = (boxSize - fittedH) / 2;
+      final initialTx = (cropViewportSize - fittedW) / 2;
+      final initialTy = (cropViewportSize - fittedH) / 2;
 
       _transformController.value = Matrix4.identity()..translate(initialTx, initialTy);
 
@@ -113,18 +116,17 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
       final tx = matrix.getTranslation().x;
       final ty = matrix.getTranslation().y;
 
-      final renderBox = _cropAreaKey.currentContext?.findRenderObject() as RenderBox?;
-      final boxSize = renderBox?.size.width ?? 280.0;
-
       final origW = origImg.width.toDouble();
       final origH = origImg.height.toDouble();
-      final scaleToCover = (boxSize / origW) > (boxSize / origH) ? (boxSize / origW) : (boxSize / origH);
+      final scaleToCover = (cropViewportSize / origW) > (cropViewportSize / origH)
+          ? (cropViewportSize / origW)
+          : (cropViewportSize / origH);
       final fittedW = origW * scaleToCover;
 
       // Coordinate mapping: child fitted image space
       final cropLeftInFitted = -tx / currentScale;
       final cropTopInFitted = -ty / currentScale;
-      final cropSizeInFitted = boxSize / currentScale;
+      final cropSizeInFitted = cropViewportSize / currentScale;
 
       // Pixel ratio from fitted display size to original image pixels
       final pixelRatio = origW / fittedW;
@@ -194,8 +196,6 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final boxSize = 280.w;
-
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
@@ -247,8 +247,8 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
               child: Center(
                 child: Container(
                   key: _cropAreaKey,
-                  width: boxSize,
-                  height: boxSize,
+                  width: cropViewportSize,
+                  height: cropViewportSize,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.black87,
@@ -262,9 +262,10 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
                           children: [
                             InteractiveViewer(
                               transformationController: _transformController,
+                              constrained: false,
                               minScale: 1.0,
                               maxScale: 4.0,
-                              boundaryMargin: EdgeInsets.all(boxSize),
+                              boundaryMargin: const EdgeInsets.all(cropViewportSize),
                               onInteractionUpdate: (_) {
                                 setState(() {
                                   _scale = _transformController.value.getMaxScaleOnAxis();
@@ -313,11 +314,14 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
                           max: 4.0,
                           activeColor: AppColors.primary,
                           onChanged: (val) {
+                            const center = cropViewportSize / 2;
                             setState(() {
                               _scale = val;
                               _transformController.value = Matrix4.identity()
-                                ..translate(_initialTx, _initialTy)
-                                ..scale(val);
+                                ..translate(center, center)
+                                ..scale(val)
+                                ..translate(-center, -center)
+                                ..translate(_initialTx, _initialTy);
                             });
                           },
                         ),
