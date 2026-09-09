@@ -62,18 +62,24 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('/profile', [AdminProfileController::class, 'update'])->name('profile.update');
 
     // Tenants CRUD & Actions
-    Route::post('/tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->name('tenants.suspend');
-    Route::post('/tenants/{tenant}/reactivate', [TenantController::class, 'reactivate'])->name('tenants.reactivate');
-    Route::post('/tenants/{tenant}/generate-license', [TenantController::class, 'generateLicense'])->name('tenants.generate-license');
-    Route::resource('tenants', TenantController::class);
+    Route::post('/tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->middleware('permission:tenants.suspend')->name('tenants.suspend');
+    Route::post('/tenants/{tenant}/reactivate', [TenantController::class, 'reactivate'])->middleware('permission:tenants.reactivate')->name('tenants.reactivate');
+    Route::post('/tenants/{tenant}/generate-license', [TenantController::class, 'generateLicense'])->middleware('permission:tenants.generate_license')->name('tenants.generate-license');
+    Route::delete('/tenants/{tenant}', [TenantController::class, 'destroy'])->middleware('permission:tenants.delete')->name('tenants.destroy');
+    Route::resource('tenants', TenantController::class)->except(['destroy']);
 
     // Packages CRUD
-    Route::resource('packages', AdminPackageController::class);
+    Route::get('/packages/create', [AdminPackageController::class, 'create'])->middleware('permission:packages.create')->name('packages.create');
+    Route::post('/packages', [AdminPackageController::class, 'store'])->middleware('permission:packages.create')->name('packages.store');
+    Route::get('/packages/{package}/edit', [AdminPackageController::class, 'edit'])->middleware('permission:packages.edit')->name('packages.edit');
+    Route::put('/packages/{package}', [AdminPackageController::class, 'update'])->middleware('permission:packages.edit')->name('packages.update');
+    Route::delete('/packages/{package}', [AdminPackageController::class, 'destroy'])->middleware('permission:packages.delete')->name('packages.destroy');
+    Route::resource('packages', AdminPackageController::class)->only(['index', 'show']);
 
     // Invoices & Actions
-    Route::post('/invoices/{invoice}/upload-proof', [AdminInvoiceController::class, 'uploadPaymentProof'])->name('invoices.upload-proof');
-    Route::post('/invoices/{invoice}/mark-paid', [AdminInvoiceController::class, 'markAsPaid'])->name('invoices.mark-paid');
-    Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->name('invoices.cancel');
+    Route::post('/invoices/{invoice}/upload-proof', [AdminInvoiceController::class, 'uploadPaymentProof'])->middleware('permission:invoices.upload_proof')->name('invoices.upload-proof');
+    Route::post('/invoices/{invoice}/mark-paid', [AdminInvoiceController::class, 'markAsPaid'])->middleware('permission:invoices.mark_paid')->name('invoices.mark-paid');
+    Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->middleware('permission:invoices.cancel')->name('invoices.cancel');
     Route::get('/invoices/{invoice}/download-pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.download-pdf');
     Route::resource('invoices', AdminInvoiceController::class)->only(['index', 'create', 'store', 'show']);
 
@@ -82,8 +88,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/subscriptions/{subscription}', [AdminSubscriptionController::class, 'show'])->name('subscriptions.show');
 
     // License Tokens & Actions
-    Route::post('/tokens/{token}/reset-device', [AdminLicenseTokenController::class, 'resetDevice'])->name('tokens.reset-device');
-    Route::post('/tokens/{token}/revoke', [AdminLicenseTokenController::class, 'revoke'])->name('tokens.revoke');
+    Route::post('/tokens/{token}/reset-device', [AdminLicenseTokenController::class, 'resetDevice'])->middleware('permission:tokens.reset_device')->name('tokens.reset-device');
+    Route::post('/tokens/{token}/revoke', [AdminLicenseTokenController::class, 'revoke'])->middleware('permission:tokens.revoke')->name('tokens.revoke');
     Route::get('/tokens', [AdminLicenseTokenController::class, 'index'])->name('tokens.index');
     Route::get('/tokens/{token}', [AdminLicenseTokenController::class, 'show'])->name('tokens.show');
 

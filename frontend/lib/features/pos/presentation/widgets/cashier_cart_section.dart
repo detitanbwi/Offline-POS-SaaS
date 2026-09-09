@@ -26,6 +26,7 @@ import 'item_discount_modal.dart';
 import 'order_discount_modal.dart';
 import 'product_modifier_modal.dart';
 import 'kitchen_print_dialog.dart';
+import '../screens/payment_screen.dart';
 
 class CashierCartSection extends ConsumerStatefulWidget {
   final VoidCallback onSaveDraftCompleted;
@@ -763,25 +764,29 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
           child: Row(
             children: [
               Icon(
-                orderState.isTakeAway
-                    ? Icons.shopping_bag_rounded
-                    : Icons.table_restaurant_rounded,
-                color: AppColors.primary,
+                orderState.isDirectPayment
+                    ? Icons.flash_on_rounded
+                    : (orderState.isTakeAway
+                        ? Icons.shopping_bag_rounded
+                        : Icons.table_restaurant_rounded),
+                color: orderState.isDirectPayment ? Colors.green.shade700 : AppColors.primary,
                 size: 14,
               ),
               SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  orderState.isTakeAway
-                      ? (orderState.takeAwaySubType == 'online_food'
-                            ? 'Take Away (${orderState.onlinePlatform ?? 'Online Food'})'
-                            : 'Take Away (Reguler)')
-                      : (orderState.selectedTable?.nama ??
-                            orderState.activeOrder?.tableNama ??
-                            'Pesanan Meja'),
+                  orderState.isDirectPayment
+                      ? 'Pesan Langsung Bayar'
+                      : (orderState.isTakeAway
+                          ? (orderState.takeAwaySubType == 'online_food'
+                                ? 'Take Away (${orderState.onlinePlatform ?? 'Online Food'})'
+                                : 'Take Away (Reguler)')
+                          : (orderState.selectedTable?.nama ??
+                                orderState.activeOrder?.tableNama ??
+                                'Pesanan Meja')),
                   style: AppTypography.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: orderState.isDirectPayment ? Colors.green.shade800 : AppColors.primary,
                     fontSize: 11.sp,
                   ),
                 ),
@@ -1950,7 +1955,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _isSaving
                   ? AppColors.disabled.withValues(alpha: 0.3)
-                  : AppColors.secondary,
+                  : (orderState.isDirectPayment ? Colors.green.shade700 : AppColors.secondary),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
               shape: RoundedRectangleBorder(
@@ -1962,7 +1967,9 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            onPressed: cartState.items.isEmpty ? null : _handleSaveDraft,
+            onPressed: cartState.items.isEmpty
+                ? null
+                : (orderState.isDirectPayment ? _handleDirectPayment : _handleSaveDraft),
             child: _isSaving
                 ? SizedBox(
                     width: 12,
@@ -1972,10 +1979,30 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       color: Colors.white,
                     ),
                   )
-                : Text('Simpan', overflow: TextOverflow.ellipsis),
+                : (isDirect
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.payments_rounded, size: 13, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text('Bayar', overflow: TextOverflow.ellipsis),
+                        ],
+                      )
+                    : Text('Simpan', overflow: TextOverflow.ellipsis)),
           ),
         ),
       ],
     );
+  }
+
+  void _handleDirectPayment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaymentScreen()),
+    ).then((_) {
+      if (mounted) {
+        widget.onSaveDraftCompleted();
+      }
+    });
   }
 }

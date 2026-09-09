@@ -435,11 +435,16 @@
         <main class="main-content">
             <header class="main-header">
                 <div class="header-title">@yield('header_title', 'SaaS Dashboard')</div>
-                <a href="{{ route('admin.profile.edit') }}" class="user-profile" style="text-decoration: none; color: inherit;" title="Klik untuk edit data login">
+                <a href="{{ route('admin.profile.edit') }}" class="user-profile" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;" title="Klik untuk edit data login">
                     <div class="user-avatar">
                         {{ strtoupper(substr(Auth::user()->name ?? 'A', 0, 1)) }}
                     </div>
-                    <span style="font-size: 14px; font-weight: 500;">{{ Auth::user()->name ?? 'Administrator' }}</span>
+                    <div style="display: flex; flex-direction: column; line-height: 1.2;">
+                        <span style="font-size: 13px; font-weight: 600;">{{ Auth::user()->name ?? 'Administrator' }}</span>
+                        <span style="font-size: 11px; color: var(--secondary); font-weight: 600;">
+                            {{ Auth::user()->role?->name ?? (Auth::user()->isSuperAdmin() ? 'Super Admin' : 'Operator') }}
+                        </span>
+                    </div>
                 </a>
             </header>
 

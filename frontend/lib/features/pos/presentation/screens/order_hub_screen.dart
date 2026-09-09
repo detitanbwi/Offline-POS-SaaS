@@ -79,6 +79,26 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     }
   }
 
+  void _handleDirectPaymentSelected() {
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+
+    orderNotifier.resetOrder();
+    orderNotifier.setOrderType(
+      'take_away',
+      subType: 'direct_payment',
+      isDirectPayment: true,
+    );
+    cartNotifier.clear();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CashierScreen()),
+    ).then((_) {
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    });
+  }
+
   void _handleTakeAwaySelected() {
     showDialog(
       context: context,
@@ -1704,6 +1724,58 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                     ),
                   ),
                 ],
+              ),
+              SizedBox(height: AppSpacing.m),
+
+              // Tombol Mode ke-3: Pesan Langsung Bayar
+              InkWell(
+                onTap: _handleDirectPaymentSelected,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.green.shade600,
+                      width: 2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.flash_on_rounded,
+                        size: 28,
+                        color: Colors.green.shade700,
+                      ),
+                      SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pesan Langsung Bayar',
+                            style: AppTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade800,
+                            ),
+                          ),
+                          Text(
+                            'Pilih menu & langsung ke kasir pembayaran',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: Colors.green.shade900.withValues(alpha: 0.7),
+                              fontSize: 11.sp,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
               SizedBox(height: AppSpacing.l),
 

@@ -83,9 +83,11 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
     final cartState = ref.watch(cartNotifierProvider);
 
     final String tableName = orderState.selectedTable?.nama ?? orderState.activeOrder?.tableNama ?? orderState.activeOrder?.tableNomor ?? '';
-    final titleText = orderState.isTakeAway
-        ? 'Take Away (${orderState.takeAwaySubType == 'online_food' ? 'Online Food' : 'Reguler'})'
-        : (tableName.isNotEmpty ? tableName : 'Kasir POS');
+    final titleText = orderState.isDirectPayment
+        ? 'Pesan Langsung Bayar'
+        : (orderState.isTakeAway
+            ? 'Take Away (${orderState.takeAwaySubType == 'online_food' ? 'Online Food' : 'Reguler'})'
+            : (tableName.isNotEmpty ? tableName : 'Kasir POS'));
 
     return PopScope(
       canPop: false,

@@ -3,4 +3,8 @@ backend/.env
 .agents
 graphify-out/
 rincian_harga_fitur_pos.*
+dokumen_*.html
+*.html
+dokumen_*.pdf
+*.pdf
 .DS_Store

@@ -20,8 +20,9 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // Seed packages
+        // Seed roles & permissions
         $this->call([
+            RoleSeeder::class,
             PackageSeeder::class,
         ]);
     }

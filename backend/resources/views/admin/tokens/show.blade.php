@@ -38,18 +38,22 @@
 <div class="card">
     <div class="card-header"><h3 class="card-title">Aksi</h3></div>
     <div class="flex gap-3 flex-wrap">
-        @if ($token->device && $token->status->value === 'active')
-            <form method="POST" action="{{ route('admin.tokens.reset-device', $token) }}" onsubmit="return confirm('Reset perangkat dari token ini? Token akan kembali tersedia.')">
-                @csrf
-                <button class="btn btn-warning btn-sm">⟳ Reset Perangkat</button>
-            </form>
-        @endif
-        @if (in_array($token->status->value, ['available', 'active']))
-            <form method="POST" action="{{ route('admin.tokens.revoke', $token) }}" onsubmit="return confirm('Cabut token ini? Token tidak dapat digunakan kembali.')">
-                @csrf
-                <button class="btn btn-danger btn-sm">✕ Cabut Token</button>
-            </form>
-        @endif
+        @can('tokens.reset_device')
+            @if ($token->device && $token->status->value === 'active')
+                <form method="POST" action="{{ route('admin.tokens.reset-device', $token) }}" onsubmit="return confirm('Reset perangkat dari token ini? Token akan kembali tersedia.')">
+                    @csrf
+                    <button class="btn btn-warning btn-sm">⟳ Reset Perangkat</button>
+                </form>
+            @endif
+        @endcan
+        @can('tokens.revoke')
+            @if (in_array($token->status->value, ['available', 'active']))
+                <form method="POST" action="{{ route('admin.tokens.revoke', $token) }}" onsubmit="return confirm('Cabut token ini? Token tidak dapat digunakan kembali.')">
+                    @csrf
+                    <button class="btn btn-danger btn-sm">✕ Cabut Token</button>
+                </form>
+            @endif
+        @endcan
         <a href="{{ route('admin.tokens.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
     </div>
 </div>

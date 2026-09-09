@@ -55,12 +55,14 @@
                     <td>
                         <div class="flex gap-2">
                             <a href="{{ route('admin.tokens.show', $token) }}" class="btn btn-outline btn-xs">Detail</a>
-                            @if ($token->device && $token->device->status->value === 'active')
-                                <form method="POST" action="{{ route('admin.tokens.reset-device', $token) }}" onsubmit="return confirm('Reset perangkat dari token ini? Token akan kembali tersedia untuk digunakan.')" style="display:inline;">
-                                    @csrf
-                                    <button type="submit" class="btn btn-warning btn-xs">Reset Perangkat</button>
-                                </form>
-                            @endif
+                            @can('tokens.reset_device')
+                                @if ($token->device && $token->device->status->value === 'active')
+                                    <form method="POST" action="{{ route('admin.tokens.reset-device', $token) }}" onsubmit="return confirm('Reset perangkat dari token ini? Token akan kembali tersedia untuk digunakan.')" style="display:inline;">
+                                        @csrf
+                                        <button type="submit" class="btn btn-warning btn-xs">Reset Perangkat</button>
+                                    </form>
+                                @endif
+                            @endcan
                         </div>
                     </td>
                 </tr>
