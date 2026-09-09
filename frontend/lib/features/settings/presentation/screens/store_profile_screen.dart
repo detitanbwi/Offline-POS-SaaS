@@ -96,6 +96,168 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     }
   }
 
+  void _showLogoPreviewDialog(BuildContext context) {
+    if (_logoPath == null) return;
+    final file = File(_logoPath!);
+    if (!file.existsSync()) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
+        child: Container(
+          constraints: BoxConstraints(maxWidth: 400.w),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(20.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Padding(
+                padding: EdgeInsets.fromLTRB(20.w, 16.h, 16.w, 12.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.image_outlined, color: AppColors.primary, size: 22.r),
+                        SizedBox(width: 8.w),
+                        Text(
+                          'Pratinjau Logo Usaha',
+                          style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+
+              // Image Preview
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 20.w),
+                child: Center(
+                  child: Container(
+                    width: 220.r,
+                    height: 220.r,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: AppColors.divider, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.file(
+                      file,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Center(
+                        child: Icon(Icons.broken_image_rounded, size: 48, color: AppColors.error),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Metadata Info
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(10.r),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.aspect_ratio_rounded, size: 16.r, color: AppColors.primary),
+                          SizedBox(width: 4.w),
+                          Text('Rasio 1:1 Square', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                      Container(width: 1, height: 16, color: AppColors.divider),
+                      Row(
+                        children: [
+                          Icon(Icons.folder_special_rounded, size: 16.r, color: AppColors.primary),
+                          SizedBox(width: 4.w),
+                          Text('Tersimpan di ASD', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 16.h),
+              const Divider(height: 1),
+
+              // Action Buttons
+              Padding(
+                padding: EdgeInsets.all(16.r),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 16),
+                        label: const Text('Hapus', style: TextStyle(color: AppColors.error)),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          final storage = ref.read(secureStorageServiceProvider);
+                          await storage.deleteStoreLogo();
+                          if (mounted) {
+                            setState(() => _logoPath = null);
+                            if (context.mounted) {
+                              AppSnackbar.showInfo(context, 'Logo toko berhasil dihapus.');
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: AppButton(
+                        text: 'Ganti Logo',
+                        icon: Icons.edit_rounded,
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showLogoPickerSheet();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showLogoPickerSheet() {
     showModalBottomSheet(
       context: context,
@@ -288,7 +450,9 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                               child: Row(
                                 children: [
                                   GestureDetector(
-                                    onTap: _isProcessingLogo ? null : _showLogoPickerSheet,
+                                    onTap: _isProcessingLogo
+                                        ? null
+                                        : (_logoPath != null ? () => _showLogoPreviewDialog(context) : _showLogoPickerSheet),
                                     child: Container(
                                       width: 72.r,
                                       height: 72.r,

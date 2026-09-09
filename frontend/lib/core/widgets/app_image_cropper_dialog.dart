@@ -124,7 +124,7 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
 
       final pngBytes = img.encodePng(resized);
 
-      final appDir = await getApplicationDocumentsDirectory();
+      final appDir = await getApplicationSupportDirectory();
       final logosDir = Directory(p.join(appDir.path, 'logos'));
       if (!await logosDir.exists()) {
         await logosDir.create(recursive: true);

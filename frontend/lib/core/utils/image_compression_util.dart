@@ -41,8 +41,8 @@ class ImageCompressionUtil {
       // Encode as PNG
       final pngBytes = img.encodePng(resized);
 
-      // Save into app documents directory
-      final appDir = await getApplicationDocumentsDirectory();
+      // Save into app support directory (ASD)
+      final appDir = await getApplicationSupportDirectory();
       final logosDir = Directory(p.join(appDir.path, 'logos'));
       if (!await logosDir.exists()) {
         await logosDir.create(recursive: true);

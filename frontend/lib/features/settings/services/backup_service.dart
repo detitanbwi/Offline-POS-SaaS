@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -32,6 +33,127 @@ class BackupService {
       return await databaseFactoryFfi.getDatabasesPath();
     }
     return await getDatabasesPath();
+  }
+
+  /// Menyimpan data profil toko & file logo (Base64) ke dalam tabel SQLite backup
+  Future<void> _backupStoreProfileToDb(Database db) async {
+    try {
+      final storage = SecureStorageService();
+      final storeName = await storage.getStoreName() ?? '';
+      final storeAddress = await storage.getStoreAddress() ?? '';
+      final storePhone = await storage.getStorePhone() ?? '';
+      final ownerName = await storage.getOwnerName() ?? '';
+      final ownerUsername = await storage.getOwnerUsername() ?? '';
+      final logoPath = await storage.getStoreLogo();
+
+      String logoBase64 = '';
+      if (logoPath != null && logoPath.isNotEmpty) {
+        final logoFile = File(logoPath);
+        if (await logoFile.exists()) {
+          try {
+            final logoBytes = await logoFile.readAsBytes();
+            logoBase64 = base64Encode(logoBytes);
+          } catch (e) {
+            AppLogger.warning('Failed to encode store logo to base64 for backup: $e');
+          }
+        }
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS store_profile_backup (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        )
+      ''');
+
+      final entries = {
+        'store_name': storeName,
+        'store_address': storeAddress,
+        'store_phone': storePhone,
+        'owner_name': ownerName,
+        'owner_username': ownerUsername,
+        'store_logo_base64': logoBase64,
+        'backup_timestamp': DateTime.now().toIso8601String(),
+      };
+
+      for (final entry in entries.entries) {
+        await db.insert(
+          'store_profile_backup',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      AppLogger.info('Store profile and logo backed up into database table successfully');
+    } catch (e) {
+      AppLogger.warning('Failed to backup store profile to database table: $e');
+    }
+  }
+
+  /// Memulihkan data profil toko & file logo dari tabel SQLite backup ke SecureStorage & ASD
+  Future<void> _restoreStoreProfileFromDb(Database db) async {
+    try {
+      final tableCheck = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='store_profile_backup'",
+      );
+      if (tableCheck.isEmpty) {
+        AppLogger.info('No store_profile_backup table found in restored database');
+        return;
+      }
+
+      final rows = await db.query('store_profile_backup');
+      final map = <String, String>{};
+      for (final r in rows) {
+        final k = r['key'] as String?;
+        final v = r['value'] as String?;
+        if (k != null && v != null) {
+          map[k] = v;
+        }
+      }
+
+      final storage = SecureStorageService();
+      final storeName = map['store_name'];
+      final storeAddress = map['store_address'];
+      final storePhone = map['store_phone'];
+      final ownerName = map['owner_name'];
+      final ownerUsername = map['owner_username'];
+      final logoBase64 = map['store_logo_base64'];
+
+      if (storeName != null || storeAddress != null || storePhone != null) {
+        await storage.saveStoreInfo(
+          name: storeName ?? '',
+          address: storeAddress ?? '',
+          phone: storePhone ?? '',
+        );
+      }
+      if (ownerName != null && ownerName.isNotEmpty) {
+        await storage.saveOwnerName(ownerName);
+      }
+      if (ownerUsername != null && ownerUsername.isNotEmpty) {
+        await storage.saveOwnerUsername(ownerUsername);
+      }
+
+      if (logoBase64 != null && logoBase64.isNotEmpty) {
+        try {
+          final logoBytes = base64Decode(logoBase64);
+          final appDir = await getApplicationSupportDirectory();
+          final logosDir = Directory(join(appDir.path, 'logos'));
+          if (!await logosDir.exists()) {
+            await logosDir.create(recursive: true);
+          }
+          final restoredPath = join(logosDir.path, 'store_logo_restored_${DateTime.now().millisecondsSinceEpoch}.png');
+          final logoFile = File(restoredPath);
+          await logoFile.writeAsBytes(logoBytes);
+          await storage.saveStoreLogo(restoredPath);
+          AppLogger.info('Store logo restored to: $restoredPath');
+        } catch (logoErr) {
+          AppLogger.warning('Failed to decode/save restored store logo: $logoErr');
+        }
+      }
+
+      AppLogger.info('Store profile restored successfully from database backup');
+    } catch (e) {
+      AppLogger.warning('Failed restoring store profile from database: $e');
+    }
   }
 
   /// Memvalidasi integritas file, struktur SQLite/SQLCipher, dan kecocokan skema tabel POS sebelum di-restore
@@ -176,8 +298,11 @@ class BackupService {
       final backupDir = await getApplicationDocumentsDirectory();
       final targetFile = File(join(backupDir.path, backupName));
 
-      // 1. Force SQLite to flush Write-Ahead Log (WAL) to main database file
+      // 1. Sinkronisasi data profil toko dan logo ke dalam tabel SQLite backup
       final db = await PosDatabase.instance.database;
+      await _backupStoreProfileToDb(db);
+
+      // 2. Force SQLite to flush Write-Ahead Log (WAL) to main database file
       try {
         await db.execute('PRAGMA wal_checkpoint(FULL)');
       } catch (walErr) {
@@ -296,6 +421,9 @@ class BackupService {
         final prodCount = (prodRes.first['count'] as num?)?.toInt() ?? 0;
         final catCount = (catRes.first['count'] as num?)?.toInt() ?? 0;
 
+        // 7. Pulihkan data profil toko dan logo dari tabel cadangan
+        await _restoreStoreProfileFromDb(db);
+
         // Berhasil! Hapus file snapshot pengaman (.bak) otomatis
         if (await backupBakFile.exists()) {
           await backupBakFile.delete();
@@ -304,7 +432,7 @@ class BackupService {
         AppLogger.info('Backup restored and verified successfully from: $filePath ($prodCount produk, $catCount kategori)');
         return {
           'success': true,
-          'message': 'Database berhasil dipulihkan ($prodCount produk aktif, $catCount kategori).',
+          'message': 'Database dan profil toko berhasil dipulihkan ($prodCount produk aktif, $catCount kategori).',
         };
       } catch (verifyErr) {
         AppLogger.error('Restored database failed initialization verification, rolling back...', error: verifyErr);
