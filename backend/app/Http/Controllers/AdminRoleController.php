@@ -15,8 +15,19 @@ class AdminRoleController extends Controller
         protected AuditService $auditService
     ) {}
 
+    protected function ensurePermissionsSeeded(): void
+    {
+        if (Permission::count() === 0) {
+            \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                '--class' => 'RoleSeeder',
+                '--force' => true,
+            ]);
+        }
+    }
+
     public function index()
     {
+        $this->ensurePermissionsSeeded();
         $roles = Role::withCount(['users', 'permissions'])->with('permissions')->get();
         $permissions = Permission::all()->groupBy('module');
 
@@ -25,6 +36,7 @@ class AdminRoleController extends Controller
 
     public function create()
     {
+        $this->ensurePermissionsSeeded();
         $permissionsByModule = Permission::all()->groupBy('module');
         return view('admin.roles.create', compact('permissionsByModule'));
     }
@@ -59,6 +71,7 @@ class AdminRoleController extends Controller
 
     public function edit(Role $role)
     {
+        $this->ensurePermissionsSeeded();
         $role->load('permissions');
         $permissionsByModule = Permission::all()->groupBy('module');
         $rolePermissionIds = $role->permissions->pluck('id')->toArray();

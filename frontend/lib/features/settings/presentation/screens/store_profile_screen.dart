@@ -9,7 +9,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../../../core/utils/image_compression_util.dart';
+import '../../../../core/widgets/app_image_cropper_dialog.dart';
 import '../../../../core/di/providers.dart';
 
 class StoreProfileScreen extends ConsumerStatefulWidget {
@@ -64,28 +64,27 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     try {
       final picked = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 90,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 95,
       );
 
-      if (picked != null) {
-        setState(() => _isProcessingLogo = true);
-        final processedPath = await ImageCompressionUtil.processStoreLogo(picked.path);
-        if (processedPath != null) {
+      if (picked != null && mounted) {
+        // Open Interactive Visual 1:1 Cropper Dialog
+        final croppedPath = await AppImageCropperDialog.show(
+          context,
+          sourceImage: File(picked.path),
+        );
+
+        if (croppedPath != null) {
           final storage = ref.read(secureStorageServiceProvider);
-          await storage.saveStoreLogo(processedPath);
+          await storage.saveStoreLogo(croppedPath);
           if (mounted) {
             setState(() {
-              _logoPath = processedPath;
+              _logoPath = croppedPath;
               _isProcessingLogo = false;
             });
-            AppSnackbar.showSuccess(context, 'Logo toko berhasil dipasang & dikompresi 1:1');
-          }
-        } else {
-          if (mounted) {
-            setState(() => _isProcessingLogo = false);
-            AppSnackbar.showError(context, 'Gagal memproses gambar logo toko');
+            AppSnackbar.showSuccess(context, 'Logo toko berhasil dipotong (1:1) dan disimpan!');
           }
         }
       }
