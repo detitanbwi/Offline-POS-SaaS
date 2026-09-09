@@ -1979,7 +1979,7 @@ class _CashierCartSectionState extends ConsumerState<CashierCartSection> {
                       color: Colors.white,
                     ),
                   )
-                : (isDirect
+                : (orderState.isDirectPayment
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
