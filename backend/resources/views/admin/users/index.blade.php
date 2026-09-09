@@ -4,6 +4,22 @@
 @section('header_title', 'Manajemen Pengguna & RBAC')
 
 @section('content')
+<!-- Nav Tabs -->
+<div style="display: flex; gap: 8px; border-bottom: 2px solid var(--divider); margin-bottom: 24px;">
+    <a href="{{ route('admin.users.index') }}" style="padding: 12px 20px; font-weight: 700; font-size: 14px; text-decoration: none; color: var(--primary); border-bottom: 3px solid var(--primary); margin-bottom: -2px;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            Daftar Pengguna
+        </span>
+    </a>
+    <a href="{{ route('admin.roles.index') }}" style="padding: 12px 20px; font-weight: 600; font-size: 14px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -2px;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Role & Hak Akses Granular
+        </span>
+    </a>
+</div>
+
 <div class="card">
     <div class="card-header">
         <div>

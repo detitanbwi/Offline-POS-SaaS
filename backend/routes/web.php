@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminInvoiceController;
 use App\Http\Controllers\AdminLicenseTokenController;
 use App\Http\Controllers\AdminPackageController;
 use App\Http\Controllers\AdminProfileController;
+use App\Http\Controllers\AdminRoleController;
 use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuditLogController;
@@ -101,6 +102,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/devices/{device}', [AdminDeviceController::class, 'show'])->name('devices.show');
 
     // Users & RBAC Management
+    Route::resource('roles', AdminRoleController::class)->middleware('permission:users.view');
     Route::get('/users/create', [AdminUserController::class, 'create'])->middleware('permission:users.create')->name('users.create');
     Route::post('/users', [AdminUserController::class, 'store'])->middleware('permission:users.create')->name('users.store');
     Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->middleware('permission:users.edit')->name('users.edit');
