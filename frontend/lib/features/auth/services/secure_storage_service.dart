@@ -21,6 +21,7 @@ class SecureStorageService {
   static const String _keyStoreName = 'store_name';
   static const String _keyStoreAddress = 'store_address';
   static const String _keyStorePhone = 'store_phone';
+  static const String _keyStoreLogo = 'store_logo_path';
   static const String _keyOwnerUsername = 'owner_username';
   static const String _keyOwnerName = 'owner_name';
 
@@ -52,6 +53,18 @@ class SecureStorageService {
 
   Future<String?> getStorePhone() async {
     return await _storage.read(key: _keyStorePhone);
+  }
+
+  Future<void> saveStoreLogo(String logoPath) async {
+    await _storage.write(key: _keyStoreLogo, value: logoPath);
+  }
+
+  Future<String?> getStoreLogo() async {
+    return await _storage.read(key: _keyStoreLogo);
+  }
+
+  Future<void> deleteStoreLogo() async {
+    await _storage.delete(key: _keyStoreLogo);
   }
 
   Future<void> saveOwnerUsername(String username) async {

@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminLicenseTokenController;
 use App\Http\Controllers\AdminPackageController;
 use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\AdminSubscriptionController;
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TenantController;
@@ -77,6 +78,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::resource('packages', AdminPackageController::class)->only(['index', 'show']);
 
     // Invoices & Actions
+    Route::get('/invoices/report', [AdminInvoiceController::class, 'report'])->middleware('permission:invoices.report')->name('invoices.report');
+    Route::get('/invoices/report/pdf', [AdminInvoiceController::class, 'reportPdf'])->middleware('permission:invoices.report')->name('invoices.report-pdf');
     Route::post('/invoices/{invoice}/upload-proof', [AdminInvoiceController::class, 'uploadPaymentProof'])->middleware('permission:invoices.upload_proof')->name('invoices.upload-proof');
     Route::post('/invoices/{invoice}/mark-paid', [AdminInvoiceController::class, 'markAsPaid'])->middleware('permission:invoices.mark_paid')->name('invoices.mark-paid');
     Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->middleware('permission:invoices.cancel')->name('invoices.cancel');
@@ -96,6 +99,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Devices (read only)
     Route::get('/devices', [AdminDeviceController::class, 'index'])->name('devices.index');
     Route::get('/devices/{device}', [AdminDeviceController::class, 'show'])->name('devices.show');
+
+    // Users & RBAC Management
+    Route::get('/users/create', [AdminUserController::class, 'create'])->middleware('permission:users.create')->name('users.create');
+    Route::post('/users', [AdminUserController::class, 'store'])->middleware('permission:users.create')->name('users.store');
+    Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->middleware('permission:users.edit')->name('users.edit');
+    Route::put('/users/{user}', [AdminUserController::class, 'update'])->middleware('permission:users.edit')->name('users.update');
+    Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->middleware('permission:users.delete')->name('users.destroy');
+    Route::resource('users', AdminUserController::class)->only(['index'])->middleware('permission:users.view');
 
     // Audit Logs
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');

@@ -128,5 +128,19 @@ class RbacAuthorizationTest extends TestCase
         // Super admin can reset device
         $response = $this->actingAs($this->superAdmin)->post('/admin/tokens/' . $this->token->id . '/reset-device');
         $response->assertStatus(302);
+
+        // Super admin can view users management
+        $response = $this->actingAs($this->superAdmin)->get('/admin/users');
+        $response->assertStatus(200);
+
+        // Super admin can view invoice report
+        $response = $this->actingAs($this->superAdmin)->get('/admin/invoices/report');
+        $response->assertStatus(200);
+    }
+
+    public function test_operator_cannot_access_user_management(): void
+    {
+        $response = $this->actingAs($this->operator)->get('/admin/users');
+        $response->assertStatus(403);
     }
 }

@@ -37,11 +37,18 @@ class RoleSeeder extends Seeder
 
             // Invoices
             ['slug' => 'invoices.view', 'name' => 'Lihat Tagihan / Invoice', 'module' => 'invoices', 'description' => 'Melihat list invoice & laporan'],
+            ['slug' => 'invoices.report', 'name' => 'Laporan Rekap Invoice', 'module' => 'invoices', 'description' => 'Melihat dan mengekspor laporan rekap invoice'],
             ['slug' => 'invoices.create', 'name' => 'Buat Tagihan Baru', 'module' => 'invoices', 'description' => 'Membuat invoice baru untuk tenant'],
             ['slug' => 'invoices.upload_proof', 'name' => 'Upload Bukti Pembayaran', 'module' => 'invoices', 'description' => 'Mengunggah bukti transfer'],
             ['slug' => 'invoices.mark_paid', 'name' => 'Konfirmasi Lunas Invoice', 'module' => 'invoices', 'description' => 'Menyetujui pembayaran invoice'],
             ['slug' => 'invoices.cancel', 'name' => 'Batalkan Invoice', 'module' => 'invoices', 'description' => 'Membatalkan invoice yang belum lunas'],
             ['slug' => 'invoices.download_pdf', 'name' => 'Unduh PDF Invoice', 'module' => 'invoices', 'description' => 'Mengunduh invoice dalam format PDF'],
+
+            // Users & RBAC
+            ['slug' => 'users.view', 'name' => 'Lihat Daftar Pengguna', 'module' => 'users', 'description' => 'Melihat list pengguna admin & role'],
+            ['slug' => 'users.create', 'name' => 'Tambah Pengguna', 'module' => 'users', 'description' => 'Mendaftarkan akun staf/admin baru'],
+            ['slug' => 'users.edit', 'name' => 'Edit Pengguna & Role', 'module' => 'users', 'description' => 'Mengubah nama, email, role dan password pengguna'],
+            ['slug' => 'users.delete', 'name' => 'Hapus Pengguna', 'module' => 'users', 'description' => 'Menghapus akun pengguna dari sistem'],
 
             // Subscriptions
             ['slug' => 'subscriptions.view', 'name' => 'Lihat Langganan Aktif', 'module' => 'subscriptions', 'description' => 'Melihat masa aktif & status langganan'],

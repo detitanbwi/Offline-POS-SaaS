@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
 import '../database/pos_database.dart';
@@ -13,6 +16,27 @@ class ReceiptGenerator {
   static Future<CapabilityProfile> _getProfile() async {
     _cachedProfile ??= await CapabilityProfile.load();
     return _cachedProfile!;
+  }
+
+  static Future<List<int>> _generateLogoBytes(Generator generator, PaperSize paperSize) async {
+    try {
+      final storage = SecureStorageService();
+      final logoPath = await storage.getStoreLogo();
+      if (logoPath == null) return [];
+      final file = File(logoPath);
+      if (!await file.exists()) return [];
+
+      final rawBytes = await file.readAsBytes();
+      final decoded = img.decodeImage(rawBytes);
+      if (decoded == null) return [];
+
+      final targetWidth = paperSize == PaperSize.mm80 ? 220 : 150;
+      final resized = img.copyResize(decoded, width: targetWidth);
+      return generator.imageRaster(resized, align: PosAlign.center);
+    } catch (e) {
+      debugPrint('Error generating logo bytes for receipt: $e');
+      return [];
+    }
   }
 
   static Future<String> _resolveCashierName(String? cashierNama) async {
@@ -201,7 +225,8 @@ class ReceiptGenerator {
     final eqLine = _equalsDivider(charsPerLine);
     final dashLine = _dashDivider(charsPerLine);
 
-    // Title & Store Info Header
+    // Logo & Title & Store Info Header
+    bytes += await _generateLogoBytes(generator, paperSize);
     bytes += generator.text('TAGIHAN', styles: const PosStyles(align: PosAlign.center, bold: true));
     bytes += generator.text(storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
     for (var line in storeAddress.split('\n')) {
@@ -467,7 +492,8 @@ class ReceiptGenerator {
     final eqLine = _equalsDivider(charsPerLine);
     final dashLine = _dashDivider(charsPerLine);
 
-    // Store Info Header
+    // Logo & Store Info Header
+    bytes += await _generateLogoBytes(generator, paperSize);
     bytes += generator.text(storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
     for (var line in storeAddress.split('\n')) {
       bytes += generator.text(line, styles: const PosStyles(align: PosAlign.center));

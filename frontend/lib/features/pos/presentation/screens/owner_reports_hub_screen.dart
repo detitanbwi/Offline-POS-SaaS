@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../transaction_history/presentation/screens/transaction_history_screen.dart';
+import '../../../stock/presentation/screens/stock_mutation_report_screen.dart';
 import 'sales_report_screen.dart';
 
 class OwnerReportsHubScreen extends StatelessWidget {
@@ -10,7 +11,7 @@ class OwnerReportsHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
@@ -30,6 +31,10 @@ class OwnerReportsHubScreen extends StatelessWidget {
                 icon: Icon(Icons.analytics_rounded),
                 text: 'Laporan Penjualan',
               ),
+              Tab(
+                icon: Icon(Icons.swap_vert_circle_rounded),
+                text: 'Mutasi Stok',
+              ),
             ],
           ),
         ),
@@ -37,6 +42,7 @@ class OwnerReportsHubScreen extends StatelessWidget {
           children: [
             TransactionHistoryScreen(isEmbedded: true),
             SalesReportScreen(isEmbedded: true),
+            StockMutationReportScreen(isEmbedded: true),
           ],
         ),
       ),

@@ -1,12 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/utils/image_compression_util.dart';
 import '../../../../core/di/providers.dart';
 
 class StoreProfileScreen extends ConsumerStatefulWidget {
@@ -23,8 +26,11 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   final _phoneController = TextEditingController();
   final _ownerNameController = TextEditingController();
   final _ownerUsernameController = TextEditingController();
+  final _imagePicker = ImagePicker();
+  String? _logoPath;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isProcessingLogo = false;
 
   @override
   void initState() {
@@ -39,6 +45,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final phone = await storage.getStorePhone() ?? '';
     final ownerUsername = await storage.getOwnerUsername() ?? 'owner';
     final ownerName = await storage.getOwnerName() ?? 'Pemilik Toko';
+    final logoPath = await storage.getStoreLogo();
 
     if (mounted) {
       setState(() {
@@ -47,9 +54,133 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
         _phoneController.text = phone;
         _ownerNameController.text = ownerName;
         _ownerUsernameController.text = ownerUsername;
+        _logoPath = (logoPath != null && File(logoPath).existsSync()) ? logoPath : null;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _pickAndProcessLogo(ImageSource source) async {
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 90,
+      );
+
+      if (picked != null) {
+        setState(() => _isProcessingLogo = true);
+        final processedPath = await ImageCompressionUtil.processStoreLogo(picked.path);
+        if (processedPath != null) {
+          final storage = ref.read(secureStorageServiceProvider);
+          await storage.saveStoreLogo(processedPath);
+          if (mounted) {
+            setState(() {
+              _logoPath = processedPath;
+              _isProcessingLogo = false;
+            });
+            AppSnackbar.showSuccess(context, 'Logo toko berhasil dipasang & dikompresi 1:1');
+          }
+        } else {
+          if (mounted) {
+            setState(() => _isProcessingLogo = false);
+            AppSnackbar.showError(context, 'Gagal memproses gambar logo toko');
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessingLogo = false);
+        AppSnackbar.showError(context, 'Terjadi kesalahan saat memilih logo: $e');
+      }
+    }
+  }
+
+  void _showLogoPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Pilih Sumber Logo Usaha',
+                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                'Gambar akan otomatis dipotong rasio 1:1 untuk kepala struk cetak.',
+                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+              ),
+              SizedBox(height: 16.h),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8.r),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                ),
+                title: const Text('Buka Galeri Foto'),
+                subtitle: const Text('Pilih file gambar logo dari penyimpanan HP'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndProcessLogo(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8.r),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                ),
+                title: const Text('Ambil Foto Kamera'),
+                subtitle: const Text('Foto logo langsung menggunakan kamera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndProcessLogo(ImageSource.camera);
+                },
+              ),
+              if (_logoPath != null) ...[
+                const Divider(),
+                ListTile(
+                  leading: Container(
+                    padding: EdgeInsets.all(8.r),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10.r),
+                    ),
+                    child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                  ),
+                  title: const Text('Hapus Logo Toko', style: TextStyle(color: AppColors.error)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final storage = ref.read(secureStorageServiceProvider);
+                    await storage.deleteStoreLogo();
+                    if (mounted) {
+                      setState(() => _logoPath = null);
+                      AppSnackbar.showInfo(context, 'Logo toko berhasil dihapus.');
+                    }
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _handleSave() async {
@@ -58,7 +189,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     }
 
     setState(() => _isSaving = true);
-    await Future.delayed(const Duration(milliseconds: 100)); // Allow UI to render loading state
+    await Future.delayed(const Duration(milliseconds: 100));
 
     final storage = ref.read(secureStorageServiceProvider);
     await storage.saveStoreInfo(
@@ -82,6 +213,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     _nameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
+    _ownerNameController.dispose();
     _ownerUsernameController.dispose();
     super.dispose();
   }
@@ -144,7 +276,87 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 ),
                               ],
                             ),
-                             SizedBox(height: 20.h),
+                            SizedBox(height: 20.h),
+
+                            // Logo Upload Section
+                            Container(
+                              padding: EdgeInsets.all(16.r),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(14.r),
+                                border: Border.all(color: AppColors.divider),
+                              ),
+                              child: Row(
+                                children: [
+                                  GestureDetector(
+                                    onTap: _isProcessingLogo ? null : _showLogoPickerSheet,
+                                    child: Container(
+                                      width: 72.r,
+                                      height: 72.r,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12.r),
+                                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
+                                        image: _logoPath != null
+                                            ? DecorationImage(
+                                                image: FileImage(File(_logoPath!)),
+                                                fit: BoxFit.cover,
+                                              )
+                                            : null,
+                                      ),
+                                      child: _isProcessingLogo
+                                          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                                          : _logoPath == null
+                                              ? Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.add_photo_alternate_rounded, color: AppColors.primary, size: 28.r),
+                                                    SizedBox(height: 2.h),
+                                                    Text('1:1', style: TextStyle(fontSize: 10.sp, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                                  ],
+                                                )
+                                              : null,
+                                    ),
+                                  ),
+                                  SizedBox(width: 16.w),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Logo Usaha / Struk',
+                                          style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                                        ),
+                                        SizedBox(height: 2.h),
+                                        Text(
+                                          _logoPath != null
+                                              ? 'Logo aktif terpasang untuk kepala struk cetak dan nota bill.'
+                                              : 'Tambahkan logo toko untuk dicetak di kepala nota belanja (rasio 1:1).',
+                                          style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                                        ),
+                                        SizedBox(height: 8.h),
+                                        Row(
+                                          children: [
+                                            OutlinedButton.icon(
+                                              onPressed: _isProcessingLogo ? null : _showLogoPickerSheet,
+                                              icon: Icon(_logoPath == null ? Icons.upload_rounded : Icons.edit_rounded, size: 14.r),
+                                              label: Text(_logoPath == null ? 'Unggah Logo' : 'Ganti Logo', style: TextStyle(fontSize: 12.sp)),
+                                              style: OutlinedButton.styleFrom(
+                                                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            SizedBox(height: 18.h),
                             AppTextField(
                               controller: _nameController,
                               labelText: 'Nama Toko / Usaha',

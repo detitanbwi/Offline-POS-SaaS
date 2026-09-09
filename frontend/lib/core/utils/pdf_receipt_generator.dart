@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -11,6 +13,19 @@ import 'currency_formatter.dart';
 
 class PdfReceiptGenerator {
   static const double _rollWidth = 58 * PdfPageFormat.mm;
+
+  static Future<Uint8List?> _loadLogoBytes() async {
+    try {
+      final storage = SecureStorageService();
+      final logoPath = await storage.getStoreLogo();
+      if (logoPath != null && File(logoPath).existsSync()) {
+        return await File(logoPath).readAsBytes();
+      }
+    } catch (e) {
+      debugPrint('Error loading logo for PDF receipt: $e');
+    }
+    return null;
+  }
 
   static Future<String> _resolveCashierName(String? cashierNama) async {
     if (cashierNama != null && cashierNama.trim().isNotEmpty) {
@@ -188,6 +203,7 @@ class PdfReceiptGenerator {
     final productIds = activeItems.map((i) => i.produkId).toList();
     final packageComponents = await _getPackageComponents(productIds);
     final displayItems = _consolidateOrderItems(activeItems, packageComponents);
+    final logoBytes = await _loadLogoBytes();
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -203,6 +219,16 @@ class PdfReceiptGenerator {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               // Header
+              if (logoBytes != null) ...[
+                pw.Center(
+                  child: pw.Image(
+                    pw.MemoryImage(logoBytes),
+                    width: 48,
+                    height: 48,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+              ],
               pw.Center(child: pw.Text('TAGIHAN', style: pw.TextStyle(font: fontBold, fontSize: 10))),
               pw.Center(child: pw.Text(storeName, style: pw.TextStyle(font: fontBold, fontSize: 10))),
               for (var line in storeAddress.split('\n'))
@@ -391,6 +417,7 @@ class PdfReceiptGenerator {
     final txProductIds = items.map((i) => i.produkId).toList();
     final txPackageComponents = await _getPackageComponents(txProductIds);
     final displayItems = _consolidateTransactionItems(items, txPackageComponents);
+    final logoBytes = await _loadLogoBytes();
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -405,6 +432,16 @@ class PdfReceiptGenerator {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
+              if (logoBytes != null) ...[
+                pw.Center(
+                  child: pw.Image(
+                    pw.MemoryImage(logoBytes),
+                    width: 48,
+                    height: 48,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+              ],
               pw.Center(child: pw.Text(storeName, style: pw.TextStyle(font: fontBold, fontSize: 10))),
               for (var line in storeAddress.split('\n'))
                 pw.Center(child: pw.Text(line, style: pw.TextStyle(font: font, fontSize: 8))),

@@ -116,4 +116,99 @@ class AdminInvoiceController extends Controller
 
         return $this->pdfService->download($invoice);
     }
+
+    public function report(\Illuminate\Http\Request $request)
+    {
+        $fromDate = $request->input('from_date', now()->startOfMonth()->toDateString());
+        $toDate = $request->input('to_date', now()->toDateString());
+        $status = $request->input('status');
+        $tenantId = $request->input('tenant_id');
+
+        $query = \App\Models\Invoice::with(['tenant', 'items'])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate);
+
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        $invoices = (clone $query)->latest()->paginate(25)->withQueryString();
+        
+        // Aggregations on all matched records (unpaginated)
+        $allRecords = (clone $query)->get();
+        $totalRevenue = $allRecords->where('status', \App\Enums\InvoiceStatus::PAID)->sum('total_amount');
+        $totalInvoiced = $allRecords->sum('total_amount');
+        $countPaid = $allRecords->where('status', \App\Enums\InvoiceStatus::PAID)->count();
+        $countTotal = $allRecords->count();
+
+        $tenants = $this->tenantRepository->getActive();
+        $statuses = \App\Enums\InvoiceStatus::cases();
+
+        return view('admin.invoices.report', compact(
+            'invoices',
+            'fromDate',
+            'toDate',
+            'status',
+            'tenantId',
+            'totalRevenue',
+            'totalInvoiced',
+            'countPaid',
+            'countTotal',
+            'tenants',
+            'statuses'
+        ));
+    }
+
+    public function reportPdf(\Illuminate\Http\Request $request)
+    {
+        $fromDate = $request->input('from_date', now()->startOfMonth()->toDateString());
+        $toDate = $request->input('to_date', now()->toDateString());
+        $status = $request->input('status');
+        $tenantId = $request->input('tenant_id');
+
+        $query = \App\Models\Invoice::with(['tenant', 'items'])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate);
+
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        $invoices = $query->latest()->get();
+        $totalRevenue = $invoices->where('status', \App\Enums\InvoiceStatus::PAID)->sum('total_amount');
+        $totalInvoiced = $invoices->sum('total_amount');
+        $countPaid = $invoices->where('status', \App\Enums\InvoiceStatus::PAID)->count();
+        $countTotal = $invoices->count();
+
+        $providerSettings = [
+            'company_name' => \App\Models\SystemSetting::getVal('company_name', 'Wirodev Digital Architecture'),
+            'company_subtitle' => \App\Models\SystemSetting::getVal('company_subtitle', 'Pusat Pengembangan Sistem SaaS'),
+            'company_email' => \App\Models\SystemSetting::getVal('company_email', 'billing@wirodev.com'),
+            'company_phone' => \App\Models\SystemSetting::getVal('company_phone', ''),
+            'company_address' => \App\Models\SystemSetting::getVal('company_address', ''),
+        ];
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.invoices.report_pdf', compact(
+            'invoices',
+            'fromDate',
+            'toDate',
+            'status',
+            'totalRevenue',
+            'totalInvoiced',
+            'countPaid',
+            'countTotal',
+            'providerSettings'
+        ))->setPaper('a4', 'portrait');
+
+        $filename = "laporan-invoice-{$fromDate}-sd-{$toDate}.pdf";
+        return $pdf->download($filename);
+    }
 }
