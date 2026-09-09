@@ -95,11 +95,15 @@ void main() {
       final rows = await db.query('store_profile_backup');
       expect(rows.length, equals(6));
 
-      // 3. Clear storage (simulate fresh install / restore to new device)
-      mockSecureStorage.clear();
-      expect(await storage.getStoreName(), isNull);
+      // 3. Overwrite with new store profile (simulate user editing before restore)
+      await storage.saveStoreInfo(
+        name: 'Toko Baru Yang Belum Di-restore',
+        address: 'Jl. Sementara',
+        phone: '08999999999',
+      );
+      expect(await storage.getStoreName(), equals('Toko Baru Yang Belum Di-restore'));
 
-      // 4. Simulate Restore reading from DB table
+      // 4. Simulate Restore reading from DB table and overwriting current info
       final backupRows = await db.query('store_profile_backup');
       final map = <String, String>{};
       for (final r in backupRows) {

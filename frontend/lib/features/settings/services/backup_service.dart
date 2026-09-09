@@ -111,20 +111,20 @@ class BackupService {
       }
 
       final storage = SecureStorageService();
-      final storeName = map['store_name'];
-      final storeAddress = map['store_address'];
-      final storePhone = map['store_phone'];
+      final storeName = map['store_name'] ?? '';
+      final storeAddress = map['store_address'] ?? '';
+      final storePhone = map['store_phone'] ?? '';
       final ownerName = map['owner_name'];
       final ownerUsername = map['owner_username'];
       final logoBase64 = map['store_logo_base64'];
 
-      if (storeName != null || storeAddress != null || storePhone != null) {
-        await storage.saveStoreInfo(
-          name: storeName ?? '',
-          address: storeAddress ?? '',
-          phone: storePhone ?? '',
-        );
-      }
+      // Overwrite store profile info
+      await storage.saveStoreInfo(
+        name: storeName,
+        address: storeAddress,
+        phone: storePhone,
+      );
+
       if (ownerName != null && ownerName.isNotEmpty) {
         await storage.saveOwnerName(ownerName);
       }
@@ -148,9 +148,11 @@ class BackupService {
         } catch (logoErr) {
           AppLogger.warning('Failed to decode/save restored store logo: $logoErr');
         }
+      } else {
+        await storage.deleteStoreLogo();
       }
 
-      AppLogger.info('Store profile restored successfully from database backup');
+      AppLogger.info('Store profile restored successfully from database backup (store_name: "$storeName")');
     } catch (e) {
       AppLogger.warning('Failed restoring store profile from database: $e');
     }

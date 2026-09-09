@@ -188,6 +188,13 @@ class PosDatabase {
     ''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_package_items_pkg ON package_items(package_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_package_items_prod ON package_items(product_id)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS store_profile_backup (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
   }
 
   Future<void> _addColumnIfNotExists(Database db, String table, String column, String type) async {

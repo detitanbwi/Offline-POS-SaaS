@@ -33,13 +33,16 @@ class AppImageCropperDialog extends StatefulWidget {
 class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
   final TransformationController _transformController = TransformationController();
   final GlobalKey _cropAreaKey = GlobalKey();
-  final GlobalKey _imageKey = GlobalKey();
 
   Uint8List? _imageBytes;
   img.Image? _decodedImage;
   bool _isLoading = true;
   bool _isProcessing = false;
   double _scale = 1.0;
+  double _initialTx = 0.0;
+  double _initialTy = 0.0;
+  double _fittedW = 280.0;
+  double _fittedH = 280.0;
 
   @override
   void initState() {
@@ -50,11 +53,42 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
   Future<void> _loadImage() async {
     try {
       final bytes = await widget.sourceImage.readAsBytes();
-      final decoded = img.decodeImage(bytes);
+      var decoded = img.decodeImage(bytes);
+      if (decoded != null) {
+        // Automatically correct phone camera EXIF orientation
+        decoded = img.bakeOrientation(decoded);
+      }
+
+      if (decoded == null) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          Navigator.pop(context, null);
+        }
+        return;
+      }
+
+      final bakedBytes = Uint8List.fromList(img.encodePng(decoded));
+
+      // Calculate initial fitted size (BoxFit.cover) for 280x280 viewport
+      const boxSize = 280.0;
+      final origW = decoded.width.toDouble();
+      final origH = decoded.height.toDouble();
+      final scaleToCover = (boxSize / origW) > (boxSize / origH) ? (boxSize / origW) : (boxSize / origH);
+      final fittedW = origW * scaleToCover;
+      final fittedH = origH * scaleToCover;
+      final initialTx = (boxSize - fittedW) / 2;
+      final initialTy = (boxSize - fittedH) / 2;
+
+      _transformController.value = Matrix4.identity()..translate(initialTx, initialTy);
+
       if (mounted) {
         setState(() {
-          _imageBytes = bytes;
+          _imageBytes = bakedBytes;
           _decodedImage = decoded;
+          _fittedW = fittedW;
+          _fittedH = fittedH;
+          _initialTx = initialTx;
+          _initialTy = initialTy;
           _isLoading = false;
         });
       }
@@ -75,44 +109,51 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
       final origImg = _decodedImage!;
       final matrix = _transformController.value;
 
-      // Extract current scale and translation
       final currentScale = matrix.getMaxScaleOnAxis();
       final tx = matrix.getTranslation().x;
       final ty = matrix.getTranslation().y;
 
-      // Viewport size (square 1:1)
       final renderBox = _cropAreaKey.currentContext?.findRenderObject() as RenderBox?;
-      final viewportSize = renderBox?.size.width ?? 280.0;
+      final boxSize = renderBox?.size.width ?? 280.0;
 
-      // Image render bounds
-      final imgRenderBox = _imageKey.currentContext?.findRenderObject() as RenderBox?;
-      final renderedWidth = imgRenderBox?.size.width ?? viewportSize;
-      final renderedHeight = imgRenderBox?.size.height ?? viewportSize;
+      final origW = origImg.width.toDouble();
+      final origH = origImg.height.toDouble();
+      final scaleToCover = (boxSize / origW) > (boxSize / origH) ? (boxSize / origW) : (boxSize / origH);
+      final fittedW = origW * scaleToCover;
 
-      // Normalize crop coordinates back to source original pixels
-      final ratioX = origImg.width / (renderedWidth * currentScale);
-      final ratioY = origImg.height / (renderedHeight * currentScale);
+      // Coordinate mapping: child fitted image space
+      final cropLeftInFitted = -tx / currentScale;
+      final cropTopInFitted = -ty / currentScale;
+      final cropSizeInFitted = boxSize / currentScale;
 
-      // Center crop offsets
-      final cropOffsetX = (-tx).clamp(0.0, (renderedWidth * currentScale) - viewportSize);
-      final cropOffsetY = (-ty).clamp(0.0, (renderedHeight * currentScale) - viewportSize);
+      // Pixel ratio from fitted display size to original image pixels
+      final pixelRatio = origW / fittedW;
 
-      int cropX = (cropOffsetX * ratioX).toInt().clamp(0, origImg.width - 10);
-      int cropY = (cropOffsetY * ratioY).toInt().clamp(0, origImg.height - 10);
+      final cropX = (cropLeftInFitted * pixelRatio).round();
+      final cropY = (cropTopInFitted * pixelRatio).round();
+      final cropSize = (cropSizeInFitted * pixelRatio).round();
 
-      int cropW = (viewportSize * ratioX).toInt().clamp(10, origImg.width - cropX);
-      int cropH = (viewportSize * ratioY).toInt().clamp(10, origImg.height - cropY);
-
-      // Force 1:1 square crop dimension
-      final minSquare = cropW < cropH ? cropW : cropH;
-
-      final cropped = img.copyCrop(
-        origImg,
-        x: cropX,
-        y: cropY,
-        width: minSquare,
-        height: minSquare,
-      );
+      img.Image cropped;
+      if (cropX >= 0 && cropY >= 0 && cropX + cropSize <= origImg.width && cropY + cropSize <= origImg.height) {
+        cropped = img.copyCrop(
+          origImg,
+          x: cropX,
+          y: cropY,
+          width: cropSize,
+          height: cropSize,
+        );
+      } else {
+        // If panned with margin, place onto square transparent canvas
+        final targetCanvas = img.Image(width: cropSize, height: cropSize, numChannels: 4);
+        img.fill(targetCanvas, color: img.ColorRgba8(255, 255, 255, 0));
+        img.compositeImage(
+          targetCanvas,
+          origImg,
+          dstX: -cropX,
+          dstY: -cropY,
+        );
+        cropped = targetCanvas;
+      }
 
       // Resize to 300x300 high-res bitmap
       final resized = img.copyResize(
@@ -223,17 +264,18 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
                               transformationController: _transformController,
                               minScale: 1.0,
                               maxScale: 4.0,
-                              boundaryMargin: const EdgeInsets.all(double.infinity),
+                              boundaryMargin: EdgeInsets.all(boxSize),
                               onInteractionUpdate: (_) {
                                 setState(() {
                                   _scale = _transformController.value.getMaxScaleOnAxis();
                                 });
                               },
-                              child: Center(
+                              child: SizedBox(
+                                width: _fittedW,
+                                height: _fittedH,
                                 child: Image.memory(
                                   _imageBytes!,
-                                  key: _imageKey,
-                                  fit: BoxFit.contain,
+                                  fit: BoxFit.fill,
                                 ),
                               ),
                             ),
@@ -273,7 +315,9 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
                           onChanged: (val) {
                             setState(() {
                               _scale = val;
-                              _transformController.value = Matrix4.identity()..scale(val);
+                              _transformController.value = Matrix4.identity()
+                                ..translate(_initialTx, _initialTy)
+                                ..scale(val);
                             });
                           },
                         ),
@@ -285,7 +329,7 @@ class _AppImageCropperDialogState extends State<AppImageCropperDialog> {
                         onPressed: () {
                           setState(() {
                             _scale = 1.0;
-                            _transformController.value = Matrix4.identity();
+                            _transformController.value = Matrix4.identity()..translate(_initialTx, _initialTy);
                           });
                         },
                       ),
