@@ -44,7 +44,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final address = await storage.getStoreAddress() ?? '';
     final phone = await storage.getStorePhone() ?? '';
     final ownerUsername = await storage.getOwnerUsername() ?? 'owner';
-    final ownerName = await storage.getOwnerName() ?? 'Pemilik Toko';
+    final ownerName = await storage.getOwnerName() ?? '';
     final logoPath = await storage.getStoreLogo();
 
     if (mounted) {
@@ -179,40 +179,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                 ),
               ),
 
-              // Metadata Info
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(10.r),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.aspect_ratio_rounded, size: 16.r, color: AppColors.primary),
-                          SizedBox(width: 4.w),
-                          Text('Rasio 1:1 Square', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
-                        ],
-                      ),
-                      Container(width: 1, height: 16, color: AppColors.divider),
-                      Row(
-                        children: [
-                          Icon(Icons.folder_special_rounded, size: 16.r, color: AppColors.primary),
-                          SizedBox(width: 4.w),
-                          Text('Tersimpan di ASD', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 16.h),
+              SizedBox(height: 8.h),
               const Divider(height: 1),
 
               // Action Buttons

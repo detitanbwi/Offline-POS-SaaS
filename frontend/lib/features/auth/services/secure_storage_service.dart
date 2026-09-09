@@ -158,11 +158,20 @@ class SecureStorageService {
   }
 
   Future<String?> getOwnerName() async {
-    final name = await _storage.read(key: _keyOwnerName);
-    if (name == null || name.trim().isEmpty) {
-      return 'Pemilik Toko';
-    }
-    return name.trim();
+    final val = await _storage.read(key: _keyOwnerName);
+    if (val != null) return val.trim();
+    try {
+      final db = await PosDatabase.instance.database;
+      final rows = await db.query('store_profile_backup', where: 'key = ?', whereArgs: ['owner_name']);
+      if (rows.isNotEmpty) {
+        final dbVal = rows.first['value'] as String?;
+        if (dbVal != null) {
+          await _storage.write(key: _keyOwnerName, value: dbVal.trim());
+          return dbVal.trim();
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
 

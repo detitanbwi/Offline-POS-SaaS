@@ -54,7 +54,11 @@
                 </form>
             @endif
         @endcan
-        <a href="{{ route('admin.tokens.index') }}" class="btn btn-outline btn-sm">Kembali</a>
+        @php
+            $invoice = $token->subscription?->invoiceItem?->invoice;
+            $backUrl = $invoice ? route('admin.invoices.show', $invoice) : route('admin.tokens.index');
+        @endphp
+        <a href="{{ $backUrl }}" class="btn btn-outline btn-sm">Kembali</a>
     </div>
 </div>
 @endsection

@@ -125,12 +125,8 @@ class BackupService {
         phone: storePhone,
       );
 
-      if (ownerName != null && ownerName.isNotEmpty) {
-        await storage.saveOwnerName(ownerName);
-      }
-      if (ownerUsername != null && ownerUsername.isNotEmpty) {
-        await storage.saveOwnerUsername(ownerUsername);
-      }
+      await storage.saveOwnerName(ownerName ?? '');
+      await storage.saveOwnerUsername(ownerUsername ?? 'owner');
 
       if (logoBase64 != null && logoBase64.isNotEmpty) {
         try {

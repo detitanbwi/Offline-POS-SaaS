@@ -30,7 +30,7 @@ class LicenseTokenRepository
     public function findByTokenKeyWithRelations(string $tokenKey): ?LicenseToken
     {
         return $this->model
-            ->with(['subscription.package', 'tenant', 'device'])
+            ->with(['subscription.package', 'subscription.invoiceItem.invoice', 'tenant', 'device'])
             ->where('token_key', $tokenKey)
             ->first();
     }
@@ -38,7 +38,7 @@ class LicenseTokenRepository
     public function findByIdWithRelations(string $id): LicenseToken
     {
         return $this->model
-            ->with(['subscription.package', 'tenant', 'device'])
+            ->with(['subscription.package', 'subscription.invoiceItem.invoice', 'tenant', 'device'])
             ->findOrFail($id);
     }
 
