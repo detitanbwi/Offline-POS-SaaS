@@ -36,9 +36,9 @@ class PasswordRecoveryService
         ]);
 
         try {
-            Mail::to($user->email)->send(new PasswordResetOtpMail($otpCode, $user->name));
+            Mail::to($user->email)->queue(new PasswordResetOtpMail($otpCode, $user->name));
         } catch (Exception $mailException) {
-            Log::warning("Gagal mengirim email OTP ke {$email}. Menggunakan log sebagai fallback. Error: " . $mailException->getMessage());
+            Log::warning("Gagal memasukkan email OTP ke antrean untuk {$email}. Menggunakan log sebagai fallback. Error: " . $mailException->getMessage());
         }
 
         Log::info("Password Reset OTP untuk email [{$email}]: {$otpCode}");

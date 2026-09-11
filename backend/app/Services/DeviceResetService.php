@@ -59,9 +59,9 @@ class DeviceResetService
         ]);
 
         try {
-            Mail::to($user->email)->send(new DeviceResetOtpMail($otpCode, $user->name));
+            Mail::to($user->email)->queue(new DeviceResetOtpMail($otpCode, $user->name));
         } catch (Exception $mailException) {
-            Log::warning("Gagal mengirim email OTP ke {$email}. Error: " . $mailException->getMessage());
+            Log::warning("Gagal memasukkan email OTP ke antrean untuk {$email}. Error: " . $mailException->getMessage());
         }
 
         Log::info("Device Reset OTP untuk email [{$email}] dan token [{$tokenKey}]: {$otpCode}");

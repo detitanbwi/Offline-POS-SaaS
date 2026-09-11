@@ -42,11 +42,11 @@ class PinRecoveryService
             'is_verified' => false,
         ]);
 
-        // 5. Kirim email OTP (dengan fallback logging untuk mode Offline/Dev)
+        // 5. Kirim email OTP secara asinkron via Queue (dengan fallback logging untuk mode Offline/Dev)
         try {
-            Mail::to($user->email)->send(new PinResetOtpMail($otpCode, $user->name));
+            Mail::to($user->email)->queue(new PinResetOtpMail($otpCode, $user->name));
         } catch (Exception $mailException) {
-            Log::warning("Gagal mengirim email OTP ke {$email}. Menggunakan log sebagai fallback. Error: " . $mailException->getMessage());
+            Log::warning("Gagal memasukkan email OTP ke antrean untuk {$email}. Menggunakan log sebagai fallback. Error: " . $mailException->getMessage());
         }
 
         // Selalu catat kode OTP di log aplikasi agar memudahkan pengujian offline
