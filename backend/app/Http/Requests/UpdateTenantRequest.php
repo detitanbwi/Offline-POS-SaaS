@@ -17,11 +17,15 @@ class UpdateTenantRequest extends FormRequest
 
         return [
             'name' => 'required|string|max:255',
+            'customer_type' => 'required|in:individual,company',
+            'tax_number' => 'nullable|string|max:50',
             'owner_name' => 'required|string|max:255',
             'email' => 'required|email|unique:tenants,email,'.$tenantId,
             'phone' => 'nullable|string|regex:/^[0-9]+$/|max:20',
             'store_name' => 'nullable|string|max:255',
             'store_address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:6|confirmed',
         ];
     }

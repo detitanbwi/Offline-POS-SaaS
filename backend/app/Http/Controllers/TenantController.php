@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\SubscriptionStatus;
 use App\Enums\TenantStatus;
 use App\Enums\TokenStatus;
-use App\Http\Requests\CreateTenantRequest;
+use App\Http\Requests\StoreLicenseOrderRequest;
 use App\Http\Requests\UpdateTenantRequest;
 use App\Models\AuditLog;
 use App\Models\LicenseToken;
@@ -37,52 +37,81 @@ class TenantController extends Controller
     public function create()
     {
         $packages = Package::where('is_active', true)->get();
+        $customers = Tenant::orderBy('name')->get();
 
-        return view('admin.tenants.create', compact('packages'));
+        return view('admin.tenants.create', compact('packages', 'customers'));
     }
 
-    public function store(CreateTenantRequest $request)
+    public function store(StoreLicenseOrderRequest $request)
     {
         return DB::transaction(function () use ($request) {
-            $data = $request->validated();
-            $data['status'] = TenantStatus::ACTIVE;
+            $mode = $request->input('customer_mode', 'new');
 
-            $tenant = $this->tenantRepository->create($data);
+            if ($mode === 'new') {
+                $customerData = [
+                    'name' => $request->input('name'),
+                    'customer_type' => $request->input('customer_type', 'individual'),
+                    'tax_number' => $request->input('tax_number'),
+                    'owner_name' => $request->input('owner_name'),
+                    'email' => $request->input('email'),
+                    'phone' => $request->input('phone'),
+                    'store_name' => $request->input('store_name'),
+                    'store_address' => $request->input('store_address'),
+                    'city' => $request->input('city'),
+                    'postal_code' => $request->input('postal_code'),
+                    'status' => TenantStatus::ACTIVE,
+                ];
 
-            // 1. Buat User Kredensial Pemilik
-            $password = $request->input('password');
-            User::create([
-                'tenant_id' => $tenant->id,
-                'name' => $tenant->owner_name,
-                'email' => $tenant->email,
-                'password' => $password,
-                'is_admin' => false,
-            ]);
+                $tenant = $this->tenantRepository->create($customerData);
+
+                // 1. Buat User Kredensial Pemilik
+                $password = $request->input('password');
+                User::create([
+                    'tenant_id' => $tenant->id,
+                    'name' => $tenant->owner_name,
+                    'email' => $tenant->email,
+                    'password' => $password,
+                    'is_admin' => false,
+                ]);
+            } else {
+                $tenant = Tenant::findOrFail($request->input('customer_id'));
+            }
 
             // 2. Otomasi Provisioning Invoice, Subscription & Token Lisensi
             $package = Package::findOrFail($request->input('package_id'));
+            $quantity = (int) $request->input('quantity', 1);
+            $paymentStatus = $request->input('payment_status', 'paid');
+            $clientNote = $request->input('client_note');
+
             $invoice = $this->invoiceService->createInvoice($tenant->id, [
                 [
                     'package_id' => $package->id,
-                    'quantity' => 1,
+                    'quantity' => $quantity,
                     'duration_days' => $package->default_duration_days,
-                    'client_note' => 'Initial Auto-Provisioned Subscription',
+                    'client_note' => $clientNote ?? ($mode === 'new' ? 'Pendaftaran Lisensi Perdana' : 'Penambahan Lisensi Perangkat'),
                 ]
-            ], 'Otomatis dibuat saat pendaftaran tenant.');
+            ], $mode === 'new' ? 'Pendaftaran pelanggan baru & pemesanan lisensi.' : 'Pemesanan lisensi tambahan.');
 
-            $invoice = $this->invoiceService->markAsPaid($invoice, 'Auto Provisioning');
-            $subscription = $invoice->subscriptions->first();
-            $token = $subscription?->licenseTokens->first();
-            $tokenKey = $token?->token_key ?? '-';
+            $tokenKeys = [];
+            if ($paymentStatus === 'paid') {
+                $invoice = $this->invoiceService->markAsPaid($invoice, 'Direct Admin Provisioning');
+                foreach ($invoice->subscriptions as $sub) {
+                    foreach ($sub->licenseTokens as $t) {
+                        $tokenKeys[] = $t->token_key;
+                    }
+                }
+            }
+
+            $tokensSummary = count($tokenKeys) > 0 ? ' Token Lisensi: ' . implode(', ', $tokenKeys) : ' (Menunggu Pembayaran Invoice)';
 
             AuditLog::create([
-                'action' => 'tenant_provisioned',
+                'action' => 'customer_license_order',
                 'tenant_id' => $tenant->id,
-                'details' => "Tenant {$tenant->name} berhasil didaftarkan dengan paket {$package->name} beserta invoice {$invoice->invoice_number}, user {$tenant->email}, dan token lisensi {$tokenKey}",
+                'details' => "Pemesanan {$quantity} lisensi paket {$package->name} untuk pelanggan {$tenant->name} ({$invoice->invoice_number}). Status: {$paymentStatus}.{$tokensSummary}",
             ]);
 
             return redirect()->route('admin.tenants.show', $tenant)
-                ->with('success', "Tenant berhasil didaftarkan! Invoice {$invoice->invoice_number} terbuat. User login: {$tenant->email}, Paket: {$package->name}, Token Lisensi: {$tokenKey}");
+                ->with('success', "Pemesanan lisensi berhasil diproses! Invoice {$invoice->invoice_number} terbit untuk {$tenant->name} ({$quantity} unit {$package->name}).{$tokensSummary}");
         });
     }
 

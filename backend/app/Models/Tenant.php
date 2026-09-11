@@ -15,11 +15,15 @@ class Tenant extends Model
 
     protected $fillable = [
         'name',
+        'customer_type',
+        'tax_number',
         'owner_name',
         'email',
         'phone',
         'store_name',
         'store_address',
+        'city',
+        'postal_code',
         'status',
     ];
 
@@ -28,6 +32,11 @@ class Tenant extends Model
         return [
             'status' => TenantStatus::class,
         ];
+    }
+
+    public function getCustomerTypeLabelAttribute(): string
+    {
+        return $this->customer_type === 'company' ? 'Perusahaan' : 'Pribadi';
     }
 
     public function users(): HasMany
