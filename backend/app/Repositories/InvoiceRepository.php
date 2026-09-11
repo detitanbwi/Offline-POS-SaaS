@@ -25,7 +25,8 @@ class InvoiceRepository
     public function findByIdWithRelations(string $id): Invoice
     {
         return $this->model
-            ->with(['tenant', 'items.package', 'subscriptions.licenseTokens'])
+            ->withTrashed()
+            ->with(['tenant', 'items.package', 'subscriptions.licenseTokens.device'])
             ->findOrFail($id);
     }
 
@@ -45,7 +46,11 @@ class InvoiceRepository
         }
 
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if ($filters['status'] === 'trashed') {
+                $query->onlyTrashed();
+            } else {
+                $query->where('status', $filters['status']);
+            }
         }
 
         if (! empty($filters['tenant_id'])) {
@@ -63,6 +68,19 @@ class InvoiceRepository
     public function update(Invoice $invoice, array $data): bool
     {
         return $invoice->update($data);
+    }
+
+    public function delete(Invoice $invoice): bool
+    {
+        return $invoice->delete();
+    }
+
+    public function restore(string $id): Invoice
+    {
+        $invoice = $this->model->onlyTrashed()->findOrFail($id);
+        $invoice->restore();
+
+        return $invoice;
     }
 
     public function count(): int

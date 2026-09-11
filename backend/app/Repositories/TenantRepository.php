@@ -43,7 +43,11 @@ class TenantRepository
         }
 
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if ($filters['status'] === 'trashed') {
+                $query->onlyTrashed();
+            } else {
+                $query->where('status', $filters['status']);
+            }
         }
 
         return $query->orderBy('created_at', 'desc')->paginate($perPage);
@@ -62,6 +66,14 @@ class TenantRepository
     public function delete(Tenant $tenant): bool
     {
         return $tenant->delete();
+    }
+
+    public function restore(string $id): Tenant
+    {
+        $tenant = $this->model->onlyTrashed()->findOrFail($id);
+        $tenant->restore();
+
+        return $tenant;
     }
 
     public function getActive(): Collection

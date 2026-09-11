@@ -28,6 +28,7 @@ class RoleSeeder extends Seeder
             ['slug' => 'tenants.reactivate', 'name' => 'Reaktivasi Tenant', 'module' => 'tenants', 'description' => 'Mengaktifkan kembali tenant'],
             ['slug' => 'tenants.generate_license', 'name' => 'Generate License Tenant', 'module' => 'tenants', 'description' => 'Membuat token lisensi langsung dari tenant'],
             ['slug' => 'tenants.delete', 'name' => 'Hapus Tenant', 'module' => 'tenants', 'description' => 'Menghapus data tenant dari sistem'],
+            ['slug' => 'tenants.restore', 'name' => 'Pulihkan Tenant', 'module' => 'tenants', 'description' => 'Memulihkan data tenant dari tempat sampah'],
 
             // Packages
             ['slug' => 'packages.view', 'name' => 'Lihat Paket', 'module' => 'packages', 'description' => 'Melihat daftar paket langganan'],
@@ -42,6 +43,8 @@ class RoleSeeder extends Seeder
             ['slug' => 'invoices.upload_proof', 'name' => 'Upload Bukti Pembayaran', 'module' => 'invoices', 'description' => 'Mengunggah bukti transfer'],
             ['slug' => 'invoices.mark_paid', 'name' => 'Konfirmasi Lunas Invoice', 'module' => 'invoices', 'description' => 'Menyetujui pembayaran invoice'],
             ['slug' => 'invoices.cancel', 'name' => 'Batalkan Invoice', 'module' => 'invoices', 'description' => 'Membatalkan invoice yang belum lunas'],
+            ['slug' => 'invoices.delete', 'name' => 'Hapus Invoice', 'module' => 'invoices', 'description' => 'Menghapus data invoice ke tempat sampah'],
+            ['slug' => 'invoices.restore', 'name' => 'Pulihkan Invoice', 'module' => 'invoices', 'description' => 'Memulihkan invoice dari tempat sampah'],
             ['slug' => 'invoices.download_pdf', 'name' => 'Unduh PDF Invoice', 'module' => 'invoices', 'description' => 'Mengunduh invoice dalam format PDF'],
 
             // Users & RBAC

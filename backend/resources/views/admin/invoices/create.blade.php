@@ -8,12 +8,12 @@
         @csrf
 
         <div class="form-group">
-            <label class="form-label">Tenant *</label>
+            <label class="form-label">Tenant (Toko) *</label>
             <select name="tenant_id" class="form-control" required>
                 <option value="">Pilih Tenant</option>
                 @foreach ($tenants as $tenant)
-                    <option value="{{ $tenant->id }}" {{ old('tenant_id') === $tenant->id ? 'selected' : '' }}>
-                        {{ $tenant->name }} - {{ $tenant->email }}
+                    <option value="{{ $tenant->id }}" {{ (old('tenant_id', request('tenant_id')) == $tenant->id) ? 'selected' : '' }}>
+                        {{ $tenant->store_name ? $tenant->store_name . ' (' . $tenant->name . ')' : $tenant->name }} - {{ $tenant->email }}
                     </option>
                 @endforeach
             </select>
@@ -69,7 +69,10 @@
 
         <div style="display: flex; gap: 12px;">
             <button type="submit" class="btn btn-primary">Buat Invoice</button>
-            <a href="{{ route('admin.invoices.index') }}" class="btn btn-outline">Batal</a>
+            @php
+                $cancelUrl = request('tenant_id') ? route('admin.tenants.show', request('tenant_id')) : (url()->previous() && url()->previous() !== url()->current() ? url()->previous() : route('admin.invoices.index'));
+            @endphp
+            <a href="{{ $cancelUrl }}" class="btn btn-outline" onclick="if (window.history.length > 1 && document.referrer && !document.referrer.includes(window.location.pathname)) { window.history.back(); return false; }">Batal</a>
         </div>
     </form>
 </div>

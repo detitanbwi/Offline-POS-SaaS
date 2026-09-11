@@ -452,6 +452,19 @@
                     </li>
                     @endcan
 
+                    <li class="sidebar-menu-item {{ Request::routeIs('admin.trash.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.trash.index') }}">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <span>Tempat Sampah</span>
+                            @php
+                                $trashedBadgeCount = \App\Models\Tenant::onlyTrashed()->count() + \App\Models\Invoice::onlyTrashed()->count();
+                            @endphp
+                            @if ($trashedBadgeCount > 0)
+                                <span class="badge badge-warning" style="margin-left: auto; font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 700;">{{ $trashedBadgeCount }}</span>
+                            @endif
+                        </a>
+                    </li>
+
                     @can('profile.edit')
                     <li class="sidebar-menu-item {{ Request::routeIs('admin.profile.*') ? 'active' : '' }}">
                         <a href="{{ route('admin.profile.edit') }}">

@@ -12,6 +12,7 @@ use App\Services\InvoicePdfService;
 use App\Services\InvoiceService;
 
 use App\Http\Requests\UploadPaymentProofRequest;
+use Illuminate\Http\Request;
 
 class AdminInvoiceController extends Controller
 {
@@ -51,11 +52,33 @@ class AdminInvoiceController extends Controller
             ->with('success', "Invoice {$invoice->invoice_number} berhasil dibuat!");
     }
 
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
         $invoice = $this->invoiceRepository->findByIdWithRelations($id);
 
-        return view('admin.invoices.show', compact('invoice'));
+        $previousUrl = url()->previous();
+        $currentUrl = $request->fullUrl();
+
+        // 1. Explicit return_to query parameter takes highest priority
+        if ($request->filled('return_to')) {
+            $backUrl = $request->query('return_to');
+            session(['invoice_back_url_' . $id => $backUrl]);
+        }
+        // 2. If redirected from form action or page reload, preserve the stored backUrl
+        elseif (session()->has('invoice_back_url_' . $id) && ($previousUrl === $currentUrl || str_contains($previousUrl, route('admin.invoices.show', $id, false)))) {
+            $backUrl = session('invoice_back_url_' . $id);
+        }
+        // 3. If previous URL is valid, not current URL, and not an action on this invoice
+        elseif (!empty($previousUrl) && $previousUrl !== $currentUrl && !str_contains($previousUrl, route('admin.invoices.show', $id, false))) {
+            $backUrl = $previousUrl;
+            session(['invoice_back_url_' . $id => $backUrl]);
+        }
+        // 4. Default fallback to invoice list
+        else {
+            $backUrl = route('admin.invoices.index');
+        }
+
+        return view('admin.invoices.show', compact('invoice', 'backUrl'));
     }
 
     public function uploadPaymentProof(UploadPaymentProofRequest $request, string $id)
@@ -108,6 +131,36 @@ class AdminInvoiceController extends Controller
             return redirect()->back()
                 ->with('error', $e->getMessage());
         }
+    }
+
+    public function destroy(string $id)
+    {
+        $invoice = $this->invoiceRepository->findByIdOrFail($id);
+        $invoiceNumber = $invoice->invoice_number;
+        $this->invoiceRepository->delete($invoice);
+
+        \App\Models\AuditLog::create([
+            'action' => 'invoice_deleted',
+            'tenant_id' => $invoice->tenant_id,
+            'details' => "Invoice {$invoiceNumber} dihapus (Soft Delete ke tempat sampah).",
+        ]);
+
+        return redirect()->route('admin.invoices.index')
+            ->with('success', "Invoice {$invoiceNumber} berhasil dihapus (tersimpan di tempat sampah)!");
+    }
+
+    public function restore(string $id)
+    {
+        $invoice = $this->invoiceRepository->restore($id);
+
+        \App\Models\AuditLog::create([
+            'action' => 'invoice_restored',
+            'tenant_id' => $invoice->tenant_id,
+            'details' => "Invoice {$invoice->invoice_number} berhasil dipulihkan dari tempat sampah.",
+        ]);
+
+        return redirect()->back()
+            ->with('success', "Invoice {$invoice->invoice_number} berhasil dipulihkan (Restore)!");
     }
 
     public function downloadPdf(string $id)

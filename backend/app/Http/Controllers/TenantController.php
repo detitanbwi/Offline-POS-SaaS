@@ -88,13 +88,21 @@ class TenantController extends Controller
 
     public function show(Tenant $tenant)
     {
-        $tenant->load(['invoices' => function ($q) {
-            $q->latest()->take(5);
-        }, 'subscriptions' => function ($q) {
-            $q->latest()->take(5);
-        }, 'licenseTokens' => function ($q) {
-            $q->latest()->take(10);
-        }]);
+        $tenant->load([
+            'invoices' => function ($q) {
+                $q->latest();
+            },
+            'invoices.items.package',
+            'invoices.subscriptions.licenseTokens.device',
+            'subscriptions' => function ($q) {
+                $q->latest();
+            },
+            'subscriptions.package',
+            'devices' => function ($q) {
+                $q->latest();
+            },
+            'devices.licenseToken',
+        ]);
 
         return view('admin.tenants.show', compact('tenant'));
     }
@@ -160,10 +168,31 @@ class TenantController extends Controller
 
     public function destroy(Tenant $tenant)
     {
+        $tenantName = $tenant->name;
         $this->tenantRepository->delete($tenant);
 
+        AuditLog::create([
+            'action' => 'tenant_deleted',
+            'tenant_id' => $tenant->id,
+            'details' => "Tenant {$tenantName} dihapus (Soft Delete ke tempat sampah).",
+        ]);
+
         return redirect()->route('admin.tenants.index')
-            ->with('success', 'Tenant berhasil dihapus!');
+            ->with('success', "Tenant {$tenantName} berhasil dihapus (tersimpan di tempat sampah)!");
+    }
+
+    public function restore(string $id)
+    {
+        $tenant = $this->tenantRepository->restore($id);
+
+        AuditLog::create([
+            'action' => 'tenant_restored',
+            'tenant_id' => $tenant->id,
+            'details' => "Tenant {$tenant->name} berhasil dipulihkan dari tempat sampah.",
+        ]);
+
+        return redirect()->back()
+            ->with('success', "Tenant {$tenant->name} berhasil dipulihkan (Restore)!");
     }
 
     public function suspend(Tenant $tenant)

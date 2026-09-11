@@ -47,9 +47,12 @@ class AuthController extends Controller
                 'store_address' => $tenant->store_address,
                 'phone' => $tenant->phone,
             ] : null,
-            'license_tokens' => $tenant ? $tenant->licenseTokens()->whereIn('status', ['available', 'active'])->get()->map(fn ($t) => [
+            'license_tokens' => $tenant ? $tenant->licenseTokens()->whereIn('status', ['available', 'active'])->with(['device', 'subscription'])->get()->map(fn ($t) => [
                 'token_key' => $t->token_key,
                 'status' => $t->status->value ?? $t->status,
+                'client_note' => $t->client_note,
+                'device_name' => $t->device?->display_name,
+                'is_bound' => (bool) $t->device,
                 'expiry_date' => $t->subscription?->expiry_date?->toIso8601String(),
             ]) : [],
         ]);

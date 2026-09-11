@@ -1,76 +1,281 @@
 @extends('admin.layouts.app')
-@section('title', 'Tenant ' . $tenant->name . ' - Kasir Pro Admin')
-@section('header_title', $tenant->name)
+@section('title', 'Detail Toko: ' . ($tenant->store_name ?? $tenant->name) . ' - Kasir Pro Admin')
+@section('header_title', $tenant->store_name ?? $tenant->name)
 
 @section('content')
-<div class="grid grid-2">
+<div class="grid grid-2 mb-4">
+    {{-- Card 1: Informasi Toko & Akun Pemilik --}}
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Informasi Tenant</h3>
+            <h3 class="card-title">Informasi Toko & Kredensial</h3>
             <span class="badge {{ $tenant->status->badgeClass() }}">{{ $tenant->status->label() }}</span>
         </div>
         <div class="detail-grid">
-            <div class="detail-label">Nama</div><div class="detail-value">{{ $tenant->name }}</div>
-            <div class="detail-label">Pemilik</div><div class="detail-value">{{ $tenant->owner_name }}</div>
-            <div class="detail-label">Email</div><div class="detail-value">{{ $tenant->email }}</div>
-            <div class="detail-label">Telepon</div><div class="detail-value">{{ $tenant->phone ?? '-' }}</div>
-            <div class="detail-label">Toko</div><div class="detail-value">{{ $tenant->store_name ?? '-' }}</div>
-            <div class="detail-label">Alamat</div><div class="detail-value">{{ $tenant->store_address ?? '-' }}</div>
-            <div class="detail-label">Bergabung</div><div class="detail-value">{{ $tenant->created_at->format('d F Y') }}</div>
+            <div class="detail-label">Nama Toko</div>
+            <div class="detail-value font-semibold">{{ $tenant->store_name ?? '-' }}</div>
+            <div class="detail-label">Nama Badan Usaha</div>
+            <div class="detail-value">{{ $tenant->name }}</div>
+            <div class="detail-label">Pemilik Akun</div>
+            <div class="detail-value">{{ $tenant->owner_name }}</div>
+            <div class="detail-label">Email Login Kasir</div>
+            <div class="detail-value font-mono">{{ $tenant->email }}</div>
+            <div class="detail-label">No. Telepon / WA</div>
+            <div class="detail-value">{{ $tenant->phone ?? '-' }}</div>
+            <div class="detail-label">Alamat Toko</div>
+            <div class="detail-value">{{ $tenant->store_address ?? '-' }}</div>
+            <div class="detail-label">Terdaftar Sejak</div>
+            <div class="detail-value">{{ $tenant->created_at->format('d F Y, H:i') }}</div>
         </div>
         <div class="flex gap-3 mt-4 flex-wrap">
             @can('tenants.edit')
-                <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-sm">Edit</a>
+                <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-sm">Edit Data Toko</a>
             @endcan
             @can('tenants.suspend')
                 @if ($tenant->status->value === 'active')
-                    <form method="POST" action="{{ route('admin.tenants.suspend', $tenant) }}" onsubmit="return confirm('Tangguhkan tenant ini?')">@csrf<button class="btn btn-warning btn-sm">Tangguhkan</button></form>
+                    <form method="POST" action="{{ route('admin.tenants.suspend', $tenant) }}" onsubmit="return confirm('Tangguhkan tenant ini? Akun kasir tidak akan bisa login atau aktivasi.')">
+                        @csrf
+                        <button type="submit" class="btn btn-warning btn-sm">Tangguhkan Toko</button>
+                    </form>
                 @elseif ($tenant->status->value === 'suspended')
-                    <form method="POST" action="{{ route('admin.tenants.reactivate', $tenant) }}" onsubmit="return confirm('Aktifkan kembali tenant ini?')">@csrf<button class="btn btn-success btn-sm">Aktifkan</button></form>
+                    <form method="POST" action="{{ route('admin.tenants.reactivate', $tenant) }}" onsubmit="return confirm('Aktifkan kembali tenant ini?')">
+                        @csrf
+                        <button type="submit" class="btn btn-success btn-sm">Aktifkan Kembali</button>
+                    </form>
                 @endif
             @endcan
             @can('tenants.delete')
-                <form method="POST" action="{{ route('admin.tenants.destroy', $tenant) }}" onsubmit="return confirm('Hapus tenant ini? Data akan dihapus.')">@csrf @method('DELETE')<button class="btn btn-danger btn-sm">Hapus</button></form>
+                <form method="POST" action="{{ route('admin.tenants.destroy', $tenant) }}" onsubmit="return confirm('Hapus tenant ini secara permanen? Data riwayat akan dihapus.')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
+                </form>
             @endcan
         </div>
     </div>
 
-    @can('tenants.generate_license')
-    <div class="card">
-        <div class="card-header"><h3 class="card-title">Generator Lisensi (Perbarui Expired & Terbitkan Token)</h3></div>
-        @php
-            $activeSub = $tenant->subscriptions->where('status', \App\Enums\SubscriptionStatus::ACTIVE)->first();
-            $defaultDate = $activeSub ? $activeSub->expiry_date->format('Y-m-d') : now()->addYear()->format('Y-m-d');
-        @endphp
-        <form action="{{ route('admin.tenants.generate-license', $tenant) }}" method="POST" style="margin-top: 12px;">
-            @csrf
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label class="form-label" for="expiry_date">Tanggal Kedaluwarsa Lisensi Klien</label>
-                <input class="form-control" type="date" id="expiry_date" name="expiry_date" value="{{ $defaultDate }}" required>
+    {{-- Card 2: Ringkasan Status Langganan & Kuota Perangkat --}}
+    @php
+        $activeSub = $tenant->subscriptions->where('status', \App\Enums\SubscriptionStatus::ACTIVE)->first();
+        $totalTokens = $tenant->invoices->where('status', \App\Enums\InvoiceStatus::PAID)->flatMap->subscriptions->flatMap->licenseTokens->count();
+        $activeTokens = $tenant->invoices->where('status', \App\Enums\InvoiceStatus::PAID)->flatMap->subscriptions->flatMap->licenseTokens->where('status', \App\Enums\TokenStatus::ACTIVE)->count();
+        $availableTokens = $tenant->invoices->where('status', \App\Enums\InvoiceStatus::PAID)->flatMap->subscriptions->flatMap->licenseTokens->where('status', \App\Enums\TokenStatus::AVAILABLE)->count();
+    @endphp
+    <div class="card flex flex-col justify-between">
+        <div>
+            <div class="card-header">
+                <h3 class="card-title">Ringkasan Kuota & Lisensi Toko</h3>
+                @if ($activeSub)
+                    <span class="badge {{ $activeSub->status->badgeClass() }}">{{ $activeSub->status->label() }}</span>
+                @else
+                    <span class="badge badge-secondary">Belum Berlangganan</span>
+                @endif
             </div>
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label class="form-label" for="client_note">Catatan Tambahan (Opsional)</label>
-                <input class="form-control" type="text" id="client_note" name="client_note" placeholder="Misal: Perpanjangan Paket 1 Tahun">
+
+            <div class="detail-grid">
+                <div class="detail-label">Paket Aktif</div>
+                <div class="detail-value font-semibold text-primary">
+                    {{ $activeSub ? $activeSub->package_name : 'Tidak Ada Paket Aktif' }}
+                </div>
+                <div class="detail-label">Masa Berlaku</div>
+                <div class="detail-value">
+                    @if ($activeSub && $activeSub->expiry_date)
+                        {{ $activeSub->expiry_date->format('d F Y') }}
+                        @if ($activeSub->remainingDays() > 0)
+                            <span class="text-sm text-success font-medium">({{ $activeSub->remainingDays() }} hari tersisa)</span>
+                        @else
+                            <span class="text-sm text-danger font-medium">(Kedaluwarsa)</span>
+                        @endif
+                    @else
+                        -
+                    @endif
+                </div>
+                <div class="detail-label">Kuota Perangkat Kasir</div>
+                <div class="detail-value">
+                    <span class="font-bold text-lg" style="color: var(--primary);">{{ $activeTokens }}</span>
+                    <span class="text-secondary">/ {{ $totalTokens }} perangkat terikat</span>
+                    @if ($availableTokens > 0)
+                        <span class="badge badge-success" style="margin-left: 8px; font-size: 11px;">
+                            {{ $availableTokens }} token siap dipakai
+                        </span>
+                    @endif
+                </div>
+                <div class="detail-label">Total Invoice</div>
+                <div class="detail-value">
+                    {{ $tenant->invoices->count() }} tagihan 
+                    ({{ $tenant->invoices->where('status', \App\Enums\InvoiceStatus::PAID)->count() }} Lunas, 
+                     {{ $tenant->invoices->where('status', \App\Enums\InvoiceStatus::UNPAID)->count() }} Belum Lunas)
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">Perbarui Tanggal & Generate Token Baru</button>
-        </form>
+        </div>
+
+        <div class="mt-4 pt-4" style="border-top: 1px solid var(--divider);">
+            @can('invoices.create')
+                <a href="{{ route('admin.invoices.create', ['tenant_id' => $tenant->id]) }}" class="btn btn-primary btn-sm" style="width: 100%; text-align: center; justify-content: center;">
+                    + Buat Invoice Baru (Tambah Perangkat / Perpanjangan)
+                </a>
+            @endcan
+        </div>
     </div>
-    @endcan
 </div>
 
-@if ($tenant->licenseTokens->count() > 0)
-<div class="card">
-    <div class="card-header"><h3 class="card-title">Token Lisensi ({{ $tenant->licenseTokens->count() }})</h3></div>
+{{-- Card 3: Riwayat Invoice Tagihan Toko --}}
+<div class="card mb-4">
+    <div class="card-header flex justify-between items-center flex-wrap gap-2">
+        <div>
+            <h3 class="card-title">Riwayat Tagihan & Pembelian Lisensi</h3>
+            <p class="text-sm text-secondary" style="margin: 2px 0 0 0;">
+                Semua token lisensi dan kuota perangkat dikelola transparan di dalam setiap faktur invoice.
+            </p>
+        </div>
+        @can('invoices.create')
+            <a href="{{ route('admin.invoices.create', ['tenant_id' => $tenant->id]) }}" class="btn btn-outline btn-xs">
+                + Tambah Tagihan
+            </a>
+        @endcan
+    </div>
+
+    @if ($tenant->invoices->isEmpty())
+        <div style="padding: 32px 16px; text-align: center; color: var(--text-secondary);">
+            <p style="font-size: 14px; margin-bottom: 12px;">Toko ini belum memiliki catatan invoice tagihan.</p>
+            @can('invoices.create')
+                <a href="{{ route('admin.invoices.create', ['tenant_id' => $tenant->id]) }}" class="btn btn-primary btn-sm">
+                    Buat Invoice Pertama
+                </a>
+            @endcan
+        </div>
+    @else
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>No. Invoice</th>
+                        <th>Tanggal</th>
+                        <th>Item Lisensi Terbeli</th>
+                        <th>Total Tagihan</th>
+                        <th>Status</th>
+                        <th>Bukti Transfer</th>
+                        <th>Token Lisensi</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($tenant->invoices as $invoice)
+                    @php
+                        $invoiceTokensCount = $invoice->subscriptions->flatMap->licenseTokens->count();
+                    @endphp
+                    <tr>
+                        <td>
+                            <a href="{{ route('admin.invoices.show', ['invoice' => $invoice, 'return_to' => url()->current()]) }}" class="font-mono font-bold" style="color: var(--primary); text-decoration: none;">
+                                {{ $invoice->invoice_number }}
+                            </a>
+                        </td>
+                        <td>{{ $invoice->created_at->format('d M Y') }}</td>
+                        <td>
+                            @foreach ($invoice->items as $item)
+                                <div style="font-size: 13px;">
+                                    <strong>{{ $item->package_name }}</strong> 
+                                    <span class="text-secondary">(x{{ $item->quantity }})</span>
+                                    @if ($item->client_note)
+                                        <span class="text-xs text-secondary" style="display: block;">{{ $item->client_note }}</span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </td>
+                        <td class="font-semibold">
+                            Rp {{ number_format($invoice->total_amount, 0, ',', '.') }}
+                        </td>
+                        <td>
+                            <span class="badge {{ $invoice->status->badgeClass() }}">
+                                {{ $invoice->status->label() }}
+                            </span>
+                        </td>
+                        <td>
+                            @if ($invoice->payment_proof)
+                                <a href="{{ $invoice->payment_proof_url }}" target="_blank" class="btn btn-outline btn-xs" style="text-decoration: none;">
+                                    Lihat Bukti
+                                </a>
+                            @else
+                                <span class="text-muted text-xs">-</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if ($invoice->status->value === 'paid')
+                                <span class="badge badge-success" style="font-size: 11px;">
+                                    {{ $invoiceTokensCount }} Token Diterbitkan
+                                </span>
+                            @elseif ($invoice->status->value === 'unpaid')
+                                <span class="badge badge-warning" style="font-size: 11px;">
+                                    Menunggu Pembayaran
+                                </span>
+                            @else
+                                <span class="badge badge-secondary" style="font-size: 11px;">
+                                    Dibatalkan
+                                </span>
+                            @endif
+                        </td>
+                        <td>
+                            <a href="{{ route('admin.invoices.show', ['invoice' => $invoice, 'return_to' => url()->current()]) }}" class="btn btn-outline btn-xs">
+                                Buka Detail & Token &rarr;
+                            </a>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
+
+{{-- Card 4: Perangkat Kasir Terdaftar (Registered Hardware Devices) --}}
+@if ($tenant->devices->count() > 0)
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">Perangkat Kasir Terdaftar ({{ $tenant->devices->count() }})</h3>
+        <p class="text-sm text-secondary" style="margin: 2px 0 0 0;">
+            Daftar perangkat fisik kasir (Tablet / HP) yang telah mengaktifkan token lisensi toko ini.
+        </p>
+    </div>
     <div class="table-responsive">
         <table class="table">
-            <thead><tr><th>Token</th><th>Status</th><th>Perangkat</th><th>Aksi</th></tr></thead>
-            <tbody>
-                @foreach ($tenant->licenseTokens as $token)
+            <thead>
                 <tr>
-                    <td><span class="token-display">{{ $token->token_key }}</span></td>
-                    <td><span class="badge {{ $token->status->badgeClass() }}">{{ $token->status->label() }}</span></td>
-                    <td>{{ $token->device?->display_name ?? '-' }}</td>
-                    <td><a href="{{ route('admin.tokens.show', $token) }}" class="btn btn-outline btn-xs">Detail</a></td>
+                    <th>Perangkat</th>
+                    <th>Token Lisensi Terikat</th>
+                    <th>Catatan Kasir</th>
+                    <th>Aktivasi Pertama</th>
+                    <th>Validasi Terakhir</th>
+                    <th>Status Perangkat</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($tenant->devices as $device)
+                <tr>
+                    <td class="font-semibold">{{ $device->display_name }}</td>
+                    <td>
+                        @if ($device->licenseToken)
+                            <a href="{{ route('admin.tokens.show', $device->licenseToken) }}" class="font-mono text-sm" style="color: var(--primary);">
+                                {{ $device->licenseToken->token_key }}
+                            </a>
+                        @else
+                            <span class="text-muted">-</span>
+                        @endif
+                    </td>
+                    <td>{{ $device->licenseToken?->client_note ?? '-' }}</td>
+                    <td class="text-sm">{{ $device->activated_at ? $device->activated_at->format('d M Y, H:i') : '-' }}</td>
+                    <td class="text-sm">{{ $device->last_validated_at ? $device->last_validated_at->format('d M Y, H:i') : '-' }}</td>
+                    <td>
+                        <span class="badge {{ $device->status->badgeClass() }}">
+                            {{ $device->status->label() }}
+                        </span>
+                    </td>
+                    <td>
+                        @if ($device->licenseToken)
+                            <a href="{{ route('admin.tokens.show', $device->licenseToken) }}" class="btn btn-outline btn-xs">
+                                Kelola Token
+                            </a>
+                        @endif
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
@@ -79,5 +284,5 @@
 </div>
 @endif
 
-<a href="{{ route('admin.tenants.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
+<a href="{{ route('admin.tenants.index') }}" class="btn btn-outline btn-sm">&larr; Kembali ke Daftar Tenant</a>
 @endsection

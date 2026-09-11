@@ -3,6 +3,40 @@
 @section('header_title', 'Invoice ' . $invoice->invoice_number)
 
 @section('content')
+@php
+    $resolvedBackUrl = $backUrl ?? (url()->previous() && url()->previous() !== url()->current() ? url()->previous() : route('admin.invoices.index'));
+@endphp
+
+<div class="mb-3 flex justify-between items-center flex-wrap gap-2">
+    <a href="{{ $resolvedBackUrl }}" class="btn btn-outline btn-sm" onclick="if (window.history.length > 1 && document.referrer && !document.referrer.includes(window.location.pathname)) { window.history.back(); return false; }">
+        &larr; Kembali
+    </a>
+    <div class="text-xs text-secondary">
+        @if (str_contains($resolvedBackUrl, 'tenants'))
+            <span>Tujuan Kembali: <strong>{{ $invoice->tenant->name ?? 'Detail Tenant' }}</strong></span>
+        @elseif (str_contains($resolvedBackUrl, 'trash'))
+            <span>Tujuan Kembali: <strong>Tempat Sampah</strong></span>
+        @else
+            <span>Tujuan Kembali: <strong>Daftar Invoice</strong></span>
+        @endif
+    </div>
+</div>
+
+@if ($invoice->trashed())
+<div class="alert alert-danger mb-4 flex items-center justify-between flex-wrap gap-3" style="border-radius: 12px; padding: 16px;">
+    <div>
+        <strong>⚠️ Perhatian: Invoice ini berada di tempat sampah (Soft Deleted).</strong>
+        <p class="text-xs text-secondary" style="margin: 4px 0 0 0;">Dihapus pada: {{ $invoice->deleted_at->format('d F Y, H:i') }}. Anda dapat memulihkannya kapan saja.</p>
+    </div>
+    @can('invoices.restore')
+        <form method="POST" action="{{ route('admin.invoices.restore', $invoice->id) }}">
+            @csrf
+            <button type="submit" class="btn btn-success btn-sm">Pulihkan Invoice Ini</button>
+        </form>
+    @endcan
+</div>
+@endif
+
 <div class="grid grid-2">
     {{-- Invoice Info --}}
     <div class="card">
@@ -165,12 +199,29 @@
             @endcan
         @endif
 
+        @if ($invoice->trashed())
+            @can('invoices.restore')
+            <form method="POST" action="{{ route('admin.invoices.restore', $invoice->id) }}" style="display: inline;" onsubmit="return confirm('Pulihkan invoice {{ $invoice->invoice_number }}?')">
+                @csrf
+                <button type="submit" class="btn btn-success btn-sm">Pulihkan Invoice (Restore)</button>
+            </form>
+            @endcan
+        @else
+            @can('invoices.delete')
+            <form method="POST" action="{{ route('admin.invoices.destroy', $invoice) }}" style="display: inline;" onsubmit="return confirm('Pindahkan invoice {{ $invoice->invoice_number }} ke tempat sampah (Soft Delete)?')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-danger btn-sm">Hapus Invoice</button>
+            </form>
+            @endcan
+        @endif
+
         @if ($invoice->status->value === 'unpaid')
             <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">Download PDF Faktur Tagihan (Belum Lunas)</a>
         @else
             <a href="{{ route('admin.invoices.download-pdf', $invoice) }}" class="btn btn-outline btn-sm">Download PDF Faktur Lunas (Paid)</a>
         @endif
-        <a href="{{ route('admin.invoices.index') }}" class="btn btn-outline btn-sm">Kembali</a>
+        <a href="{{ $resolvedBackUrl }}" class="btn btn-outline btn-sm" onclick="if (window.history.length > 1 && document.referrer && !document.referrer.includes(window.location.pathname)) { window.history.back(); return false; }">Kembali</a>
     </div>
 </div>
 
@@ -216,16 +267,19 @@
 @if ($invoice->status->value === 'paid')
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Token Lisensi yang Diterbitkan (Rasio 1 Token = 1 Perangkat)</h3>
+        <h3 class="card-title">Token Lisensi yang Diterbitkan (Rasio 1 Token = 1 Perangkat Kasir)</h3>
+        <p class="text-sm text-secondary" style="margin: 2px 0 0 0;">
+            Setiap token lisensi di bawah ini terbit otomatis dari pembayaran invoice ini dan dapat diaktifkan pada 1 unit mesin/tablet kasir toko.
+        </p>
     </div>
     <div class="table-responsive">
         <table class="table">
             <thead>
                 <tr>
-                    <th>Catatan Mesin Klien</th>
+                    <th>Catatan Kasir</th>
                     <th>Token Key</th>
-                    <th>Paket</th>
-                    <th>Status</th>
+                    <th>Paket & Masa Berlaku</th>
+                    <th>Status Token</th>
                     <th>Perangkat Terikat</th>
                     <th>Aksi</th>
                 </tr>
@@ -234,13 +288,51 @@
                 @foreach ($invoice->subscriptions as $sub)
                     @foreach ($sub->licenseTokens as $token)
                     <tr>
-                        <td style="font-weight: 600;">{{ $token->client_note ?? $sub->client_note ?? '-' }}</td>
-                        <td><span class="token-display font-mono" style="color: var(--primary); font-weight: 700;">{{ $token->token_key }}</span></td>
-                        <td>{{ $sub->package_name }}</td>
-                        <td><span class="badge {{ $token->status->badgeClass() }}">{{ $token->status->label() }}</span></td>
-                        <td>{{ $token->device?->display_name ?? 'Belum terikat' }}</td>
+                        <td style="font-weight: 600;">{{ $token->client_note ?? $sub->client_note ?? 'Mesin Kasir #' . $loop->iteration }}</td>
                         <td>
-                            <a href="{{ route('admin.tokens.show', $token) }}" class="btn btn-outline btn-xs">Detail</a>
+                            <div class="flex items-center gap-2">
+                                <span class="token-display font-mono" style="color: var(--primary); font-weight: 700; font-size: 13px;">{{ $token->token_key }}</span>
+                                <button type="button" onclick="navigator.clipboard.writeText('{{ $token->token_key }}'); alert('Token disalin: {{ $token->token_key }}');" class="btn btn-outline btn-xs" title="Salin Token">
+                                    Salin
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-size: 13px; font-weight: 600;">{{ $sub->package_name }}</div>
+                            <div class="text-xs text-secondary">
+                                s/d {{ $sub->expiry_date ? $sub->expiry_date->format('d M Y') : '-' }}
+                                @if ($sub->remainingDays() > 0)
+                                    <span class="text-success">({{ $sub->remainingDays() }} hari)</span>
+                                @else
+                                    <span class="text-danger">(Kedaluwarsa)</span>
+                                @endif
+                            </div>
+                        </td>
+                        <td><span class="badge {{ $token->status->badgeClass() }}">{{ $token->status->label() }}</span></td>
+                        <td>
+                            @if ($token->device)
+                                <div style="font-size: 13px; font-weight: 600;">{{ $token->device->display_name }}</div>
+                                <div class="text-xs text-secondary font-mono">
+                                    ID: {{ substr($token->device->fingerprint_hash, 0, 10) }}...
+                                </div>
+                            @else
+                                <span class="badge badge-success" style="font-size: 11px;">
+                                    Belum Terikat (Tersedia)
+                                </span>
+                            @endif
+                        </td>
+                        <td>
+                            <div class="flex gap-2 items-center flex-wrap">
+                                <a href="{{ route('admin.tokens.show', $token) }}" class="btn btn-outline btn-xs">Detail</a>
+                                @if ($token->device && $token->status->value === 'active')
+                                    @can('tokens.reset_device')
+                                    <form method="POST" action="{{ route('admin.tokens.reset-device', $token) }}" onsubmit="return confirm('Reset perangkat dari token {{ $token->token_key }}? Gunakan ini jika tablet kasir rusak/diganti.')" style="display: inline;">
+                                        @csrf
+                                        <button type="submit" class="btn btn-warning btn-xs">Reset Mesin</button>
+                                    </form>
+                                    @endcan
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     @endforeach

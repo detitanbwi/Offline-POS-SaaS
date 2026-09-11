@@ -96,6 +96,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/tenants/{tenant}/edit', [TenantController::class, 'edit'])->middleware('permission:tenants.edit')->name('tenants.edit');
     Route::put('/tenants/{tenant}', [TenantController::class, 'update'])->middleware('permission:tenants.edit')->name('tenants.update');
     Route::delete('/tenants/{tenant}', [TenantController::class, 'destroy'])->middleware('permission:tenants.delete')->name('tenants.destroy');
+    Route::post('/tenants/{id}/restore', [TenantController::class, 'restore'])->middleware('permission:tenants.restore')->name('tenants.restore');
     Route::post('/tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->middleware('permission:tenants.suspend')->name('tenants.suspend');
     Route::post('/tenants/{tenant}/reactivate', [TenantController::class, 'reactivate'])->middleware('permission:tenants.reactivate')->name('tenants.reactivate');
     Route::post('/tenants/{tenant}/generate-license', [TenantController::class, 'generateLicense'])->middleware('permission:tenants.generate_license')->name('tenants.generate-license');
@@ -119,6 +120,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/invoices/{invoice}/upload-proof', [AdminInvoiceController::class, 'uploadPaymentProof'])->middleware('permission:invoices.upload_proof')->name('invoices.upload-proof');
     Route::post('/invoices/{invoice}/mark-paid', [AdminInvoiceController::class, 'markAsPaid'])->middleware('permission:invoices.mark_paid')->name('invoices.mark-paid');
     Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->middleware('permission:invoices.cancel')->name('invoices.cancel');
+    Route::delete('/invoices/{invoice}', [AdminInvoiceController::class, 'destroy'])->middleware('permission:invoices.delete')->name('invoices.destroy');
+    Route::post('/invoices/{id}/restore', [AdminInvoiceController::class, 'restore'])->middleware('permission:invoices.restore')->name('invoices.restore');
     Route::get('/invoices/{invoice}/download-pdf', [AdminInvoiceController::class, 'downloadPdf'])->middleware('permission:invoices.download_pdf')->name('invoices.download-pdf');
 
     // Subscriptions
@@ -149,6 +152,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->middleware('permission:users.edit')->name('users.edit');
     Route::put('/users/{user}', [AdminUserController::class, 'update'])->middleware('permission:users.edit')->name('users.update');
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->middleware('permission:users.delete')->name('users.destroy');
+
+    // Pusat Pemulihan Data (Tempat Sampah / Trash)
+    Route::get('/trash', [\App\Http\Controllers\TrashController::class, 'index'])->name('trash.index');
 
     // Audit Logs
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('permission:audit_logs.view')->name('audit-logs.index');
