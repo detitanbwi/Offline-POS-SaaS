@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -20,49 +19,92 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/di/providers.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:printing/printing.dart';
 import '../../../printer/application/printer_notifier.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../cashier/application/cashier_notifier.dart';
 import '../../application/sales_report_notifier.dart';
 
-
 class SalesReportScreen extends ConsumerStatefulWidget {
-  const SalesReportScreen({super.key});
+  final bool isEmbedded;
+  const SalesReportScreen({super.key, this.isEmbedded = false});
 
   @override
   ConsumerState<SalesReportScreen> createState() => _SalesReportScreenState();
 }
 
 class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
-  DateTime _selectedDate = DateTime.now();
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(salesReportNotifierProvider.notifier).loadDailyReport(_selectedDate);
+      ref.read(salesReportNotifierProvider.notifier).loadDailyReport();
+      ref.read(cashierNotifierProvider.notifier).loadCashiers();
     });
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDateRange(BuildContext context) async {
+    final reportState = ref.read(salesReportNotifierProvider);
+    final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDateRange: DateTimeRange(start: reportState.startDate, end: reportState.endDate),
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Pilih Rentang Tanggal Laporan',
+      cancelText: 'Batal',
+      confirmText: 'Pilih',
+      saveText: 'Terapkan',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-      ref.read(salesReportNotifierProvider.notifier).loadDailyReport(picked);
+    if (picked != null) {
+      ref.read(salesReportNotifierProvider.notifier).setDateRange(picked.start, picked.end);
+    }
+  }
+
+  void _applyQuickPreset(String preset) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    switch (preset) {
+      case 'today':
+        ref.read(salesReportNotifierProvider.notifier).setDate(today);
+        break;
+      case 'yesterday':
+        final yesterday = today.subtract(const Duration(days: 1));
+        ref.read(salesReportNotifierProvider.notifier).setDate(yesterday);
+        break;
+      case '7days':
+        final start = today.subtract(const Duration(days: 6));
+        ref.read(salesReportNotifierProvider.notifier).setDateRange(start, today);
+        break;
+      case '30days':
+        final start = today.subtract(const Duration(days: 29));
+        ref.read(salesReportNotifierProvider.notifier).setDateRange(start, today);
+        break;
+      case 'this_month':
+        final start = DateTime(today.year, today.month, 1);
+        ref.read(salesReportNotifierProvider.notifier).setDateRange(start, today);
+        break;
     }
   }
 
   Future<void> _handlePrintReport(Map<String, dynamic> report) async {
-    final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
-    final expectedCash = paymentBreakdown['Tunai'] ?? (report['total_sales'] as double? ?? 0.0);
+    final paymentBreakdown = (report['payment_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
+    final expectedCash = paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0;
 
-    final actualCashController = TextEditingController(text: expectedCash.toInt().toString());
+    final actualCashController = TextEditingController(
+      text: CurrencyFormatter.formatNumber(expectedCash),
+    );
 
     final actualCash = await showDialog<double>(
       context: context,
@@ -75,9 +117,29 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           children: [
             Text('Expected Kas (Sistem): ${CurrencyFormatter.format(expectedCash)}', style: AppTypography.bodyMedium),
             SizedBox(height: 12),
-            TextField(enableSuggestions: false, autocorrect: false, 
+            TextField(
+              enableSuggestions: false, 
+              autocorrect: false, 
               controller: actualCashController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              onChanged: (val) {
+                final cleanText = val.replaceAll('.', '').replaceAll(',', '');
+                final parsed = double.tryParse(cleanText);
+                if (parsed != null) {
+                  final formatted = CurrencyFormatter.formatNumber(parsed);
+                  if (actualCashController.text != formatted) {
+                    actualCashController.value = TextEditingValue(
+                      text: formatted,
+                      selection: TextSelection.collapsed(offset: formatted.length),
+                    );
+                  }
+                } else if (cleanText.isEmpty) {
+                  actualCashController.clear();
+                }
+              },
               decoration: const InputDecoration(
                 labelText: 'Jumlah Uang Fisik di Laci (Actual)',
                 prefixText: 'Rp ',
@@ -93,7 +155,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final val = double.tryParse(actualCashController.text) ?? expectedCash;
+              final cleanText = actualCashController.text.replaceAll('.', '').replaceAll(',', '');
+              final val = double.tryParse(cleanText) ?? expectedCash;
               Navigator.pop(context, val);
             },
             child: Text('Lanjutkan Cetak'),
@@ -106,14 +169,22 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final selisihCash = actualCash - expectedCash;
 
     final activeUser = ref.read(authSessionProvider);
+    final onlinePlatformBreakdown = (report['online_platform_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
-    final dateStr = DateFormat('dd-MM-yyyy').format(_selectedDate);
+    final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final reportState = ref.read(salesReportNotifierProvider);
+    final dateStr = report['date'] as String? ??
+        (reportState.isRange
+            ? '${DateFormat('dd/MM/yyyy').format(reportState.startDate)} - ${DateFormat('dd/MM/yyyy').format(reportState.endDate)}'
+            : DateFormat('dd-MM-yyyy').format(reportState.startDate));
 
     final printerState = ref.read(printerNotifierProvider);
     final cashierPrinterList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
     final cashierPrinter = cashierPrinterList.isNotEmpty ? cashierPrinterList.first : null;
 
     final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
+    final totalVoidCount = (report['total_void_count'] as int?) ?? 0;
+    final totalVoidAmount = (report['total_void_amount'] as num?)?.toDouble() ?? 0.0;
 
     final textPreview = await ReceiptGenerator.formatReportTextPreview(
       dateStr: dateStr,
@@ -121,8 +192,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       totalTransactions: report['total_transactions'] as int,
       totalTax: report['total_tax'] as double,
       totalServiceCharge: totalServiceCharge,
+      totalVoidCount: totalVoidCount,
+      totalVoidAmount: totalVoidAmount,
       paymentBreakdown: paymentBreakdown,
+      onlinePlatformBreakdown: onlinePlatformBreakdown,
       topProducts: topProducts,
+      topModifiers: topModifiers,
       cashierNama: activeUser?.nama,
       expectedCash: expectedCash,
       actualCash: actualCash,
@@ -141,8 +216,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalTransactions: report['total_transactions'] as int,
         totalTax: report['total_tax'] as double,
         totalServiceCharge: totalServiceCharge,
+        totalVoidCount: totalVoidCount,
+        totalVoidAmount: totalVoidAmount,
         paymentBreakdown: paymentBreakdown,
+        onlinePlatformBreakdown: onlinePlatformBreakdown,
         topProducts: topProducts,
+        topModifiers: topModifiers,
         cashierNama: activeUser?.nama,
         expectedCash: expectedCash,
         actualCash: actualCash,
@@ -154,8 +233,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         totalTransactions: report['total_transactions'] as int,
         totalTax: report['total_tax'] as double,
         totalServiceCharge: totalServiceCharge,
+        totalVoidCount: totalVoidCount,
+        totalVoidAmount: totalVoidAmount,
         paymentBreakdown: paymentBreakdown,
+        onlinePlatformBreakdown: onlinePlatformBreakdown,
         topProducts: topProducts,
+        topModifiers: topModifiers,
         cashierNama: activeUser?.nama,
         expectedCash: expectedCash,
         actualCash: actualCash,
@@ -167,7 +250,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
-  Future<void> _exportToPDF(Map<String, dynamic> report) async {
+  Future<Uint8List> _generatePdfBytes(Map<String, dynamic> report) async {
     final pdf = pw.Document();
     
     final storage = ref.read(secureStorageServiceProvider);
@@ -179,10 +262,16 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final totalTransactions = report['total_transactions'] as int;
     final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
     final totalTax = report['total_tax'] as double;
+    final totalVoidCount = (report['total_void_count'] as int?) ?? 0;
+    final totalVoidAmount = (report['total_void_amount'] as num?)?.toDouble() ?? 0.0;
     final paymentBreakdown = Map<String, double>.from(report['payment_breakdown'] as Map);
+    final onlinePlatformBreakdown = (report['online_platform_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final topProducts = List<Map<String, dynamic>>.from(report['top_products'] as List);
 
-    final formattedDate = DateFormat('dd MMMM yyyy').format(_selectedDate);
+    final reportState = ref.read(salesReportNotifierProvider);
+    final formattedDate = reportState.isRange
+        ? '${DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate)} s/d ${DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.endDate)}'
+        : DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate);
 
     pdf.addPage(
       pw.Page(
@@ -212,7 +301,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                 pw.Text('LAPORAN PENJUALAN HARIAN', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 4),
                 pw.Text('Tanggal Laporan: $formattedDate', style: const pw.TextStyle(fontSize: 12)),
-                pw.Text('Waktu Cetak: ${DateTime.now().toString().split('.').first}', style: const pw.TextStyle(fontSize: 10)),
+                pw.Text('Waktu Cetak: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 10)),
                 pw.SizedBox(height: 20),
 
                 // Ringkasan Keuangan
@@ -252,6 +341,13 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('$totalTransactions')),
                       ]
                     ),
+                    if (totalVoidCount > 0)
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Transaksi Dibatalkan (Void) ($totalVoidCount transaksi)')),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(CurrencyFormatter.format(totalVoidAmount), style: const pw.TextStyle(color: PdfColors.red))),
+                        ]
+                      ),
                   ]
                 ),
                 pw.SizedBox(height: 20),
@@ -278,6 +374,30 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                     }),
                   ]
                 ),
+                if (onlinePlatformBreakdown.isNotEmpty) ...[
+                  pw.SizedBox(height: 20),
+                  pw.Text('Detail Pendapatan Online Food', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 8),
+                  pw.Table(
+                    border: pw.TableBorder.all(),
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Platform Online Food', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Total Pendapatan', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                        ]
+                      ),
+                      ...onlinePlatformBreakdown.entries.map((entry) {
+                        return pw.TableRow(
+                          children: [
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(entry.key)),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(CurrencyFormatter.format(entry.value))),
+                          ]
+                        );
+                      }),
+                    ]
+                  ),
+                ],
                 pw.SizedBox(height: 20),
 
                 // Produk Terlaris
@@ -339,70 +459,294 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       ),
     );
 
+    return pdf.save();
+  }
+
+  Future<void> _exportToPDF(Map<String, dynamic> report) async {
     try {
-      final pdfBytes = await pdf.save();
-      final fileName = 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf';
+      final reportState = ref.read(salesReportNotifierProvider);
+      final pdfBytes = await _generatePdfBytes(report);
+      final fileName = reportState.isRange
+          ? 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}_${DateFormat('yyyyMMdd').format(reportState.endDate)}.pdf'
+          : 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}.pdf';
       final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
       
       if (!mounted) return;
-      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan di folder Downloads:\n${savedFile.path}');
+      AppSnackbar.showSuccess(context, 'PDF Laporan berhasil disimpan:\n${savedFile.path}');
+
+      // Buka dialog preview / cetak PDF sistem
+      try {
+        await Printing.layoutPdf(
+          onLayout: (format) async => pdfBytes,
+          name: fileName,
+        );
+      } catch (_) {}
     } catch (e) {
       if (!mounted) return;
       AppSnackbar.showError(context, 'Gagal membuat file PDF: $e');
     }
   }
 
+  Future<void> _sharePDF(Map<String, dynamic> report) async {
+    try {
+      final reportState = ref.read(salesReportNotifierProvider);
+      final pdfBytes = await _generatePdfBytes(report);
+      final fileName = reportState.isRange
+          ? 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}_${DateFormat('yyyyMMdd').format(reportState.endDate)}.pdf'
+          : 'Laporan_Penjualan_${DateFormat('yyyyMMdd').format(reportState.startDate)}.pdf';
+      
+      final dateSubject = reportState.isRange
+          ? '${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.startDate)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.endDate)}'
+          : DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate);
+
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: fileName,
+        subject: 'Laporan Penjualan - $dateSubject',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.showError(context, 'Gagal membagikan file PDF: $e');
+    }
+  }
+
+  Widget _buildPresetChip(String label, String preset, SalesReportState state) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    bool isSelected = false;
+
+    if (preset == 'today') {
+      isSelected = !state.isRange && DateUtils.isSameDay(state.startDate, today);
+    } else if (preset == 'yesterday') {
+      final yesterday = today.subtract(const Duration(days: 1));
+      isSelected = !state.isRange && DateUtils.isSameDay(state.startDate, yesterday);
+    } else if (preset == '7days') {
+      final start = today.subtract(const Duration(days: 6));
+      isSelected = state.isRange && DateUtils.isSameDay(state.startDate, start) && DateUtils.isSameDay(state.endDate, today);
+    } else if (preset == '30days') {
+      final start = today.subtract(const Duration(days: 29));
+      isSelected = state.isRange && DateUtils.isSameDay(state.startDate, start) && DateUtils.isSameDay(state.endDate, today);
+    } else if (preset == 'this_month') {
+      final start = DateTime(today.year, today.month, 1);
+      isSelected = state.isRange && DateUtils.isSameDay(state.startDate, start) && DateUtils.isSameDay(state.endDate, today);
+    }
+
+    return InkWell(
+      onTap: () => _applyQuickPreset(preset),
+      borderRadius: BorderRadius.circular(20.r),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.divider,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.sp,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final reportState = ref.watch(salesReportNotifierProvider);
-    final formattedDate = DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate);
+    final cashierState = ref.watch(cashierNotifierProvider);
+    final authUser = ref.watch(authSessionProvider);
+    final isOwner = authUser?.isOwner ?? false;
+    final formattedDate = reportState.isRange
+        ? '${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.startDate)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(reportState.endDate)}'
+        : DateFormat('dd MMMM yyyy', 'id_ID').format(reportState.startDate);
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: Text('Laporan Penjualan Harian'),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.l),
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header Filter Card
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Tanggal Laporan', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                      Text(formattedDate, style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          reportState.isRange ? 'Periode Laporan' : 'Tanggal Laporan',
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 11.sp),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          formattedDate,
+                          style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp),
+                        ),
+                      ],
+                    ),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => _selectDate(context),
-                    icon: Icon(Icons.calendar_month_rounded),
-                    label: Text('Ubah Tanggal'),
+                    onPressed: () => _selectDateRange(context),
+                    icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                    label: Text(reportState.isRange ? 'Ganti Rentang' : 'Pilih Rentang'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: AppSpacing.l),
-              
-              Expanded(
-                child: reportState.isLoading
-                    ? const AppLoading(message: 'Membuat laporan...')
-                    : reportState.reportData == null
-                        ? Center(
-                            child: Text(
-                              'Laporan tidak tersedia',
-                              style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-                            ),
-                          )
-                        : _buildReportContent(context, reportState.reportData!),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildPresetChip('Hari Ini', 'today', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('Kemarin', 'yesterday', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('7 Hari', '7days', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('30 Hari', '30days', reportState),
+                    const SizedBox(width: 6),
+                    _buildPresetChip('Bulan Ini', 'this_month', reportState),
+                  ],
+                ),
               ),
+              if (isOwner && cashierState.allCashiers.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.person_search_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Kasir:',
+                      style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 12.sp),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: reportState.selectedCashierId,
+                            isExpanded: true,
+                            hint: const Text('Semua Kasir (Akumulasi)', style: TextStyle(fontSize: 13)),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('Semua Kasir (Akumulasi)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                              ...cashierState.allCashiers.map((cashier) {
+                                return DropdownMenuItem<String?>(
+                                  value: cashier.id,
+                                  child: Text(
+                                    cashier.nama,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              String? cashierName;
+                              if (val != null) {
+                                final matches = cashierState.allCashiers.where((x) => x.id == val);
+                                if (matches.isNotEmpty) {
+                                  cashierName = matches.first.nama;
+                                }
+                              }
+                              ref.read(salesReportNotifierProvider.notifier).setCashier(val, cashierName);
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (!isOwner && authUser != null) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.person_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Kasir:',
+                      style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600, fontSize: 12.sp),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        authUser.nama,
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.sp,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
+        const Divider(height: 1),
+        
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.m),
+            child: reportState.isLoading
+                ? const AppLoading(message: 'Membuat laporan...')
+                : reportState.reportData == null
+                    ? Center(
+                        child: Text(
+                          'Laporan tidak tersedia',
+                          style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
+                        ),
+                      )
+                    : _buildReportContent(context, reportState.reportData!),
+          ),
+        ),
+      ],
+    );
+
+    if (widget.isEmbedded) {
+      return SafeArea(child: content);
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        title: const Text('Laporan Penjualan Harian'),
+        actions: [
+          if (reportState.reportData != null && ((reportState.reportData!['total_transactions'] as int?) ?? 0) > 0)
+            IconButton(
+              icon: const Icon(Icons.share_rounded),
+              tooltip: 'Bagikan PDF Laporan',
+              onPressed: () => _sharePDF(reportState.reportData!),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: content,
       ),
     );
   }
@@ -412,7 +756,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     final totalTransactions = report['total_transactions'] as int;
     final totalServiceCharge = (report['total_service_charge'] as num?)?.toDouble() ?? 0.0;
     final totalTax = report['total_tax'] as double;
-    final paymentBreakdown = report['payment_breakdown'] as Map<String, double>;
+    final paymentBreakdown = (report['payment_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
+    final onlinePlatformBreakdown = (report['online_platform_breakdown'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? <String, double>{};
     final topProducts = report['top_products'] as List<Map<String, dynamic>>;
     final topModifiers = (report['top_modifiers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
@@ -561,6 +906,64 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ],
           ),
         ),
+        if (onlinePlatformBreakdown.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          AppCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.delivery_dining_rounded, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Detail Pendapatan Online Food',
+                        style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                ...onlinePlatformBreakdown.entries.map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(entry.key, style: AppTypography.bodyMedium),
+                        Text(
+                          CurrencyFormatter.format(entry.value),
+                          style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const Divider(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total Online Food',
+                      style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      CurrencyFormatter.format(
+                        onlinePlatformBreakdown.values.fold<double>(0.0, (sum, val) => sum + val),
+                      ),
+                      style: AppTypography.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
 
@@ -624,9 +1027,21 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   children: [
                     Icon(Icons.tune_rounded, size: 18, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    Text(
-                      'Rekap Varian & Topping Terjual',
-                      style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rekap Varian & Topping Terjual',
+                            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Pendapatan varian/topping sudah otomatis masuk ke total omset produk di atas',
+                            style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -666,18 +1081,33 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             ),
           ),
         ],
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
         AppButton(
           text: 'Cetak Laporan Ringkasan',
           onPressed: totalTransactions == 0 ? null : () => _handlePrintReport(report),
           icon: Icons.print_rounded,
         ),
-        SizedBox(height: 8),
-        AppButton(
-          text: 'Unduh / Ekspor Laporan PDF',
-          type: AppButtonType.secondary,
-          onPressed: totalTransactions == 0 ? null : () => _exportToPDF(report),
-          icon: Icons.picture_as_pdf_rounded,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: AppButton(
+                text: 'Unduh PDF',
+                type: AppButtonType.secondary,
+                onPressed: totalTransactions == 0 ? null : () => _exportToPDF(report),
+                icon: Icons.download_rounded,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: AppButton(
+                text: 'Bagikan PDF',
+                type: AppButtonType.secondary,
+                onPressed: totalTransactions == 0 ? null : () => _sharePDF(report),
+                icon: Icons.share_rounded,
+              ),
+            ),
+          ],
         ),
       ],
     );

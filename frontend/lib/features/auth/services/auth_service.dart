@@ -78,7 +78,7 @@ class AuthService {
         return {'success': false, 'message': errorMsg};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Gagal terhubung ke server ($apiBaseUrl)'};
+      return {'success': false, 'message': 'Gagal terhubung ke server. Periksa koneksi internet Anda.'};
     }
   }
 }

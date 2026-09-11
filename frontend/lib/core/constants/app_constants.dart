@@ -5,12 +5,14 @@ library;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// API base URL for the SaaS backend server.
-/// Configured via .env files.
-String get apiBaseUrl => dotenv.env['API_BASE_URL'];
+/// Configured via .env files with fallback to production server.
+String get apiBaseUrl => dotenv.env['API_BASE_URL']?.isNotEmpty == true
+    ? dotenv.env['API_BASE_URL']!
+    : 'https://aplikasi.appkasirpro.com';
 
 /// Application metadata
-const String appVersion = '0.1.82';
-const String appBuildNumber = '182';
+const String appVersion = '0.1.83';
+const String appBuildNumber = '183';
 const String appName = 'Kasir Pro';
 
 /// Order Type constants

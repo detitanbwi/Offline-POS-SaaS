@@ -357,5 +357,20 @@ void main() {
       final success = await notifier.cancelOrderItem('item-1', 'Batal pesan');
       expect(success, true);
     });
+
+    test('setOrderType with isDirectPayment sets directPayment flag correctly', () {
+      final notifier = container.read(orderNotifierProvider.notifier);
+      expect(container.read(orderNotifierProvider).isDirectPayment, false);
+
+      notifier.setOrderType('take_away', subType: 'direct_payment', isDirectPayment: true);
+
+      final state = container.read(orderNotifierProvider);
+      expect(state.isTakeAway, true);
+      expect(state.takeAwaySubType, 'direct_payment');
+      expect(state.isDirectPayment, true);
+
+      notifier.setOrderType('dine_in');
+      expect(container.read(orderNotifierProvider).isDirectPayment, false);
+    });
   });
 }

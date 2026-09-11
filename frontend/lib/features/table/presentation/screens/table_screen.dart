@@ -429,19 +429,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Rincian ${table.nama}',
-                        style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
-                      ),
-                      if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'Atas Nama: ${activeOrder.customerName}',
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          'Rincian ${table.nama}',
+                          style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                         ),
-                    ],
+                        if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                          Text(
+                            'Atas Nama: ${activeOrder.customerName}',
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
                   ),
                   IconButton(
                     icon: Icon(Icons.close),
@@ -615,6 +617,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                               ),
                                           ],
                                         ),
+                                        if (item.hasModifiers) ...[
+                                          const SizedBox(height: 2),
+                                          ...item.selectedModifiers.map((m) => Padding(
+                                            padding: const EdgeInsets.only(bottom: 1),
+                                            child: Text(
+                                              '+ ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                              style: TextStyle(
+                                                fontSize: 10.5.sp,
+                                                color: AppColors.primary,
+                                                fontWeight: FontWeight.w500,
+                                                decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                              ),
+                                            ),
+                                          )),
+                                        ],
                                         if (item.catatan != null && item.catatan!.isNotEmpty)
                                           Text(
                                             'Note: ${item.catatan}',
@@ -851,29 +868,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                               } catch (_) {}
                             }
 
-                            // 3. Cek Kasir bertipe Owner jika belum authorized
-                            if (!isAuthorized) {
-                              try {
-                                final cashierRepo = ref.read(cashierRepositoryProvider);
-                                final cashier = await cashierRepo.getCashierByPin(hashedPin);
-                                if (cashier != null && cashier.isOwner == 1) {
-                                  isAuthorized = true;
-                                }
-                              } catch (_) {}
-                            }
-
-                            // 4. Cek jika sesi aktif adalah Owner
-                            if (!isAuthorized) {
-                              final authUser = ref.read(authSessionProvider);
-                              if (authUser != null && authUser.isOwner) {
-                                isAuthorized = true;
-                              }
-                            }
-
                             if (!isAuthorized) {
                               setDialogState(() {
                                 isSubmitting = false;
-                                dialogErrorMessage = 'Otorisasi gagal! PIN salah atau bukan Owner.';
+                                dialogErrorMessage = 'Otorisasi gagal! PIN Master Pemilik salah.';
                               });
                               return;
                             }

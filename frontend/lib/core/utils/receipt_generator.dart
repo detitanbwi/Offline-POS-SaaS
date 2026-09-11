@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
 import '../database/pos_database.dart';
@@ -13,6 +16,27 @@ class ReceiptGenerator {
   static Future<CapabilityProfile> _getProfile() async {
     _cachedProfile ??= await CapabilityProfile.load();
     return _cachedProfile!;
+  }
+
+  static Future<List<int>> _generateLogoBytes(Generator generator, PaperSize paperSize) async {
+    try {
+      final storage = SecureStorageService();
+      final logoPath = await storage.getStoreLogo();
+      if (logoPath == null) return [];
+      final file = File(logoPath);
+      if (!await file.exists()) return [];
+
+      final rawBytes = await file.readAsBytes();
+      final decoded = img.decodeImage(rawBytes);
+      if (decoded == null) return [];
+
+      final targetWidth = paperSize == PaperSize.mm80 ? 220 : 150;
+      final resized = img.copyResize(decoded, width: targetWidth);
+      return generator.imageRaster(resized, align: PosAlign.center);
+    } catch (e) {
+      debugPrint('Error generating logo bytes for receipt: $e');
+      return [];
+    }
   }
 
   static Future<String> _resolveCashierName(String? cashierNama) async {
@@ -201,7 +225,8 @@ class ReceiptGenerator {
     final eqLine = _equalsDivider(charsPerLine);
     final dashLine = _dashDivider(charsPerLine);
 
-    // Title & Store Info Header
+    // Logo & Title & Store Info Header
+    bytes += await _generateLogoBytes(generator, paperSize);
     bytes += generator.text('TAGIHAN', styles: const PosStyles(align: PosAlign.center, bold: true));
     bytes += generator.text(storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
     for (var line in storeAddress.split('\n')) {
@@ -305,7 +330,7 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
-    final storeTotal = order.subtotal + scAmount + order.taxAmount;
+    final storeTotal = order.subtotal - order.discountAmount + scAmount + order.taxAmount;
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += _renderRow(
       generator,
@@ -467,7 +492,8 @@ class ReceiptGenerator {
     final eqLine = _equalsDivider(charsPerLine);
     final dashLine = _dashDivider(charsPerLine);
 
-    // Store Info Header
+    // Logo & Store Info Header
+    bytes += await _generateLogoBytes(generator, paperSize);
     bytes += generator.text(storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
     for (var line in storeAddress.split('\n')) {
       bytes += generator.text(line, styles: const PosStyles(align: PosAlign.center));
@@ -563,7 +589,7 @@ class ReceiptGenerator {
         totalWidth: charsPerLine,
       );
     }
-    final storeTotal = transaction.subtotal + txScAmount + transaction.taxAmount;
+    final storeTotal = transaction.subtotal - transaction.discountAmount + txScAmount + transaction.taxAmount;
     bytes += _renderRow(
       generator,
       'TOTAL',
@@ -574,7 +600,6 @@ class ReceiptGenerator {
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
     if (transaction.onlinePlatformTotal != null && transaction.onlinePlatformTotal! > 0) {
-      final storeTotal = transaction.subtotal + transaction.taxAmount;
       final diff = (transaction.platformDifference != null && transaction.platformDifference != 0)
           ? transaction.platformDifference!
           : (transaction.onlinePlatformTotal! - storeTotal);
@@ -632,8 +657,12 @@ class ReceiptGenerator {
     required int totalTransactions,
     required double totalTax,
     double? totalServiceCharge,
+    int? totalVoidCount,
+    double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
+    Map<String, double>? onlinePlatformBreakdown,
     required List<Map<String, dynamic>> topProducts,
+    List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
     String? startTimeStr,
     String? endTimeStr,
@@ -674,6 +703,14 @@ class ReceiptGenerator {
     bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Transaksi : $totalTransactions', styles: const PosStyles(align: PosAlign.left));
     bytes += generator.text('Total Item      : $itemsCount', styles: const PosStyles(align: PosAlign.left));
+    if (totalVoidCount != null && totalVoidCount > 0) {
+      bytes += _renderRow(
+        generator,
+        'Transaksi Void ($totalVoidCount)',
+        CurrencyFormatter.formatNumber(totalVoidAmount ?? 0.0),
+        totalWidth: charsPerLine,
+      );
+    }
     if (totalServiceCharge != null && totalServiceCharge > 0) {
       bytes += _renderRow(generator, 'Total Service', CurrencyFormatter.formatNumber(totalServiceCharge), totalWidth: charsPerLine);
     }
@@ -699,6 +736,22 @@ class ReceiptGenerator {
     );
     bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
 
+    // Online Food Breakdown Section
+    if (onlinePlatformBreakdown != null && onlinePlatformBreakdown.isNotEmpty) {
+      bytes += generator.text('DETAIL ONLINE FOOD', styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+      double totalOnlineFood = 0.0;
+      onlinePlatformBreakdown.forEach((platform, total) {
+        if (total >= 0) {
+          totalOnlineFood += total;
+          bytes += _renderRow(generator, platform, CurrencyFormatter.formatNumber(total), totalWidth: charsPerLine);
+        }
+      });
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+      bytes += _renderRow(generator, 'Total Online Food', CurrencyFormatter.formatNumber(totalOnlineFood), bold: true, totalWidth: charsPerLine);
+      bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+    }
+
     // Top 5 Best Selling Products Section
     if (topProducts.isNotEmpty) {
       bytes += generator.text('5 PRODUK TERLARIS', styles: const PosStyles(align: PosAlign.center, bold: true));
@@ -712,8 +765,22 @@ class ReceiptGenerator {
       bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
     }
 
+    // Top Modifiers / Topping Section
+    if (topModifiers != null && topModifiers.isNotEmpty) {
+      bytes += generator.text('VARIAN & TOPPING', styles: const PosStyles(align: PosAlign.center, bold: true));
+      bytes += generator.text(dashLine, styles: const PosStyles(align: PosAlign.left));
+      for (var m in topModifiers) {
+        final nama = (m['nama'] ?? m['name'] ?? '-').toString();
+        final qty = (m['qty'] ?? 0).toString();
+        final total = (m['total'] as num?)?.toDouble() ?? 0.0;
+        final rightStr = total > 0 ? '${qty}x (${CurrencyFormatter.formatNumber(total)})' : '${qty}x';
+        bytes += _renderRow(generator, nama, rightStr, totalWidth: charsPerLine);
+      }
+      bytes += generator.text(eqLine, styles: const PosStyles(align: PosAlign.center));
+    }
+
     // Physical Cash Reconciliation Banner
-    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
+    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0);
     final double actCash = actualCash ?? expCash;
     final double diffCash = selisihCash ?? (actCash - expCash);
 
@@ -1101,8 +1168,12 @@ class ReceiptGenerator {
     required int totalTransactions,
     required double totalTax,
     double? totalServiceCharge,
+    int? totalVoidCount,
+    double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
+    Map<String, double>? onlinePlatformBreakdown,
     required List<Map<String, dynamic>> topProducts,
+    List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
     String? startTimeStr,
     String? endTimeStr,
@@ -1118,7 +1189,7 @@ class ReceiptGenerator {
     final String end = endTimeStr ?? nowFormatted;
     final int itemsCount = totalItemsCount ?? topProducts.fold<int>(0, (sum, p) => sum + ((p['qty'] as num?)?.toInt() ?? 0));
 
-    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
+    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0);
     final double actCash = actualCash ?? expCash;
     final double diffCash = selisihCash ?? (actCash - expCash);
 
@@ -1137,6 +1208,9 @@ class ReceiptGenerator {
     buffer.writeln(dashLine);
     buffer.writeln('Total Transaksi : $totalTransactions');
     buffer.writeln('Total Item      : $itemsCount');
+    if (totalVoidCount != null && totalVoidCount > 0) {
+      buffer.writeln(formatTextRow('Transaksi Void ($totalVoidCount)', CurrencyFormatter.formatNumber(totalVoidAmount ?? 0.0), width: charsPerLine));
+    }
     if (totalServiceCharge != null && totalServiceCharge > 0) {
       buffer.writeln(formatTextRow('Total Service', CurrencyFormatter.formatNumber(totalServiceCharge), width: charsPerLine));
     }
@@ -1152,6 +1226,21 @@ class ReceiptGenerator {
     buffer.writeln(dashLine);
     buffer.writeln(formatTextRow('TOTAL OMZET', CurrencyFormatter.formatNumber(totalSales), width: charsPerLine));
     buffer.writeln(eqLine);
+
+    if (onlinePlatformBreakdown != null && onlinePlatformBreakdown.isNotEmpty) {
+      buffer.writeln(centerText('DETAIL ONLINE FOOD', width: charsPerLine));
+      buffer.writeln(dashLine);
+      double totalOnlineFood = 0.0;
+      onlinePlatformBreakdown.forEach((platform, total) {
+        if (total >= 0) {
+          totalOnlineFood += total;
+          buffer.writeln(formatTextRow(platform, CurrencyFormatter.formatNumber(total), width: charsPerLine));
+        }
+      });
+      buffer.writeln(dashLine);
+      buffer.writeln(formatTextRow('Total Online Food', CurrencyFormatter.formatNumber(totalOnlineFood), width: charsPerLine));
+      buffer.writeln(eqLine);
+    }
     if (topProducts.isNotEmpty) {
       buffer.writeln(centerText('5 PRODUK TERLARIS', width: charsPerLine));
       buffer.writeln(dashLine);
@@ -1160,6 +1249,18 @@ class ReceiptGenerator {
         final nama = (p['nama'] ?? p['name'] ?? p['produk_nama'] ?? 'Produk').toString();
         final qty = (p['qty'] ?? 0).toString();
         buffer.writeln(formatTextRow(nama, '${qty}x', width: charsPerLine));
+      }
+      buffer.writeln(eqLine);
+    }
+    if (topModifiers != null && topModifiers.isNotEmpty) {
+      buffer.writeln(centerText('VARIAN & TOPPING', width: charsPerLine));
+      buffer.writeln(dashLine);
+      for (var m in topModifiers) {
+        final nama = (m['nama'] ?? m['name'] ?? '-').toString();
+        final qty = (m['qty'] ?? 0).toString();
+        final total = (m['total'] as num?)?.toDouble() ?? 0.0;
+        final rightStr = total > 0 ? '${qty}x (${CurrencyFormatter.formatNumber(total)})' : '${qty}x';
+        buffer.writeln(formatTextRow(nama, rightStr, width: charsPerLine));
       }
       buffer.writeln(eqLine);
     }

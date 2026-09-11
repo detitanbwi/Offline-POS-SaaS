@@ -90,19 +90,21 @@ class TableOrderDetailSheet {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Rincian ${table.nama}',
-                        style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
-                      ),
-                      if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'Atas Nama: ${activeOrder.customerName}',
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          'Rincian ${table.nama}',
+                          style: AppTypography.titleMedium.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                         ),
-                    ],
+                        if (activeOrder?.customerName != null && activeOrder.customerName.isNotEmpty)
+                          Text(
+                            'Atas Nama: ${activeOrder.customerName}',
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
                   ),
                   IconButton(
                     icon: Icon(Icons.close),
@@ -632,7 +634,7 @@ class TableOrderDetailSheet {
                 SizedBox(height: 12),
                 AppTextField(
                   controller: pinController,
-                  labelText: 'PIN Manager / Kasir',
+                  labelText: 'PIN Master / Pemilik',
                   hintText: 'Masukkan PIN 6 digit',
                   prefixIcon: Icons.lock_outline_rounded,
                   keyboardType: TextInputType.number,

@@ -22,7 +22,15 @@ class ActivationControllerTest extends TestCase
 
     public function test_login_returns_only_safe_user_fields(): void
     {
+        $tenant = Tenant::create([
+            'name' => 'Test Store',
+            'owner_name' => 'Owner',
+            'email' => 'owner@example.com',
+            'status' => \App\Enums\TenantStatus::ACTIVE,
+        ]);
+
         $user = User::factory()->create([
+            'tenant_id' => $tenant->id,
             'email' => 'kasir@example.com',
             'password' => Hash::make('secret123'),
         ]);

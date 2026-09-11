@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -11,6 +13,19 @@ import 'currency_formatter.dart';
 
 class PdfReceiptGenerator {
   static const double _rollWidth = 58 * PdfPageFormat.mm;
+
+  static Future<Uint8List?> _loadLogoBytes() async {
+    try {
+      final storage = SecureStorageService();
+      final logoPath = await storage.getStoreLogo();
+      if (logoPath != null && File(logoPath).existsSync()) {
+        return await File(logoPath).readAsBytes();
+      }
+    } catch (e) {
+      debugPrint('Error loading logo for PDF receipt: $e');
+    }
+    return null;
+  }
 
   static Future<String> _resolveCashierName(String? cashierNama) async {
     if (cashierNama != null && cashierNama.trim().isNotEmpty) {
@@ -188,6 +203,7 @@ class PdfReceiptGenerator {
     final productIds = activeItems.map((i) => i.produkId).toList();
     final packageComponents = await _getPackageComponents(productIds);
     final displayItems = _consolidateOrderItems(activeItems, packageComponents);
+    final logoBytes = await _loadLogoBytes();
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -203,6 +219,16 @@ class PdfReceiptGenerator {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               // Header
+              if (logoBytes != null) ...[
+                pw.Center(
+                  child: pw.Image(
+                    pw.MemoryImage(logoBytes),
+                    width: 48,
+                    height: 48,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+              ],
               pw.Center(child: pw.Text('TAGIHAN', style: pw.TextStyle(font: fontBold, fontSize: 10))),
               pw.Center(child: pw.Text(storeName, style: pw.TextStyle(font: fontBold, fontSize: 10))),
               for (var line in storeAddress.split('\n'))
@@ -391,6 +417,7 @@ class PdfReceiptGenerator {
     final txProductIds = items.map((i) => i.produkId).toList();
     final txPackageComponents = await _getPackageComponents(txProductIds);
     final displayItems = _consolidateTransactionItems(items, txPackageComponents);
+    final logoBytes = await _loadLogoBytes();
 
     final pdf = pw.Document();
     final font = pw.Font.courier();
@@ -401,10 +428,20 @@ class PdfReceiptGenerator {
         pageFormat: PdfPageFormat(_rollWidth, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (pw.Context context) {
           final (txScAmount, txScRate) = _resolveTxServiceCharge(transaction);
-          final storeTotal = transaction.subtotal + txScAmount + transaction.taxAmount;
+          final storeTotal = transaction.subtotal - transaction.discountAmount + txScAmount + transaction.taxAmount;
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
+              if (logoBytes != null) ...[
+                pw.Center(
+                  child: pw.Image(
+                    pw.MemoryImage(logoBytes),
+                    width: 48,
+                    height: 48,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+              ],
               pw.Center(child: pw.Text(storeName, style: pw.TextStyle(font: fontBold, fontSize: 10))),
               for (var line in storeAddress.split('\n'))
                 pw.Center(child: pw.Text(line, style: pw.TextStyle(font: font, fontSize: 8))),
@@ -522,8 +559,12 @@ class PdfReceiptGenerator {
     required int totalTransactions,
     required double totalTax,
     double? totalServiceCharge,
+    int? totalVoidCount,
+    double? totalVoidAmount,
     required Map<String, double> paymentBreakdown,
+    Map<String, double>? onlinePlatformBreakdown,
     required List<Map<String, dynamic>> topProducts,
+    List<Map<String, dynamic>>? topModifiers,
     String? cashierNama,
     String? startTimeStr,
     String? endTimeStr,
@@ -542,7 +583,7 @@ class PdfReceiptGenerator {
     final String end = endTimeStr ?? nowFormatted;
     final int itemsCount = totalItemsCount ?? topProducts.fold<int>(0, (sum, p) => sum + ((p['qty'] as num?)?.toInt() ?? 0));
 
-    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? totalSales);
+    final double expCash = expectedCash ?? (paymentBreakdown['Tunai'] ?? paymentBreakdown['Cash'] ?? 0.0);
     final double actCash = actualCash ?? expCash;
     final double diffCash = selisihCash ?? (actCash - expCash);
 
@@ -566,6 +607,8 @@ class PdfReceiptGenerator {
               pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Total Transaksi : $totalTransactions', style: pw.TextStyle(font: font, fontSize: 8)),
               pw.Text('Total Item      : $itemsCount', style: pw.TextStyle(font: font, fontSize: 8)),
+              if (totalVoidCount != null && totalVoidCount > 0)
+                _buildRowPdf(font, 'Transaksi Void ($totalVoidCount)', CurrencyFormatter.formatNumber(totalVoidAmount ?? 0.0)),
               if (totalServiceCharge != null && totalServiceCharge > 0)
                 _buildRowPdf(font, 'Total Service', CurrencyFormatter.formatNumber(totalServiceCharge)),
               if (totalTax > 0)
@@ -585,6 +628,24 @@ class PdfReceiptGenerator {
               ),
               pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
 
+              if (onlinePlatformBreakdown != null && onlinePlatformBreakdown.isNotEmpty) ...[
+                pw.Center(child: pw.Text('DETAIL ONLINE FOOD', style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+                for (var entry in onlinePlatformBreakdown.entries)
+                  if (entry.value >= 0)
+                    _buildRowPdf(font, entry.key, CurrencyFormatter.formatNumber(entry.value)),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+                _buildRowPdf(
+                  fontBold,
+                  'Total Online Food',
+                  CurrencyFormatter.formatNumber(
+                    onlinePlatformBreakdown.values.fold<double>(0.0, (sum, val) => sum + val),
+                  ),
+                  isBold: true,
+                ),
+                pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
+
               if (topProducts.isNotEmpty) ...[
                 pw.Center(child: pw.Text('5 PRODUK TERLARIS', style: pw.TextStyle(font: fontBold, fontSize: 9))),
                 pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
@@ -593,6 +654,20 @@ class PdfReceiptGenerator {
                     font,
                     (p['nama'] ?? p['name'] ?? p['produk_nama'] ?? 'Produk').toString(),
                     '${p['qty'] ?? 0}x',
+                  ),
+                pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
+              ],
+
+              if (topModifiers != null && topModifiers.isNotEmpty) ...[
+                pw.Center(child: pw.Text('VARIAN & TOPPING', style: pw.TextStyle(font: fontBold, fontSize: 9))),
+                pw.Text('--------------------------------', style: pw.TextStyle(font: font, fontSize: 8)),
+                for (var m in topModifiers)
+                  _buildRowPdf(
+                    font,
+                    (m['nama'] ?? m['name'] ?? '-').toString(),
+                    (m['total'] as num?)?.toDouble() != null && (m['total'] as num) > 0
+                        ? '${m['qty'] ?? 0}x (${CurrencyFormatter.formatNumber(m['total'])})'
+                        : '${m['qty'] ?? 0}x',
                   ),
                 pw.Text('================================', style: pw.TextStyle(font: font, fontSize: 8)),
               ],

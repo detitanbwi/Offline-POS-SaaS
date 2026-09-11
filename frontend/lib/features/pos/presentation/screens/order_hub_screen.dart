@@ -79,6 +79,26 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
     }
   }
 
+  void _handleDirectPaymentSelected() {
+    final orderNotifier = ref.read(orderNotifierProvider.notifier);
+    final cartNotifier = ref.read(cartNotifierProvider.notifier);
+
+    orderNotifier.resetOrder();
+    orderNotifier.setOrderType(
+      'take_away',
+      subType: 'direct_payment',
+      isDirectPayment: true,
+    );
+    cartNotifier.clear();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CashierScreen()),
+    ).then((_) {
+      ref.read(orderNotifierProvider.notifier).loadActiveOrdersMap();
+    });
+  }
+
   void _handleTakeAwaySelected() {
     showDialog(
       context: context,
@@ -518,26 +538,28 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: AppTypography.titleMedium.copyWith(
-                                      fontSize: 18.sp,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  if (order.customerName != null &&
-                                      order.customerName!.isNotEmpty)
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      'Atas Nama: ${order.customerName}',
-                                      style: AppTypography.bodySmall.copyWith(
-                                        color: AppColors.primary,
+                                      title,
+                                      style: AppTypography.titleMedium.copyWith(
+                                        fontSize: 18.sp,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                ],
+                                    if (order.customerName != null &&
+                                        order.customerName!.isNotEmpty)
+                                      Text(
+                                        'Atas Nama: ${order.customerName}',
+                                        style: AppTypography.bodySmall.copyWith(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                               IconButton(
                                 icon: Icon(Icons.close),
@@ -673,15 +695,20 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                 color: AppColors.primary,
                                               ),
                                               SizedBox(width: 6),
-                                              Text(
-                                                batchTitle,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13.sp,
-                                                  color: AppColors.primary,
+                                              Expanded(
+                                                child: Text(
+                                                  batchTitle,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13.sp,
+                                                    color: AppColors.primary,
+                                                  ),
                                                 ),
                                               ),
-                                              const Spacer(),
+                                              SizedBox(width: 8),
                                               Text(
                                                 '${batchItemList.length} Menu',
                                                 style: TextStyle(
@@ -821,6 +848,21 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                                             ),
                                                         ],
                                                       ),
+                                                      if (item.hasModifiers) ...[
+                                                        const SizedBox(height: 2),
+                                                        ...item.selectedModifiers.map((m) => Padding(
+                                                          padding: const EdgeInsets.only(bottom: 1),
+                                                          child: Text(
+                                                            '+ ${m.groupName}: ${m.optionName}${m.harga > 0 ? ' (+${CurrencyFormatter.format(m.harga)})' : ''}',
+                                                            style: TextStyle(
+                                                              fontSize: 10.5.sp,
+                                                              color: AppColors.primary,
+                                                              fontWeight: FontWeight.w500,
+                                                              decoration: item.isCancelled ? TextDecoration.lineThrough : null,
+                                                            ),
+                                                          ),
+                                                        )),
+                                                      ],
                                                       if (item.catatan !=
                                                               null &&
                                                           item
@@ -1376,32 +1418,11 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                               } catch (_) {}
                             }
 
-                            // 3. Cek Kasir bertipe Owner jika belum authorized
-                            if (!isAuthorized) {
-                              try {
-                                final cashierRepo =
-                                    ref.read(cashierRepositoryProvider);
-                                final cashier = await cashierRepo
-                                    .getCashierByPin(hashedPin);
-                                if (cashier != null && cashier.isOwner == 1) {
-                                  isAuthorized = true;
-                                }
-                              } catch (_) {}
-                            }
-
-                            // 4. Cek jika sesi aktif adalah Owner
-                            if (!isAuthorized) {
-                              final authUser = ref.read(authSessionProvider);
-                              if (authUser != null && authUser.isOwner) {
-                                isAuthorized = true;
-                              }
-                            }
-
                             if (!isAuthorized) {
                               setDialogState(() {
                                 isSubmitting = false;
                                 dialogErrorMessage =
-                                    'Otorisasi gagal! PIN salah atau bukan Owner.';
+                                    'Otorisasi gagal! PIN Master Pemilik salah.';
                               });
                               return;
                             }
@@ -1704,6 +1725,58 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                   ),
                 ],
               ),
+              SizedBox(height: AppSpacing.m),
+
+              // Tombol Mode ke-3: Pesan Langsung Bayar
+              InkWell(
+                onTap: _handleDirectPaymentSelected,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.green.shade600,
+                      width: 2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.flash_on_rounded,
+                        size: 28,
+                        color: Colors.green.shade700,
+                      ),
+                      SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pesan Langsung Bayar',
+                            style: AppTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade800,
+                            ),
+                          ),
+                          Text(
+                            'Pilih menu & langsung ke kasir pembayaran',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: Colors.green.shade900.withValues(alpha: 0.7),
+                              fontSize: 11.sp,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               SizedBox(height: AppSpacing.l),
 
               // Bottom Section Header: Daftar Pesanan Aktif
@@ -2001,10 +2074,19 @@ class _OrderHubScreenState extends ConsumerState<OrderHubScreen> {
                                       ),
                                       SizedBox(height: 4),
                                       Text(
-                                        'Waktu: $formattedTime • Pelanggan: ${order.customerName ?? 'Umum'}',
+                                        'Waktu: $formattedTime',
                                         style: AppTypography.bodySmall.copyWith(
                                           color: AppColors.textSecondary,
                                           fontSize: 11.sp,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Pelanggan: ${(order.customerName != null && order.customerName!.trim().isNotEmpty) ? order.customerName : 'Umum'}',
+                                        style: AppTypography.bodySmall.copyWith(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 11.sp,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,

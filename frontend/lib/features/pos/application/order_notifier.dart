@@ -27,6 +27,7 @@ class OrderState {
   final String? onlinePlatform;
   final String? customerName;
   final double? onlinePlatformTotal;
+  final bool isDirectPayment;
   final bool isLoading;
   final String? errorMessage;
   final int nextBatchNumber;
@@ -43,6 +44,7 @@ class OrderState {
     this.onlinePlatform,
     this.customerName,
     this.onlinePlatformTotal,
+    this.isDirectPayment = false,
     this.isLoading = false,
     this.errorMessage,
     this.nextBatchNumber = 1,
@@ -63,6 +65,7 @@ class OrderState {
     String? onlinePlatform,
     String? customerName,
     double? onlinePlatformTotal,
+    bool? isDirectPayment,
     bool? isLoading,
     String? errorMessage,
     int? nextBatchNumber,
@@ -82,6 +85,7 @@ class OrderState {
       onlinePlatform: onlinePlatform ?? this.onlinePlatform,
       customerName: customerName ?? this.customerName,
       onlinePlatformTotal: clearOnlinePlatformTotal ? null : (onlinePlatformTotal ?? this.onlinePlatformTotal),
+      isDirectPayment: isDirectPayment ?? this.isDirectPayment,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
       nextBatchNumber: clearActiveOrder ? 1 : (nextBatchNumber ?? this.nextBatchNumber),
@@ -103,12 +107,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
     );
   }
 
-  void setOrderType(String type, {String? subType, String? platform, bool clearActiveOrder = true}) {
+  void setOrderType(String type, {String? subType, String? platform, bool isDirectPayment = false, bool clearActiveOrder = true}) {
     if (type == 'take_away') {
       state = state.copyWith(
         orderType: 'take_away',
         takeAwaySubType: subType,
         onlinePlatform: platform,
+        isDirectPayment: isDirectPayment,
         clearSelectedTable: true,
         clearActiveOrder: clearActiveOrder,
       );
@@ -117,11 +122,16 @@ class OrderNotifier extends StateNotifier<OrderState> {
         orderType: 'dine_in',
         takeAwaySubType: null,
         onlinePlatform: null,
+        isDirectPayment: false,
         clearOnlinePlatformTotal: true,
         clearActiveOrder: clearActiveOrder,
       );
     }
     _ref.read(cartNotifierProvider.notifier).recalculateTotals();
+  }
+
+  void setDirectPaymentMode(bool enabled) {
+    state = state.copyWith(isDirectPayment: enabled);
   }
 
   void setCustomerName(String? name) {

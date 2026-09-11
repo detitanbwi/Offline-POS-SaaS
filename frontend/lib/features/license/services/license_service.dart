@@ -46,8 +46,7 @@ class LicenseService {
       }
 
       if (response.statusCode == 200 && data['success'] == true) {
-        final offlineToken = data['offline_token'] ?? '';
-        final rawKeyString = '$licenseKey$fingerprint$offlineToken';
+        final rawKeyString = '$licenseKey$fingerprint';
         final keyBytes = utf8.encode(rawKeyString);
         final dbEncryptionKey = sha256.convert(keyBytes).toString();
 

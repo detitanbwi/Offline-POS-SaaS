@@ -48,37 +48,19 @@ class TransactionRepositoryImpl implements TransactionRepository {
       );
 
       // Check if stock for items was already deducted when dispatched to kitchen in draft order
-      bool itemsAlreadyDeductedInDraft = false;
+      final Map<String, int> printedQtyMap = {};
       final effectiveOrderId = header.masterOrderId;
       if (effectiveOrderId != null && effectiveOrderId.isNotEmpty) {
-        final printedItems = await txn.query(
+        final printedRows = await txn.query(
           'order_items',
+          columns: ['produk_id', 'qty'],
           where: 'order_id = ? AND status_cetak = 1',
           whereArgs: [effectiveOrderId],
-          limit: 1,
         );
-        if (printedItems.isNotEmpty) {
-          itemsAlreadyDeductedInDraft = true;
-        }
-      } else if (header.nomorTransaksi.isNotEmpty) {
-        final existingOrders = await txn.query(
-          'orders',
-          columns: ['id'],
-          where: 'nomor_order = ?',
-          whereArgs: [header.nomorTransaksi],
-          limit: 1,
-        );
-        if (existingOrders.isNotEmpty) {
-          final orderId = existingOrders.first['id'] as String;
-          final printedItems = await txn.query(
-            'order_items',
-            where: 'order_id = ? AND status_cetak = 1',
-            whereArgs: [orderId],
-            limit: 1,
-          );
-          if (printedItems.isNotEmpty) {
-            itemsAlreadyDeductedInDraft = true;
-          }
+        for (final row in printedRows) {
+          final pId = row['produk_id'] as String? ?? '';
+          final q = (row['qty'] as num?)?.toInt() ?? 0;
+          printedQtyMap[pId] = (printedQtyMap[pId] ?? 0) + q;
         }
       }
 
@@ -95,8 +77,18 @@ class TransactionRepositoryImpl implements TransactionRepository {
         );
 
         // 3. Deduct product stock (supports MultiStock for Package Bundles, skips non-stock manual items and already deducted draft items)
-        if (itemsAlreadyDeductedInDraft || item.produkId.startsWith('manual_')) {
-          // Skip if stock was already deducted upon kitchen dispatch or is custom manual non-stock
+        if (item.produkId.startsWith('manual_')) {
+          continue;
+        }
+
+        final int alreadyDeducted = printedQtyMap[item.produkId] ?? 0;
+        final int qtyToDeduct = (item.qty - alreadyDeducted).clamp(0, item.qty);
+        if (alreadyDeducted > 0) {
+          printedQtyMap[item.produkId] = (alreadyDeducted - (item.qty - qtyToDeduct)).clamp(0, alreadyDeducted);
+        }
+
+        if (qtyToDeduct <= 0) {
+          // Stock was already deducted upon kitchen dispatch
           continue;
         }
 
@@ -132,7 +124,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             final compStock = comp['comp_stok'] as int;
             if (compStock != -1) {
               final compQty = comp['comp_qty'] as int;
-              final totalDeduct = compQty * item.qty;
+              final totalDeduct = compQty * qtyToDeduct;
               final newCompStock = compStock - totalDeduct;
 
               if (newCompStock < 0) {
@@ -168,7 +160,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
           final currentStock = productResult.first['stok'] as int;
           if (currentStock != -1) {
             final productName = productResult.first['nama'] as String;
-            final newStock = currentStock - item.qty;
+            final newStock = currentStock - qtyToDeduct;
 
             if (newStock < 0) {
               throw Exception('Gagal menyimpan transaksi: Stok untuk produk "$productName" tidak mencukupi.');
@@ -189,7 +181,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
               'id': _uuid.v4(),
               'produk_id': item.produkId,
               'type': 'out',
-              'qty': item.qty,
+              'qty': qtyToDeduct,
               'tanggal': todayStr,
               'catatan': saleNote,
               'created_at': nowStr,
@@ -218,13 +210,18 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> getDailySalesReport(String dateStr, {String? cashierId}) async {
+  Future<Map<String, dynamic>> getDailySalesReport(String dateStr, {String? endDateStr, String? cashierId}) async {
     final db = await _db.database;
-    final searchPattern = '$dateStr%';
+    final bool isRange = endDateStr != null && endDateStr.isNotEmpty && endDateStr != dateStr;
+
+    final String dateCondition = isRange
+        ? "strftime('%Y-%m-%d', created_at) >= ? AND strftime('%Y-%m-%d', created_at) <= ?"
+        : "created_at LIKE ?";
+    final List<Object?> dateArgs = isRange ? [dateStr, endDateStr] : ['$dateStr%'];
 
     // Exclude voided transactions from revenue, tax, and sales calculations
-    String whereClause = "(status IS NULL OR status != 'voided') AND created_at LIKE ?";
-    List<Object?> whereArgs = [searchPattern];
+    String whereClause = "(status IS NULL OR status != 'voided') AND $dateCondition";
+    List<Object?> whereArgs = List.from(dateArgs);
 
     if (cashierId != null) {
       whereClause += ' AND cashier_id = ?';
@@ -252,8 +249,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final totalTax = (summaryResult.first['total_tax'] as num).toDouble();
 
     // Calculate voided transactions count and amount separately
-    String voidWhereClause = "status = 'voided' AND created_at LIKE ?";
-    List<Object?> voidWhereArgs = [searchPattern];
+    String voidWhereClause = "status = 'voided' AND $dateCondition";
+    List<Object?> voidWhereArgs = List.from(dateArgs);
     if (cashierId != null) {
       voidWhereClause += ' AND cashier_id = ?';
       voidWhereArgs.add(cashierId);
@@ -331,10 +328,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
         final List<dynamic> list = jsonDecode(rawModJson);
         for (var item in list) {
           if (item is Map<String, dynamic>) {
-            final groupName = item['groupName'] as String? ?? 'Varian';
-            final optionName = item['optionName'] as String? ?? '';
+            final groupName = (item['group_name'] ?? item['groupName'] ?? 'Varian').toString();
+            final optionName = (item['option_name'] ?? item['optionName'] ?? '').toString();
             final harga = (item['harga'] as num?)?.toDouble() ?? 0.0;
-            final key = '$groupName: $optionName';
+            final key = optionName.isNotEmpty
+                ? (groupName.isNotEmpty ? '$groupName: $optionName' : optionName)
+                : groupName;
             if (!modifierAggMap.containsKey(key)) {
               modifierAggMap[key] = {
                 'nama': key,
@@ -356,8 +355,32 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final topModifiers = modifierAggMap.values.toList()
       ..sort((a, b) => (b['qty'] as int).compareTo(a['qty'] as int));
 
+    final List<Map<String, dynamic>> onlinePlatformResult = await db.rawQuery(
+      '''
+      SELECT online_platform, COALESCE(SUM(grand_total), 0) as total 
+      FROM transactions 
+      WHERE $whereClause 
+        AND online_platform IS NOT NULL 
+        AND TRIM(online_platform) != ''
+      GROUP BY online_platform
+      ORDER BY total DESC
+      ''',
+      whereArgs,
+    );
+
+    final Map<String, double> onlinePlatformBreakdown = {};
+    for (var row in onlinePlatformResult) {
+      final platform = row['online_platform'] as String;
+      final total = (row['total'] as num).toDouble();
+      onlinePlatformBreakdown[platform] = total;
+    }
+
+    final String displayDate = isRange ? '$dateStr s/d $endDateStr' : dateStr;
     return {
-      'date': dateStr,
+      'date': displayDate,
+      'start_date': dateStr,
+      'end_date': endDateStr ?? dateStr,
+      'is_range': isRange,
       'total_sales': totalSales,
       'total_transactions': totalTransactions,
       'total_subtotal': totalSubtotal,
@@ -366,6 +389,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       'total_void_count': totalVoidCount,
       'total_void_amount': totalVoidAmount,
       'payment_breakdown': paymentBreakdown,
+      'online_platform_breakdown': onlinePlatformBreakdown,
       'top_products': topProducts,
       'top_modifiers': topModifiers,
     };
@@ -446,31 +470,46 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     final pCheck = await txn.query('products', where: 'id = ?', whereArgs: [produkId]);
     if (pCheck.isEmpty) {
-      final anyCat = await txn.query('categories', limit: 1);
-      String catId = anyCat.isNotEmpty ? (anyCat.first['id'] as String) : 'CAT_MANUAL';
-      if (anyCat.isEmpty) {
-        await txn.insert('categories', {
-          'id': 'CAT_MANUAL',
-          'nama': 'Manual Order',
+      // 1. Dapatkan atau buat kategori default untuk manual order
+      final activeCats = await txn.query('categories', limit: 1);
+      String catId = 'CAT_MANUAL';
+      if (activeCats.isNotEmpty) {
+        catId = activeCats.first['id'] as String;
+      } else {
+        final existingManualCat = await txn.query('categories', where: 'id = ?', whereArgs: ['CAT_MANUAL']);
+        if (existingManualCat.isEmpty) {
+          await txn.insert(
+            'categories',
+            {
+              'id': 'CAT_MANUAL',
+              'nama': 'Non Stock / Manual Order',
+              'status': 1,
+              'is_deleted': 1,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      }
+
+      // 2. Simpan produk manual dengan nama unik (disertai ID) untuk memenuhi UNIQUE constraint pada products.nama
+      await txn.insert(
+        'products',
+        {
+          'id': produkId,
+          'kategori_id': catId,
+          'nama': '$produkNama [$produkId]',
+          'harga': produkHarga,
+          'stok': -1,
+          'is_package': 0,
           'status': 1,
           'is_deleted': 1,
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
-        });
-      }
-
-      await txn.insert('products', {
-        'id': produkId,
-        'kategori_id': catId,
-        'nama': produkNama,
-        'harga': produkHarga,
-        'stok': -1,
-        'is_package': 0,
-        'status': 1,
-        'is_deleted': 1,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
 }

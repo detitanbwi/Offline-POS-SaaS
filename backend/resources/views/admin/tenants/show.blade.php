@@ -19,16 +19,23 @@
             <div class="detail-label">Bergabung</div><div class="detail-value">{{ $tenant->created_at->format('d F Y') }}</div>
         </div>
         <div class="flex gap-3 mt-4 flex-wrap">
-            <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-sm">Edit</a>
-            @if ($tenant->status->value === 'active')
-                <form method="POST" action="{{ route('admin.tenants.suspend', $tenant) }}" onsubmit="return confirm('Tangguhkan tenant ini?')">@csrf<button class="btn btn-warning btn-sm">Tangguhkan</button></form>
-            @elseif ($tenant->status->value === 'suspended')
-                <form method="POST" action="{{ route('admin.tenants.reactivate', $tenant) }}" onsubmit="return confirm('Aktifkan kembali tenant ini?')">@csrf<button class="btn btn-success btn-sm">Aktifkan</button></form>
-            @endif
-            <form method="POST" action="{{ route('admin.tenants.destroy', $tenant) }}" onsubmit="return confirm('Hapus tenant ini? Data akan dihapus.')">@csrf @method('DELETE')<button class="btn btn-danger btn-sm">Hapus</button></form>
+            @can('tenants.edit')
+                <a href="{{ route('admin.tenants.edit', $tenant) }}" class="btn btn-outline btn-sm">Edit</a>
+            @endcan
+            @can('tenants.suspend')
+                @if ($tenant->status->value === 'active')
+                    <form method="POST" action="{{ route('admin.tenants.suspend', $tenant) }}" onsubmit="return confirm('Tangguhkan tenant ini?')">@csrf<button class="btn btn-warning btn-sm">Tangguhkan</button></form>
+                @elseif ($tenant->status->value === 'suspended')
+                    <form method="POST" action="{{ route('admin.tenants.reactivate', $tenant) }}" onsubmit="return confirm('Aktifkan kembali tenant ini?')">@csrf<button class="btn btn-success btn-sm">Aktifkan</button></form>
+                @endif
+            @endcan
+            @can('tenants.delete')
+                <form method="POST" action="{{ route('admin.tenants.destroy', $tenant) }}" onsubmit="return confirm('Hapus tenant ini? Data akan dihapus.')">@csrf @method('DELETE')<button class="btn btn-danger btn-sm">Hapus</button></form>
+            @endcan
         </div>
     </div>
 
+    @can('tenants.generate_license')
     <div class="card">
         <div class="card-header"><h3 class="card-title">Generator Lisensi (Perbarui Expired & Terbitkan Token)</h3></div>
         @php
@@ -48,6 +55,7 @@
             <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">Perbarui Tanggal & Generate Token Baru</button>
         </form>
     </div>
+    @endcan
 </div>
 
 @if ($tenant->licenseTokens->count() > 0)

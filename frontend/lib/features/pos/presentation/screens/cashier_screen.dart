@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/responsive_layout.dart';
 import '../../../category/application/category_notifier.dart';
 import '../../../product/application/product_notifier.dart';
@@ -43,21 +44,65 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
     Navigator.popUntil(context, (route) => route.settings.name == '/order_hub' || route.isFirst);
   }
 
+  Future<bool> _handleBackNavigation(BuildContext context) async {
+    final cartState = ref.read(cartNotifierProvider);
+    final hasUnsavedItems = cartState.items.any((item) => item.qty > item.initialSavedQty);
+
+    if (!hasUnsavedItems) {
+      ref.read(cartNotifierProvider.notifier).clear();
+      return true;
+    }
+
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AppDialog(
+        title: 'Kembali ke Halaman Meja?',
+        message: 'Item yang sudah dimasukkan ke keranjang belum disimpan dan akan hilang jika Anda kembali. Yakin ingin kembali?',
+        confirmText: 'Ya, Keluar',
+        cancelText: 'Batal',
+        isDestructive: true,
+        onConfirm: () {
+          Navigator.pop(dialogContext, true);
+        },
+        onCancel: () {
+          Navigator.pop(dialogContext, false);
+        },
+      ),
+    );
+
+    if (shouldLeave == true) {
+      ref.read(cartNotifierProvider.notifier).clear();
+      return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderState = ref.watch(orderNotifierProvider);
     final cartState = ref.watch(cartNotifierProvider);
 
     final String tableName = orderState.selectedTable?.nama ?? orderState.activeOrder?.tableNama ?? orderState.activeOrder?.tableNomor ?? '';
-    final titleText = orderState.isTakeAway
-        ? 'Take Away (${orderState.takeAwaySubType == 'online_food' ? 'Online Food' : 'Reguler'})'
-        : (tableName.isNotEmpty ? tableName : 'Kasir POS');
+    final titleText = orderState.isDirectPayment
+        ? 'Pesan Langsung Bayar'
+        : (orderState.isTakeAway
+            ? 'Take Away (${orderState.takeAwaySubType == 'online_food' ? 'Online Food' : 'Reguler'})'
+            : (tableName.isNotEmpty ? tableName : 'Kasir POS'));
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: Text(titleText, style: TextStyle(fontSize: 14.sp)),
-        toolbarHeight: 40,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _handleBackNavigation(context);
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: AppBar(
+          title: Text(titleText, style: TextStyle(fontSize: 14.sp)),
+          toolbarHeight: 40,
         actions: [
           if (cartState.items.isNotEmpty)
             Padding(
@@ -155,6 +200,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> with SingleTicker
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

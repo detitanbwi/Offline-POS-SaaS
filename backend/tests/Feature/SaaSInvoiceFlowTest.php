@@ -164,6 +164,6 @@ class SaaSInvoiceFlowTest extends TestCase
 
         $failResponse->assertStatus(400)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Token sudah digunakan pada perangkat lain. Hubungi admin untuk reset.');
+            ->assertJsonPath('message', 'Token sudah digunakan pada perangkat lain. Harap membeli lisensi lagi.');
     }
 }

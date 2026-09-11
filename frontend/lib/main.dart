@@ -20,8 +20,12 @@ import 'core/services/app_logger.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load Environment Variables
-  await dotenv.load(fileName: ".env");
+  // Load Environment Variables (fallback gracefully if .env is missing)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('No .env file found, using default configurations: $e');
+  }
 
   // Initialize Logger
   await AppLogger.init();

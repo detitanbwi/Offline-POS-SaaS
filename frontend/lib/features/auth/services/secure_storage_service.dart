@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../../security/data/datasources/security_database.dart';
 import '../../../../core/database/pos_database.dart';
@@ -21,6 +24,7 @@ class SecureStorageService {
   static const String _keyStoreName = 'store_name';
   static const String _keyStoreAddress = 'store_address';
   static const String _keyStorePhone = 'store_phone';
+  static const String _keyStoreLogo = 'store_logo_path';
   static const String _keyOwnerUsername = 'owner_username';
   static const String _keyOwnerName = 'owner_name';
 
@@ -40,22 +44,101 @@ class SecureStorageService {
     await _storage.write(key: _keyStoreName, value: name);
     await _storage.write(key: _keyStoreAddress, value: address);
     await _storage.write(key: _keyStorePhone, value: phone);
+
+    try {
+      final db = await PosDatabase.instance.database;
+      await db.insert('store_profile_backup', {'key': 'store_name', 'value': name}, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert('store_profile_backup', {'key': 'store_address', 'value': address}, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert('store_profile_backup', {'key': 'store_phone', 'value': phone}, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (_) {}
   }
 
   Future<String?> getStoreName() async {
-    return await _storage.read(key: _keyStoreName);
+    final val = await _storage.read(key: _keyStoreName);
+    if (val != null && val.trim().isNotEmpty) return val;
+    try {
+      final db = await PosDatabase.instance.database;
+      final rows = await db.query('store_profile_backup', where: 'key = ?', whereArgs: ['store_name']);
+      if (rows.isNotEmpty) {
+        final dbVal = rows.first['value'] as String?;
+        if (dbVal != null && dbVal.trim().isNotEmpty) {
+          await _storage.write(key: _keyStoreName, value: dbVal);
+          return dbVal;
+        }
+      }
+    } catch (_) {}
+    return val;
   }
 
   Future<String?> getStoreAddress() async {
-    return await _storage.read(key: _keyStoreAddress);
+    final val = await _storage.read(key: _keyStoreAddress);
+    if (val != null && val.trim().isNotEmpty) return val;
+    try {
+      final db = await PosDatabase.instance.database;
+      final rows = await db.query('store_profile_backup', where: 'key = ?', whereArgs: ['store_address']);
+      if (rows.isNotEmpty) {
+        final dbVal = rows.first['value'] as String?;
+        if (dbVal != null) {
+          await _storage.write(key: _keyStoreAddress, value: dbVal);
+          return dbVal;
+        }
+      }
+    } catch (_) {}
+    return val;
   }
 
   Future<String?> getStorePhone() async {
-    return await _storage.read(key: _keyStorePhone);
+    final val = await _storage.read(key: _keyStorePhone);
+    if (val != null && val.trim().isNotEmpty) return val;
+    try {
+      final db = await PosDatabase.instance.database;
+      final rows = await db.query('store_profile_backup', where: 'key = ?', whereArgs: ['store_phone']);
+      if (rows.isNotEmpty) {
+        final dbVal = rows.first['value'] as String?;
+        if (dbVal != null) {
+          await _storage.write(key: _keyStorePhone, value: dbVal);
+          return dbVal;
+        }
+      }
+    } catch (_) {}
+    return val;
+  }
+
+  Future<void> saveStoreLogo(String logoPath) async {
+    await _storage.write(key: _keyStoreLogo, value: logoPath);
+    try {
+      final file = File(logoPath);
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        final base64 = base64Encode(bytes);
+        final db = await PosDatabase.instance.database;
+        await db.insert('store_profile_backup', {'key': 'store_logo_base64', 'value': base64}, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    } catch (_) {}
+  }
+
+  Future<String?> getStoreLogo() async {
+    final path = await _storage.read(key: _keyStoreLogo);
+    if (path != null && File(path).existsSync()) {
+      return path;
+    }
+    return null;
+  }
+
+  Future<void> deleteStoreLogo() async {
+    await _storage.delete(key: _keyStoreLogo);
+    try {
+      final db = await PosDatabase.instance.database;
+      await db.insert('store_profile_backup', {'key': 'store_logo_base64', 'value': ''}, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (_) {}
   }
 
   Future<void> saveOwnerUsername(String username) async {
     await _storage.write(key: _keyOwnerUsername, value: username.trim());
+    try {
+      final db = await PosDatabase.instance.database;
+      await db.insert('store_profile_backup', {'key': 'owner_username', 'value': username.trim()}, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (_) {}
   }
 
   Future<String?> getOwnerUsername() async {
@@ -68,14 +151,27 @@ class SecureStorageService {
 
   Future<void> saveOwnerName(String name) async {
     await _storage.write(key: _keyOwnerName, value: name.trim());
+    try {
+      final db = await PosDatabase.instance.database;
+      await db.insert('store_profile_backup', {'key': 'owner_name', 'value': name.trim()}, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (_) {}
   }
 
   Future<String?> getOwnerName() async {
-    final name = await _storage.read(key: _keyOwnerName);
-    if (name == null || name.trim().isEmpty) {
-      return 'Pemilik Toko';
-    }
-    return name.trim();
+    final val = await _storage.read(key: _keyOwnerName);
+    if (val != null) return val.trim();
+    try {
+      final db = await PosDatabase.instance.database;
+      final rows = await db.query('store_profile_backup', where: 'key = ?', whereArgs: ['owner_name']);
+      if (rows.isNotEmpty) {
+        final dbVal = rows.first['value'] as String?;
+        if (dbVal != null) {
+          await _storage.write(key: _keyOwnerName, value: dbVal.trim());
+          return dbVal.trim();
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,11 +9,12 @@ import '../constants/app_typography.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_snackbar.dart';
 import '../utils/file_saver_util.dart';
+import '../../features/auth/services/secure_storage_service.dart';
 import '../../features/printer/application/printer_notifier.dart';
 import '../../features/printer/domain/models/printer_config.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class AppReceiptPreviewModal extends ConsumerWidget {
+class AppReceiptPreviewModal extends ConsumerStatefulWidget {
   final String title;
   final String receiptTextPreview;
   final String? printerType; // 'kitchen' or 'cashier'
@@ -50,22 +52,50 @@ class AppReceiptPreviewModal extends ConsumerWidget {
     );
   }
 
-  Future<void> _handlePrintThermal(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<AppReceiptPreviewModal> createState() => _AppReceiptPreviewModalState();
+}
+
+class _AppReceiptPreviewModalState extends ConsumerState<AppReceiptPreviewModal> {
+  String? _logoPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStoreLogo();
+  }
+
+  Future<void> _loadStoreLogo() async {
+    if (widget.printerType == 'kitchen') return;
+    try {
+      final storage = SecureStorageService();
+      final path = await storage.getStoreLogo();
+      if (path != null && File(path).existsSync()) {
+        if (mounted) {
+          setState(() {
+            _logoPath = path;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handlePrintThermal(BuildContext context) async {
     final printerState = ref.read(printerNotifierProvider);
     final hasPrinter = printerState.configuredPrinters.isNotEmpty;
 
-    final bytes = await onGenerateEscPosBytes();
+    final bytes = await widget.onGenerateEscPosBytes();
 
     if (hasPrinter) {
       final List<PrinterConfigModel> targetList;
-      if (printerType == 'kitchen') {
+      if (widget.printerType == 'kitchen') {
         targetList = printerState.configuredPrinters.where((p) => p.isKitchen).toList();
         if (targetList.isEmpty) {
           if (!context.mounted) return;
           AppSnackbar.showWarning(context, 'Printer dapur belum dikonfigurasi.');
           return;
         }
-      } else if (printerType == 'cashier') {
+      } else if (widget.printerType == 'cashier') {
         targetList = printerState.configuredPrinters.where((p) => p.isCashier).toList();
         if (targetList.isEmpty) {
           if (!context.mounted) return;
@@ -94,8 +124,8 @@ class AppReceiptPreviewModal extends ConsumerWidget {
 
   Future<void> _handleOpenPdf(BuildContext context) async {
     try {
-      final pdfBytes = await onGeneratePdf();
-      final fileName = '${title.replaceAll(' ', '_')}.pdf';
+      final pdfBytes = await widget.onGeneratePdf();
+      final fileName = '${widget.title.replaceAll(' ', '_')}.pdf';
       final savedFile = await FileSaverUtil.saveToDownloads(pdfBytes, fileName);
 
       if (context.mounted) {
@@ -114,7 +144,7 @@ class AppReceiptPreviewModal extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
         constraints: BoxConstraints(
@@ -138,7 +168,7 @@ class AppReceiptPreviewModal extends ConsumerWidget {
                     const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
                     const SizedBox(width: 8),
                     Text(
-                      title,
+                      widget.title,
                       style: AppTypography.titleLarge.copyWith(fontSize: 18.sp, fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -172,20 +202,48 @@ class AppReceiptPreviewModal extends ConsumerWidget {
                   child: Center(
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: 320),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.topCenter,
-                        child: Text(
-                          receiptTextPreview,
-                          softWrap: false,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            height: 1.3,
-                            color: Color(0xFF1E293B),
-                            fontWeight: FontWeight.w600,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Monochrome B&W Logo Simulation for Receipt
+                          if (_logoPath != null && widget.printerType != 'kitchen') ...[
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, bottom: 8),
+                              child: ColorFiltered(
+                                colorFilter: const ColorFilter.matrix(<double>[
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0,      0,      0,      1, 0,
+                                ]),
+                                child: Image.file(
+                                  File(_logoPath!),
+                                  width: 76.r,
+                                  height: 76.r,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topCenter,
+                            child: Text(
+                              widget.receiptTextPreview,
+                              softWrap: false,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                height: 1.3,
+                                color: Color(0xFF1E293B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -211,7 +269,7 @@ class AppReceiptPreviewModal extends ConsumerWidget {
                   child: AppButton(
                     text: 'Cetak Thermal',
                     icon: Icons.print_rounded,
-                    onPressed: () => _handlePrintThermal(context, ref),
+                    onPressed: () => _handlePrintThermal(context),
                   ),
                 ),
               ],

@@ -27,7 +27,8 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 
 
 class TransactionHistoryScreen extends ConsumerStatefulWidget {
-  const TransactionHistoryScreen({super.key});
+  final bool isEmbedded;
+  const TransactionHistoryScreen({super.key, this.isEmbedded = false});
 
   @override
   ConsumerState<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
@@ -186,25 +187,6 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                               } catch (_) {}
                             }
 
-                            // 3. Cek Kasir bertipe Owner jika belum authorized
-                            if (!isAuthorized) {
-                              try {
-                                final cashierRepo = ref.read(cashierRepositoryProvider);
-                                final cashier = await cashierRepo.getCashierByPin(enteredHash);
-                                if (cashier != null && cashier.isOwner == 1) {
-                                  isAuthorized = true;
-                                }
-                              } catch (_) {}
-                            }
-
-                            // 4. Cek jika sesi aktif adalah Owner
-                            if (!isAuthorized) {
-                              final authUser = ref.read(authSessionProvider);
-                              if (authUser != null && (authUser.isOwner || authUser.role == 'pemilik')) {
-                                isAuthorized = true;
-                              }
-                            }
-
                             if (!isAuthorized) {
                               setDialogState(() {
                                 isSubmitting = false;
@@ -245,32 +227,187 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
     );
   }
 
+  Future<void> _selectDateRange(BuildContext context) async {
+    final state = ref.read(transactionHistoryNotifierProvider);
+    DateTimeRange? initialRange;
+    if (state.startDate != null && state.endDate != null) {
+      initialRange = DateTimeRange(start: state.startDate!, end: state.endDate!);
+    } else if (state.startDate != null) {
+      initialRange = DateTimeRange(start: state.startDate!, end: state.startDate!);
+    }
+
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: initialRange,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Pilih Rentang Tanggal Transaksi',
+      cancelText: 'Batal',
+      confirmText: 'Pilih',
+      saveText: 'Terapkan',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      ref.read(transactionHistoryNotifierProvider.notifier).setDateRange(picked.start, picked.end);
+    }
+  }
+
+  bool _isTodaySelected(DateTime? startDate, DateTime? endDate) {
+    if (startDate == null || endDate == null) return false;
+    final now = DateTime.now();
+    final isStartToday = startDate.year == now.year && startDate.month == now.month && startDate.day == now.day;
+    final isEndToday = endDate.year == now.year && endDate.month == now.month && endDate.day == now.day;
+    return isStartToday && isEndToday;
+  }
+
+  String _formatDateRange(DateTime? start, DateTime? end) {
+    if (start == null && end == null) return 'Semua Tanggal';
+    if (start != null && end != null) {
+      if (start.year == end.year && start.month == end.month && start.day == end.day) {
+        return DateFormat('dd MMMM yyyy', 'id_ID').format(start);
+      }
+      if (start.year == end.year) {
+        return '${DateFormat('dd MMM', 'id_ID').format(start)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(end)}';
+      }
+      return '${DateFormat('dd/MM/yy', 'id_ID').format(start)} - ${DateFormat('dd/MM/yy', 'id_ID').format(end)}';
+    }
+    if (start != null) return 'Dari ${DateFormat('dd MMM yyyy', 'id_ID').format(start)}';
+    return 'Sampai ${DateFormat('dd MMM yyyy', 'id_ID').format(end!)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(transactionHistoryNotifierProvider);
     final notifier = ref.read(transactionHistoryNotifierProvider.notifier);
+    final hasDateFilter = state.startDate != null || state.endDate != null;
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: Text('Riwayat Transaksi'),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Search Input Header
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(AppSpacing.m),
-              child: AppTextField(
-                controller: _searchController,
-                labelText: 'Cari Struk Transaksi',
-                prefixIcon: Icons.search,
-                onChanged: (val) => notifier.setSearchQuery(val),
-                            debounceDuration: const Duration(milliseconds: 500),
+    final content = Column(
+      children: [
+        // Search & Date Filter Header
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 10),
+          child: Column(
+            children: [
+                  AppTextField(
+                    controller: _searchController,
+                    labelText: 'Cari Struk Transaksi',
+                    hintText: 'Cari nomor struk atau metode...',
+                    prefixIcon: Icons.search,
+                    onChanged: (val) => notifier.setSearchQuery(val),
+                    debounceDuration: const Duration(milliseconds: 300),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      // Date Selector Button (Date Range)
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _selectDateRange(context),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: hasDateFilter ? AppColors.primary : AppColors.divider,
+                                width: hasDateFilter ? 1.5 : 1.0,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              color: hasDateFilter
+                                  ? AppColors.primary.withValues(alpha: 0.06)
+                                  : AppColors.surface,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_month_rounded,
+                                  size: 18,
+                                  color: hasDateFilter ? AppColors.primary : AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _formatDateRange(state.startDate, state.endDate),
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      fontWeight: hasDateFilter ? FontWeight.bold : FontWeight.normal,
+                                      color: hasDateFilter ? AppColors.primary : AppColors.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (hasDateFilter)
+                                  GestureDetector(
+                                    onTap: () => notifier.setDateRange(null, null),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close_rounded, size: 14, color: Colors.black87),
+                                    ),
+                                  )
+                                else
+                                  const Icon(Icons.arrow_drop_down_rounded, color: Colors.grey),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Quick Filter "Hari Ini"
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          side: BorderSide(
+                            color: _isTodaySelected(state.startDate, state.endDate) ? AppColors.primary : AppColors.divider,
+                          ),
+                          backgroundColor: _isTodaySelected(state.startDate, state.endDate)
+                              ? AppColors.primary.withValues(alpha: 0.1)
+                              : Colors.transparent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          if (_isTodaySelected(state.startDate, state.endDate)) {
+                            notifier.setDateRange(null, null);
+                          } else {
+                            final now = DateTime.now();
+                            notifier.setDateRange(now, now);
+                          }
+                        },
+                        icon: Icon(
+                          _isTodaySelected(state.startDate, state.endDate) ? Icons.check_rounded : Icons.today_rounded,
+                          size: 16,
+                          color: _isTodaySelected(state.startDate, state.endDate) ? AppColors.primary : AppColors.textSecondary,
+                        ),
+                        label: Text(
+                          'Hari Ini',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: _isTodaySelected(state.startDate, state.endDate) ? AppColors.primary : AppColors.textSecondary,
+                            fontWeight: _isTodaySelected(state.startDate, state.endDate) ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const Divider(),
+            const Divider(height: 1),
             // Content
             Expanded(
               child: state.isLoading
@@ -278,8 +415,8 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                   : state.filteredTransactions.isEmpty
                       ? AppEmptyState(
                           title: 'Riwayat Transaksi Kosong',
-                          description: _searchController.text.isNotEmpty
-                              ? 'Tidak ada struk transaksi yang cocok.'
+                          description: state.selectedDate != null || _searchController.text.isNotEmpty
+                              ? 'Tidak ada transaksi yang cocok dengan filter.'
                               : 'Belum ada transaksi tersimpan.',
                           icon: Icons.history_toggle_off_rounded,
                         )
@@ -352,7 +489,7 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                                          ),
                                         SizedBox(height: 4),
                                         Text(
-                                          'Pembayaran: ${tx.paymentMethodNama} • $timeStr',
+                                          'Kasir: ${tx.cashierNama != null && tx.cashierNama!.isNotEmpty ? tx.cashierNama : "-"} • ${tx.paymentMethodNama} • $timeStr',
                                           style: AppTypography.bodyMedium.copyWith(
                                             color: AppColors.textSecondary,
                                             fontSize: 12.sp,
@@ -386,7 +523,19 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
                         ),
             ),
           ],
-        ),
+        );
+
+    if (widget.isEmbedded) {
+      return SafeArea(child: content);
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        title: const Text('Riwayat Transaksi'),
+      ),
+      body: SafeArea(
+        child: content,
       ),
     );
   }

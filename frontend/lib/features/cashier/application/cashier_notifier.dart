@@ -93,7 +93,7 @@ class CashierNotifier extends StateNotifier<CashierState> {
         return false;
       }
 
-      final isOwner = state.allCashiers.isEmpty ? 1 : 0;
+      const isOwner = 0; // Kasir akun selalu bertipe non-owner
       final newCashier = CashierModel(
         id: _uuid.v4(),
         nama: trimmedName,

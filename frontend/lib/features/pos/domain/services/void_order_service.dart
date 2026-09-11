@@ -2,13 +2,15 @@ import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/services/print_queue_service.dart';
+import '../../../security/domain/repositories/security_repository.dart';
 
 class VoidOrderService {
   final PosDatabase _db;
   final PrintQueueService _printQueueService;
+  final SecurityRepository _securityRepo;
   final _uuid = const Uuid();
 
-  VoidOrderService(this._db, this._printQueueService);
+  VoidOrderService(this._db, this._printQueueService, this._securityRepo);
 
   Future<bool> voidOrderItem({
     required String masterOrderId,
@@ -17,30 +19,15 @@ class VoidOrderService {
     required String reason,
     required String managerPin,
   }) async {
-    final db = await _db.database;
-
-    // 1. Verify Manager/Owner PIN
-    final managerRows = await db.query(
-      'cashiers',
-      where: 'pin = ? AND status = 1 AND is_deleted = 0 AND is_owner = 1',
-      whereArgs: [managerPin],
-    );
-
-    if (managerRows.isEmpty) {
-      // Fallback: check if any active cashier with pin has is_owner = 1 or is allowed
-      final anyManager = await db.query(
-        'cashiers',
-        where: 'pin = ? AND status = 1 AND is_deleted = 0',
-        whereArgs: [managerPin],
-      );
-      if (anyManager.isEmpty) {
-        throw Exception('PIN Manager/Owner tidak valid. Pembatalan pesanan ditolak.');
-      }
+    // 1. Verify Master/Owner PIN strictly
+    final isAuthorized = await _securityRepo.validateMasterPin(managerPin);
+    if (!isAuthorized) {
+      throw Exception('PIN Master/Owner tidak valid. Pembatalan pesanan ditolak.');
     }
 
-    final manager = managerRows.isNotEmpty ? managerRows.first : null;
-    final managerId = manager?['id'] as String? ?? 'manager-pin-auth';
-    final managerNama = manager?['nama'] as String? ?? 'Manager';
+    final db = await _db.database;
+    const managerId = 'owner-master-auth';
+    const managerNama = 'Pemilik Toko';
 
     final now = DateTime.now();
     final nowStr = now.toIso8601String();

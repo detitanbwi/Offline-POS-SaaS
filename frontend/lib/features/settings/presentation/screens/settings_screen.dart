@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -384,7 +382,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _buildSettingsTile(
               context,
               title: 'Pusat Bantuan & Layanan CS',
-              subtitle: 'Buka pusat bantuan resmi di alatkasirpro.com/hubungi',
+              subtitle: 'Buka pusat bantuan resmi di appkasirpro.com/contact.html',
               icon: Icons.help_outline_rounded,
               onTap: () => UrlHelper.openHelpCenter(context),
             ),

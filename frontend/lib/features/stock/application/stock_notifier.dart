@@ -112,6 +112,22 @@ class StockNotifier extends StateNotifier<StockState> {
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
+      final now = DateTime.now();
+      DateTime parsedDate;
+      try {
+        parsedDate = DateTime.parse(tanggal);
+      } catch (_) {
+        parsedDate = now;
+      }
+      final effectiveCreatedAt = DateTime(
+        parsedDate.year,
+        parsedDate.month,
+        parsedDate.day,
+        now.hour,
+        now.minute,
+        now.second,
+      );
+
       final log = StockIn(
         id: _uuid.v4(),
         produkId: produkId,
@@ -119,7 +135,7 @@ class StockNotifier extends StateNotifier<StockState> {
         qty: qty,
         tanggal: tanggal,
         catatan: catatan?.trim(),
-        createdAt: DateTime.now(),
+        createdAt: effectiveCreatedAt,
       );
 
       await _repository.insertStockIn(log);

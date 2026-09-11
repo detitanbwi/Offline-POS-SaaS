@@ -1,4 +1,6 @@
+import 'package:intl/intl.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/utils/database_exception_extension.dart';
 import '../../domain/models/product.dart';
@@ -6,6 +8,7 @@ import '../../domain/repositories/product_repository.dart';
 
 class ProductRepositoryImpl implements ProductRepository {
   final PosDatabase _db;
+  final Uuid _uuid = const Uuid();
 
   ProductRepositoryImpl(this._db);
 
@@ -102,20 +105,24 @@ class ProductRepositoryImpl implements ProductRepository {
         whereArgs: [productId],
         orderBy: 'sort_order ASC, created_at ASC',
       );
+      final List<Map<String, dynamic>> rawOptions = await db.query(
+        'product_modifier_options',
+        where: 'group_id IN (SELECT id FROM product_modifier_groups WHERE product_id = ?)',
+        whereArgs: [productId],
+        orderBy: 'sort_order ASC, created_at ASC',
+      );
 
-      final List<ProductModifierGroup> groups = [];
-      for (var grpRow in rawGroups) {
-        final grpId = grpRow['id'] as String;
-        final List<Map<String, dynamic>> rawOptions = await db.query(
-          'product_modifier_options',
-          where: 'group_id = ?',
-          whereArgs: [grpId],
-          orderBy: 'sort_order ASC, created_at ASC',
-        );
-        final options = rawOptions.map((o) => ProductModifierOption.fromMap(o)).toList();
-        groups.add(ProductModifierGroup.fromMap(grpRow, options: options));
+      final Map<String, List<ProductModifierOption>> optionsMap = {};
+      for (var optRow in rawOptions) {
+        final grpId = optRow['group_id'] as String;
+        optionsMap.putIfAbsent(grpId, () => []).add(ProductModifierOption.fromMap(optRow));
       }
-      return groups;
+
+      return rawGroups.map((grpRow) {
+        final grpId = grpRow['id'] as String;
+        final options = optionsMap[grpId] ?? const [];
+        return ProductModifierGroup.fromMap(grpRow, options: options);
+      }).toList();
     } catch (_) {
       return [];
     }
@@ -162,7 +169,11 @@ class ProductRepositoryImpl implements ProductRepository {
   }
 
   @override
-  Future<void> insertProduct(Product product) async {
+  Future<void> insertProduct(
+    Product product, {
+    DateTime? initialStockDate,
+    String? initialStockNotes,
+  }) async {
     final db = await _db.database;
     await db.transaction((txn) async {
       await txn.insert(
@@ -170,6 +181,33 @@ class ProductRepositoryImpl implements ProductRepository {
         product.toMap(),
         conflictAlgorithm: ConflictAlgorithm.fail,
       );
+
+      // Record initial stock mutation to stock_in if physical stock > 0
+      if (!product.isPackage && product.stok > 0) {
+        final stockDate = initialStockDate ?? DateTime.now();
+        final dateStr = DateFormat('yyyy-MM-dd').format(stockDate);
+        final now = DateTime.now();
+        final effectiveCreatedAt = DateTime(
+          stockDate.year,
+          stockDate.month,
+          stockDate.day,
+          now.hour,
+          now.minute,
+          now.second,
+        );
+        final note = (initialStockNotes != null && initialStockNotes.trim().isNotEmpty)
+            ? initialStockNotes.trim()
+            : 'Stok Awal';
+        await txn.insert('stock_in', {
+          'id': _uuid.v4(),
+          'produk_id': product.id,
+          'type': 'in',
+          'qty': product.stok,
+          'tanggal': dateStr,
+          'catatan': note,
+          'created_at': effectiveCreatedAt.toIso8601String(),
+        });
+      }
 
       if (product.isPackage && product.packageItems.isNotEmpty) {
         for (var item in product.packageItems) {

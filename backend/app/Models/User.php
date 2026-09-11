@@ -19,6 +19,7 @@ class User extends Authenticatable
         'password',
         'pin',
         'tenant_id',
+        'role_id',
         'is_admin',
     ];
 
@@ -40,5 +41,56 @@ class User extends Authenticatable
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        if (! $this->is_admin) {
+            return false;
+        }
+
+        if (! empty($this->role_id)) {
+            $role = $this->role ?? Role::find($this->role_id);
+            return $role?->slug === 'super_admin';
+        }
+
+        return true;
+    }
+
+    public function hasRole(string|array $roles): bool
+    {
+        $role = $this->role ?? ($this->role_id ? Role::find($this->role_id) : null);
+        if (! $role) {
+            return false;
+        }
+
+        if (is_array($roles)) {
+            return in_array($role->slug, $roles);
+        }
+
+        return $role->slug === $roles;
+    }
+
+    public function hasPermission(string $permissionSlug): bool
+    {
+        if (! $this->is_admin) {
+            return false;
+        }
+
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $role = $this->role ?? ($this->role_id ? Role::find($this->role_id) : null);
+        if (! $role) {
+            return false;
+        }
+
+        return $role->hasPermission($permissionSlug);
     }
 }

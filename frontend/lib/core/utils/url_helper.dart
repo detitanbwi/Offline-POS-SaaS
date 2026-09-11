@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../widgets/app_snackbar.dart';
 
 class UrlHelper {
-  static const String helpUrl = 'https://alatkasirpro.com/hubungi';
+  static const String helpUrl = 'https://appkasirpro.com/contact.html';
 
   /// Membuka URL eksternal di browser sistem
   static Future<bool> launchExternalUrl(BuildContext context, String urlString) async {
@@ -45,7 +45,7 @@ class UrlHelper {
     await launchExternalUrl(context, helpUrl);
   }
 
-  /// Alias pembuka bantuan langsung ke https://alatkasirpro.com/hubungi
+  /// Alias pembuka bantuan langsung ke https://appkasirpro.com/contact.html
   static void showHelpCenterDialog(BuildContext context, {String? customHelpUrl}) {
     launchExternalUrl(context, customHelpUrl ?? helpUrl);
   }

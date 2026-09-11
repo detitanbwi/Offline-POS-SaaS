@@ -270,15 +270,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       // 2. Jika Bayar Sekarang (lunas di awal), catat transaksi ke database transactions
       if (!isPayLater && _selectedMethod != null) {
+        final currentOrderState = ref.read(orderNotifierProvider);
         final txId = _uuid.v4();
         final double storeTotal = subtotal + cartState.serviceChargeAmount + taxAmount;
-        final double? platformTotal = orderState.onlinePlatformTotal ?? orderState.activeOrder?.onlinePlatformTotal;
+        final double? platformTotal = currentOrderState.onlinePlatformTotal ?? currentOrderState.activeOrder?.onlinePlatformTotal;
         final double? platformDiff = platformTotal != null ? (platformTotal - storeTotal) : null;
 
         savedHeader = TransactionHeader(
           id: txId,
           nomorTransaksi: _orderNumber,
-          masterOrderId: orderState.activeOrder?.id,
+          masterOrderId: currentOrderState.activeOrder?.id,
           subtotal: subtotal,
           discountPercentage: cartState.orderDiscountRate,
           discountAmount: cartState.orderDiscountAmount,
@@ -290,14 +291,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           grandTotal: grandTotal,
           onlinePlatformTotal: platformTotal,
           platformDifference: platformDiff,
-          onlinePlatform: orderState.onlinePlatform ?? orderState.activeOrder?.onlinePlatform,
+          onlinePlatform: currentOrderState.onlinePlatform ?? currentOrderState.activeOrder?.onlinePlatform,
           paymentMethodId: _selectedMethod!.id,
           paymentMethodNama: _selectedMethod!.nama,
           nominalBayar: amountPaid,
           kembalian: change,
           catatan: notes,
-          customerName: orderState.customerName,
-          orderType: orderState.orderType,
+          customerName: currentOrderState.customerName,
+          orderType: currentOrderState.orderType,
           createdAt: DateTime.now(),
           cashierId: activeUser?.id,
           cashierNama: activeUser?.nama,
@@ -371,7 +372,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         await ref.read(transactionRepositoryProvider).saveTransaction(savedHeader, savedItems);
 
         // Jika transaksi dari order aktif, tandai order 'paid' dan bebaskan meja jika sudah lunas semua
-        final currentOrderState = ref.read(orderNotifierProvider);
         final activeOrder = currentOrderState.activeOrder;
         if (activeOrder != null) {
           // Full payment

@@ -11,6 +11,8 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_radius.dart';
+import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../domain/models/product.dart';
 import '../../domain/models/product_modifier.dart';
@@ -30,6 +32,8 @@ class ProductForm extends StatefulWidget {
     required List<PackageItem> packageItems,
     required List<ProductModifierGroup> modifierGroups,
     String? image,
+    DateTime? initialStockDate,
+    String? initialStockNotes,
   }) onSubmit;
 
   const ProductForm({
@@ -49,6 +53,9 @@ class ProductFormState extends State<ProductForm> {
   late TextEditingController _nameController;
   late TextEditingController _priceController;
   late TextEditingController _stockController;
+  late DateTime _stockDate;
+  late TextEditingController _stockDateController;
+  late TextEditingController _stockNotesController;
   String? _selectedCategoryId;
   late int _status;
   String? _imagePath;
@@ -82,6 +89,11 @@ class ProductFormState extends State<ProductForm> {
           ? (widget.product!.stok == -1 ? '' : widget.product!.stok.toString())
           : '0',
     );
+    _stockDate = DateTime.now();
+    _stockDateController = TextEditingController(
+      text: DateFormat('yyyy-MM-dd').format(_stockDate),
+    );
+    _stockNotesController = TextEditingController(text: 'Stok Awal');
     _imagePath = widget.product?.image;
 
     // Set default category
@@ -100,7 +112,24 @@ class ProductFormState extends State<ProductForm> {
     _nameController.dispose();
     _priceController.dispose();
     _stockController.dispose();
+    _stockDateController.dispose();
+    _stockNotesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectStockDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _stockDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && picked != _stockDate) {
+      setState(() {
+        _stockDate = picked;
+        _stockDateController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -1106,6 +1135,29 @@ class ProductFormState extends State<ProductForm> {
                     return Validators.integer(v, 'Stok');
                   },
                 ),
+                if (widget.product == null) ...[
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    controller: _stockDateController,
+                    labelText: 'Tanggal Stok Awal',
+                    hintText: 'Pilih tanggal stok',
+                    prefixIcon: Icons.calendar_today_outlined,
+                    readOnly: true,
+                    onTap: () => _selectStockDate(context),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.date_range_rounded),
+                      onPressed: () => _selectStockDate(context),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    controller: _stockNotesController,
+                    labelText: 'Catatan Mutasi Stok',
+                    hintText: 'Catatan stok awal',
+                    prefixIcon: Icons.lock_outline_rounded,
+                    readOnly: true,
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
             ],
@@ -1321,21 +1373,24 @@ class ProductFormState extends State<ProductForm> {
     final scrollController = ScrollController();
     bool isRequired = initialGroup?.isRequired ?? false;
     bool isSingleSelect = initialGroup?.isSingleSelect ?? true;
-    final optionsList = initialGroup != null
+    final List<Map<String, dynamic>> optionsList = (initialGroup != null && initialGroup.options.isNotEmpty)
         ? initialGroup.options
-            .map((o) => {
-                  'id': o.id,
+            .map<Map<String, dynamic>>((o) => <String, dynamic>{
+                  'id': (o.id.isNotEmpty ? o.id : null) ?? const Uuid().v4(),
                   'nameCtrl': TextEditingController(text: o.nama),
                   'priceCtrl': TextEditingController(text: o.harga > 0 ? CurrencyFormatter.formatNumber(o.harga) : '0'),
                 })
             .toList()
         : <Map<String, dynamic>>[
-            {
+            <String, dynamic>{
               'id': const Uuid().v4(),
               'nameCtrl': TextEditingController(text: ''),
               'priceCtrl': TextEditingController(text: '0'),
             }
           ];
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = screenWidth < 500 ? 12.0 : 32.0;
 
     showDialog(
       context: context,
@@ -1344,16 +1399,15 @@ class ProductFormState extends State<ProductForm> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             void addNewOption() {
-              FocusScope.of(ctx).unfocus();
               setDialogState(() {
-                optionsList.add({
+                optionsList.add(<String, dynamic>{
                   'id': const Uuid().v4(),
                   'nameCtrl': TextEditingController(text: ''),
                   'priceCtrl': TextEditingController(text: '0'),
                 });
               });
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (scrollController.hasClients) {
+                if (scrollController.hasClients && scrollController.position.hasContentDimensions) {
                   scrollController.animateTo(
                     scrollController.position.maxScrollExtent,
                     duration: const Duration(milliseconds: 250),
@@ -1364,14 +1418,31 @@ class ProductFormState extends State<ProductForm> {
             }
 
             return AlertDialog(
+              insetPadding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.radius24,
+              ),
+              titlePadding: const EdgeInsets.only(
+                left: AppSpacing.l,
+                right: AppSpacing.l,
+                top: AppSpacing.l,
+                bottom: AppSpacing.s,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.l,
+                vertical: AppSpacing.s,
+              ),
+              actionsPadding: const EdgeInsets.all(AppSpacing.l),
               title: Text(
                 initialGroup == null ? 'Tambah Kelompok Varian / Topping' : 'Ubah Kelompok Varian',
                 style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
               ),
-              content: SizedBox(
-                width: MediaQuery.sizeOf(context).width < 500
-                    ? (MediaQuery.sizeOf(context).width * 0.9)
-                    : 480,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 480,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+                  minWidth: screenWidth < 500 ? (screenWidth - 64) : 460,
+                ),
                 child: SingleChildScrollView(
                   controller: scrollController,
                   child: Column(
@@ -1403,7 +1474,7 @@ class ProductFormState extends State<ProductForm> {
                                   children: [
                                     Icon(Icons.radio_button_checked, size: 16, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary),
                                     const SizedBox(height: 4),
-                                    Text('Pilih 1 (Radio)', style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary)),
+                                    Text('Pilih 1 (Varian)', style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: isSingleSelect ? AppColors.primary : AppColors.textSecondary)),
                                   ],
                                 ),
                               ),
@@ -1447,18 +1518,25 @@ class ProductFormState extends State<ProductForm> {
                       ),
                       const Divider(height: 24),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Daftar Opsi Varian', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                          Expanded(
+                            child: Text(
+                              'Daftar Opsi Varian',
+                              style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13.sp),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: addNewOption,
-                            icon: const Icon(Icons.add, size: 16),
+                            icon: const Icon(Icons.add, size: 14),
                             label: const Text('Tambah Opsi'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               textStyle: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold),
                             ),
@@ -1469,8 +1547,11 @@ class ProductFormState extends State<ProductForm> {
                       ...optionsList.asMap().entries.map((entry) {
                         final idx = entry.key;
                         final optMap = entry.value;
+                        final optKey = (optMap['id'] as String?)?.isNotEmpty == true
+                            ? optMap['id'] as String
+                            : 'opt_$idx';
                         return Padding(
-                          key: ValueKey(optMap['id']),
+                          key: ValueKey(optKey),
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1485,6 +1566,7 @@ class ProductFormState extends State<ProductForm> {
                                     labelText: 'Nama Opsi #${idx + 1}',
                                     hintText: 'Maks. 50 karakter',
                                     isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                                     border: const OutlineInputBorder(),
                                   ),
                                 ),
@@ -1495,10 +1577,15 @@ class ProductFormState extends State<ProductForm> {
                                 child: TextFormField(
                                   controller: optMap['priceCtrl'] as TextEditingController,
                                   keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    RupiahInputFormatter(),
+                                  ],
                                   decoration: const InputDecoration(
                                     labelText: '+ Harga',
                                     prefixText: 'Rp ',
                                     isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                                     border: OutlineInputBorder(),
                                   ),
                                 ),
@@ -1507,6 +1594,8 @@ class ProductFormState extends State<ProductForm> {
                                 const SizedBox(width: 4),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () {
                                     setDialogState(() {
                                       optionsList.removeAt(idx);
@@ -1637,6 +1726,8 @@ class ProductFormState extends State<ProductForm> {
         packageItems: _packageItems,
         modifierGroups: _modifierGroups,
         image: _imagePath,
+        initialStockDate: _stockDate,
+        initialStockNotes: _stockNotesController.text.trim(),
       );
       return true;
     }

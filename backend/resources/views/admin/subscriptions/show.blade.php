@@ -51,5 +51,9 @@
         </table>
     </div>
 </div>
-<a href="{{ route('admin.subscriptions.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
+@php
+    $subInvoice = $subscription->invoiceItem?->invoice;
+    $subBackUrl = $subInvoice ? route('admin.invoices.show', $subInvoice) : route('admin.subscriptions.index');
+@endphp
+<a href="{{ $subBackUrl }}" class="btn btn-outline btn-sm">Kembali</a>
 @endsection

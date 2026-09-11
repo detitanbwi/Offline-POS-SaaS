@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/database/pos_database.dart';
 import '../../../../core/di/providers.dart';
 
 class AboutScreen extends ConsumerWidget {
@@ -83,8 +84,8 @@ class AboutScreen extends ConsumerWidget {
                         style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const Divider(height: 24),
-                      _buildInfoRow('Database Engine', 'SQLite (SQLCipher Encrypted)'),
-                      _buildInfoRow('DB Schema Version', 'v$posDatabaseVersion'),
+                      _buildInfoRow('Database Engine', 'SQLite Standard'),
+                      _buildInfoRow('DB Schema Version', 'v${PosDatabase.currentDbVersion}'),
                       _buildInfoRow('Platform', Theme.of(context).platform.name.toUpperCase()),
                     ],
                   ),

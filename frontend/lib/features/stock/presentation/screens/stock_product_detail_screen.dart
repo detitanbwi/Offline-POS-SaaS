@@ -66,7 +66,11 @@ class _StockProductDetailScreenState extends ConsumerState<StockProductDetailScr
     final allProductMutations = stockState.allStockIn
         .where((s) => s.produkId == currentProduct.id)
         .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      ..sort((a, b) {
+        final dateComp = b.tanggal.compareTo(a.tanggal);
+        if (dateComp != 0) return dateComp;
+        return b.createdAt.compareTo(a.createdAt);
+      });
 
     // 2. Precompute running balance (saldo stok setelah mutasi) for every mutation
     final Map<String, int> runningBalanceMap = {};
@@ -325,7 +329,13 @@ class _StockProductDetailScreenState extends ConsumerState<StockProductDetailScr
 
                             String formattedDateTime = log.tanggal;
                             try {
-                              formattedDateTime = DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(log.createdAt);
+                              final parsedDate = DateTime.tryParse(log.tanggal);
+                              if (parsedDate != null) {
+                                final timeStr = DateFormat('HH:mm').format(log.createdAt);
+                                formattedDateTime = '${DateFormat('dd MMM yyyy', 'id_ID').format(parsedDate)}, $timeStr';
+                              } else {
+                                formattedDateTime = DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(log.createdAt);
+                              }
                             } catch (_) {}
 
                             return AppCard(

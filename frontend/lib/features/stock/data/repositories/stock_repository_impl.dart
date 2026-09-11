@@ -108,7 +108,7 @@ class StockRepositoryImpl implements StockRepository {
       SELECT s.*, p.nama as produk_nama 
       FROM stock_in s
       LEFT JOIN products p ON s.produk_id = p.id
-      ORDER BY s.created_at DESC
+      ORDER BY s.tanggal DESC, s.created_at DESC
     ''');
     return List.generate(maps.length, (i) => StockIn.fromMap(maps[i]));
   }

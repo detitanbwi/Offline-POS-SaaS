@@ -140,6 +140,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     required List<PackageItem> packageItems,
                     required List<ProductModifierGroup> modifierGroups,
                     String? image,
+                    DateTime? initialStockDate,
+                    String? initialStockNotes,
                   }) async {
                     if (isSaving) return;
                     
@@ -164,6 +166,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                             packageItems: packageItems,
                             modifierGroups: modifierGroups,
                             image: image,
+                            initialStockDate: initialStockDate,
+                            initialStockNotes: initialStockNotes,
                           );
                     } else {
                       success = await ref.read(productNotifierProvider.notifier).updateProduct(

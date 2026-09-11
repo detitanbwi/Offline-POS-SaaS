@@ -7,6 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart' show sqfliteFfiInit, databa
 import '../../features/auth/services/secure_storage_service.dart';
 
 class PosDatabase {
+  static const int currentDbVersion = 17;
   static final PosDatabase instance = PosDatabase._init();
   static Database? _database;
 
@@ -33,14 +34,12 @@ class PosDatabase {
     final storage = SecureStorageService();
     final encryptionKey = await storage.getEncryptionKey();
 
-    final shouldEncrypt = !kDebugMode && Platform.isAndroid && encryptionKey != null && encryptionKey.isNotEmpty;
-
-    Future<Database> openWithParams({String? pwd}) async {
+    Future<Database> openPlain() async {
       if (isDesktop) {
         return await databaseFactoryFfi.openDatabase(
           path,
           options: OpenDatabaseOptions(
-            version: 16,
+            version: currentDbVersion,
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
             onConfigure: _onConfigure,
@@ -49,68 +48,39 @@ class PosDatabase {
       } else {
         return await openDatabase(
           path,
-            version: 17,
-            password: pwd,
-            onCreate: _createDB,
-            onUpgrade: _upgradeDB,
-            onConfigure: _onConfigure,
+          version: currentDbVersion,
+          onCreate: _createDB,
+          onUpgrade: _upgradeDB,
+          onConfigure: _onConfigure,
         );
       }
     }
 
     Database db;
-    if (!shouldEncrypt) {
-      try {
-        db = await openWithParams();
-      } catch (e) {
-        debugPrint('[PosDatabase] Unencrypted open failed: $e. Re-creating DB...');
+    try {
+      // 1. Buka sebagai database SQLite standar unencrypted (Cepat, portabel & bebas masalah kunci)
+      db = await openPlain();
+    } catch (e) {
+      debugPrint('[PosDatabase] Unencrypted open failed ($e). Checking if legacy encrypted DB needs decryption...');
+      if (encryptionKey != null && encryptionKey.isNotEmpty) {
         try {
-          if (isDesktop) {
-            await databaseFactoryFfi.deleteDatabase(path);
-          } else {
-            await deleteDatabase(path);
-          }
-        } catch (_) {}
-        db = await openWithParams();
-      }
-    } else {
-      try {
-        db = await openWithParams(pwd: encryptionKey);
-      } catch (e) {
-        debugPrint('[PosDatabase] Encrypted open failed: $e. Attempting fallback unencrypted open + rekey...');
-        try {
-          if (isDesktop) {
-            db = await databaseFactoryFfi.openDatabase(
-              path,
-              options: OpenDatabaseOptions(
-                version: 17,
-                onCreate: _createDB,
-                onUpgrade: _upgradeDB,
-                onConfigure: _onConfigure,
-              ),
-            );
-          } else {
-            db = await openDatabase(
-              path,
-              version: 16,
-              onCreate: _createDB,
-              onUpgrade: _upgradeDB,
-              onConfigure: _onConfigure,
-            );
-          }
-          await db.execute("PRAGMA rekey = '$encryptionKey'");
-          debugPrint('[PosDatabase] Successfully converted unencrypted backup DB to encrypted SQLCipher!');
+          // Buka dengan kunci enkripsi lama lalu ubah permanen ke unencrypted plaintext
+          db = await openDatabase(
+            path,
+            version: currentDbVersion,
+            password: encryptionKey,
+            onCreate: _createDB,
+            onUpgrade: _upgradeDB,
+            onConfigure: _onConfigure,
+          );
+          await db.execute("PRAGMA rekey = ''");
+          debugPrint('[PosDatabase] Successfully converted legacy encrypted database to standard unencrypted SQLite!');
         } catch (innerErr) {
-          debugPrint('[PosDatabase] Fallback failed ($innerErr). Re-creating fresh database...');
-          try {
-            if (isDesktop) {
-              await databaseFactoryFfi.deleteDatabase(path);
-            } else {
-              await deleteDatabase(path);
-            }
-          } catch (_) {}
-          db = await openWithParams(pwd: encryptionKey);
+          debugPrint('[PosDatabase] Decryption attempt failed ($innerErr).');
+          rethrow;
         }
+      } else {
+        rethrow;
       }
     }
 
@@ -167,6 +137,11 @@ class PosDatabase {
     await _addColumnIfNotExists(db, 'order_items', 'modifier_details', 'TEXT');
     await _addColumnIfNotExists(db, 'transaction_items', 'modifier_details', 'TEXT');
 
+    // Pastikan semua kasir adalah kasir standar (non-owner), karena otorisasi sensitif hanya milik Master PIN
+    try {
+      await db.execute('UPDATE cashiers SET is_owner = 0 WHERE is_owner = 1');
+    } catch (_) {}
+
     await db.execute('''
       CREATE TABLE IF NOT EXISTS product_modifier_groups (
         id TEXT PRIMARY KEY,
@@ -213,6 +188,13 @@ class PosDatabase {
     ''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_package_items_pkg ON package_items(package_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_package_items_prod ON package_items(product_id)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS store_profile_backup (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
   }
 
   Future<void> _addColumnIfNotExists(Database db, String table, String column, String type) async {
@@ -605,32 +587,6 @@ class PosDatabase {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 14) {
-      // TAHAP PENGEMBANGAN: Hapus semua tabel dan buat ulang dari awal untuk memastikan schema bersih
-      bool droppedAll = false;
-      while (!droppedAll) {
-        final tables = await db.rawQuery('SELECT name FROM sqlite_master WHERE type="table" AND name NOT LIKE "sqlite_%"');
-        if (tables.isEmpty) {
-          droppedAll = true;
-          break;
-        }
-        int droppedCount = 0;
-        for (final table in tables) {
-          final tableName = table['name'];
-          try {
-            await db.execute('DROP TABLE IF EXISTS $tableName');
-            droppedCount++;
-          } catch (e) {
-            // Ignore foreign key constraint errors and retry in next pass
-          }
-        }
-        if (droppedCount == 0) {
-          break; // Avoid infinite loop if a table cannot be dropped for other reasons
-        }
-      }
-      await _createDB(db, newVersion);
-      return; // Skip migrasi versi lama karena database sudah di-reset
-    }
 
     if (oldVersion < 2) {
       await db.execute('''

@@ -6,7 +6,9 @@
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">Daftar Paket</h3>
-        <a href="{{ route('admin.packages.create') }}" class="btn btn-primary btn-sm">+ Tambah Paket</a>
+        @can('packages.create')
+            <a href="{{ route('admin.packages.create') }}" class="btn btn-primary btn-sm">+ Tambah Paket</a>
+        @endcan
     </div>
     <div class="table-responsive">
         <table class="table">
@@ -45,12 +47,16 @@
                     <td>{{ $pkg->device_limit_per_token }} per token</td>
                     <td><span class="badge {{ $pkg->is_active ? 'badge-success' : 'badge-danger' }}">{{ $pkg->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                     <td>
-                        <a href="{{ route('admin.packages.edit', $pkg) }}" class="btn btn-outline btn-xs">Edit</a>
-                        <form method="POST" action="{{ route('admin.packages.destroy', $pkg) }}" style="display:inline;" onsubmit="return confirm('Hapus paket ini?')">
-                            @csrf
-                            @method('DELETE')
-                            <button class="btn btn-danger btn-xs">Hapus</button>
-                        </form>
+                        @can('packages.edit')
+                            <a href="{{ route('admin.packages.edit', $pkg) }}" class="btn btn-outline btn-xs">Edit</a>
+                        @endcan
+                        @can('packages.delete')
+                            <form method="POST" action="{{ route('admin.packages.destroy', $pkg) }}" style="display:inline;" onsubmit="return confirm('Hapus paket ini?')">
+                                @csrf
+                                @method('DELETE')
+                                <button class="btn btn-danger btn-xs">Hapus</button>
+                            </form>
+                        @endcan
                     </td>
                 </tr>
                 @empty
