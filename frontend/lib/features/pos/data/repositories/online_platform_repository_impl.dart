@@ -23,17 +23,43 @@ class OnlinePlatformRepositoryImpl implements OnlinePlatformRepository {
   Future<void> addPlatform(String nama) async {
     final db = await _db.database;
     final trimmed = nama.trim();
-    final existing = await db.query(
+    final now = DateTime.now().toIso8601String();
+
+    // 1. Cek apakah ada platform aktif dengan nama yang sama
+    final existingActive = await db.query(
       'online_platforms',
       where: 'LOWER(nama) = ? AND is_deleted = 0',
       whereArgs: [trimmed.toLowerCase()],
     );
-    if (existing.isNotEmpty) {
+    if (existingActive.isNotEmpty) {
       throw Exception('Platform online dengan nama "$trimmed" sudah terdaftar.');
     }
 
+    // 2. Cek apakah platform dengan nama ini pernah dihapus (soft-deleted)
+    final existingDeleted = await db.query(
+      'online_platforms',
+      where: 'LOWER(nama) = ? AND is_deleted = 1',
+      whereArgs: [trimmed.toLowerCase()],
+    );
+    if (existingDeleted.isNotEmpty) {
+      // Pulihkan kembali entri yang sebelumnya dihapus
+      final existingId = existingDeleted.first['id'] as String;
+      await db.update(
+        'online_platforms',
+        {
+          'nama': trimmed,
+          'aktif': 1,
+          'is_deleted': 0,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [existingId],
+      );
+      return;
+    }
+
+    // 3. Jika belum pernah terdaftar sama sekali, tambahkan baris baru
     final id = const Uuid().v4();
-    final now = DateTime.now().toIso8601String();
     await db.insert('online_platforms', {
       'id': id,
       'nama': trimmed,
@@ -48,16 +74,40 @@ class OnlinePlatformRepositoryImpl implements OnlinePlatformRepository {
   Future<void> updatePlatform(String id, String nama, int aktif) async {
     final db = await _db.database;
     final trimmed = nama.trim();
-    final existing = await db.query(
+    final now = DateTime.now().toIso8601String();
+
+    // 1. Cek apakah nama ini sudah digunakan oleh platform aktif lain
+    final existingActive = await db.query(
       'online_platforms',
       where: 'LOWER(nama) = ? AND id != ? AND is_deleted = 0',
       whereArgs: [trimmed.toLowerCase(), id],
     );
-    if (existing.isNotEmpty) {
+    if (existingActive.isNotEmpty) {
       throw Exception('Platform online dengan nama "$trimmed" sudah terdaftar.');
     }
 
-    final now = DateTime.now().toIso8601String();
+    // 2. Cek apakah ada platform terhapus yang memakai nama ini selain ID ini
+    final existingDeleted = await db.query(
+      'online_platforms',
+      where: 'LOWER(nama) = ? AND id != ? AND is_deleted = 1',
+      whereArgs: [trimmed.toLowerCase(), id],
+    );
+    if (existingDeleted.isNotEmpty) {
+      // Ubah nama entri terhapus agar constraint SQLite UNIQUE tidak konflik
+      for (final row in existingDeleted) {
+        final delId = row['id'] as String;
+        await db.update(
+          'online_platforms',
+          {
+            'nama': '${row['nama']}_deleted_${DateTime.now().millisecondsSinceEpoch}',
+            'updated_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: [delId],
+        );
+      }
+    }
+
     await db.update(
       'online_platforms',
       {
