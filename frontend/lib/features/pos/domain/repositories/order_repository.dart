@@ -21,7 +21,7 @@ abstract class OrderRepository {
   Future<List<Map<String, dynamic>>> getPrintBatches(String orderId);
   Future<List<Map<String, dynamic>>> getPrintBatchesWithItems(String orderId);
   Future<String> recordPrintBatch(String orderId);
-  Future<void> markItemsAsPrinted(String orderId, String batchId);
+  Future<void> markItemsAsPrinted(String orderId, String batchId, {bool deductStock = true});
 
   // Payment Status Management
   Future<void> updatePaymentStatus(String orderId, String status);

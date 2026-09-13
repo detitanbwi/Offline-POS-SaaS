@@ -256,6 +256,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
     String? cashierId,
     String? cashierNama,
     bool printToKitchen = true,
+    bool deductStock = true,
   }) async {
     final table = state.selectedTable;
     final activeTableId = table?.id ?? state.activeOrder?.tableId;
@@ -388,7 +389,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         // Record the new batch and get its ID
         final batchId = await _repository.recordPrintBatch(orderId);
         // Mark all unprinted items (print_batch_id IS NULL) with this new batch
-        await _repository.markItemsAsPrinted(orderId, batchId);
+        await _repository.markItemsAsPrinted(orderId, batchId, deductStock: deductStock);
 
         if (printToKitchen) {
           try {

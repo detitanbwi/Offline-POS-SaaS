@@ -24,6 +24,7 @@ class OrderItemModel {
   final String? cancelledReason;
   final String? cancelledByManagerId;
   final String? printBatchId;
+  final int isStockDeducted; // 0 = false, 1 = true
   final double discountPercentage;
   final double discountAmount;
   final List<SelectedModifier> selectedModifiers;
@@ -50,6 +51,7 @@ class OrderItemModel {
     this.cancelledReason,
     this.cancelledByManagerId,
     this.printBatchId,
+    this.isStockDeducted = 0,
     this.discountPercentage = 0.0,
     this.discountAmount = 0.0,
     this.selectedModifiers = const [],
@@ -96,6 +98,7 @@ class OrderItemModel {
     String? cancelledReason,
     String? cancelledByManagerId,
     String? printBatchId,
+    int? isStockDeducted,
     double? discountPercentage,
     double? discountAmount,
     List<SelectedModifier>? selectedModifiers,
@@ -122,6 +125,7 @@ class OrderItemModel {
       cancelledReason: cancelledReason ?? this.cancelledReason,
       cancelledByManagerId: cancelledByManagerId ?? this.cancelledByManagerId,
       printBatchId: printBatchId ?? this.printBatchId,
+      isStockDeducted: isStockDeducted ?? this.isStockDeducted,
       discountPercentage: discountPercentage ?? this.discountPercentage,
       discountAmount: discountAmount ?? this.discountAmount,
       selectedModifiers: selectedModifiers ?? this.selectedModifiers,
@@ -151,6 +155,7 @@ class OrderItemModel {
       'cancelled_reason': cancelledReason,
       'cancelled_by_manager_id': cancelledByManagerId,
       'print_batch_id': printBatchId,
+      'is_stock_deducted': isStockDeducted,
       'diskon_percentage': discountPercentage,
       'diskon_amount': discountAmount,
       'modifier_details': selectedModifiers.isNotEmpty
@@ -194,6 +199,7 @@ class OrderItemModel {
       cancelledReason: map['cancelled_reason'] as String?,
       cancelledByManagerId: map['cancelled_by_manager_id'] as String?,
       printBatchId: map['print_batch_id'] as String?,
+      isStockDeducted: (map['is_stock_deducted'] as num?)?.toInt() ?? 0,
       discountPercentage: ((map['diskon_percentage'] ?? map['discount_percentage']) as num?)?.toDouble() ?? 0.0,
       discountAmount: ((map['diskon_amount'] ?? map['discount_amount']) as num?)?.toDouble() ?? 0.0,
       selectedModifiers: parsedModifiers,

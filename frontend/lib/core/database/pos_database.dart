@@ -137,6 +137,9 @@ class PosDatabase {
     await _addColumnIfNotExists(db, 'order_items', 'modifier_details', 'TEXT');
     await _addColumnIfNotExists(db, 'transaction_items', 'modifier_details', 'TEXT');
 
+    // Stock deduction tracking for kitchen orders & direct payments
+    await _addColumnIfNotExists(db, 'order_items', 'is_stock_deducted', 'INTEGER NOT NULL DEFAULT 0');
+
     // Pastikan semua kasir adalah kasir standar (non-owner), karena otorisasi sensitif hanya milik Master PIN
     try {
       await db.execute('UPDATE cashiers SET is_owner = 0 WHERE is_owner = 1');
@@ -426,6 +429,7 @@ class PosDatabase {
         cancelled_reason TEXT,
         cancelled_by_manager_id TEXT,
         print_batch_id TEXT,
+        is_stock_deducted INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
         FOREIGN KEY (produk_id) REFERENCES products(id) ON DELETE RESTRICT
       )

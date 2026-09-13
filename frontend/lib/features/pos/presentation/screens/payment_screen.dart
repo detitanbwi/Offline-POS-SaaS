@@ -261,6 +261,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             notes: notes.isNotEmpty ? notes : null,
             cashierId: activeUser?.id,
             cashierNama: activeUser?.nama,
+            deductStock: isPayLater,
           );
       // Refresh list meja agar status meja terbaru (1 = Terisi / Billed) termuat
       ref.read(tableNotifierProvider.notifier).loadTables();

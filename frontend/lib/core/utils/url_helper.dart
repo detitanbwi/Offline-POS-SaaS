@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../constants/app_constants.dart';
 import '../widgets/app_snackbar.dart';
 
 class UrlHelper {
-  static const String helpUrl = 'https://appkasirpro.com/contact.html';
+  static const String helpUrl = contactUrl;
 
   /// Membuka URL eksternal di browser sistem
   static Future<bool> launchExternalUrl(BuildContext context, String urlString) async {

@@ -49,18 +49,37 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
       // Check if stock for items was already deducted when dispatched to kitchen in draft order
       final Map<String, int> printedQtyMap = {};
-      final effectiveOrderId = header.masterOrderId;
+      String? effectiveOrderId = header.masterOrderId;
+      if (effectiveOrderId == null || effectiveOrderId.isEmpty) {
+        if (header.nomorTransaksi.isNotEmpty) {
+          final existingOrders = await txn.query(
+            'orders',
+            columns: ['id'],
+            where: 'nomor_order = ?',
+            whereArgs: [header.nomorTransaksi],
+            limit: 1,
+          );
+          if (existingOrders.isNotEmpty) {
+            effectiveOrderId = existingOrders.first['id'] as String?;
+          }
+        }
+      }
+
       if (effectiveOrderId != null && effectiveOrderId.isNotEmpty) {
         final printedRows = await txn.query(
           'order_items',
-          columns: ['produk_id', 'qty'],
-          where: 'order_id = ? AND status_cetak = 1',
+          columns: ['produk_id', 'qty', 'is_stock_deducted', 'status_cetak'],
+          where: 'order_id = ? AND (is_cancelled IS NULL OR is_cancelled = 0)',
           whereArgs: [effectiveOrderId],
         );
         for (final row in printedRows) {
           final pId = row['produk_id'] as String? ?? '';
           final q = (row['qty'] as num?)?.toInt() ?? 0;
-          printedQtyMap[pId] = (printedQtyMap[pId] ?? 0) + q;
+          final isDeducted = (row['is_stock_deducted'] as num?)?.toInt() ?? 0;
+          final statusCetak = (row['status_cetak'] as num?)?.toInt() ?? 0;
+          if (isDeducted == 1 || (!row.containsKey('is_stock_deducted') && statusCetak == 1)) {
+            printedQtyMap[pId] = (printedQtyMap[pId] ?? 0) + q;
+          }
         }
       }
 

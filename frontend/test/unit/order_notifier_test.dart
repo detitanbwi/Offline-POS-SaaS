@@ -121,7 +121,7 @@ class OrderRepositoryMock implements OrderRepository {
   }
 
   @override
-  Future<void> markItemsAsPrinted(String orderId, String batchId) async {
+  Future<void> markItemsAsPrinted(String orderId, String batchId, {bool deductStock = true}) async {
     markItemsAsPrintedCalled = true;
   }
 

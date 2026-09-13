@@ -43,14 +43,17 @@ class TableNotifier extends StateNotifier<TableState> {
   Future<void> loadTables() async {
     // Memberi jeda 300ms agar animasi transisi layar selesai
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final tables = await _repository.getAllTables();
+      if (!mounted) return;
       state = state.copyWith(
         allTables: tables,
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Gagal memuat daftar meja: $e',

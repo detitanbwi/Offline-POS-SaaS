@@ -55,7 +55,8 @@ class VoidOrderService {
           (row['qty'] as num).toInt();
       final cancelledQty = (row['cancelled_qty'] as num?)?.toInt() ?? 0;
       final statusCetak = (row['status_cetak'] as num?)?.toInt() ?? 0;
-      wasPrintedToKitchen = statusCetak == 1;
+      final isStockDeducted = (row['is_stock_deducted'] as num?)?.toInt() ?? 0;
+      wasPrintedToKitchen = (statusCetak == 1 || isStockDeducted == 1) && (isStockDeducted == 1 || !row.containsKey('is_stock_deducted'));
 
       final remainingQty = qtyOrdered - cancelledQty;
       if (qtyToVoid > remainingQty || qtyToVoid <= 0) {
@@ -77,6 +78,7 @@ class VoidOrderService {
           'subtotal': newSubtotal,
           'cancelled_qty': newCancelledQty,
           'is_cancelled': isFullyCancelled ? 1 : 0,
+          if (isFullyCancelled) 'is_stock_deducted': 0,
           'cancelled_at': nowStr,
           'cancelled_reason': reason,
           'cancelled_by_manager_id': managerId,

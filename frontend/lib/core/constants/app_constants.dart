@@ -8,12 +8,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// Configured via .env files with fallback to production server.
 String get apiBaseUrl => dotenv.env['API_BASE_URL']?.isNotEmpty == true
     ? dotenv.env['API_BASE_URL']!
-    : 'https://aplikasi.appkasirpro.com';
+    : 'https://demo2.wirodev.com';
 
 /// Application metadata
-const String appVersion = '0.2.19';
-const String appBuildNumber = '219';
+const String appVersion = '0.2.20';
+const String appBuildNumber = '220';
 const String appName = 'Kasir Pro';
+const String contactUrl = 'https://appkasirpro.com/contact.html';
 
 /// Order Type constants
 class AppOrderType {
