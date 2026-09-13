@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_dialog.dart';
@@ -97,14 +96,28 @@ class _TrashBinScreenState extends ConsumerState<TrashBinScreen> {
         appBar: AppBar(
           title: Text(
             'Tempat Sampah',
-            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            style: AppTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.primary,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withValues(alpha: 0.7),
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelStyle: TextStyle(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.normal,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
             tabs: [
               Tab(text: 'Produk (${state.deletedProducts.length})'),
               Tab(text: 'Kategori (${state.deletedCategories.length})'),
@@ -116,7 +129,7 @@ class _TrashBinScreenState extends ConsumerState<TrashBinScreen> {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
               onPressed: () => notifier.loadAll(),
               tooltip: 'Segarkan',
             ),
