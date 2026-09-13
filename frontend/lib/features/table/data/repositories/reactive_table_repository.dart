@@ -16,7 +16,11 @@ class ReactiveTableRepository {
     final db = await _db.database;
     final now = DateTime.now();
 
-    final tableRows = await db.query('tables', orderBy: 'nomor ASC');
+    final tableRows = await db.query(
+      'tables',
+      where: "is_deleted = 0 AND id != 'TABLE_TAKE_AWAY'",
+      orderBy: 'nomor ASC',
+    );
     final List<TableUiModel> uiModels = [];
 
     for (final t in tableRows) {
