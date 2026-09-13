@@ -11,8 +11,8 @@ String get apiBaseUrl => dotenv.env['API_BASE_URL']?.isNotEmpty == true
     : 'https://demo2.wirodev.com';
 
 /// Application metadata
-const String appVersion = '0.2.24';
-const String appBuildNumber = '224';
+const String appVersion = '0.2.25';
+const String appBuildNumber = '225';
 const String appName = 'Kasir Pro';
 const String contactUrl = 'https://appkasirpro.com/contact.html';
 

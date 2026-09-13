@@ -16,8 +16,8 @@ class TableRepositoryImpl implements TableRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'tables',
-      where: 'is_deleted = 0 AND id != ?',
-      whereArgs: ['TABLE_TAKE_AWAY'],
+      where: 'is_deleted = 0 AND id NOT IN (?, ?) AND nomor != ?',
+      whereArgs: ['TABLE_TAKE_AWAY', 'TAKE_AWAY', 'TA-00'],
       orderBy: 'nomor ASC',
     );
     return List.generate(maps.length, (i) => TableModel.fromMap(maps[i]));
@@ -48,7 +48,7 @@ class TableRepositoryImpl implements TableRepository {
 
   @override
   Future<void> deleteTable(String id) async {
-    if (id == 'TABLE_TAKE_AWAY') return;
+    if (id == 'TABLE_TAKE_AWAY' || id == 'TAKE_AWAY') return;
     final db = await _db.database;
     final tableMap = await db.query('tables', where: 'id = ?', whereArgs: [id], limit: 1);
     if (tableMap.isNotEmpty) {
@@ -87,8 +87,8 @@ class TableRepositoryImpl implements TableRepository {
     final db = await _db.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'tables',
-      where: 'is_deleted = 1 AND id != ?',
-      whereArgs: ['TABLE_TAKE_AWAY'],
+      where: 'is_deleted = 1 AND id NOT IN (?, ?) AND nomor != ?',
+      whereArgs: ['TABLE_TAKE_AWAY', 'TAKE_AWAY', 'TA-00'],
       orderBy: 'deleted_at DESC',
     );
     return maps.map((m) {
@@ -102,7 +102,7 @@ class TableRepositoryImpl implements TableRepository {
 
   @override
   Future<void> restoreTable(String id) async {
-    if (id == 'TABLE_TAKE_AWAY') return;
+    if (id == 'TABLE_TAKE_AWAY' || id == 'TAKE_AWAY') return;
     final db = await _db.database;
     final rows = await db.query('tables', where: 'id = ?', whereArgs: [id]);
     if (rows.isEmpty) return;
@@ -135,7 +135,7 @@ class TableRepositoryImpl implements TableRepository {
 
   @override
   Future<void> permanentDeleteTable(String id) async {
-    if (id == 'TABLE_TAKE_AWAY') return;
+    if (id == 'TABLE_TAKE_AWAY' || id == 'TAKE_AWAY') return;
     final db = await _db.database;
     final ords = await db.query('orders', columns: ['id'], where: 'table_id = ?', whereArgs: [id], limit: 1);
     if (ords.isNotEmpty) {
