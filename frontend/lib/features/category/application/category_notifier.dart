@@ -56,17 +56,24 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
     await loadCategories();
   }
 
-  Future<void> loadCategories() async {
-    // Memberi jeda 300ms agar animasi transisi layar selesai
-    await Future.delayed(const Duration(milliseconds: 300));
-    state = state.copyWith(isLoading: true, errorMessage: null);
+  Future<void> loadCategories({bool showLoading = true}) async {
+    if (showLoading) {
+      state = state.copyWith(isLoading: true, errorMessage: null);
+    }
     try {
       final categories = await _repository.getAllCategories();
+      final filtered = _filterAndSortCategories(
+        categories,
+        state.searchQuery,
+        state.statusFilter,
+        state.sortBy,
+      );
       state = state.copyWith(
         allCategories: categories,
+        filteredCategories: filtered,
         isLoading: false,
+        errorMessage: null,
       );
-      _applyFilterAndSort();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -100,34 +107,52 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
     _applyFilterAndSort();
   }
 
-  void _applyFilterAndSort() {
-    List<Category> filtered = List.from(state.allCategories);
+  List<Category> _filterAndSortCategories(
+    List<Category> source,
+    String searchQuery,
+    int? statusFilter,
+    String sortBy,
+  ) {
+    List<Category> filtered = List.from(source);
 
     // Apply Search
-    if (state.searchQuery.isNotEmpty) {
-      final query = state.searchQuery.toLowerCase();
+    if (searchQuery.isNotEmpty) {
+      final query = searchQuery.toLowerCase();
       filtered = filtered.where((c) => c.nama.toLowerCase().contains(query)).toList();
     }
 
     // Apply Status Filter
-    if (state.statusFilter != null) {
-      filtered = filtered.where((c) => c.status == state.statusFilter).toList();
+    if (statusFilter != null) {
+      filtered = filtered.where((c) => c.status == statusFilter).toList();
     }
 
     // Apply Sort
-    if (state.sortBy == 'name_asc') {
+    if (sortBy == 'name_asc') {
       filtered.sort((a, b) => a.nama.toLowerCase().compareTo(b.nama.toLowerCase()));
-    } else if (state.sortBy == 'name_desc') {
+    } else if (sortBy == 'name_desc') {
       filtered.sort((a, b) => b.nama.toLowerCase().compareTo(a.nama.toLowerCase()));
     }
 
+    return filtered;
+  }
+
+  void _applyFilterAndSort() {
+    final filtered = _filterAndSortCategories(
+      state.allCategories,
+      state.searchQuery,
+      state.statusFilter,
+      state.sortBy,
+    );
     state = state.copyWith(filteredCategories: filtered);
   }
 
   Future<bool> addCategory(String name, {String? image}) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final exists = await _repository.isCategoryNameExists(name);
+      final exists = await _repository.isCategoryNameExists(trimmed);
       if (exists) {
         state = state.copyWith(
           isLoading: false,
@@ -139,7 +164,7 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
       final now = DateTime.now();
       final category = Category(
         id: _uuid.v4(),
-        nama: name.trim(),
+        nama: trimmed,
         status: 1,
         image: image,
         createdAt: now,
@@ -147,7 +172,9 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
       );
 
       await _repository.insertCategory(category);
-      await loadCategories();
+      // Reset search query saat menambah kategori baru agar kategori baru langsung tampil di layar
+      state = state.copyWith(searchQuery: '');
+      await loadCategories(showLoading: false);
       return true;
     } catch (e) {
       final cleanErr = e.toString().replaceAll('Exception: ', '');
@@ -187,7 +214,9 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
         successCount++;
       }
 
-      await loadCategories();
+      // Reset search query saat menambah kategori baru agar kategori baru langsung tampil di layar
+      state = state.copyWith(searchQuery: '');
+      await loadCategories(showLoading: false);
 
       if (duplicateNames.isNotEmpty) {
         if (successCount == 0) {

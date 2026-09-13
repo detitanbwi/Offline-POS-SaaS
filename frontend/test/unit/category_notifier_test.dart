@@ -80,5 +80,35 @@ void main() {
       expect(notifier.state.allCategories.any((c) => c.nama == 'Makanan'), true);
       expect(notifier.state.allCategories.any((c) => c.nama == 'Cemilan'), true);
     });
+
+    test('addCategory sequentially adds Makanan and then Minuman, displaying both in filteredCategories', () async {
+      // 1. Add first category "Makanan"
+      final success1 = await notifier.addCategory('Makanan');
+      expect(success1, true);
+      expect(notifier.state.allCategories.length, 1);
+      expect(notifier.state.filteredCategories.length, 1);
+      expect(notifier.state.filteredCategories.first.nama, 'Makanan');
+
+      // 2. Add second category "Minuman"
+      final success2 = await notifier.addCategory('Minuman');
+      expect(success2, true);
+      expect(notifier.state.allCategories.length, 2);
+      expect(notifier.state.filteredCategories.length, 2);
+      expect(notifier.state.filteredCategories.any((c) => c.nama == 'Makanan'), true);
+      expect(notifier.state.filteredCategories.any((c) => c.nama == 'Minuman'), true);
+    });
+
+    test('addCategory resets search query so newly added category is visible', () async {
+      await notifier.addCategory('Makanan');
+      notifier.setSearchQuery('makanan');
+      expect(notifier.state.filteredCategories.length, 1);
+
+      // Adding Minuman resets the search query
+      final success = await notifier.addCategory('Minuman');
+      expect(success, true);
+      expect(notifier.state.searchQuery, '');
+      expect(notifier.state.filteredCategories.length, 2);
+      expect(notifier.state.filteredCategories.any((c) => c.nama == 'Minuman'), true);
+    });
   });
 }

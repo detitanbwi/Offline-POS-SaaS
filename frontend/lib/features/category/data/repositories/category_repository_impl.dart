@@ -36,6 +36,32 @@ class CategoryRepositoryImpl implements CategoryRepository {
   @override
   Future<void> insertCategory(Category category) async {
     final db = await _db.database;
+    // Cek apakah ada kategori dengan nama yang sama yang telah di-soft-delete sebelumnya
+    final deleted = await db.query(
+      'categories',
+      where: 'LOWER(nama) = LOWER(?) AND is_deleted = 1',
+      whereArgs: [category.nama],
+      limit: 1,
+    );
+
+    if (deleted.isNotEmpty) {
+      final oldId = deleted.first['id'] as String;
+      await db.update(
+        'categories',
+        {
+          'nama': category.nama,
+          'status': category.status,
+          'image': category.image,
+          'is_deleted': 0,
+          'deleted_at': null,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [oldId],
+      );
+      return;
+    }
+
     await db.insert(
       'categories',
       category.toMap(),
@@ -46,6 +72,21 @@ class CategoryRepositoryImpl implements CategoryRepository {
   @override
   Future<void> updateCategory(Category category) async {
     final db = await _db.database;
+    // Jika ada kategori lain yang di-soft-delete dengan nama yang sama, bersihkan agar tidak konflik UNIQUE constraint
+    final conflicting = await db.query(
+      'categories',
+      where: 'LOWER(nama) = LOWER(?) AND id != ? AND is_deleted = 1',
+      whereArgs: [category.nama, category.id],
+      limit: 1,
+    );
+    if (conflicting.isNotEmpty) {
+      await db.delete(
+        'categories',
+        where: 'id = ?',
+        whereArgs: [conflicting.first['id']],
+      );
+    }
+
     await db.update(
       'categories',
       category.toMap(),

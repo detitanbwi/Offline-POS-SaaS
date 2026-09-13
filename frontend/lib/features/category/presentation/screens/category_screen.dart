@@ -29,6 +29,14 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   final Set<String> _selectedIds = {};
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(categoryNotifierProvider.notifier).loadCategories();
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -79,14 +87,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   void _showAddEditDialog(BuildContext context, [Category? category]) {
     final formKey = GlobalKey<CategoryFormState>();
+    final parentContext = context;
     
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (dialogContext) {
         bool isSaving = false;
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (dialogContext, setDialogState) {
             return AppDialog(
               title: category == null ? 'Tambah Kategori' : 'Ubah Kategori',
               confirmText: 'Simpan',
@@ -99,9 +108,8 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                   onSubmit: (names, status, image) async {
                     if (isSaving) return;
                     
-                    FocusScope.of(context).unfocus();
-                    setState(() => isSaving = true);
-                    await Future.delayed(const Duration(milliseconds: 300));
+                    FocusScope.of(dialogContext).unfocus();
+                    setDialogState(() => isSaving = true);
                     
                     bool success;
                     if (category == null) {
@@ -114,17 +122,20 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                       success = await ref.read(categoryNotifierProvider.notifier).updateCategory(category.id, names.first, status, image: image);
                     }
 
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
+                    if (!dialogContext.mounted) return;
+                    Navigator.of(dialogContext).pop();
 
                     final state = ref.read(categoryNotifierProvider);
-                    if (success) {
-                      AppSnackbar.showSuccess(
-                        context,
-                        category == null ? 'Kategori berhasil ditambahkan!' : 'Kategori berhasil diperbarui!',
-                      );
-                    } else if (state.errorMessage != null) {
-                      AppSnackbar.showError(context, state.errorMessage!);
+                    if (parentContext.mounted) {
+                      if (success) {
+                        _searchController.clear();
+                        AppSnackbar.showSuccess(
+                          parentContext,
+                          category == null ? 'Kategori berhasil ditambahkan!' : 'Kategori berhasil diperbarui!',
+                        );
+                      } else if (state.errorMessage != null) {
+                        AppSnackbar.showError(parentContext, state.errorMessage!);
+                      }
                     }
                   },
                 ),

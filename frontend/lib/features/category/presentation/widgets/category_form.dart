@@ -278,6 +278,19 @@ class CategoryFormState extends State<CategoryForm> {
       final input = _nameController.text.trim();
       if (input.isEmpty) return false;
       
+      // Jika menambah kategori baru dan input mengandung pemisah koma (misal: "Makanan, Minuman")
+      if (widget.category == null && input.contains(',')) {
+        final names = input
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        if (names.isNotEmpty) {
+          widget.onSubmit(names, _status, _imagePath);
+          return true;
+        }
+      }
+
       widget.onSubmit([input], _status, _imagePath);
       return true;
     }
