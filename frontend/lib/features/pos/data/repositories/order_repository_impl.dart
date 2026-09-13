@@ -229,38 +229,16 @@ class OrderRepositoryImpl implements OrderRepository {
     await db.transaction((txn) async {
       await _ensurePaymentStatusColumn(txn);
       final orderMap = order.toMap();
-      // Ensure table_id is NEVER null to satisfy SQLite NOT NULL constraints on legacy/current schemas,
-      // and ensure 'TABLE_TAKE_AWAY' sentinel exists in tables table to satisfy FOREIGN KEY constraints.
-      if (orderMap['table_id'] == null || (orderMap['table_id'] as String).isEmpty) {
-        orderMap['table_id'] = 'TABLE_TAKE_AWAY';
-        final checkTable = await txn.query('tables', where: 'id = ?', whereArgs: ['TABLE_TAKE_AWAY']);
-        if (checkTable.isEmpty) {
-          await txn.insert('tables', {
-            'id': 'TABLE_TAKE_AWAY',
-            'nama': 'Take Away',
-            'nomor': 'TA-00',
-            'status': 0,
-            'is_deleted': 1,
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-        }
+      // For Take Away or orders without a table, store table_id as NULL
+      if (orderMap['table_id'] == null ||
+          (orderMap['table_id'] as String).isEmpty ||
+          orderMap['table_id'] == 'TABLE_TAKE_AWAY' ||
+          orderMap['table_id'] == 'TAKE_AWAY') {
+        orderMap['table_id'] = null;
       } else {
         final tCheck = await txn.query('tables', where: 'id = ?', whereArgs: [orderMap['table_id']]);
         if (tCheck.isEmpty) {
-          orderMap['table_id'] = 'TABLE_TAKE_AWAY';
-          final checkTable = await txn.query('tables', where: 'id = ?', whereArgs: ['TABLE_TAKE_AWAY']);
-          if (checkTable.isEmpty) {
-            await txn.insert('tables', {
-              'id': 'TABLE_TAKE_AWAY',
-              'nama': 'Take Away',
-              'nomor': 'TA-00',
-              'status': 0,
-              'is_deleted': 1,
-              'created_at': DateTime.now().toIso8601String(),
-              'updated_at': DateTime.now().toIso8601String(),
-            });
-          }
+          orderMap['table_id'] = null;
         }
       }
 

@@ -149,6 +149,17 @@ class PosDatabase {
       await db.execute('UPDATE cashiers SET is_owner = 0 WHERE is_owner = 1');
     } catch (_) {}
 
+    // Cleanup legacy sentinel Take Away tables and update orders
+    try {
+      await db.execute("UPDATE orders SET table_id = NULL WHERE table_id IN ('TABLE_TAKE_AWAY', 'TAKE_AWAY')");
+    } catch (_) {}
+    try {
+      await db.execute("UPDATE master_orders SET table_id = NULL WHERE table_id IN ('TABLE_TAKE_AWAY', 'TAKE_AWAY')");
+    } catch (_) {}
+    try {
+      await db.execute("DELETE FROM tables WHERE id IN ('TABLE_TAKE_AWAY', 'TAKE_AWAY') OR nomor = 'TA-00'");
+    } catch (_) {}
+
     await db.execute('''
       CREATE TABLE IF NOT EXISTS product_modifier_groups (
         id TEXT PRIMARY KEY,
@@ -614,7 +625,7 @@ class PosDatabase {
         CREATE TABLE IF NOT EXISTS orders (
           id TEXT PRIMARY KEY,
           nomor_order TEXT NOT NULL UNIQUE,
-          table_id TEXT NOT NULL,
+          table_id TEXT,
           table_nama TEXT,
           table_nomor TEXT,
           subtotal REAL NOT NULL DEFAULT 0,
@@ -624,8 +635,7 @@ class PosDatabase {
           status TEXT NOT NULL DEFAULT 'draft',
           catatan TEXT,
           created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
-          FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE RESTRICT
+          updated_at TEXT NOT NULL
         )
       ''');
 
