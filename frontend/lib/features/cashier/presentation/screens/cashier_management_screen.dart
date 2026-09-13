@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../settings/presentation/screens/trash_bin_screen.dart';
 import '../../application/cashier_notifier.dart';
 import '../../domain/models/cashier.dart';
 
@@ -138,11 +139,14 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
   }
 
   void _confirmDeleteCashier(BuildContext context, CashierModel cashier) {
-    AppDialog.showConfirmDelete(
+    AppDialog.show(
       context: context,
-      title: 'Hapus Akses Kasir',
-      itemName: cashier.nama,
-      onDelete: () async {
+      title: 'Pindahkan ke Tempat Sampah',
+      message: 'Akun kasir "${cashier.nama}" akan dipindahkan ke Tempat Sampah dan dinonaktifkan. Anda dapat memulihkannya kapan saja.',
+      confirmText: 'Pindahkan',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
         final notifier = ref.read(cashierNotifierProvider.notifier);
         await notifier.deleteCashier(cashier.id);
         
@@ -152,7 +156,7 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
         if (state.errorMessage != null) {
           AppSnackbar.showError(context, state.errorMessage!);
         } else {
-          AppSnackbar.showSuccess(context, 'Akses kasir berhasil dinonaktifkan permanen.');
+          AppSnackbar.showSuccess(context, 'Akun kasir "${cashier.nama}" dipindahkan ke Tempat Sampah.');
         }
       },
     );
@@ -175,6 +179,20 @@ class _CashierManagementScreenState extends ConsumerState<CashierManagementScree
             icon: Icon(Icons.person_add_alt_1_rounded),
             tooltip: 'Tambah Kasir Baru',
             onPressed: () => _showAddEditCashierDialog(context),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Tempat Sampah',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TrashBinScreen(
+                    initialTab: TrashBinTab.cashier,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

@@ -4,6 +4,8 @@ import '../../../../core/utils/database_exception_extension.dart';
 import '../../domain/models/table.dart';
 import '../../domain/repositories/table_repository.dart';
 
+import '../../../../core/utils/soft_delete_helper.dart';
+
 class TableRepositoryImpl implements TableRepository {
   final PosDatabase _db;
 
@@ -58,19 +60,96 @@ class TableRepositoryImpl implements TableRepository {
       throw const TableException('Meja tidak bisa dihapus karena memiliki pesanan draft yang belum selesai.');
     }
 
+    if (tableMap.isEmpty) return;
+    final table = TableModel.fromMap(tableMap.first);
+    final tombstoneName = SoftDeleteHelper.makeDeletedName(table.nama);
+    final tombstoneNomor = SoftDeleteHelper.makeDeletedName(table.nomor);
+    final now = DateTime.now().toIso8601String();
+
+    await db.update(
+      'tables',
+      {
+        'nama': tombstoneName,
+        'nomor': tombstoneNomor,
+        'is_deleted': 1,
+        'deleted_at': now,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<List<TableModel>> getDeletedTables() async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'tables',
+      where: 'is_deleted = 1',
+      orderBy: 'deleted_at DESC',
+    );
+    return maps.map((m) {
+      final rawNama = m['nama'] as String;
+      final rawNomor = m['nomor'] as String;
+      final cleanNama = SoftDeleteHelper.cleanDeletedName(rawNama);
+      final cleanNomor = SoftDeleteHelper.cleanDeletedName(rawNomor);
+      return TableModel.fromMap({...m, 'nama': cleanNama, 'nomor': cleanNomor});
+    }).toList();
+  }
+
+  @override
+  Future<void> restoreTable(String id) async {
+    final db = await _db.database;
+    final rows = await db.query('tables', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final rawNama = rows.first['nama'] as String;
+    final rawNomor = rows.first['nomor'] as String;
+    String cleanNama = SoftDeleteHelper.cleanDeletedName(rawNama);
+    String cleanNomor = SoftDeleteHelper.cleanDeletedName(rawNomor);
+
+    if (await isTableNameExists(cleanNama, excludeId: id)) {
+      cleanNama = '$cleanNama (Dipulihkan)';
+    }
+    if (await isTableNumberExists(cleanNomor, excludeId: id)) {
+      cleanNomor = '${cleanNomor}_P';
+    }
+
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'tables',
+      {
+        'nama': cleanNama,
+        'nomor': cleanNomor,
+        'is_deleted': 0,
+        'deleted_at': null,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<void> permanentDeleteTable(String id) async {
+    final db = await _db.database;
+    final ords = await db.query('orders', columns: ['id'], where: 'table_id = ?', whereArgs: [id], limit: 1);
+    if (ords.isNotEmpty) {
+      throw const TableException('Meja tidak dapat dihapus permanen karena masih tercatat dalam riwayat pesanan.');
+    }
+    final masterOrds = await db.query('master_orders', columns: ['id'], where: 'table_id = ?', whereArgs: [id], limit: 1);
+    if (masterOrds.isNotEmpty) {
+      throw const TableException('Meja tidak dapat dihapus permanen karena masih tercatat dalam riwayat sesi meja.');
+    }
+
     try {
-      await db.update(
+      await db.delete(
         'tables',
-        {
-          'is_deleted': 1,
-          'deleted_at': DateTime.now().toIso8601String(),
-        },
         where: 'id = ?',
         whereArgs: [id],
       );
     } on DatabaseException catch (e) {
       if (e.isForeignKeyConstraintViolation()) {
-        throw const TableException('Meja tidak bisa dihapus karena masih digunakan dalam transaksi/order.');
+        throw const TableException('Meja tidak dapat dihapus permanen karena masih terkait dengan data lain.');
       }
       rethrow;
     }

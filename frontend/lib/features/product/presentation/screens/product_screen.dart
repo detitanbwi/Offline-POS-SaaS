@@ -18,6 +18,7 @@ import '../../../category/application/category_notifier.dart';
 import '../../application/product_notifier.dart';
 import '../../domain/models/product.dart';
 import '../widgets/product_form.dart';
+import '../../../settings/presentation/screens/trash_bin_screen.dart';
 
 class ProductScreen extends ConsumerStatefulWidget {
   const ProductScreen({super.key});
@@ -212,18 +213,21 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
   }
 
   void _confirmDelete(BuildContext context, Product product) {
-    AppDialog.showConfirmDelete(
+    AppDialog.show(
       context: context,
-      title: 'Hapus Produk',
-      itemName: product.nama,
-      onDelete: () async {
+      title: 'Pindahkan ke Tempat Sampah',
+      message: 'Produk "${product.nama}" akan dipindahkan ke Tempat Sampah dan tidak akan muncul di katalog kasir. Anda dapat memulihkannya kapan saja.',
+      confirmText: 'Pindahkan',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
         Navigator.pop(context); // close dialog
         final success = await ref.read(productNotifierProvider.notifier).deleteProduct(product.id);
 
         if (!context.mounted) return;
         final state = ref.read(productNotifierProvider);
         if (success) {
-          AppSnackbar.showSuccess(context, 'Produk "${product.nama}" berhasil dihapus!');
+          AppSnackbar.showSuccess(context, 'Produk "${product.nama}" dipindahkan ke Tempat Sampah.');
         } else if (state.errorMessage != null) {
           AppSnackbar.showError(context, state.errorMessage!);
         }
@@ -393,6 +397,16 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: 'Tempat Sampah',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrashBinScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(_isSelectionMode ? Icons.close : Icons.checklist_rounded),
             onPressed: () {
@@ -710,6 +724,13 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                             },
                                             onEdit: () => _showAddEditDialog(context, product),
                                             onDelete: () => _confirmDelete(context, product),
+                                            onToggleStatus: (active) async {
+                                              final ok = await notifier.toggleProductStatus(product.id, active);
+                                              if (!ok && context.mounted) {
+                                                final err = ref.read(productNotifierProvider).errorMessage;
+                                                if (err != null) AppSnackbar.showError(context, err);
+                                              }
+                                            },
                                           ),
                                         );
                                       }),
@@ -780,6 +801,13 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                                                       },
                                                       onEdit: () => _showAddEditDialog(context, product),
                                                       onDelete: () => _confirmDelete(context, product),
+                                                      onToggleStatus: (active) async {
+                                                        final ok = await notifier.toggleProductStatus(product.id, active);
+                                                        if (!ok && context.mounted) {
+                                                          final err = ref.read(productNotifierProvider).errorMessage;
+                                                          if (err != null) AppSnackbar.showError(context, err);
+                                                        }
+                                                      },
                                                     ),
                                                   );
                                                 }).toList(),
@@ -847,6 +875,7 @@ class _ProductItemRow extends StatelessWidget {
   final bool isSelectionMode;
   final bool isSelected;
   final ValueChanged<bool?>? onSelectedChanged;
+  final ValueChanged<bool>? onToggleStatus;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -856,6 +885,7 @@ class _ProductItemRow extends StatelessWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectedChanged,
+    this.onToggleStatus,
     required this.onEdit,
     required this.onDelete,
   });
@@ -998,6 +1028,11 @@ class _ProductItemRow extends StatelessWidget {
               
               // Actions
               if (!isSelectionMode) ...[
+                Switch(
+                  value: product.isActive,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: onToggleStatus,
+                ),
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1049,6 +1084,7 @@ class _ProductItemCard extends StatelessWidget {
   final bool isSelectionMode;
   final bool isSelected;
   final ValueChanged<bool?>? onSelectedChanged;
+  final ValueChanged<bool>? onToggleStatus;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -1058,6 +1094,7 @@ class _ProductItemCard extends StatelessWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectedChanged,
+    this.onToggleStatus,
     required this.onEdit,
     required this.onDelete,
   });
@@ -1253,6 +1290,20 @@ class _ProductItemCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => onToggleStatus?.call(!product.isActive),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Icon(
+                        product.isActive ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        size: 16.sp,
+                        color: product.isActive ? AppColors.primary : AppColors.disabled,
+                      ),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 24, color: AppColors.divider.withValues(alpha: 0.5)),
                 Expanded(
                   child: InkWell(
                     onTap: onEdit,

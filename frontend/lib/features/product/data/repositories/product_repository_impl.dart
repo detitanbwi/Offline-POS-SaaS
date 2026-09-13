@@ -3,6 +3,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/database/pos_database.dart';
 import '../../../../core/utils/database_exception_extension.dart';
+import '../../../../core/utils/soft_delete_helper.dart';
 import '../../domain/models/product.dart';
 import '../../domain/repositories/product_repository.dart';
 
@@ -313,21 +314,135 @@ class ProductRepositoryImpl implements ProductRepository {
   }
 
   @override
+  Future<void> toggleProductStatus(String id, int status) async {
+    final db = await _db.database;
+    await db.update(
+      'products',
+      {
+        'status': status,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
   Future<void> deleteProduct(String id) async {
     final db = await _db.database;
+    final prod = await getProductById(id);
+    if (prod == null) return;
+    final tombstoneName = SoftDeleteHelper.makeDeletedName(prod.nama);
+    final now = DateTime.now().toIso8601String();
+
+    await db.update(
+      'products',
+      {
+        'nama': tombstoneName,
+        'is_deleted': 1,
+        'deleted_at': now,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<List<Product>> getDeletedProducts() async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT p.*, c.nama as kategori_nama
+      FROM products p
+      LEFT JOIN categories c ON p.kategori_id = c.id
+      WHERE p.is_deleted = 1
+      ORDER BY p.deleted_at DESC
+    ''');
+    return maps.map((m) {
+      final rawNama = m['nama'] as String;
+      final clean = SoftDeleteHelper.cleanDeletedName(rawNama);
+      return Product.fromMap({...m, 'nama': clean});
+    }).toList();
+  }
+
+  @override
+  Future<void> restoreProduct(String id) async {
+    final db = await _db.database;
+    final rows = await db.query('products', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final rawNama = rows.first['nama'] as String;
+    String cleanName = SoftDeleteHelper.cleanDeletedName(rawNama);
+
+    // If cleanName already exists in active products, append (Dipulihkan)
+    final exists = await isProductNameExists(cleanName, excludeId: id);
+    if (exists) {
+      cleanName = '$cleanName (Dipulihkan)';
+    }
+
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'products',
+      {
+        'nama': cleanName,
+        'is_deleted': 0,
+        'deleted_at': null,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<void> permanentDeleteProduct(String id) async {
+    final db = await _db.database;
+    // Check if product is referenced in transaction_items or order_items
+    final txnItems = await db.query(
+      'transaction_items',
+      columns: ['id'],
+      where: 'produk_id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (txnItems.isNotEmpty) {
+      throw const ProductForeignKeyException('Produk tidak dapat dihapus permanen karena masih tercatat dalam riwayat transaksi penjualan.');
+    }
+
+    final ordItems = await db.query(
+      'order_items',
+      columns: ['id'],
+      where: 'produk_id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (ordItems.isNotEmpty) {
+      throw const ProductForeignKeyException('Produk tidak dapat dihapus permanen karena masih tercatat dalam pesanan.');
+    }
+
+    final pkgItems = await db.query(
+      'package_items',
+      columns: ['id'],
+      where: 'product_id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (pkgItems.isNotEmpty) {
+      throw const ProductForeignKeyException('Produk tidak dapat dihapus permanen karena merupakan komponen dari paket aktif.');
+    }
+
     try {
-      await db.update(
-        'products',
-        {
-          'is_deleted': 1,
-          'deleted_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      await db.transaction((txn) async {
+        await txn.delete('package_items', where: 'package_id = ?', whereArgs: [id]);
+        final grps = await txn.query('product_modifier_groups', columns: ['id'], where: 'product_id = ?', whereArgs: [id]);
+        for (var g in grps) {
+          await txn.delete('product_modifier_options', where: 'group_id = ?', whereArgs: [g['id']]);
+        }
+        await txn.delete('product_modifier_groups', where: 'product_id = ?', whereArgs: [id]);
+        await txn.delete('products', where: 'id = ?', whereArgs: [id]);
+      });
     } on DatabaseException catch (e) {
       if (e.isForeignKeyConstraintViolation()) {
-        throw const ProductForeignKeyException('Produk tidak bisa dihapus karena terdapat transaksi terkait.');
+        throw const ProductForeignKeyException('Produk tidak dapat dihapus permanen karena masih terkait dengan data transaksi lain.');
       }
       rethrow;
     }

@@ -309,6 +309,20 @@ class ProductNotifier extends StateNotifier<ProductState> {
     }
   }
 
+  Future<bool> toggleProductStatus(String id, bool isActive) async {
+    try {
+      await _repository.toggleProductStatus(id, isActive ? 1 : 0);
+      await loadProducts();
+      return true;
+    } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(
+        errorMessage: 'Gagal mengubah status produk: $cleanErr',
+      );
+      return false;
+    }
+  }
+
   Future<bool> deleteProduct(String id) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {

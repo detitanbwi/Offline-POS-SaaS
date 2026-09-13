@@ -8,6 +8,9 @@ abstract class CashierRepository {
   Future<void> saveCashier(CashierModel cashier);
   Future<void> updateStatus(String id, int status);
   Future<void> softDelete(String id);
+  Future<List<CashierModel>> getDeletedCashiers();
+  Future<void> restoreCashier(String id);
+  Future<void> permanentDeleteCashier(String id);
   Future<bool> isNameExists(String name, {String? excludeId});
   Future<bool> isUsernameExists(String username, {String? excludeId});
   Future<bool> isPinExists(String hashedPin, {String? excludeId});

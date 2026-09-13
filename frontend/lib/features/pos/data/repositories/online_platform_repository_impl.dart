@@ -1,5 +1,8 @@
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/database/pos_database.dart';
+import '../../../../core/utils/database_exception_extension.dart';
+import '../../../../core/utils/soft_delete_helper.dart';
 import '../../domain/models/online_platform.dart';
 import '../../domain/repositories/online_platform_repository.dart';
 
@@ -123,10 +126,16 @@ class OnlinePlatformRepositoryImpl implements OnlinePlatformRepository {
   @override
   Future<void> deletePlatform(String id) async {
     final db = await _db.database;
+    final rows = await db.query('online_platforms', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (rows.isEmpty) return;
+    final rawNama = rows.first['nama'] as String;
+    final tombstoneName = SoftDeleteHelper.makeDeletedName(rawNama);
     final now = DateTime.now().toIso8601String();
+
     await db.update(
       'online_platforms',
       {
+        'nama': tombstoneName,
         'is_deleted': 1,
         'updated_at': now,
       },
@@ -134,4 +143,99 @@ class OnlinePlatformRepositoryImpl implements OnlinePlatformRepository {
       whereArgs: [id],
     );
   }
+
+  @override
+  Future<List<OnlinePlatformModel>> getDeletedPlatforms() async {
+    final db = await _db.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'online_platforms',
+      where: 'is_deleted = 1',
+      orderBy: 'updated_at DESC',
+    );
+    return maps.map((m) {
+      final rawNama = m['nama'] as String;
+      final clean = SoftDeleteHelper.cleanDeletedName(rawNama);
+      return OnlinePlatformModel.fromMap({...m, 'nama': clean});
+    }).toList();
+  }
+
+  @override
+  Future<void> restorePlatform(String id) async {
+    final db = await _db.database;
+    final rows = await db.query('online_platforms', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final rawNama = rows.first['nama'] as String;
+    String cleanName = SoftDeleteHelper.cleanDeletedName(rawNama);
+
+    final existing = await db.query(
+      'online_platforms',
+      where: 'LOWER(nama) = ? AND id != ? AND is_deleted = 0',
+      whereArgs: [cleanName.toLowerCase()],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) {
+      cleanName = '$cleanName (Dipulihkan)';
+    }
+
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'online_platforms',
+      {
+        'nama': cleanName,
+        'is_deleted': 0,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<void> permanentDeletePlatform(String id) async {
+    final db = await _db.database;
+    final rows = await db.query('online_platforms', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (rows.isEmpty) return;
+    final rawNama = rows.first['nama'] as String;
+    final cleanName = SoftDeleteHelper.cleanDeletedName(rawNama);
+
+    // Check if used in transactions or master_orders
+    final txns = await db.query(
+      'transactions',
+      columns: ['id'],
+      where: 'online_platform = ?',
+      whereArgs: [cleanName],
+      limit: 1,
+    );
+    if (txns.isNotEmpty) {
+      throw const OnlinePlatformException('Platform online tidak dapat dihapus permanen karena masih tercatat dalam transaksi penjualan.');
+    }
+
+    final masterOrds = await db.query(
+      'master_orders',
+      columns: ['id'],
+      where: 'platform_id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (masterOrds.isNotEmpty) {
+      throw const OnlinePlatformException('Platform online tidak dapat dihapus permanen karena masih tercatat dalam sesi pesanan.');
+    }
+
+    try {
+      await db.delete('platform_sku_prices', where: 'platform_id = ?', whereArgs: [id]);
+      await db.delete('online_platforms', where: 'id = ?', whereArgs: [id]);
+    } on DatabaseException catch (e) {
+      if (e.isForeignKeyConstraintViolation()) {
+        throw const OnlinePlatformException('Platform online tidak dapat dihapus permanen karena masih terkait dengan data lain.');
+      }
+      rethrow;
+    }
+  }
+}
+
+class OnlinePlatformException implements Exception {
+  final String message;
+  const OnlinePlatformException(this.message);
+  @override
+  String toString() => message;
 }

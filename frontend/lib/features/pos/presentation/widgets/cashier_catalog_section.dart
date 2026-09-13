@@ -156,7 +156,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
         const SizedBox(height: AppSpacing.m),
 
         // Category filter chips
-        if (categoryState.allCategories.isNotEmpty) ...[
+        if (categoryState.allCategories.any((c) => c.isActive)) ...[
           SizedBox(
             height: 40,
             child: ListView(
@@ -178,7 +178,7 @@ class _CashierCatalogSectionState extends ConsumerState<CashierCatalogSection> {
                     },
                   ),
                 ),
-                ...categoryState.allCategories.map((cat) {
+                ...categoryState.allCategories.where((c) => c.isActive).map((cat) {
                   final isSelected = _selectedCategoryId == cat.id;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),

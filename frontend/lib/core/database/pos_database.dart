@@ -140,6 +140,10 @@ class PosDatabase {
     // Stock deduction tracking for kitchen orders & direct payments
     await _addColumnIfNotExists(db, 'order_items', 'is_stock_deducted', 'INTEGER NOT NULL DEFAULT 0');
 
+    // Payment methods soft delete
+    await _addColumnIfNotExists(db, 'payment_methods', 'is_deleted', 'INTEGER NOT NULL DEFAULT 0');
+    await _addColumnIfNotExists(db, 'payment_methods', 'deleted_at', 'TEXT');
+
     // Pastikan semua kasir adalah kasir standar (non-owner), karena otorisasi sensitif hanya milik Master PIN
     try {
       await db.execute('UPDATE cashiers SET is_owner = 0 WHERE is_owner = 1');
@@ -281,6 +285,8 @@ class PosDatabase {
         nama TEXT NOT NULL UNIQUE,
         icon TEXT NOT NULL,
         aktif INTEGER NOT NULL DEFAULT 1,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        deleted_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )

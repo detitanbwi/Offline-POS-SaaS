@@ -5,6 +5,8 @@ class PaymentMethod {
   final String nama;
   final String icon;
   final int aktif; // 1 = active, 0 = inactive
+  final bool isDeleted;
+  final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -13,6 +15,8 @@ class PaymentMethod {
     required this.nama,
     required this.icon,
     this.aktif = 1,
+    this.isDeleted = false,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -45,6 +49,8 @@ class PaymentMethod {
     String? nama,
     String? icon,
     int? aktif,
+    bool? isDeleted,
+    DateTime? deletedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -53,6 +59,8 @@ class PaymentMethod {
       nama: nama ?? this.nama,
       icon: icon ?? this.icon,
       aktif: aktif ?? this.aktif,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -64,6 +72,8 @@ class PaymentMethod {
       'nama': nama,
       'icon': icon,
       'aktif': aktif,
+      'is_deleted': isDeleted ? 1 : 0,
+      'deleted_at': deletedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -75,6 +85,8 @@ class PaymentMethod {
       nama: map['nama'] as String,
       icon: map['icon'] as String,
       aktif: map['aktif'] as int,
+      isDeleted: (map['is_deleted'] as int? ?? 0) == 1,
+      deletedAt: map['deleted_at'] != null ? DateTime.parse(map['deleted_at'] as String) : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

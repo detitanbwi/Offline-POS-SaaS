@@ -52,6 +52,19 @@ class TableRepositoryMock implements TableRepository {
       tables[index] = tables[index].copyWith(status: status);
     }
   }
+
+  @override
+  Future<List<TableModel>> getDeletedTables() async {
+    return [];
+  }
+
+  @override
+  Future<void> restoreTable(String id) async {}
+
+  @override
+  Future<void> permanentDeleteTable(String id) async {
+    tables.removeWhere((t) => t.id == id);
+  }
 }
 
 void main() {

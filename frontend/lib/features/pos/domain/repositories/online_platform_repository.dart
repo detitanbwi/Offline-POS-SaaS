@@ -5,4 +5,7 @@ abstract class OnlinePlatformRepository {
   Future<void> addPlatform(String nama);
   Future<void> updatePlatform(String id, String nama, int aktif);
   Future<void> deletePlatform(String id);
+  Future<List<OnlinePlatformModel>> getDeletedPlatforms();
+  Future<void> restorePlatform(String id);
+  Future<void> permanentDeletePlatform(String id);
 }

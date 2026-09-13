@@ -28,6 +28,12 @@ class TableRepositoryMock implements TableRepository {
   Future<bool> isTableNumberExists(String number, {String? excludeId}) async => false;
   @override
   Future<void> updateTableStatus(String id, int status) async {}
+  @override
+  Future<List<TableModel>> getDeletedTables() async => [];
+  @override
+  Future<void> restoreTable(String id) async {}
+  @override
+  Future<void> permanentDeleteTable(String id) async {}
 }
 
 class PrinterRepositoryMock implements PrinterRepository {

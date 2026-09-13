@@ -6,5 +6,8 @@ abstract class PaymentMethodRepository {
   Future<void> insertPaymentMethod(PaymentMethod paymentMethod);
   Future<void> updatePaymentMethod(PaymentMethod paymentMethod);
   Future<void> deletePaymentMethod(String id);
+  Future<List<PaymentMethod>> getDeletedPaymentMethods();
+  Future<void> restorePaymentMethod(String id);
+  Future<void> permanentDeletePaymentMethod(String id);
   Future<bool> isPaymentMethodNameExists(String name, {String? excludeId});
 }

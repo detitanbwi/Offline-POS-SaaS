@@ -9,7 +9,11 @@ abstract class ProductRepository {
     String? initialStockNotes,
   });
   Future<void> updateProduct(Product product);
+  Future<void> toggleProductStatus(String id, int status);
   Future<void> deleteProduct(String id);
+  Future<List<Product>> getDeletedProducts();
+  Future<void> restoreProduct(String id);
+  Future<void> permanentDeleteProduct(String id);
   Future<bool> isProductNameExists(String name, {String? excludeId});
   Future<void> updateStock(String id, int quantityChange);
 }

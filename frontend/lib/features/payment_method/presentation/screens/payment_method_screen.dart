@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../settings/presentation/screens/trash_bin_screen.dart';
 import '../../application/payment_method_notifier.dart';
 import '../../domain/models/payment_method.dart';
 
@@ -78,18 +79,21 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
       return;
     }
 
-    AppDialog.showConfirmDelete(
+    AppDialog.show(
       context: context,
-      title: 'Hapus Metode Pembayaran',
-      itemName: method.nama,
-      onDelete: () async {
+      title: 'Pindahkan ke Tempat Sampah',
+      message: 'Metode pembayaran "${method.nama}" akan dipindahkan ke Tempat Sampah dan dinonaktifkan dari kasir. Anda dapat memulihkannya kapan saja.',
+      confirmText: 'Pindahkan',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
         Navigator.pop(context); // close dialog
         final success = await ref.read(paymentMethodNotifierProvider.notifier).deletePaymentMethod(method.id);
 
         if (!context.mounted) return;
         final state = ref.read(paymentMethodNotifierProvider);
         if (success) {
-          AppSnackbar.showSuccess(context, 'Metode pembayaran "${method.nama}" berhasil dihapus!');
+          AppSnackbar.showSuccess(context, 'Metode pembayaran "${method.nama}" dipindahkan ke Tempat Sampah.');
         } else if (state.errorMessage != null) {
           AppSnackbar.showError(context, state.errorMessage!);
         }
@@ -106,6 +110,22 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: Text('Metode Pembayaran'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Tempat Sampah',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TrashBinScreen(
+                    initialTab: TrashBinTab.paymentMethod,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditDialog(context),

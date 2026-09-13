@@ -15,6 +15,7 @@ import '../../../../core/utils/validators.dart';
 import '../../application/category_notifier.dart';
 import '../../domain/models/category.dart';
 import '../widgets/category_form.dart';
+import '../../../settings/presentation/screens/trash_bin_screen.dart';
 
 class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
@@ -151,18 +152,21 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   }
 
   void _confirmDelete(BuildContext context, Category category) {
-    AppDialog.showConfirmDelete(
+    AppDialog.show(
       context: context,
-      title: 'Hapus Kategori',
-      itemName: category.nama,
-      onDelete: () async {
+      title: 'Pindahkan ke Tempat Sampah',
+      message: 'Kategori "${category.nama}" akan dipindahkan ke Tempat Sampah dan disembunyikan dari layar kasir. Anda dapat memulihkannya kapan saja.',
+      confirmText: 'Pindahkan',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
         Navigator.pop(context); // close dialog
         final success = await ref.read(categoryNotifierProvider.notifier).deleteCategory(category.id);
         
         if (!context.mounted) return;
         final state = ref.read(categoryNotifierProvider);
         if (success) {
-          AppSnackbar.showSuccess(context, 'Kategori "${category.nama}" berhasil dihapus!');
+          AppSnackbar.showSuccess(context, 'Kategori "${category.nama}" dipindahkan ke Tempat Sampah.');
         } else if (state.errorMessage != null) {
           AppSnackbar.showError(context, state.errorMessage!);
         }
@@ -286,6 +290,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
       appBar: AppBar(
         title: Text(_isSelectionMode ? 'Pilih Kategori' : 'Kelola Kategori'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: 'Tempat Sampah',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrashBinScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(_isSelectionMode ? Icons.close : Icons.checklist_rounded),
             onPressed: () {
@@ -497,6 +511,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                               },
                               onEdit: () => _showAddEditDialog(context, category),
                               onDelete: () => _confirmDelete(context, category),
+                              onToggleStatus: (active) async {
+                                final ok = await notifier.toggleCategoryStatus(category.id, active);
+                                if (!ok && context.mounted) {
+                                  final err = ref.read(categoryNotifierProvider).errorMessage;
+                                  if (err != null) AppSnackbar.showError(context, err);
+                                }
+                              },
                             );
                           },
                         ),
@@ -549,6 +570,7 @@ class _CategoryItem extends StatelessWidget {
   final bool isSelectionMode;
   final bool isSelected;
   final ValueChanged<bool?>? onSelectedChanged;
+  final ValueChanged<bool>? onToggleStatus;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -557,6 +579,7 @@ class _CategoryItem extends StatelessWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectedChanged,
+    this.onToggleStatus,
     required this.onEdit,
     required this.onDelete,
   });
@@ -607,7 +630,6 @@ class _CategoryItem extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: (category.isActive ? AppColors.success : AppColors.disabled).withValues(alpha: 0.1),
-
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.divider),
               ),
@@ -640,6 +662,11 @@ class _CategoryItem extends StatelessWidget {
             ),
           ),
           if (!isSelectionMode) ...[
+            Switch(
+              value: category.isActive,
+              activeThumbColor: AppColors.primary,
+              onChanged: onToggleStatus,
+            ),
             IconButton(
               icon: Icon(Icons.edit_outlined, color: AppColors.primary),
               onPressed: onEdit,
@@ -648,7 +675,7 @@ class _CategoryItem extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.delete_outline_rounded, color: AppColors.error),
               onPressed: onDelete,
-              tooltip: 'Hapus',
+              tooltip: 'Pindahkan ke Tempat Sampah',
             ),
           ],
         ],

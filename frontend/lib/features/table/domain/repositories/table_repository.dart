@@ -5,6 +5,9 @@ abstract class TableRepository {
   Future<TableModel?> getTableById(String id);
   Future<void> saveTable(TableModel table);
   Future<void> deleteTable(String id);
+  Future<List<TableModel>> getDeletedTables();
+  Future<void> restoreTable(String id);
+  Future<void> permanentDeleteTable(String id);
   Future<bool> isTableNameExists(String name, {String? excludeId});
   Future<bool> isTableNumberExists(String number, {String? excludeId});
   Future<void> updateTableStatus(String id, int status);

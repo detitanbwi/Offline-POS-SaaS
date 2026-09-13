@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../settings/presentation/screens/trash_bin_screen.dart';
 import '../../application/online_platform_notifier.dart';
 import '../../domain/models/online_platform.dart';
 
@@ -130,18 +131,21 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
   }
 
   void _confirmDelete(BuildContext context, OnlinePlatformModel platform) {
-    AppDialog.showConfirmDelete(
+    AppDialog.show(
       context: context,
-      title: 'Hapus Platform Online',
-      itemName: platform.nama,
-      onDelete: () async {
+      title: 'Pindahkan ke Tempat Sampah',
+      message: 'Platform "${platform.nama}" akan dipindahkan ke Tempat Sampah dan dinonaktifkan. Anda dapat memulihkannya kapan saja dari Tempat Sampah.',
+      confirmText: 'Pindahkan',
+      cancelText: 'Batal',
+      isDestructive: true,
+      onConfirm: () async {
         Navigator.pop(context);
         final success = await ref.read(onlinePlatformNotifierProvider.notifier).deletePlatform(platform.id);
         
         if (!context.mounted) return;
         final state = ref.read(onlinePlatformNotifierProvider);
         if (success) {
-          AppSnackbar.showSuccess(context, 'Platform "${platform.nama}" berhasil dihapus!');
+          AppSnackbar.showSuccess(context, 'Platform "${platform.nama}" dipindahkan ke Tempat Sampah.');
         } else if (state.errorMessage != null) {
           AppSnackbar.showError(context, state.errorMessage!);
         }
@@ -162,6 +166,20 @@ class _OnlinePlatformMasterScreenState extends ConsumerState<OnlinePlatformMaste
             icon: Icon(Icons.refresh),
             onPressed: () => ref.read(onlinePlatformNotifierProvider.notifier).loadPlatforms(),
             tooltip: 'Refresh',
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Tempat Sampah',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TrashBinScreen(
+                    initialTab: TrashBinTab.platform,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

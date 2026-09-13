@@ -283,6 +283,20 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
     }
   }
 
+  Future<bool> toggleCategoryStatus(String id, bool isActive) async {
+    try {
+      await _repository.toggleCategoryStatus(id, isActive ? 1 : 0);
+      await loadCategories(showLoading: false);
+      return true;
+    } catch (e) {
+      final cleanErr = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(
+        errorMessage: 'Gagal mengubah status kategori: $cleanErr',
+      );
+      return false;
+    }
+  }
+
   Future<bool> deleteCategory(String id) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {

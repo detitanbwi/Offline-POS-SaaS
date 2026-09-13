@@ -18,6 +18,7 @@ import '../../../security/presentation/widgets/change_master_pin_modal.dart';
 import '../../../../core/theme/font_size_provider.dart';
 import 'about_screen.dart';
 import 'store_profile_screen.dart';
+import 'trash_bin_screen.dart';
 import '../../../../core/utils/url_helper.dart';
 
 import '../../../product/application/product_notifier.dart';
@@ -257,6 +258,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               SizedBox(height: 12),
             ],
+
+            // Tempat Sampah (Recycle Bin) Option
+            _buildSettingsTile(
+              context,
+              title: 'Tempat Sampah',
+              subtitle: 'Kelola data produk, kategori, meja, dan akun yang telah dihapus',
+              icon: Icons.delete_outline_rounded,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TrashBinScreen()),
+                );
+              },
+            ),
+            SizedBox(height: 12),
 
             // Backup & Restore Card
 

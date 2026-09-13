@@ -24,6 +24,7 @@ import '../../../pos/presentation/screens/cashier_screen.dart';
 import '../../../pos/presentation/screens/payment_screen.dart';
 import '../../../security/presentation/providers/security_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../settings/presentation/screens/trash_bin_screen.dart';
 
 class TableScreen extends ConsumerStatefulWidget {
   const TableScreen({super.key});
@@ -56,9 +57,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AppDialog(
-              title: 'Hapus Masal Meja',
-              message: 'Apakah Anda yakin ingin menghapus ${_selectedIds.length} meja terpilih? Meja yang sedang terisi tidak akan dapat dihapus.',
-              confirmText: 'Hapus All',
+              title: 'Pindahkan Masal ke Tempat Sampah',
+              message: 'Apakah Anda yakin ingin memindahkan ${_selectedIds.length} meja terpilih ke Tempat Sampah? Meja yang sedang terisi tidak dapat dipindahkan.',
+              confirmText: 'Pindahkan Semua',
               isDestructive: true,
               isLoading: isDeleting,
               onConfirm: () async {
@@ -88,7 +89,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 });
 
                 if (failedTables.isEmpty) {
-                  AppSnackbar.showSuccess(context, '$successCount meja berhasil dihapus.');
+                  AppSnackbar.showSuccess(context, '$successCount meja dipindahkan ke Tempat Sampah.');
                 } else {
                   AppSnackbar.showWarning(
                     context,
@@ -202,9 +203,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AppDialog(
-              title: 'Hapus Meja',
-              message: 'Apakah Anda yakin ingin menghapus "${table.nama}"? Tindakan ini tidak dapat dibatalkan.',
-              confirmText: 'Hapus',
+              title: 'Pindahkan ke Tempat Sampah',
+              message: 'Meja "${table.nama}" akan dipindahkan ke Tempat Sampah. Anda dapat memulihkannya kapan saja dari Tempat Sampah.',
+              confirmText: 'Pindahkan',
               isDestructive: true,
               isLoading: isDeleting,
               onConfirm: () async {
@@ -216,7 +217,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 if (!context.mounted) return;
                 Navigator.pop(context);
                 if (success) {
-                  AppSnackbar.showSuccess(context, 'Meja "${table.nama}" berhasil dihapus.');
+                  AppSnackbar.showSuccess(context, 'Meja "${table.nama}" dipindahkan ke Tempat Sampah.');
                 } else {
                   final err = ref.read(tableNotifierProvider).errorMessage;
                   AppSnackbar.showError(context, err ?? 'Gagal menghapus meja.');
@@ -1063,6 +1064,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   _isSelectionMode = true;
                   _selectedIds.clear();
                 });
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.delete_sweep_outlined),
+              tooltip: 'Tempat Sampah',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TrashBinScreen(
+                      initialTab: TrashBinTab.table,
+                    ),
+                  ),
+                );
               },
             ),
           ],

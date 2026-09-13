@@ -42,6 +42,27 @@ class CategoryRepositoryMock implements CategoryRepository {
   Future<bool> isCategoryNameExists(String name, {String? excludeId}) async {
     return categories.any((c) => c.nama.toLowerCase() == name.toLowerCase() && c.id != excludeId);
   }
+
+  @override
+  Future<void> toggleCategoryStatus(String id, int status) async {
+    final idx = categories.indexWhere((c) => c.id == id);
+    if (idx >= 0) {
+      categories[idx] = categories[idx].copyWith(status: status);
+    }
+  }
+
+  @override
+  Future<List<Category>> getDeletedCategories() async {
+    return [];
+  }
+
+  @override
+  Future<void> restoreCategory(String id) async {}
+
+  @override
+  Future<void> permanentDeleteCategory(String id) async {
+    categories.removeWhere((c) => c.id == id);
+  }
 }
 
 void main() {
