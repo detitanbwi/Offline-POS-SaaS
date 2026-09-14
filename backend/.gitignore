@@ -19,6 +19,10 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/laravel-brain
+/storage/laravel-brain
+/.laravel-brain
+/laravel-brain.json
 /vendor
 _ide_helper.php
 Homestead.json

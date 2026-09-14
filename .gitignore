@@ -8,3 +8,6 @@ dokumen_*.html
 dokumen_*.pdf
 *.pdf
 .DS_Store
+.laravel-brain
+laravel-brain/
+laravel-brain.json
