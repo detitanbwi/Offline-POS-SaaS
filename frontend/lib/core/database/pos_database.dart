@@ -213,6 +213,22 @@ class PosDatabase {
         value TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS product_images_backup (
+        product_id TEXT PRIMARY KEY,
+        file_name TEXT,
+        base64_data TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS category_images_backup (
+        category_id TEXT PRIMARY KEY,
+        file_name TEXT,
+        base64_data TEXT
+      )
+    ''');
   }
 
   Future<void> _addColumnIfNotExists(Database db, String table, String column, String type) async {

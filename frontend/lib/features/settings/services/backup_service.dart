@@ -154,6 +154,216 @@ class BackupService {
     }
   }
 
+  /// Menyimpan file gambar produk (Base64) ke dalam tabel SQLite backup
+  Future<void> _backupProductImagesToDb(Database db) async {
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS product_images_backup (
+          product_id TEXT PRIMARY KEY,
+          file_name TEXT,
+          base64_data TEXT
+        )
+      ''');
+
+      final prods = await db.query(
+        'products',
+        columns: ['id', 'image'],
+        where: "image IS NOT NULL AND image != ''",
+      );
+
+      int backedUpCount = 0;
+      for (final row in prods) {
+        final prodId = row['id'] as String;
+        final imgPath = row['image'] as String?;
+        if (imgPath == null || imgPath.isEmpty) continue;
+
+        if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+          continue;
+        }
+
+        final file = File(imgPath);
+        if (await file.exists()) {
+          try {
+            final bytes = await file.readAsBytes();
+            final b64 = base64Encode(bytes);
+            final fileName = basename(imgPath);
+            await db.insert(
+              'product_images_backup',
+              {
+                'product_id': prodId,
+                'file_name': fileName,
+                'base64_data': b64,
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+            backedUpCount++;
+          } catch (e) {
+            AppLogger.warning('Failed to encode image for product $prodId: $e');
+          }
+        }
+      }
+      AppLogger.info('Backed up $backedUpCount product images into database');
+    } catch (e) {
+      AppLogger.warning('Failed to backup product images to database: $e');
+    }
+  }
+
+  /// Menyimpan file gambar kategori (Base64) ke dalam tabel SQLite backup
+  Future<void> _backupCategoryImagesToDb(Database db) async {
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS category_images_backup (
+          category_id TEXT PRIMARY KEY,
+          file_name TEXT,
+          base64_data TEXT
+        )
+      ''');
+
+      final cats = await db.query(
+        'categories',
+        columns: ['id', 'image'],
+        where: "image IS NOT NULL AND image != ''",
+      );
+
+      int backedUpCount = 0;
+      for (final row in cats) {
+        final catId = row['id'] as String;
+        final imgPath = row['image'] as String?;
+        if (imgPath == null || imgPath.isEmpty) continue;
+
+        if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+          continue;
+        }
+
+        final file = File(imgPath);
+        if (await file.exists()) {
+          try {
+            final bytes = await file.readAsBytes();
+            final b64 = base64Encode(bytes);
+            final fileName = basename(imgPath);
+            await db.insert(
+              'category_images_backup',
+              {
+                'category_id': catId,
+                'file_name': fileName,
+                'base64_data': b64,
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+            backedUpCount++;
+          } catch (e) {
+            AppLogger.warning('Failed to encode image for category $catId: $e');
+          }
+        }
+      }
+      AppLogger.info('Backed up $backedUpCount category images into database');
+    } catch (e) {
+      AppLogger.warning('Failed to backup category images to database: $e');
+    }
+  }
+
+  /// Memulihkan file gambar produk dari tabel SQLite backup ke direktori lokal pos_images
+  Future<void> _restoreProductImagesFromDb(Database db) async {
+    try {
+      final tableCheck = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='product_images_backup'",
+      );
+      if (tableCheck.isEmpty) {
+        AppLogger.info('No product_images_backup table found in restored database');
+        return;
+      }
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(join(appDir.path, 'pos_images'));
+      if (!await imagesDir.exists()) {
+        await imagesDir.create(recursive: true);
+      }
+
+      final rows = await db.query('product_images_backup');
+      int restoredCount = 0;
+      for (final r in rows) {
+        final prodId = r['product_id'] as String?;
+        final fileName = r['file_name'] as String?;
+        final b64 = r['base64_data'] as String?;
+        if (prodId == null || b64 == null || b64.isEmpty) continue;
+
+        try {
+          final bytes = base64Decode(b64);
+          final actualFileName = (fileName != null && fileName.isNotEmpty)
+              ? '${DateTime.now().millisecondsSinceEpoch}_$fileName'
+              : '${DateTime.now().millisecondsSinceEpoch}_prod_$prodId.png';
+          final targetPath = join(imagesDir.path, actualFileName);
+          final file = File(targetPath);
+          await file.writeAsBytes(bytes);
+
+          await db.update(
+            'products',
+            {'image': targetPath},
+            where: 'id = ?',
+            whereArgs: [prodId],
+          );
+          restoredCount++;
+        } catch (e) {
+          AppLogger.warning('Failed restoring product image for $prodId: $e');
+        }
+      }
+      AppLogger.info('Successfully restored $restoredCount product images from database backup');
+    } catch (e) {
+      AppLogger.warning('Failed restoring product images from database: $e');
+    }
+  }
+
+  /// Memulihkan file gambar kategori dari tabel SQLite backup ke direktori lokal pos_images
+  Future<void> _restoreCategoryImagesFromDb(Database db) async {
+    try {
+      final tableCheck = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='category_images_backup'",
+      );
+      if (tableCheck.isEmpty) {
+        AppLogger.info('No category_images_backup table found in restored database');
+        return;
+      }
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(join(appDir.path, 'pos_images'));
+      if (!await imagesDir.exists()) {
+        await imagesDir.create(recursive: true);
+      }
+
+      final rows = await db.query('category_images_backup');
+      int restoredCount = 0;
+      for (final r in rows) {
+        final catId = r['category_id'] as String?;
+        final fileName = r['file_name'] as String?;
+        final b64 = r['base64_data'] as String?;
+        if (catId == null || b64 == null || b64.isEmpty) continue;
+
+        try {
+          final bytes = base64Decode(b64);
+          final actualFileName = (fileName != null && fileName.isNotEmpty)
+              ? '${DateTime.now().millisecondsSinceEpoch}_$fileName'
+              : '${DateTime.now().millisecondsSinceEpoch}_cat_$catId.png';
+          final targetPath = join(imagesDir.path, actualFileName);
+          final file = File(targetPath);
+          await file.writeAsBytes(bytes);
+
+          await db.update(
+            'categories',
+            {'image': targetPath},
+            where: 'id = ?',
+            whereArgs: [catId],
+          );
+          restoredCount++;
+        } catch (e) {
+          AppLogger.warning('Failed restoring category image for $catId: $e');
+        }
+      }
+      AppLogger.info('Successfully restored $restoredCount category images from database backup');
+    } catch (e) {
+      AppLogger.warning('Failed restoring category images from database: $e');
+    }
+  }
+
   /// Memvalidasi integritas file, struktur SQLite/SQLCipher, dan kecocokan skema tabel POS sebelum di-restore
   Future<BackupValidationResult> validateBackupFile(String filePath) async {
     File? tempValidateFile;
@@ -296,9 +506,11 @@ class BackupService {
       final backupDir = await getApplicationDocumentsDirectory();
       final targetFile = File(join(backupDir.path, backupName));
 
-      // 1. Sinkronisasi data profil toko dan logo ke dalam tabel SQLite backup
+      // 1. Sinkronisasi data profil toko, logo, dan gambar produk/kategori ke dalam tabel SQLite backup
       final db = await PosDatabase.instance.database;
       await _backupStoreProfileToDb(db);
+      await _backupProductImagesToDb(db);
+      await _backupCategoryImagesToDb(db);
 
       // 2. Force SQLite to flush Write-Ahead Log (WAL) to main database file
       try {
@@ -419,8 +631,10 @@ class BackupService {
         final prodCount = (prodRes.first['count'] as num?)?.toInt() ?? 0;
         final catCount = (catRes.first['count'] as num?)?.toInt() ?? 0;
 
-        // 7. Pulihkan data profil toko dan logo dari tabel cadangan
+        // 7. Pulihkan data profil toko, logo, dan gambar produk/kategori dari tabel cadangan
         await _restoreStoreProfileFromDb(db);
+        await _restoreProductImagesFromDb(db);
+        await _restoreCategoryImagesFromDb(db);
 
         // Berhasil! Hapus file snapshot pengaman (.bak) otomatis
         if (await backupBakFile.exists()) {

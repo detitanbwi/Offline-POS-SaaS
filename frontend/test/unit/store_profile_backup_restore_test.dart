@@ -125,5 +125,105 @@ void main() {
       expect(await storage.getOwnerName(), equals('Budi Santoso'));
       expect(await storage.getOwnerUsername(), equals('budi_owner'));
     });
+
+    test('Product and Category images backup to Base64 table and restore to new paths', () async {
+      // 1. Create tables
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+          id TEXT PRIMARY KEY,
+          nama TEXT NOT NULL,
+          image TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS categories (
+          id TEXT PRIMARY KEY,
+          nama TEXT NOT NULL,
+          image TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS product_images_backup (
+          product_id TEXT PRIMARY KEY,
+          file_name TEXT,
+          base64_data TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS category_images_backup (
+          category_id TEXT PRIMARY KEY,
+          file_name TEXT,
+          base64_data TEXT
+        )
+      ''');
+
+      // 2. Insert initial products and categories with old device paths
+      await db.insert('products', {
+        'id': 'prod-1',
+        'nama': 'Nasi Goreng Spesial',
+        'image': '/old/device/path/pos_images/nasgor.png',
+      });
+      await db.insert('products', {
+        'id': 'prod-2',
+        'nama': 'Es Teh Manis',
+        'image': 'https://example.com/remote_image.png', // Remote URL should not be broken
+      });
+      await db.insert('categories', {
+        'id': 'cat-1',
+        'nama': 'Makanan Utama',
+        'image': '/old/device/path/pos_images/makanan.png',
+      });
+
+      // 3. Simulate backing up images to Base64
+      final fakeNasgorBytes = utf8.encode('fake_nasgor_png_bytes');
+      final fakeMakananBytes = utf8.encode('fake_makanan_png_bytes');
+
+      await db.insert('product_images_backup', {
+        'product_id': 'prod-1',
+        'file_name': 'nasgor.png',
+        'base64_data': base64Encode(fakeNasgorBytes),
+      });
+
+      await db.insert('category_images_backup', {
+        'category_id': 'cat-1',
+        'file_name': 'makanan.png',
+        'base64_data': base64Encode(fakeMakananBytes),
+      });
+
+      // 4. Verify backup rows
+      final prodBackupRows = await db.query('product_images_backup');
+      expect(prodBackupRows.length, equals(1));
+      expect(prodBackupRows.first['product_id'], equals('prod-1'));
+
+      final catBackupRows = await db.query('category_images_backup');
+      expect(catBackupRows.length, equals(1));
+      expect(catBackupRows.first['category_id'], equals('cat-1'));
+
+      // 5. Simulate restoration on a new device where local directory is /new/device/pos_images/
+      const newDeviceDir = '/new/device/pos_images';
+      for (final r in prodBackupRows) {
+        final prodId = r['product_id'] as String;
+        final fileName = r['file_name'] as String;
+        final newPath = '$newDeviceDir/restored_$fileName';
+        await db.update('products', {'image': newPath}, where: 'id = ?', whereArgs: [prodId]);
+      }
+
+      for (final r in catBackupRows) {
+        final catId = r['category_id'] as String;
+        final fileName = r['file_name'] as String;
+        final newPath = '$newDeviceDir/restored_$fileName';
+        await db.update('categories', {'image': newPath}, where: 'id = ?', whereArgs: [catId]);
+      }
+
+      // 6. Verify restored database has updated paths pointing to the new device storage
+      final prod1 = (await db.query('products', where: 'id = ?', whereArgs: ['prod-1'])).first;
+      expect(prod1['image'], equals('/new/device/pos_images/restored_nasgor.png'));
+
+      final prod2 = (await db.query('products', where: 'id = ?', whereArgs: ['prod-2'])).first;
+      expect(prod2['image'], equals('https://example.com/remote_image.png'));
+
+      final cat1 = (await db.query('categories', where: 'id = ?', whereArgs: ['cat-1'])).first;
+      expect(cat1['image'], equals('/new/device/pos_images/restored_makanan.png'));
+    });
   });
 }
